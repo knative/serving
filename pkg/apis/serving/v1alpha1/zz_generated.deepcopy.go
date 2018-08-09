@@ -136,7 +136,7 @@ func (in *ConfigurationStatus) DeepCopyInto(out *ConfigurationStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(ConfigurationConditionSlice, len(*in))
+		*out = make([]ConfigurationCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -273,7 +273,7 @@ func (in *RevisionStatus) DeepCopyInto(out *RevisionStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(RevisionConditionSlice, len(*in))
+		*out = make([]RevisionCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -420,7 +420,7 @@ func (in *RouteStatus) DeepCopyInto(out *RouteStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(RouteConditionSlice, len(*in))
+		*out = make([]RouteCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -574,7 +574,7 @@ func (in *ServiceStatus) DeepCopyInto(out *ServiceStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(ServiceConditionSlice, len(*in))
+		*out = make([]ServiceCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

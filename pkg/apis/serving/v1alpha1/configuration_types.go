@@ -90,25 +90,6 @@ const (
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
 )
 
-type ConfigurationConditionSlice []ConfigurationCondition
-
-// Len implements sort.Interface
-func (ccs ConfigurationConditionSlice) Len() int {
-	return len(ccs)
-}
-
-// Less implements sort.Interface
-func (ccs ConfigurationConditionSlice) Less(i, j int) bool {
-	return ccs[i].Type < ccs[j].Type
-}
-
-// Swap implements sort.Interface
-func (ccs ConfigurationConditionSlice) Swap(i, j int) {
-	ccs[i], ccs[j] = ccs[j], ccs[i]
-}
-
-var _ sort.Interface = (ConfigurationConditionSlice)(nil)
-
 // ConfigurationCondition defines a readiness condition for a Configuration.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type ConfigurationCondition struct {
@@ -134,7 +115,7 @@ type ConfigurationStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions ConfigurationConditionSlice `json:"conditions,omitempty"`
+	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -206,7 +187,7 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 		return
 	}
 	t := new.Type
-	var conditions ConfigurationConditionSlice
+	var conditions []ConfigurationCondition
 	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -220,7 +201,7 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	sort.Sort(conditions)
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	cs.Conditions = conditions
 }
 

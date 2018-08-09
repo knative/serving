@@ -129,25 +129,6 @@ const (
 	RouteConditionAllTrafficAssigned RouteConditionType = "AllTrafficAssigned"
 )
 
-type RouteConditionSlice []RouteCondition
-
-// Len implements sort.Interface
-func (rsc RouteConditionSlice) Len() int {
-	return len(rsc)
-}
-
-// Less implements sort.Interface
-func (rsc RouteConditionSlice) Less(i, j int) bool {
-	return rsc[i].Type < rsc[j].Type
-}
-
-// Swap implements sort.Interface
-func (rsc RouteConditionSlice) Swap(i, j int) {
-	rsc[i], rsc[j] = rsc[j], rsc[i]
-}
-
-var _ sort.Interface = (RouteConditionSlice)(nil)
-
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -172,7 +153,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions RouteConditionSlice `json:"conditions,omitempty"`
+	Conditions []RouteCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -225,7 +206,7 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	}
 
 	t := new.Type
-	var conditions RouteConditionSlice
+	var conditions []RouteCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -239,7 +220,7 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	sort.Sort(conditions)
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	rs.Conditions = conditions
 }
 
