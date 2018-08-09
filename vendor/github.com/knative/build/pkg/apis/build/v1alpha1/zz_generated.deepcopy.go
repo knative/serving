@@ -153,6 +153,13 @@ func (in *BuildSpec) DeepCopyInto(out *BuildSpec) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -199,6 +206,11 @@ func (in *BuildStatus) DeepCopyInto(out *BuildStatus) {
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]BuildCondition, len(*in))
+		copy(*out, *in)
+	}
+	if in.StepsCompleted != nil {
+		in, out := &in.StepsCompleted, &out.StepsCompleted
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	return

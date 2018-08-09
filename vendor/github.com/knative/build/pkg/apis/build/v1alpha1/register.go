@@ -38,8 +38,10 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
+	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// AddToScheme adds Build types to the scheme.
+	AddToScheme = schemeBuilder.AddToScheme
 )
 
 // Adds the list of known types to Scheme.

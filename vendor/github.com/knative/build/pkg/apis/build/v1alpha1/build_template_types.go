@@ -80,6 +80,11 @@ type BuildTemplateList struct {
 	Items []BuildTemplate `json:"items"`
 }
 
-func (bt *BuildTemplate) GetGeneration() int64           { return bt.Spec.Generation }
+// GetGeneration returns the generation number of this object.
+func (bt *BuildTemplate) GetGeneration() int64 { return bt.Spec.Generation }
+
+// SetGeneration sets the generation number of this object.
 func (bt *BuildTemplate) SetGeneration(generation int64) { bt.Spec.Generation = generation }
-func (bt *BuildTemplate) GetSpecJSON() ([]byte, error)   { return json.Marshal(bt.Spec) }
+
+// GetSpecJSON returns the JSON serialization of this build template's Spec.
+func (bt *BuildTemplate) GetSpecJSON() ([]byte, error) { return json.Marshal(bt.Spec) }
