@@ -25,11 +25,7 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/e2e-tests.sh
-[ -f /workspace/e2e-tests.sh ] \
-  && source /workspace/e2e-tests.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat e2e-tests.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
+source $(dirname $0)/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster
 readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml

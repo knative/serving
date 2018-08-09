@@ -14,14 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-
-if [ -z "${KNATIVE_TEST_INFRA}" ]; then
-  exit 1
-fi
+source $(dirname $0)/../test/scripts/library.sh
 
 set -o errexit
 set -o nounset
