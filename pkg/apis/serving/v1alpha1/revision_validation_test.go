@@ -275,13 +275,51 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("container.name"),
+	}, {
+		name: "bad nodeSelector",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			NodeSelector: map[string]string{"foo*bar": "bat"},
+		},
+		want: &apis.FieldError{
+			Message: `invalid key name "foo*bar"`,
+			Paths:   []string{"nodeSelector"},
+		},
+	}, {
+		name: "bad toleration",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key: "foo*bar",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: `invalid value "foo*bar"`,
+			Paths:   []string{"tolerations.key"},
+		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rs.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if (got == nil && test.want != nil) ||
+				(got != nil && test.want == nil) {
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("Validate (-want, +got) = %v", diff)
+				}
+			} else if got != nil && test.want != nil {
+				if diff := cmp.Diff(test.want.Message, got.Message); diff != "" {
+					t.Errorf("Validate Message (-want, +got) = %v", diff)
+				}
+				if diff := cmp.Diff(test.want.Paths, got.Paths); diff != "" {
+					t.Errorf("Validate Paths (-want, +got) = %v", diff)
+				}
 			}
 		})
 	}
@@ -670,10 +708,11 @@ func TestTolerationValidation(t *testing.T) {
 		{
 			name: "operator is invalid",
 			toleration: corev1.Toleration{
-				Operator: corev1.TolerationOperator("foo"),
+				Key:      "foo",
+				Operator: corev1.TolerationOperator("bar"),
 			},
 			want: &apis.FieldError{
-				Message: `invalid value "foo"`,
+				Message: `invalid value "bar"`,
 				Paths:   []string{"operator"},
 			},
 		},

@@ -49,4 +49,4 @@ data:
   # For more information, visit
   # https://istio.io/docs/tasks/traffic-management/egress/
   #
-  istio.sidecar.includeOutboundIPRanges: "*"
+  istio.sidecar.includeOutboundIPRanges: "10.0.0.1/24"
