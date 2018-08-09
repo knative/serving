@@ -112,7 +112,7 @@ function dump_extra_cluster_state() {
 function publish_test_images() {
   image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
-    ko publish "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
   done
 }
 
