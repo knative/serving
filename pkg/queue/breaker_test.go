@@ -22,24 +22,6 @@ import (
 	"testing"
 )
 
-func TestBreakerOverload(t *testing.T) {
-	t.Skip("Skipping until #1308 is addressed")
-	b := NewBreaker(1, 1)             // Breaker capacity = 2
-	want := []bool{true, true, false} // Only first two requests will be processed
-
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	r3, g3 := b.concurrentRequest() // Will be shed
-	done(r1)
-	done(r2)
-	done(r3)
-	got := []bool{<-g1, <-g2, <-g3}
-
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
 func TestBreakerNoOverload(t *testing.T) {
 	b := NewBreaker(1, 1)                  // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
@@ -55,84 +37,6 @@ func TestBreakerNoOverload(t *testing.T) {
 	got := []bool{<-g1, <-g2, <-g3, <-g4}
 
 	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
-func TestBreakerRecover(t *testing.T) {
-	b := NewBreaker(1, 1)                                // Breaker capacity = 2
-	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
-
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	_, g3 := b.concurrentRequest() // Will be shed
-	_, g4 := b.concurrentRequest() // Will be shed
-	done(r1)
-	done(r2)
-	// Breaker recovers
-	r5, g5 := b.concurrentRequest()
-	r6, g6 := b.concurrentRequest()
-	done(r5)
-	done(r6)
-	got := []bool{<-g1, <-g2, <-g3, <-g4, <-g5, <-g6}
-
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
-func TestBreakerLargeCapacityRecover(t *testing.T) {
-	t.Skip("Re-enable once #1514 is fixed.")
-	b := NewBreaker(5, 45)    // Breaker capacity = 50
-	want := make([]bool, 150) // Process 150 requests
-	for i := 0; i < 50; i++ {
-		want[i] = true // First 50 will fill the breaker capacity
-	}
-	for i := 50; i < 100; i++ {
-		want[i] = false // The next 50 will be shed
-	}
-	for i := 100; i < 150; i++ {
-		want[i] = true // The next 50 will be processed as capacity opens up
-	}
-
-	releases := make([]chan struct{}, 0)
-	gots := make([]chan bool, 0)
-	// Send 100 requests
-	for i := 0; i < 100; i++ {
-		r, g := b.concurrentRequest()
-		releases = append(releases, r)
-		gots = append(gots, g)
-	}
-	// Process one request and send one request, 50 times
-	for i := 100; i < 150; i++ {
-		// Open capacity
-		done(releases[0])
-		releases = releases[1:]
-		// Add another request
-		r, g := b.concurrentRequest()
-		releases = append(releases, r)
-		gots = append(gots, g)
-	}
-	// Process remaining requests
-	for _, r := range releases {
-		done(r)
-	}
-	// Collect the results
-	got := make([]bool, len(gots))
-	for i, g := range gots {
-		got[i] = <-g
-	}
-
-	// Check the first few succeeded
-	if !reflect.DeepEqual(want[:10], got[:10]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker tripped
-	if !reflect.DeepEqual(want[60:70], got[60:70]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker reset
-	if !reflect.DeepEqual(want[len(want)-10:], got[len(got)-10:]) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}
 }
