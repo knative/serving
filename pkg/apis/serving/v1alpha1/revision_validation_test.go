@@ -540,3 +540,191 @@ func TestImmutableFields(t *testing.T) {
 		})
 	}
 }
+
+func TestNodeSelectorValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		nodeSelector map[string]string
+		want         *apis.FieldError
+	}{
+		{
+			name: "invalid key",
+			nodeSelector: map[string]string{
+				"foo*bar": "bat",
+			},
+			want: &apis.FieldError{
+				Message: `invalid key name "foo*bar"`,
+				Paths:   []string{"nodeSelector"},
+			},
+		},
+		{
+			name: "invalid value",
+			nodeSelector: map[string]string{
+				"foo": "bar*bat",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "bar*bat"`,
+				Paths:   []string{"nodeSelector"},
+			},
+		},
+		{
+			name: "value key/value pair",
+			nodeSelector: map[string]string{
+				"foo": "bar",
+			},
+			want: nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateNodeSelector(test.nodeSelector)
+			if (got == nil && test.want != nil) ||
+				(got != nil && test.want == nil) {
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("Validate (-want, +got) = %v", diff)
+				}
+			} else if got != nil && test.want != nil {
+				if diff := cmp.Diff(test.want.Message, got.Message); diff != "" {
+					t.Errorf("Validate Message (-want, +got) = %v", diff)
+				}
+				if diff := cmp.Diff(test.want.Paths, got.Paths); diff != "" {
+					t.Errorf("Validate Paths (-want, +got) = %v", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestTolerationValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		toleration corev1.Toleration
+		want       *apis.FieldError
+	}{
+		{
+			name: "invalid key",
+			toleration: corev1.Toleration{
+				Key: "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"key"},
+			},
+		},
+		{
+			name: "empty key with operator is not Exists",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpEqual,
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "Equal"`,
+				Paths:   []string{"operator"},
+			},
+		},
+		{
+			name: "tolerationSeconds specified with effect is not NoExecute",
+			toleration: corev1.Toleration{
+				Operator:          corev1.TolerationOpExists,
+				TolerationSeconds: &[]int64{10}[0],
+				Effect:            corev1.TaintEffectNoSchedule,
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "NoSchedule"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "operator is empty and value is invalid",
+			toleration: corev1.Toleration{
+				Key:   "foo",
+				Value: "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is Equal and value is invalid",
+			toleration: corev1.Toleration{
+				Key:      "foo",
+				Operator: corev1.TolerationOpEqual,
+				Value:    "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is Exists and value is not empty",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Value:    "foo",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is invalid",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOperator("foo"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"operator"},
+			},
+		},
+		{
+			name: "effect is invalid",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffect("foo"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "effect is invalid",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffect("foo"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "valid toleration",
+			toleration: corev1.Toleration{
+				Key:      "foo",
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffectNoSchedule,
+			},
+			want: nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateTolerations([]corev1.Toleration{test.toleration})
+			if (got == nil && test.want != nil) ||
+				(got != nil && test.want == nil) {
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("Validate (-want, +got) = %v", diff)
+				}
+			} else if got != nil && test.want != nil {
+				if diff := cmp.Diff(test.want.Message, got.Message); diff != "" {
+					t.Errorf("Validate Message (-want, +got) = %v", diff)
+				}
+				if diff := cmp.Diff(test.want.Paths, got.Paths); diff != "" {
+					t.Errorf("Validate Paths (-want, +got) = %v", diff)
+				}
+			}
+		})
+	}
+}
