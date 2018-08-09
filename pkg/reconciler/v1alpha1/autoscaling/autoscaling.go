@@ -23,11 +23,12 @@ import (
 
 	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -38,21 +39,23 @@ const (
 	controllerAgentName = "autoscaling-controller"
 )
 
-// RevisionSynchronizer is an interface for notifying the presence or absence of revisions.
-type RevisionSynchronizer interface {
-	// OnPresent is called when the given revision exists.
-	OnPresent(rev *v1alpha1.Revision, logger *zap.SugaredLogger)
+// KPASynchronizer is an interface for notifying the presence or absence of KPAs.
+type KPASynchronizer interface {
+	// OnPresent is called when the given KPA exists.
+	OnPresent(kpa *kpa.PodAutoscaler, logger *zap.SugaredLogger)
 
-	// OnAbsent is called when a revision in the given namespace with the given name ceases to exist.
+	// OnAbsent is called when a KPA in the given namespace with the given name ceases to exist.
 	OnAbsent(namespace string, name string, logger *zap.SugaredLogger)
 }
 
-// Reconciler tracks revisions and notifies a RevisionSynchronizer of their presence and absence.
+// Reconciler tracks revisions and notifies a KPASynchronizer of their presence and absence.
+// TODO(mattmoor): Migrate this to track KPAs once we're creating them in
+// the Revision reconciler.
 type Reconciler struct {
 	*reconciler.Base
 
 	revisionLister listers.RevisionLister
-	revSynch       RevisionSynchronizer
+	kpaSynch       KPASynchronizer
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -62,14 +65,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opts *reconciler.Options,
 	revisionInformer servinginformers.RevisionInformer,
-	revSynch RevisionSynchronizer,
+	kpaSynch KPASynchronizer,
 	informerResyncInterval time.Duration,
 ) *controller.Impl {
 
 	c := &Reconciler{
 		Base:           reconciler.NewBase(*opts, controllerAgentName),
 		revisionLister: revisionInformer.Lister(),
-		revSynch:       revSynch,
+		kpaSynch:       kpaSynch,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
 
@@ -83,7 +86,7 @@ func NewController(
 	return impl
 }
 
-// Reconcile notifies the RevisionSynchronizer of the presence or absence.
+// Reconcile notifies the KPASynchronizer of the presence or absence.
 func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(revKey)
 	if err != nil {
@@ -91,14 +94,15 @@ func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
 		return nil
 	}
 
-	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
+	logger := loggerWithKPAInfo(c.Logger, namespace, name)
 	logger.Debug("Reconcile Revision")
 
 	rev, err := c.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debug("Revision no longer exists")
-			c.revSynch.OnAbsent(namespace, name, logger)
+			// This necessitates that the KPA has the same name as the Revision (for now).
+			c.kpaSynch.OnAbsent(namespace, name, logger)
 			return nil
 		}
 		runtime.HandleError(err)
@@ -106,11 +110,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
 	}
 
 	logger.Debug("Revision exists")
-	c.revSynch.OnPresent(rev.DeepCopy(), logger)
+	kpa := revisionresources.MakeKPA(rev)
+
+	c.kpaSynch.OnPresent(kpa, logger)
+
+	// TODO(mattmoor): We need to reflect the current state of activity
+	// back to the KPA via status.
 
 	return nil
 }
 
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
+func loggerWithKPAInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.KPA, name))
 }

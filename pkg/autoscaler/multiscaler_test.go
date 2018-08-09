@@ -22,110 +22,125 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/autoscaler"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
+
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 
 	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
 	testRevisionKey = "test-namespace/test-revision"
+	testKPAKey      = "test-namespace/test-revision"
 )
 
 func TestMultiScalerScaling(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, _, kpaScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(1, true)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
-	revisionScaler.checkScaleCall(t, 0, revision, 1)
+	kpaScaler.checkScaleCall(t, 0, kpa, 1)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	kpaScaler.checkScaleNoLongerCalled(t)
 }
 
 func TestMultiScalerStop(t *testing.T) {
-	ms, stopChan, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopChan, kpaScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(1, true)
 
 	close(stopChan)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	kpaScaler.checkScaleNoLongerCalled(t)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 }
 
 func TestMultiScalerScaleToZeroWhenEnabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, _, kpaScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(0, true)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
-	revisionScaler.checkScaleCall(t, 0, revision, 0)
+	kpaScaler.checkScaleCall(t, 0, kpa, 0)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	kpaScaler.checkScaleNoLongerCalled(t)
 }
 
 func TestMultiScalerDoesNotScaleToZeroWhenDisabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, _, kpaScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: false,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(0, true)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	kpaScaler.checkScaleNoLongerCalled(t)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 }
 
 func TestMultiScalerIgnoresNegativeScales(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, _, kpaScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(-1, true)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	kpaScaler.checkScaleNoLongerCalled(t)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 }
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
+	servingClient := fakeKna.NewSimpleClientset()
 	ms, _, _, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
 	uniScaler.setScaleResult(1, true)
 
-	ms.OnPresent(revision, logger)
+	ms.OnPresent(kpa, logger)
 
 	now := time.Now()
 	testStat := autoscaler.Stat{
@@ -135,34 +150,34 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 		RequestCount:              20,
 	}
 
-	ms.RecordStat(testRevisionKey, testStat)
+	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
 	testStat.RequestCount = 10
-	ms.RecordStat(testRevisionKey, testStat)
+	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	ms.OnAbsent(kpa.Namespace, kpa.Name, logger)
 
-	// Should not continue to record statistics after the revision has been deleted.
+	// Should not continue to record statistics after the KPA has been deleted.
 	newStat := testStat
 	newStat.RequestCount = 30
-	ms.RecordStat(testRevisionKey, newStat)
+	ms.RecordStat(testKPAKey, newStat)
 	uniScaler.checkLastStat(t, testStat)
 }
 
-func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeRevisionScaler, *fakeUniScaler, *zap.SugaredLogger) {
+func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeKPAScaler, *fakeUniScaler, *zap.SugaredLogger) {
 	logger := TestLogger(t)
-	revisionScaler := &fakeRevisionScaler{
+	kpaScaler := &fakeKPAScaler{
 		scaleChan: make(chan scaleParameterValues),
 	}
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
 	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
-		revisionScaler, stopChan, uniscaler.fakeUniScalerFactory, logger)
+		kpaScaler, stopChan, uniscaler.fakeUniScalerFactory, logger)
 
-	return ms, stopChan, revisionScaler, uniscaler, logger
+	return ms, stopChan, kpaScaler, uniscaler, logger
 }
 
 type fakeUniScaler struct {
@@ -172,7 +187,7 @@ type fakeUniScaler struct {
 	lastStat autoscaler.Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*v1alpha1.Revision, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
 }
 
@@ -207,20 +222,20 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat autoscaler.Stat) {
 }
 
 type scaleParameterValues struct {
-	revision *v1alpha1.Revision
+	kpa      *kpa.PodAutoscaler
 	replicas int32
 }
 
-type fakeRevisionScaler struct {
+type fakeKPAScaler struct {
 	scaleParameters []scaleParameterValues
 	scaleChan       chan scaleParameterValues
 }
 
-func (rs *fakeRevisionScaler) Scale(rev *v1alpha1.Revision, desiredScale int32) {
-	rs.scaleChan <- scaleParameterValues{rev, desiredScale}
+func (rs *fakeKPAScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) {
+	rs.scaleChan <- scaleParameterValues{kpa, desiredScale}
 }
 
-func (rs *fakeRevisionScaler) awaitScale(t *testing.T, n int) {
+func (rs *fakeKPAScaler) awaitScale(t *testing.T, n int) {
 	t.Helper()
 
 	for {
@@ -236,15 +251,15 @@ func (rs *fakeRevisionScaler) awaitScale(t *testing.T, n int) {
 	}
 }
 
-func (rs *fakeRevisionScaler) checkScaleCall(t *testing.T, index int, rev *v1alpha1.Revision, desiredReplicas int32) {
+func (rs *fakeKPAScaler) checkScaleCall(t *testing.T, index int, kpa *kpa.PodAutoscaler, desiredReplicas int32) {
 	t.Helper()
 
 	rs.awaitScale(t, index+1)
 
 	actualScaleParms := rs.scaleParameters[index]
-	if actualScaleParms.revision != rev {
-		t.Fatalf("Scale was called with unexpected revision %#v instead of expected revision %#v",
-			actualScaleParms.revision, rev)
+	if actualScaleParms.kpa != kpa {
+		t.Fatalf("Scale was called with unexpected KPA %#v instead of expected KPA %#v",
+			actualScaleParms.kpa, kpa)
 	}
 	if actualScaleParms.replicas != desiredReplicas {
 		t.Fatalf("Scale was called with unexpected replicas %d instead of expected replicas %d",
@@ -252,7 +267,7 @@ func (rs *fakeRevisionScaler) checkScaleCall(t *testing.T, index int, rev *v1alp
 	}
 }
 
-func (rs *fakeRevisionScaler) checkScaleNoLongerCalled(t *testing.T) {
+func (rs *fakeKPAScaler) checkScaleNoLongerCalled(t *testing.T) {
 	t.Helper()
 
 	select {

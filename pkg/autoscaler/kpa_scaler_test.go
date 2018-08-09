@@ -19,18 +19,21 @@ package autoscaler_test
 import (
 	"testing"
 
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"go.uber.org/zap"
 	"k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	scalefake "k8s.io/client-go/scale/fake"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
@@ -38,7 +41,7 @@ const (
 	testRevision  = "test-revision"
 )
 
-func TestRevisionScaler(t *testing.T) {
+func TestKPAScaler(t *testing.T) {
 	examples := []struct {
 		label         string
 		startState    v1alpha1.RevisionServingStateType
@@ -83,11 +86,16 @@ func TestRevisionScaler(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			revision := newRevision(e.startState)
-			deployment := newDeployment(revision, e.startReplicas)
-			revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
+			// The clients for our testing.
+			servingClient := fakeKna.NewSimpleClientset()
+			scaleClient := &scalefake.FakeScaleClient{}
 
-			revisionScaler.Scale(revision, e.scaleTo)
+			revision := newRevision(t, servingClient, e.startState)
+			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
+			revisionScaler := autoscaler.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+
+			kpa := newKPA(t, servingClient, revision)
+			revisionScaler.Scale(kpa, e.scaleTo)
 
 			checkServingState(t, servingClient, e.wantState)
 
@@ -100,18 +108,51 @@ func TestRevisionScaler(t *testing.T) {
 	}
 }
 
-func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment *v1.Deployment) (autoscaler.RevisionScaler, clientset.Interface, *scalefake.FakeScaleClient) {
-	sf := &scalefake.FakeScaleClient{}
-	servingClient := fakeKna.NewSimpleClientset()
-
-	revisionScaler := autoscaler.NewRevisionScaler(servingClient, sf, zap.NewNop().Sugar())
-
-	_, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(revision)
+func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *kpa.PodAutoscaler {
+	kpa := revisionresources.MakeKPA(revision)
+	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	if err != nil {
-		t.Fatal("Failed to get deployment.", err)
+		t.Fatal("Failed to create KPA.", err)
 	}
 
-	sf.AddReactor("get", "deployments", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+	return kpa
+}
+
+func newRevision(t *testing.T, servingClient clientset.Interface, servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testRevision,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			ServingState:     servingState,
+			ConcurrencyModel: "Multi",
+		},
+	}
+	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	if err != nil {
+		t.Fatal("Failed to create revision.", err)
+	}
+
+	return rev
+}
+
+func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, revision *v1alpha1.Revision, replicas int) *v1.Deployment {
+	scale := int32(replicas)
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      names.Deployment(revision),
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: &scale,
+		},
+		Status: v1.DeploymentStatus{
+			Replicas: scale,
+		},
+	}
+
+	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 		obj := &autoscalingv1.Scale{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployment.Name,
@@ -127,35 +168,7 @@ func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment 
 		return true, obj, nil
 	})
 
-	return revisionScaler, servingClient, sf
-}
-
-func newRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
-		},
-		Spec: v1alpha1.RevisionSpec{
-			ServingState: servingState,
-		},
-	}
-}
-
-func newDeployment(revision *v1alpha1.Revision, replicas int) *v1.Deployment {
-	scale := int32(replicas)
-	return &v1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      names.Deployment(revision),
-		},
-		Spec: v1.DeploymentSpec{
-			Replicas: &scale,
-		},
-		Status: v1.DeploymentStatus{
-			Replicas: scale,
-		},
-	}
+	return deployment
 }
 
 func checkServingState(t *testing.T, servingClient clientset.Interface, servingState v1alpha1.RevisionServingStateType) {

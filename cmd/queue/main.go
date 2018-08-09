@@ -97,6 +97,8 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+
+	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
 }
 

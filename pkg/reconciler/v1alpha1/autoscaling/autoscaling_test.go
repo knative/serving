@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -54,7 +55,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 
-	fakeSynchronizer := newTestRevisionSynchronizer(createdCh, stopCh)
+	fakeSynchronizer := newTestKPASynchronizer(createdCh, stopCh)
 	ctl := autoscaling.NewController(&opts,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		fakeSynchronizer,
@@ -92,11 +93,11 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	}
 }
 
-func newTestRevisionSynchronizer(createdCh chan struct{}, stopCh chan struct{}) *testRevisionSynchronizer {
-	return &testRevisionSynchronizer{atomic.NewUint32(0), atomic.NewUint32(0), atomic.NewBool(false), createdCh, stopCh}
+func newTestKPASynchronizer(createdCh chan struct{}, stopCh chan struct{}) *testKPASynchronizer {
+	return &testKPASynchronizer{atomic.NewUint32(0), atomic.NewUint32(0), atomic.NewBool(false), createdCh, stopCh}
 }
 
-type testRevisionSynchronizer struct {
+type testKPASynchronizer struct {
 	onPresentCallCount     *atomic.Uint32
 	onAbsentCallCount      *atomic.Uint32
 	absentRanBeforePresent *atomic.Bool
@@ -104,20 +105,20 @@ type testRevisionSynchronizer struct {
 	stopCh                 chan struct{}
 }
 
-func (revSynch *testRevisionSynchronizer) OnPresent(rev *v1alpha1.Revision, logger *zap.SugaredLogger) {
-	revSynch.onPresentCallCount.Add(1)
-	close(revSynch.createdCh)
+func (kpaSynch *testKPASynchronizer) OnPresent(kpa *kpa.PodAutoscaler, logger *zap.SugaredLogger) {
+	kpaSynch.onPresentCallCount.Add(1)
+	close(kpaSynch.createdCh)
 }
 
-func (revSynch *testRevisionSynchronizer) OnAbsent(namespace string, name string, logger *zap.SugaredLogger) {
-	revSynch.onAbsentCallCount.Add(1)
-	if revSynch.onPresentCallCount.Load() > 0 {
+func (kpaSynch *testKPASynchronizer) OnAbsent(namespace string, name string, logger *zap.SugaredLogger) {
+	kpaSynch.onAbsentCallCount.Add(1)
+	if kpaSynch.onPresentCallCount.Load() > 0 {
 		// OnAbsent may be called more than once
-		if revSynch.onAbsentCallCount.Load() == 1 {
-			close(revSynch.stopCh)
+		if kpaSynch.onAbsentCallCount.Load() == 1 {
+			close(kpaSynch.stopCh)
 		}
 	} else {
-		revSynch.absentRanBeforePresent.Store(true)
+		kpaSynch.absentRanBeforePresent.Store(true)
 	}
 }
 
