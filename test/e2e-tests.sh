@@ -83,7 +83,6 @@ function delete_everything() {
 }
 
 function teardown() {
-  header "Tearing down test environment"
   delete_everything
 }
 
