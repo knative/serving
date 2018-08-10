@@ -31,6 +31,7 @@ import (
 	"github.com/knative/serving/pkg/system"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -86,13 +87,11 @@ func main() {
 	controller := webhook.AdmissionController{
 		Client:  kubeClient,
 		Options: options,
-		// TODO(mattmoor): Will we need to rework these to support versioning?
-		GroupVersion: v1alpha1.SchemeGroupVersion,
-		Handlers: map[string]runtime.Object{
-			"Revision":      &v1alpha1.Revision{},
-			"Configuration": &v1alpha1.Configuration{},
-			"Route":         &v1alpha1.Route{},
-			"Service":       &v1alpha1.Service{},
+		Handlers: map[schema.GroupVersionKind]runtime.Object{
+			v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
+			v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
+			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
+			v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
 		},
 		Logger: logger,
 	}
