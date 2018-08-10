@@ -6,6 +6,7 @@ This directory contains tests and testing docs for `Knative Serving`:
 * [End-to-end tests](#running-end-to-end-tests), of which there are two types:
   * Conformance tests in [`/test/conformance`](./conformance)
   * Other end-to-end tests in [`/test/e2e`](./e2e)
+* [Performance tests](./performance)
 
 The conformance tests are a subset of the end to end test with [more strict requirements](./conformance/README.md#requirements) around what can be tested.
 
