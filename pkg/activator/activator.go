@@ -17,7 +17,8 @@ package activator
 
 const (
 	// The name of the activator service.
-	K8sServiceName = "activator-service"
+	K8sServiceName          = "activator-service"
+	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
 )
 
 // Status is an HTTP status code.

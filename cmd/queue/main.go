@@ -284,7 +284,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2cutil.NewTransport()
+	h2cProxy.Transport = h2cutil.DefaultTransport
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
