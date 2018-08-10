@@ -271,5 +271,4 @@ func validateToleration(toleration corev1.Toleration) *apis.FieldError {
 			Paths: []string{"effect"},
 		}
 	}
-	return nil
 }
