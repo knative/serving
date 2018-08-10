@@ -98,7 +98,7 @@ func main() {
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
 	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
-	retryer := activatorutil.NewExponentialRetryer(minRetryInterval, exponentialBackoffBase, maxRetries)
+	retryer := activatorutil.NewRetryer(activatorutil.NewExponentialIntervalFunc(minRetryInterval, exponentialBackoffBase), maxRetries)
 
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
 
