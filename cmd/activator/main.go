@@ -43,9 +43,11 @@ import (
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
-	maxRetries     = 60
-	retryInterval  = 1 * time.Second
 	logLevelKey    = "activator"
+
+	maxRetries             = 18 // the sum of all retries would add up to 1 minute
+	minRetryInterval       = 100 * time.Millisecond
+	exponentialBackoffBase = 1.3
 )
 
 func main() {
@@ -96,7 +98,7 @@ func main() {
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
 	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
-	retryer := activatorutil.NewLinearRetryer(retryInterval, maxRetries)
+	retryer := activatorutil.NewExponentialRetryer(minRetryInterval, exponentialBackoffBase, maxRetries)
 
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
 

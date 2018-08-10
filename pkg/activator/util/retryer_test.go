@@ -17,17 +17,7 @@ import (
 	"time"
 )
 
-func TestLinearRetry(t *testing.T) {
-	checkInterval := func(last *time.Time, want time.Duration) {
-		now := time.Now()
-		got := now.Sub(*last)
-		*last = now
-
-		if got < want {
-			t.Errorf("Unexpected retry interval. Want %v, got %v", want, got)
-		}
-	}
-
+func TestRetryer(t *testing.T) {
 	examples := []struct {
 		label       string
 		interval    time.Duration
@@ -37,28 +27,24 @@ func TestLinearRetry(t *testing.T) {
 	}{
 		{
 			label:       "atleast once",
-			interval:    5 * time.Millisecond,
 			maxRetries:  0,
 			responses:   []bool{true},
 			wantRetries: 1,
 		},
 		{
 			label:       "< maxRetries",
-			interval:    5 * time.Millisecond,
 			maxRetries:  3,
 			responses:   []bool{false, true},
 			wantRetries: 2,
 		},
 		{
 			label:       "= maxRetries",
-			interval:    10 * time.Millisecond,
 			maxRetries:  3,
 			responses:   []bool{false, false, true},
 			wantRetries: 3,
 		},
 		{
 			label:       "> maxRetries",
-			interval:    5 * time.Millisecond,
 			maxRetries:  3,
 			responses:   []bool{false, false, false, true},
 			wantRetries: 3,
@@ -67,19 +53,16 @@ func TestLinearRetry(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			var lastRetry time.Time
 			var got int
 
 			a := func() bool {
-				checkInterval(&lastRetry, e.interval)
-
 				ok := e.responses[got]
 				got++
 
 				return ok
 			}
 
-			lr := NewLinearRetryer(e.interval, e.maxRetries)
+			lr := NewRetryer(func(_ int) time.Duration { return 0 }, e.maxRetries)
 
 			reported := lr.Retry(a)
 
@@ -89,6 +72,77 @@ func TestLinearRetry(t *testing.T) {
 
 			if reported != e.wantRetries {
 				t.Errorf("Unexpected retries reported. Want %d, got %d", e.wantRetries, reported)
+			}
+		})
+	}
+}
+
+func TestLinearIntervalFunc(t *testing.T) {
+	interval := 100 * time.Millisecond
+	examples := []struct {
+		label            string
+		retries          int
+		expectedInterval time.Duration
+	}{
+		{
+			label:            "linear: 1 retry",
+			retries:          1,
+			expectedInterval: interval,
+		},
+		{
+			label:            "linear: 3 retries",
+			retries:          3,
+			expectedInterval: interval,
+		},
+	}
+
+	for _, e := range examples {
+		t.Run(e.label, func(t *testing.T) {
+			intervalFunc := NewLinearIntervalFunc(interval)
+			got := intervalFunc(e.retries)
+
+			if got != e.expectedInterval {
+				t.Errorf("Unexpected interval. Want %d, got %d", e.expectedInterval, got)
+			}
+		})
+	}
+}
+
+func TestExponentialIntervalFunc(t *testing.T) {
+	minInterval := 100 * time.Millisecond
+	examples := []struct {
+		label            string
+		base             float64
+		retries          int
+		expectedInterval time.Duration
+	}{
+		{
+			label:            "exponential: 1 retry",
+			base:             1.3,
+			retries:          1,
+			expectedInterval: 130 * time.Millisecond,
+		},
+		{
+			label:            "exponential: 3 retries",
+			base:             1.3,
+			retries:          3,
+			expectedInterval: 219 * time.Millisecond,
+		},
+		{
+			label:            "exponential: 10 retries",
+			base:             1.3,
+			retries:          10,
+			expectedInterval: 1378 * time.Millisecond,
+		},
+	}
+
+	for _, e := range examples {
+		t.Run(e.label, func(t *testing.T) {
+			intervalFunc := NewExponentialIntervalFunc(minInterval, e.base)
+			got := intervalFunc(e.retries)
+
+			if got != e.expectedInterval {
+				t.Errorf("Unexpected interval. Want %d, got %d", e.expectedInterval, got)
 			}
 		})
 	}
