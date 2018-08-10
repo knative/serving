@@ -13,26 +13,60 @@ limitations under the License.
 
 package util
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
-type Retryer interface {
-	Retry(func() bool) int
-}
-
-type ActionFunc func() bool
+// RetryerFunc is a function that wraps an action to be
+// retried.
 type RetryerFunc func(ActionFunc) int
 
-func (r RetryerFunc) Retry(f func() bool) int {
+// ActionFunc is a function that is retried by a `Retryer`.
+// Returns true iff succeeded, false if not.
+type ActionFunc func() bool
+
+// IntervalFunc is a function that calculates an interval
+// given the number of retries that already happened.
+type IntervalFunc func(int) time.Duration
+
+// Retryer is an entity that can retry a given `ActionFunc`.
+type Retryer interface {
+	Retry(ActionFunc) int
+}
+
+// Retry invokes 1 retry on `f`
+func (r RetryerFunc) Retry(f ActionFunc) int {
 	return r(f)
 }
 
-// NewLinearRetryer will return a retryer that retries `action` up to
-// `maxRetries` times with `interval` delay between retries
-func NewLinearRetryer(interval time.Duration, maxRetries int) Retryer {
+// NewRetryer creates a function where `action` will be retried
+// at most `maxRetries` times, with an interval calculated in
+// between retries by the `intervalFunc`
+func NewRetryer(intervalFunc IntervalFunc, maxRetries int) Retryer {
 	return RetryerFunc(func(action ActionFunc) (retries int) {
 		for retries = 1; !action() && retries < maxRetries; retries++ {
-			time.Sleep(interval)
+			time.Sleep(intervalFunc(retries))
 		}
 		return
 	})
+}
+
+// NewLinearIntervalFunc creates a function always returning
+// a static value `interval`
+func NewLinearIntervalFunc(interval time.Duration) IntervalFunc {
+	return func(_ int) time.Duration {
+		return interval
+	}
+}
+
+// NewExponentialIntervalFunc creates a function returning a
+// `time.Duration`, that represents the time to wait in between
+// two retries, calculated as `minInterval * (base ^ retries)`
+func NewExponentialIntervalFunc(minInterval time.Duration, base float64) IntervalFunc {
+	return func(retries int) time.Duration {
+		retryIntervalMs := float64(minInterval / time.Millisecond)
+		multiplicator := math.Pow(base, float64(retries))
+		return time.Duration(int(retryIntervalMs*multiplicator)) * time.Millisecond
+	}
 }
