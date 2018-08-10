@@ -108,6 +108,13 @@ function dump_extra_cluster_state() {
   kubectl logs $(get_app_pod controller knative-serving)
 }
 
+function publish_test_images() {
+  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
+}
+
 # Script entry point.
 
 initialize $@
@@ -119,6 +126,8 @@ set -o pipefail
 header "Building and starting Knative Serving"
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 create_everything
+
+publish_test_images
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
@@ -137,7 +146,6 @@ options=""
 report_go_test \
   -v -tags=e2e -count=1 -timeout=20m \
   ./test/conformance ./test/e2e \
-  ${options} \
-  -dockerrepo gcr.io/knative-tests/test-images/knative-serving || fail_test
+  ${options} || fail_test
 
 success

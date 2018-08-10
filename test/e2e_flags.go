@@ -54,7 +54,7 @@ func initializeCommonFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
 		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
 
-	defaultRepo := os.Getenv("DOCKER_REPO_OVERRIDE")
+	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
 
