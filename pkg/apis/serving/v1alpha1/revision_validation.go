@@ -49,10 +49,14 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 		return err.ViaField("container")
 	}
 	if err := validateNodeSelector(rs.NodeSelector); err != nil {
-		return err
+		return err.ViaField("nodeSelector")
 	}
-	if err := validateTolerations(rs.Tolerations); err != nil {
-		return err.ViaField("tolerations")
+	for i, toleration := range rs.Tolerations {
+		if err := validateToleration(toleration); err != nil {
+			return err.ViaField(
+				fmt.Sprintf("tolerations[%d]", i),
+			)
+		}
 	}
 	return rs.ConcurrencyModel.Validate().ViaField("concurrencyModel")
 }
@@ -159,7 +163,7 @@ func validateNodeSelector(nodeSelector map[string]string) *apis.FieldError {
 			validation.IsQualifiedName(key); len(errStrs) > 0 {
 			return apis.ErrInvalidKeyName(
 				key,
-				"nodeSelector",
+				key,
 				strings.Join(errStrs, "; "),
 			)
 		}
@@ -168,105 +172,103 @@ func validateNodeSelector(nodeSelector map[string]string) *apis.FieldError {
 			return &apis.FieldError{
 				Message: fmt.Sprintf("invalid value %q", value),
 				Details: strings.Join(errStrs, "; "),
-				Paths:   []string{"nodeSelector"},
+				Paths:   []string{key},
 			}
 		}
 	}
 	return nil
 }
 
-// validateTolerations duplicates and adapts logic from
+// validateToleration duplicates and adapts logic from
 // k8s.io/kubernetes/pkg/apis/core/validation. Although relevant functions from
 // that package are exported, they're not usable here because they are for
 // unversioned resources.
-func validateTolerations(tolerations []corev1.Toleration) *apis.FieldError {
-	for _, toleration := range tolerations {
-		if toleration.Key != "" {
-			if errStrs :=
-				validation.IsQualifiedName(toleration.Key); len(errStrs) > 0 {
-				return &apis.FieldError{
-					Message: fmt.Sprintf("invalid value %q", toleration.Key),
-					Details: strings.Join(errStrs, "; "),
-					Paths:   []string{"key"},
-				}
+func validateToleration(toleration corev1.Toleration) *apis.FieldError {
+	if toleration.Key != "" {
+		if errStrs :=
+			validation.IsQualifiedName(toleration.Key); len(errStrs) > 0 {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("invalid value %q", toleration.Key),
+				Details: strings.Join(errStrs, "; "),
+				Paths:   []string{"key"},
 			}
 		}
-		// empty toleration key with Exists operator means match all taints
-		if toleration.Key == "" &&
-			toleration.Operator != corev1.TolerationOpExists {
+	}
+	// empty toleration key with Exists operator means match all taints
+	if toleration.Key == "" &&
+		toleration.Operator != corev1.TolerationOpExists {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", toleration.Operator),
+			Details: "operator must be Exists when `key` is empty, which means " +
+				`"match all values and all keys"`,
+			Paths: []string{"operator"},
+		}
+	}
+	if toleration.TolerationSeconds != nil &&
+		toleration.Effect != corev1.TaintEffectNoExecute {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", toleration.Effect),
+			Details: "effect must be 'NoExecute' when `tolerationSeconds` is set",
+			Paths:   []string{"effect"},
+		}
+	}
+	// validate toleration operator and value
+	switch toleration.Operator {
+	// empty operator means Equal
+	case corev1.TolerationOpEqual, "":
+		if errStrs :=
+			validation.IsValidLabelValue(toleration.Value); len(errStrs) != 0 {
 			return &apis.FieldError{
-				Message: fmt.Sprintf("invalid value %q", toleration.Operator),
-				Details: "operator must be Exists when `key` is empty, which means " +
-					`"match all values and all keys"`,
-				Paths: []string{"operator"},
+				Message: fmt.Sprintf("invalid value %q", toleration.Value),
+				Details: strings.Join(errStrs, "; "),
+				Paths:   []string{"value"},
 			}
 		}
-		if toleration.TolerationSeconds != nil &&
-			toleration.Effect != corev1.TaintEffectNoExecute {
+	case corev1.TolerationOpExists:
+		if toleration.Value != "" {
 			return &apis.FieldError{
-				Message: fmt.Sprintf("invalid value %q", toleration.Effect),
-				Details: "effect must be 'NoExecute' when `tolerationSeconds` is set",
-				Paths:   []string{"effect"},
+				Message: fmt.Sprintf("invalid value %q", toleration.Value),
+				Details: "value must be empty when `operator` is 'Exists'",
+				Paths:   []string{"value"},
 			}
 		}
-		// validate toleration operator and value
-		switch toleration.Operator {
-		// empty operator means Equal
-		case corev1.TolerationOpEqual, "":
-			if errStrs :=
-				validation.IsValidLabelValue(toleration.Value); len(errStrs) != 0 {
-				return &apis.FieldError{
-					Message: fmt.Sprintf("invalid value %q", toleration.Value),
-					Details: strings.Join(errStrs, "; "),
-					Paths:   []string{"value"},
-				}
-			}
-		case corev1.TolerationOpExists:
-			if toleration.Value != "" {
-				return &apis.FieldError{
-					Message: fmt.Sprintf("invalid value %q", toleration.Value),
-					Details: "value must be empty when `operator` is 'Exists'",
-					Paths:   []string{"value"},
-				}
-			}
-		default:
-			validValues := []string{
-				string(corev1.TolerationOpEqual),
-				string(corev1.TolerationOpExists),
-			}
-			return &apis.FieldError{
-				Message: fmt.Sprintf("invalid value %q", toleration.Operator),
-				Details: fmt.Sprintf(
-					"allowed values are: %s",
-					strings.Join(validValues, ", "),
-				),
-				Paths: []string{"operator"},
-			}
+	default:
+		validValues := []string{
+			string(corev1.TolerationOpEqual),
+			string(corev1.TolerationOpExists),
 		}
-		// validate toleration effect, empty toleration effect means match all taint
-		// effects
-		switch toleration.Effect {
-		// TODO: Uncomment TaintEffectNoScheduleNoAdmit once it is implemented.
-		case "", corev1.TaintEffectNoSchedule, corev1.TaintEffectPreferNoSchedule,
-			corev1.TaintEffectNoExecute: // corev1.TaintEffectNoScheduleNoAdmit
-			return nil
-		default:
-			validValues := []string{
-				string(corev1.TaintEffectNoSchedule),
-				string(corev1.TaintEffectPreferNoSchedule),
-				string(corev1.TaintEffectNoExecute),
-				// TODO: Uncomment next line when TaintEffectNoScheduleNoAdmit is
-				// implemented.
-				// string(corev1.TaintEffectNoScheduleNoAdmit),
-			}
-			return &apis.FieldError{
-				Message: fmt.Sprintf("invalid value %q", toleration.Effect),
-				Details: fmt.Sprintf(
-					"allowed values are: %s",
-					strings.Join(validValues, ", "),
-				),
-				Paths: []string{"effect"},
-			}
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", toleration.Operator),
+			Details: fmt.Sprintf(
+				"allowed values are: %s",
+				strings.Join(validValues, ", "),
+			),
+			Paths: []string{"operator"},
+		}
+	}
+	// validate toleration effect, empty toleration effect means match all taint
+	// effects
+	switch toleration.Effect {
+	// TODO: Uncomment TaintEffectNoScheduleNoAdmit once it is implemented.
+	case "", corev1.TaintEffectNoSchedule, corev1.TaintEffectPreferNoSchedule,
+		corev1.TaintEffectNoExecute: // corev1.TaintEffectNoScheduleNoAdmit
+		return nil
+	default:
+		validValues := []string{
+			string(corev1.TaintEffectNoSchedule),
+			string(corev1.TaintEffectPreferNoSchedule),
+			string(corev1.TaintEffectNoExecute),
+			// TODO: Uncomment next line when TaintEffectNoScheduleNoAdmit is
+			// implemented.
+			// string(corev1.TaintEffectNoScheduleNoAdmit),
+		}
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", toleration.Effect),
+			Details: fmt.Sprintf(
+				"allowed values are: %s",
+				strings.Join(validValues, ", "),
+			),
+			Paths: []string{"effect"},
 		}
 	}
 	return nil

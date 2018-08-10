@@ -285,7 +285,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: `invalid key name "foo*bar"`,
-			Paths:   []string{"nodeSelector"},
+			Paths:   []string{"nodeSelector.foo*bar"},
 		},
 	}, {
 		name: "bad toleration",
@@ -301,7 +301,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: `invalid value "foo*bar"`,
-			Paths:   []string{"tolerations.key"},
+			Paths:   []string{"tolerations[0].key"},
 		},
 	}}
 
@@ -592,7 +592,7 @@ func TestNodeSelectorValidation(t *testing.T) {
 			},
 			want: &apis.FieldError{
 				Message: `invalid key name "foo*bar"`,
-				Paths:   []string{"nodeSelector"},
+				Paths:   []string{"foo*bar"},
 			},
 		},
 		{
@@ -602,7 +602,7 @@ func TestNodeSelectorValidation(t *testing.T) {
 			},
 			want: &apis.FieldError{
 				Message: `invalid value "bar*bat"`,
-				Paths:   []string{"nodeSelector"},
+				Paths:   []string{"foo"},
 			},
 		},
 		{
@@ -750,7 +750,7 @@ func TestTolerationValidation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := validateTolerations([]corev1.Toleration{test.toleration})
+			got := validateToleration(test.toleration)
 			if (got == nil && test.want != nil) ||
 				(got != nil && test.want == nil) {
 				if diff := cmp.Diff(test.want, got); diff != "" {
