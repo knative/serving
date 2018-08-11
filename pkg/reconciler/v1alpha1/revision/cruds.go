@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	commonlogging "github.com/knative/pkg/logging"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
@@ -99,6 +100,27 @@ func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.De
 		return err
 	}
 	return nil
+}
+
+func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpa.PodAutoscaler, error) {
+	kpa := resources.MakeKPA(rev)
+
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
+}
+
+func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revision, kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, Changed, error) {
+	logger := logging.FromContext(ctx)
+
+	desiredKPA := resources.MakeKPA(rev)
+	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
+	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
+	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
+		return kpa, Unchanged, nil
+	}
+	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
+	kpa.Spec = desiredKPA.Spec
+	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
+	return kpa, WasChanged, err
 }
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
