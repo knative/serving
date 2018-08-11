@@ -205,10 +205,10 @@ spec:
         - -stderrthreshold
         - INFO
         - -creds-image
-        - gcr.io/build-crd/github.com/knative/build/cmd/creds-init@sha256:cfcc14889abe29b54d17ff6cf414918d9d92ff02bb112525742ec2e30117899f
+        - gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:a47ea977bef1889c4b29d8dd5c28af923c40a61c12e823d1da6ff0cbeeb41d6d
         - -git-image
-        - gcr.io/build-crd/github.com/knative/build/cmd/git-init@sha256:d52c29a4a1d83712b048bd32dbb5f97b7d2791af9b892f68fe94e162932ac66e
-        image: gcr.io/build-crd/github.com/knative/build/cmd/controller@sha256:9220968c9aae7e6edac97effc7b693fcf5bbb17edf78aa14347de87b15ac8840
+        - gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:15fac1ab6052706749695418845834f53070df0e6d4778b7225c5ce0af8ca160
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/controller@sha256:6c88fa5ae54a41182d9a7e9795c3a56f7ef716701137095a08f24ff6a3cca37d
         name: build-controller
       serviceAccountName: build-controller
 ---
@@ -232,7 +232,7 @@ spec:
         - -logtostderr
         - -stderrthreshold
         - INFO
-        image: gcr.io/build-crd/github.com/knative/build/cmd/webhook@sha256:a7ed8fb8828f71a6aba3f9f9899eff6c867ceb5a8ceeaed903008c2296f919fb
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/webhook@sha256:8c894b1f4ad5d89e31d1e4fba0db2bc5930931a48f3d5ac988b66c2c3f82e849
         name: build-webhook
         volumeMounts:
         - mountPath: /etc/config-logging
