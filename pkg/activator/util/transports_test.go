@@ -14,12 +14,15 @@ package util
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func TestHTTPRoundTripper(t *testing.T) {
@@ -89,7 +92,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		resp           *http.Response
 		err            error
 		cond           []RetryCond
-		wantRetry      bool
+		wantAttempts   int
 		wantBodyClosed bool
 	}{
 		{
@@ -97,7 +100,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			resp:           resp(http.StatusOK),
 			err:            nil,
 			cond:           conditions,
-			wantRetry:      false,
+			wantAttempts:   1,
 			wantBodyClosed: false,
 		},
 		{
@@ -105,7 +108,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			resp:           resp(http.StatusInternalServerError),
 			err:            nil,
 			cond:           []RetryCond{},
-			wantRetry:      false,
+			wantAttempts:   1,
 			wantBodyClosed: false,
 		},
 		{
@@ -113,7 +116,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			resp:           nil,
 			err:            someErr,
 			cond:           conditions,
-			wantRetry:      true,
+			wantAttempts:   2,
 			wantBodyClosed: false,
 		},
 		{
@@ -121,7 +124,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			resp:           resp(http.StatusInternalServerError),
 			err:            nil,
 			cond:           conditions,
-			wantRetry:      true,
+			wantAttempts:   2,
 			wantBodyClosed: true,
 		},
 		{
@@ -129,7 +132,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			resp:           resp(http.StatusBadRequest),
 			err:            nil,
 			cond:           conditions,
-			wantRetry:      true,
+			wantAttempts:   2,
 			wantBodyClosed: true,
 		},
 	}
@@ -145,22 +148,12 @@ func TestRetryRoundTripper(t *testing.T) {
 				return e.resp, e.err
 			})
 
-			retry := RetryerFunc(func(action ActionFunc) int {
-				if action() {
-					if !e.wantRetry {
-						t.Errorf("Unexpected retry.")
-					}
-				}
-				return 1
-			})
-
 			rt := NewRetryRoundTripper(
 				transport,
 				TestLogger(t),
-				retry,
+				wait.Backoff{Steps: 2},
 				e.cond...,
 			)
-
 			resp, err := rt.RoundTrip(req)
 
 			if resp != e.resp {
@@ -180,7 +173,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			}
 
 			if resp != nil {
-				if got, want := resp.Header.Get(activator.ResponseCountHTTPHeader), "1"; got != want {
+				if got, want := resp.Header.Get(activator.ResponseCountHTTPHeader), strconv.Itoa(e.wantAttempts); got != want {
 					t.Errorf("Expected retry header not the same got: %q want: %q", got, want)
 				}
 			}
@@ -189,21 +182,37 @@ func TestRetryRoundTripper(t *testing.T) {
 }
 
 func TestRetryRoundTripperRewind(t *testing.T) {
-	retry := RetryerFunc(func(action ActionFunc) int {
-		action()
-		action()
-		return 2
+	bodyContent := "request body"
+
+	readingCondition := func(res *http.Response) bool {
+		body, _ := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+
+		if string(body[:]) != bodyContent {
+			t.Errorf("Body was not readable multiple times. Was %s", string(body[:]))
+		}
+		return false
+	}
+
+	// try to read the body twice
+	conditions := []RetryCond{
+		readingCondition,
+		readingCondition,
+	}
+
+	transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: r.Body}, nil
 	})
 
 	rt := NewRetryRoundTripper(
-		http.DefaultTransport,
+		transport,
 		TestLogger(t),
-		retry,
-		RetryStatus(http.StatusInternalServerError),
+		wait.Backoff{Steps: 1},
+		conditions...,
 	)
 
-	spy := &spyReadCloser{Reader: strings.NewReader("request body")}
-	req, _ := http.NewRequest("POST", "http://knative.dev/test/", spy)
+	spy := &spyReadCloser{Reader: strings.NewReader(bodyContent)}
+	req, _ := http.NewRequest("POST", "http://test.domain", spy)
 
 	rt.RoundTrip(req)
 
