@@ -188,8 +188,10 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 		body, _ := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 
-		if string(body[:]) != bodyContent {
-			t.Errorf("Body was not readable multiple times. Was %s", string(body[:]))
+		responseBodyContent := string(body[:])
+
+		if responseBodyContent != bodyContent {
+			t.Errorf("Body was not readable multiple times. Was %s", responseBodyContent)
 		}
 		return false
 	}
