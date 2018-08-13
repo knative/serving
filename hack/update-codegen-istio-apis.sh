@@ -30,6 +30,8 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "istio:v1alpha3"\
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
+# Currently we are running code-generator for 'vendor' directory, so we need to replace package path
+# as well as the interface names to keep consistent with our current way of using Istio APIs and clients.
 [[ x$(uname) == "xDarwin" ]] && sedi=(-i '') || sedi=(-i)       
 find vendor/github.com/knative/pkg/. -name '*.go' -exec grep -l atewaies {} \; | xargs sed "${sedi[@]}" 's/atewaies/ateways/g'
 find vendor/github.com/knative/pkg/. -name '*.go' -exec grep -l  "github.com/knative/serving/vendor/github.com/knative/pkg/client" {} \; | xargs sed "${sedi[@]}" 's/github.com\/knative\/serving\/vendor\/github.com\/knative\/pkg/github.com\/knative\/pkg/g'
