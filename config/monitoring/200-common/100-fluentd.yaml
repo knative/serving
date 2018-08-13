@@ -19,7 +19,7 @@ metadata:
   # Any changes to this name should ensure to fix it in
   # all places where this name is referred.
   name: fluentd-ds
-  namespace: monitoring
+  namespace: knative-monitoring
   labels:
     app: fluentd-ds
 spec:

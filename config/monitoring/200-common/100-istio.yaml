@@ -46,7 +46,7 @@ metadata:
   name: requestloghandler
   namespace: istio-system
 spec:
-  address: "fluentd-ds.monitoring:24224"
+  address: "fluentd-ds.knative-monitoring:24224"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
