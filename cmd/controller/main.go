@@ -129,6 +129,7 @@ func main() {
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
@@ -149,6 +150,7 @@ func main() {
 			opt,
 			vpaClient,
 			revisionInformer,
+			kpaInformer,
 			buildInformer,
 			deploymentInformer,
 			coreServiceInformer,
@@ -193,6 +195,7 @@ func main() {
 		routeInformer.Informer().HasSynced,
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
+		kpaInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,

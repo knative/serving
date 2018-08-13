@@ -26,6 +26,7 @@ import (
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/pkg/system"
@@ -107,6 +108,38 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
 		return nil
 	}
+}
+
+func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	kpaName := resourcenames.KPA(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KPA, kpaName))
+
+	kpa, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
+	if apierrs.IsNotFound(getKPAErr) {
+		// KPA does not exist. Create it.
+		var err error
+		kpa, err = c.createKPA(ctx, rev)
+		if err != nil {
+			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
+			return err
+		}
+		logger.Infof("Created kpa %q", kpaName)
+	} else if getKPAErr != nil {
+		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
+		return getKPAErr
+	} else {
+		// KPA exists. Update the replica count based on the serving state if necessary
+		var err error
+		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
+		if err != nil {
+			logger.Errorf("Error updating kpa %q: %v", kpaName, err)
+			return err
+		}
+	}
+
+	// TODO(mattmoor): Update status based on the KPA status.
+	return nil
 }
 
 func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {

@@ -201,6 +201,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		buildInformer.Build().V1alpha1().Builds(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
@@ -268,6 +269,16 @@ func addResourcesToInformers(t *testing.T,
 	inActive := rev.Spec.ServingState != "Active"
 
 	ns := rev.Namespace
+
+	kpaName := resourcenames.KPA(rev)
+	kpa, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+		// If we're doing a Build this won't exist yet.
+	} else if err != nil {
+		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
+	} else {
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	}
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
