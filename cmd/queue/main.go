@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -46,6 +47,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -106,22 +108,27 @@ func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
 		servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
-	for {
-		// TODO: use exponential backoff here
-		time.Sleep(time.Second)
 
+	wait.ExponentialBackoff(wait.Backoff{
+		Duration: 100 * time.Millisecond,
+		Factor:   1.3,
+		Steps:    math.MaxInt32,
+	}, func() (bool, error) {
 		dialer := &websocket.Dialer{
 			HandshakeTimeout: 3 * time.Second,
 		}
 		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
 		if err != nil {
 			logger.Error("Retrying connection to autoscaler.", zap.Error(err))
-		} else {
-			logger.Info("Connected to stat sink.")
-			statSink = conn
-			waitForClose(conn)
+			return false, nil
 		}
-	}
+
+		logger.Info("Connected to stat sink.")
+		statSink = conn
+		return true, nil
+	})
+
+	waitForClose(statSink)
 }
 
 func waitForClose(c *websocket.Conn) {
