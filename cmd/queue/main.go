@@ -140,8 +140,8 @@ func statReporter() {
 			continue
 		}
 		sm := autoscaler.StatMessage{
-			Stat:        *s,
-			RevisionKey: servingRevisionKey,
+			Stat: *s,
+			Key:  servingRevisionKey,
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
