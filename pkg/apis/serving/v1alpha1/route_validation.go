@@ -25,8 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-func (rt *Route) Validate() *apis.FieldError {
-	return rt.Spec.Validate().ViaField("spec")
+func (r *Route) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(r.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
+	return r.Spec.Validate().ViaField("spec")
 }
 
 func (rs *RouteSpec) Validate() *apis.FieldError {
