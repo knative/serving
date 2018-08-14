@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler_test
+package autoscaling_test
 
 import (
 	"testing"
 
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"k8s.io/api/apps/v1"
@@ -92,7 +92,7 @@ func TestKPAScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, e.startState)
 			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
-			revisionScaler := autoscaler.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+			revisionScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 			kpa := newKPA(t, servingClient, revision)
 			revisionScaler.Scale(kpa, e.scaleTo)

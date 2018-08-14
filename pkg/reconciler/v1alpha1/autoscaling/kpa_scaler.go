@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package autoscaling
 
 import (
 	"strings"
@@ -46,59 +46,61 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 }
 
 // Scale attempts to scale the given KPA's target reference to the desired scale.
-func (rs *kpaScaler) Scale(oldKPA *kpa.PodAutoscaler, desiredScale int32) {
-	logger := loggerWithKPAInfo(rs.logger, oldKPA.Namespace, oldKPA.Name)
+func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
+	logger := loggerWithKPAInfo(rs.logger, kpa.Namespace, kpa.Name)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth for ServingState.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
-	owner := metav1.GetControllerOf(oldKPA)
+	owner := metav1.GetControllerOf(kpa)
 	if owner == nil || owner.Kind != revGVK.Kind ||
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("KPA is not owned by a Revision.")
-		return
+		return nil
 	}
 
 	// Do not scale an inactive revision.
 	// TODO(mattmoor): Switch this to the KPA when it becomes the source of truth for ServingState.
-	revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(oldKPA.Namespace)
+	revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
 	rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
 	if err != nil {
 		logger.Error("Unable to fetch Revision.", zap.Error(err))
-		return
+		return err
 	}
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		return
+		logger.Info("Don't scale an inactive revision.")
+		return nil
 	}
 
-	gv, err := schema.ParseGroupVersion(oldKPA.Spec.ScaleTargetRef.APIVersion)
+	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
 		logger.Error("Unable to parse APIVersion.", zap.Error(err))
-		return
+		return err
 	}
 	resource := schema.GroupResource{
 		Group: gv.Group,
 		// TODO(mattmoor): Do something better than this.
-		Resource: strings.ToLower(oldKPA.Spec.ScaleTargetRef.Kind) + "s",
+		Resource: strings.ToLower(kpa.Spec.ScaleTargetRef.Kind) + "s",
 	}
-	resourceName := oldKPA.Spec.ScaleTargetRef.Name
+	resourceName := kpa.Spec.ScaleTargetRef.Name
 
 	// Identify the current scale.
-	scl, err := rs.scaleClientSet.Scales(oldKPA.Namespace).Get(resource, resourceName)
+	scl, err := rs.scaleClientSet.Scales(kpa.Namespace).Get(resource, resourceName)
 	if err != nil {
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
-		return
+		return err
 	}
 
 	currentScale := scl.Spec.Replicas
 	if desiredScale == currentScale {
-		return
+		return nil
 	}
 
 	// Don't scale if current scale is zero. Rely on the activator to scale
 	// from zero.
 	if currentScale == 0 {
+		// TODO(mattmoor): rs.Status.MarkActivating(reason, message)
 		logger.Info("Cannot scale: Current scale is 0; activator must scale from 0.")
-		return
+		return nil
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
@@ -108,17 +110,19 @@ func (rs *kpaScaler) Scale(oldKPA *kpa.PodAutoscaler, desiredScale int32) {
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		if _, err := revisionClient.Update(rev); err != nil {
 			logger.Error("Error updating revision serving state.", zap.Error(err))
+			return err
 		}
-		return
+		return nil
 	}
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
-	_, err = rs.scaleClientSet.Scales(oldKPA.Namespace).Update(resource, scl)
+	_, err = rs.scaleClientSet.Scales(kpa.Namespace).Update(resource, scl)
 	if err != nil {
 		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
-		return
+		return err
 	}
 
 	logger.Debug("Successfully scaled.")
+	return nil
 }

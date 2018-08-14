@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/scale"
@@ -109,8 +110,6 @@ func main() {
 		logger.Fatal("Error building serving clientset.", zap.Error(err))
 	}
 
-	kpaScaler := autoscaler.NewKPAScaler(servingClientSet, scaleClient, logger)
-
 	rawConfig, err := configmap.Load("/etc/config-autoscaler")
 	if err != nil {
 		logger.Fatalf("Error reading autoscaler configuration: %v", err)
@@ -122,7 +121,7 @@ func main() {
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, kpaScaler, stopCh, uniScalerFactory, logger)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
@@ -131,17 +130,23 @@ func main() {
 	}
 
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, time.Second*30)
-	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, time.Second*30)
 
-	ctl := autoscaling.NewController(&opt, revisionInformer, multiScaler, time.Second*30)
+	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+
+	kpaScaler := autoscaling.NewKPAScaler(servingClientSet, scaleClient, logger)
+	ctl := autoscaling.NewController(&opt, kpaInformer, endpointsInformer, multiScaler, kpaScaler)
 
 	// Start the serving informer factory.
+	kubeInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
 	for i, synced := range []cache.InformerSynced{
-		revisionInformer.Informer().HasSynced,
+		kpaInformer.Informer().HasSynced,
+		endpointsInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)
