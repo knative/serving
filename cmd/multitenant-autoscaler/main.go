@@ -175,7 +175,7 @@ func main() {
 			if !ok {
 				break
 			}
-			multiScaler.RecordStat(sm.RevisionKey, sm.Stat)
+			multiScaler.RecordStat(sm.Key, sm.Stat)
 		}
 	}()
 
