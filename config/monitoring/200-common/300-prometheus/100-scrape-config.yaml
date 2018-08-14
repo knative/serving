@@ -31,15 +31,12 @@ data:
       scrape_interval: 3s
       scrape_timeout: 3s
       kubernetes_sd_configs:
-      - role: endpoints
+      - role: pod
       relabel_configs:
       # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_service_label_app]
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: autoscaler
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: knative-serving;autoscaler-port
+        regex: knative-serving;autoscaler;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
