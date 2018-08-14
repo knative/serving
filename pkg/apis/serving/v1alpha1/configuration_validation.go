@@ -23,7 +23,7 @@ import (
 )
 
 func (c *Configuration) Validate() *apis.FieldError {
-	if err := validateMetadata(c); err != nil {
+	if err := validateObjectMetadata(c.GetObjectMeta()); err != nil {
 		return err.ViaField("metadata")
 	}
 	return c.Spec.Validate().ViaField("spec")

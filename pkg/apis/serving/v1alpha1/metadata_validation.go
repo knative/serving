@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/webhook"
 	"strings"
+
+	"github.com/knative/pkg/apis"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func validateMetadata(new webhook.GenericCRD) *apis.FieldError {
-	name := new.GetObjectMeta().GetName()
+func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
+	name := meta.GetName()
 
 	if strings.Contains(name, ".") {
 		return &apis.FieldError{
