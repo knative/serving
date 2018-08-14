@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -44,7 +45,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestContainerErrorMsg")
+	logger := logging.GetContextLogger("TestContainerErrorMsg")
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error

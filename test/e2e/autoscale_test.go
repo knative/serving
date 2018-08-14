@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
-	"go.uber.org/zap"
+	"github.com/knative/serving/test/logging"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,7 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
 	logger.Infof("Performing %d concurrent requests.", num)
@@ -85,7 +85,7 @@ func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
 	return err
 }
 
-func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
+func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 	clients := Setup(t)
 
 	configMap, err := getAutoscalerConfigMap(clients)
@@ -105,14 +105,14 @@ func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
 	return clients
 }
 
-func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
+func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
 	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
 	TearDown(clients, names, logger)
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestAutoscaleUpDownUp")
+	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
 
 	clients := setup(t, logger)
 	imagePath := strings.Join(

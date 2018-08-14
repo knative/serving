@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,7 +36,7 @@ func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestHelloWorld")
+	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
