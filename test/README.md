@@ -139,7 +139,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~/.kube/config`.
+at `~/.kube/config`. If there is an error getting the current user, it will use `kubeconfig` instead as the default value.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the tests with a non-default kubeconfig file:
