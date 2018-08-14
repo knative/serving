@@ -17,9 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 )
@@ -73,6 +75,22 @@ func TestRouteValidation(t *testing.T) {
 				"spec.traffic[0].configurationName",
 			},
 		},
+	}, {
+		name: "invalid name - dots",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "do.not.use.dots",
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid name - too long",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("a", 65),
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
 	}}
 
 	for _, test := range tests {
