@@ -115,7 +115,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error reading autoscaler configuration: %v", err)
 	}
-	dynConfig, err := autoscaler.NewDynamicConfig(rawConfig, logger)
+	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
 	if err != nil {
 		logger.Fatalf("Error parsing autoscaler configuration: %v", err)
 	}
