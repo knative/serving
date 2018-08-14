@@ -101,7 +101,7 @@ func runAutoscaler() {
 	if err != nil {
 		logger.Fatalf("Error reading config-autoscaler: %v", err)
 	}
-	config, err := autoscaler.NewDynamicConfig(rawConfig, logger)
+	config, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
 	if err != nil {
 		logger.Fatalf("Error loading config-autoscaler: %v", err)
 	}

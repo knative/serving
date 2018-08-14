@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package autoscaler_test
 
 import (
 	"context"
@@ -22,19 +22,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg/autoscaler"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
-	testNamespace   = "test-namespace"
-	testRevision    = "test-revision"
 	testRevisionKey = "test-namespace/test-revision"
 )
 
 func TestMultiScalerScaling(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(&Config{
+	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
@@ -51,7 +52,7 @@ func TestMultiScalerScaling(t *testing.T) {
 }
 
 func TestMultiScalerStop(t *testing.T) {
-	ms, stopChan, revisionScaler, uniScaler, logger := createMultiScaler(&Config{
+	ms, stopChan, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
@@ -68,7 +69,7 @@ func TestMultiScalerStop(t *testing.T) {
 }
 
 func TestMultiScalerScaleToZeroWhenEnabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(&Config{
+	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
@@ -86,7 +87,7 @@ func TestMultiScalerScaleToZeroWhenEnabled(t *testing.T) {
 }
 
 func TestMultiScalerDoesNotScaleToZeroWhenDisabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(&Config{
+	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: false,
 	})
@@ -102,7 +103,7 @@ func TestMultiScalerDoesNotScaleToZeroWhenDisabled(t *testing.T) {
 }
 
 func TestMultiScalerIgnoresNegativeScales(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(&Config{
+	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
@@ -117,7 +118,7 @@ func TestMultiScalerIgnoresNegativeScales(t *testing.T) {
 }
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
-	ms, _, _, uniScaler, logger := createMultiScaler(&Config{
+	ms, _, _, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 
@@ -127,7 +128,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ms.OnPresent(revision, logger)
 
 	now := time.Now()
-	testStat := Stat{
+	testStat := autoscaler.Stat{
 		Time:                      &now,
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 3.5,
@@ -150,18 +151,16 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	uniScaler.checkLastStat(t, testStat)
 }
 
-func createMultiScaler(config *Config) (*MultiScaler, chan<- struct{}, *fakeRevisionScaler, *fakeUniScaler, *zap.SugaredLogger) {
-	logger := zap.NewNop().Sugar()
+func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeRevisionScaler, *fakeUniScaler, *zap.SugaredLogger) {
+	logger := TestLogger(t)
 	revisionScaler := &fakeRevisionScaler{
 		scaleChan: make(chan scaleParameterValues),
 	}
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
-	ms := NewMultiScaler(&DynamicConfig{
-		config: config,
-		logger: zap.NewNop().Sugar(),
-	}, revisionScaler, stopChan, uniscaler.fakeUniScalerFactory, logger)
+	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
+		revisionScaler, stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, revisionScaler, uniscaler, logger
 }
@@ -170,10 +169,10 @@ type fakeUniScaler struct {
 	mutex    sync.Mutex
 	replicas int32
 	scaled   bool
-	lastStat Stat
+	lastStat autoscaler.Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*v1alpha1.Revision, *DynamicConfig) (UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*v1alpha1.Revision, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
 }
 
@@ -192,14 +191,14 @@ func (u *fakeUniScaler) setScaleResult(replicas int32, scaled bool) {
 	u.scaled = scaled
 }
 
-func (u *fakeUniScaler) Record(ctx context.Context, stat Stat) {
+func (u *fakeUniScaler) Record(ctx context.Context, stat autoscaler.Stat) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	u.lastStat = stat
 }
 
-func (u *fakeUniScaler) checkLastStat(t *testing.T, stat Stat) {
+func (u *fakeUniScaler) checkLastStat(t *testing.T, stat autoscaler.Stat) {
 	t.Helper()
 
 	if u.lastStat != stat {
@@ -261,17 +260,5 @@ func (rs *fakeRevisionScaler) checkScaleNoLongerCalled(t *testing.T) {
 		t.Fatal("Scale was called unexpectedly")
 	case <-time.After(time.Millisecond * 50):
 		return
-	}
-}
-
-func newRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
-		},
-		Spec: v1alpha1.RevisionSpec{
-			ServingState: servingState,
-		},
 	}
 }
