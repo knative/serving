@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/knative/pkg/configmap"
@@ -31,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
+	"github.com/knative/serving/pkg/system"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -39,7 +41,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"github.com/knative/serving/pkg/system"
 )
 
 const (
@@ -146,6 +147,10 @@ func main() {
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(time.Second * 10)
+	go func() {
+		http.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", nil)
+	}()
 
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
