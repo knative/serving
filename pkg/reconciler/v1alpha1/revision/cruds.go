@@ -114,6 +114,7 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 	desiredKPA := resources.MakeKPA(rev)
 	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
 	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
+	desiredKPA.Spec.Generation = kpa.Spec.Generation
 	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
 		return kpa, Unchanged, nil
 	}
