@@ -40,15 +40,6 @@ func TestNamer(t *testing.T) {
 		f:    Deployment,
 		want: "foo-deployment",
 	}, {
-		name: "Autoscaler",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "bar",
-			},
-		},
-		f:    Autoscaler,
-		want: "bar-autoscaler",
-	}, {
 		name: "VPA",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{

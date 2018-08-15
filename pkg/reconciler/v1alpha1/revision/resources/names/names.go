@@ -24,10 +24,6 @@ func Deployment(rev *v1alpha1.Revision) string {
 	return rev.Name + "-deployment"
 }
 
-func Autoscaler(rev *v1alpha1.Revision) string {
-	return rev.Name + "-autoscaler"
-}
-
 func VPA(rev *v1alpha1.Revision) string {
 	return rev.Name + "-vpa"
 }

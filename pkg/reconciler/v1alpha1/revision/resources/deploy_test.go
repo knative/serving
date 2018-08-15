@@ -35,6 +35,10 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 )
 
+var (
+	one int32 = 1
+)
+
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string

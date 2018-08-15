@@ -311,12 +311,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "KPA",
 			f:    c.reconcileKPA,
 		}, {
-			name: "autoscaler deployment",
-			f:    c.reconcileAutoscalerDeployment,
-		}, {
-			name: "autoscaler k8s service",
-			f:    c.reconcileAutoscalerService,
-		}, {
 			name: "vertical pod autoscaler",
 			f:    c.reconcileVPA,
 		}}
