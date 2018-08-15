@@ -24,6 +24,8 @@ import (
 	"os"
 	"os/user"
 	"path"
+
+	"github.com/golang/glog"
 )
 
 // Flags holds the command line flags or defaults for common knative settings in the user's environment.
@@ -58,8 +60,12 @@ func initializeCommonFlags() *EnvironmentFlags {
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
 
-	usr, _ := user.Current()
-	defaultKubeconfig := path.Join(usr.HomeDir, ".kube/config")
+	defaultKubeconfig := "kubeconfig"
+	if usr, err := user.Current(); err != nil {
+		glog.Infof("Error getting current user, using %s as fallback: %v", defaultKubeconfig, err)
+	} else {
+		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+	}
 
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
