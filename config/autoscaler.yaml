@@ -31,7 +31,7 @@ spec:
       - name: autoscaler
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/multitenant-autoscaler
+        image: github.com/knative/serving/cmd/autoscaler
         ports:
         - name: websocket
           containerPort: 8080
