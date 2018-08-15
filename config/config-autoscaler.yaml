@@ -68,4 +68,4 @@ data:
 
   # Scale to zero threshold is the time a revision must be idle before
   # it is scaled to zero.
-  scale-to-zero-threshold: "1m"
+  scale-to-zero-threshold: "5m"
