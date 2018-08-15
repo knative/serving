@@ -1,0 +1,12 @@
+mode: set
+github.com/knative/serving/pkg/activator/handler/enforce_length_handler.go:26.92,27.47 1 1
+github.com/knative/serving/pkg/activator/handler/enforce_length_handler.go:32.2,32.31 1 1
+github.com/knative/serving/pkg/activator/handler/enforce_length_handler.go:27.47,30.3 2 1
+github.com/knative/serving/pkg/activator/handler/handler.go:35.90,37.2 1 1
+github.com/knative/serving/pkg/activator/handler/handler.go:39.79,46.16 5 1
+github.com/knative/serving/pkg/activator/handler/handler.go:54.2,66.23 5 1
+github.com/knative/serving/pkg/activator/handler/handler.go:46.16,52.3 4 1
+github.com/knative/serving/pkg/activator/handler/reporting_handler.go:30.82,46.87 9 1
+github.com/knative/serving/pkg/activator/handler/reporting_handler.go:51.2,51.79 1 1
+github.com/knative/serving/pkg/activator/handler/reporting_handler.go:46.87,49.3 2 1
+github.com/knative/serving/pkg/activator/handler/reporting_handler.go:59.53,63.2 2 1

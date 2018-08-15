@@ -140,8 +140,8 @@ func statReporter() {
 			continue
 		}
 		sm := autoscaler.StatMessage{
-			Stat:        *s,
-			RevisionKey: servingRevisionKey,
+			Stat: *s,
+			Key:  servingRevisionKey,
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
@@ -284,7 +284,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2cutil.NewTransport()
+	h2cProxy.Transport = h2cutil.DefaultTransport
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()

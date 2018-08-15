@@ -115,7 +115,7 @@ func TestBuildFailure(t *testing.T) {
 	build := &buildv1alpha1.BuildSpec{
 		Steps: []v1.Container{{
 			Image: "ubuntu",
-			Args:  []string{"exit", "1"}, // build will fail.
+			Args:  []string{"false"}, // build will fail.
 		}},
 	}
 

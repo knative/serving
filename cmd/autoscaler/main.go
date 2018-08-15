@@ -101,7 +101,7 @@ func runAutoscaler() {
 	if err != nil {
 		logger.Fatalf("Error reading config-autoscaler: %v", err)
 	}
-	config, err := autoscaler.NewConfigFromMap(rawConfig)
+	config, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
 	if err != nil {
 		logger.Fatalf("Error loading config-autoscaler: %v", err)
 	}
@@ -115,7 +115,7 @@ func runAutoscaler() {
 			scale, ok := a.Scale(ctx, time.Now())
 			if ok {
 				// Flag guard scale to zero.
-				if !config.EnableScaleToZero && scale == 0 {
+				if !config.Current().EnableScaleToZero && scale == 0 {
 					continue
 				}
 

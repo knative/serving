@@ -107,14 +107,20 @@ func NewController(
 		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute(impl)),
 	})
 
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
 	})
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")

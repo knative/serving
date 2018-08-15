@@ -21,8 +21,10 @@ import (
 	"time"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
@@ -55,6 +57,11 @@ func TestReconcile(t *testing.T) {
 	}
 	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
 		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+	kpa := func(namespace, name, servingState, image string) *kpa.PodAutoscaler {
+		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
 			loggingConfig, networkConfig, observabilityConfig,
 			autoscalerConfig, controllerConfig)
 	}
@@ -102,6 +109,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
+			kpa("foo", "first-reconcile", "Active", "busybox"),
 			deploy("foo", "first-reconcile", "Active", "busybox"),
 			svc("foo", "first-reconcile", "Active", "busybox"),
 			deployAS("foo", "first-reconcile", "Active", "busybox"),
@@ -140,6 +148,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "update-status-failure", "Active", "busybox"),
+			kpa("foo", "update-status-failure", "Active", "busybox"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
@@ -172,6 +181,47 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/update-status-failure",
 	}, {
+		Name: "failure creating kpa",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the kpa.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "podautoscalers"),
+		},
+		Objects: []runtime.Object{
+			rev("foo", "create-kpa-failure", "Active", "busybox"),
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			kpa("foo", "create-kpa-failure", "Active", "busybox"),
+			deploy("foo", "create-kpa-failure", "Active", "busybox"),
+			svc("foo", "create-kpa-failure", "Active", "busybox"),
+			// The user service and autoscaler resources are not created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-kpa-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					LogURL:      "http://logger.io/test-uid",
+					ServiceName: svc("foo", "create-kpa-failure", "Active", "busybox").Name,
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-kpa-failure",
+	}, {
 		Name: "failure creating user deployment",
 		// This starts from the first reconciliation case above and induces a failure
 		// creating the user's deployment
@@ -181,6 +231,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "create-user-deploy-failure", "Active", "busybox"),
+			kpa("foo", "create-user-deploy-failure", "Active", "busybox"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
@@ -219,6 +270,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "create-user-service-failure", "Active", "busybox"),
+			kpa("foo", "create-user-service-failure", "Active", "busybox"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
@@ -259,6 +311,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "create-as-deploy-failure", "Active", "busybox"),
+			kpa("foo", "create-as-deploy-failure", "Active", "busybox"),
 			deploy("foo", "create-as-deploy-failure", "Active", "busybox"),
 			svc("foo", "create-as-deploy-failure", "Active", "busybox"),
 		},
@@ -300,6 +353,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "create-as-svc-failure", "Active", "busybox"),
+			kpa("foo", "create-as-svc-failure", "Active", "busybox"),
 			deploy("foo", "create-as-svc-failure", "Active", "busybox"),
 			deployAS("foo", "create-as-svc-failure", "Active", "busybox"),
 			svc("foo", "create-as-svc-failure", "Active", "busybox"),
@@ -356,6 +410,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "stable-reconcile", "Active", "busybox"),
 			deploy("foo", "stable-reconcile", "Active", "busybox"),
 			deployAS("foo", "stable-reconcile", "Active", "busybox"),
 			svc("foo", "stable-reconcile", "Active", "busybox"),
@@ -392,6 +447,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "deactivate", "Active", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deploy("foo", "deactivate", "Active", "busybox"),
 			deployAS("foo", "deactivate", "Active", "busybox"),
@@ -400,6 +456,8 @@ func TestReconcile(t *testing.T) {
 			svcAS("foo", "deactivate", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "deactivate", "Reserve", "busybox"),
+		}, {
 			Object: makeStatus(
 				rev("foo", "deactivate", "Reserve", "busybox"),
 				// After reconciliation, the status will change to reflect that this is being Deactivated.
@@ -442,8 +500,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
 				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
@@ -462,6 +518,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
 			deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
@@ -476,6 +533,69 @@ func TestReconcile(t *testing.T) {
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/update-user-deploy-failure",
 	}, {
+		Name: "failure updating kpa",
+		// Induce a failure updating the kpa
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "podautoscalers"),
+		},
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "update-kpa-failure", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-kpa-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			kpa("foo", "update-kpa-failure", "Active", "busybox"),
+			// The Deployments match what we'd expect of an Active revision.
+			deploy("foo", "update-kpa-failure", "Reserve", "busybox"),
+			svc("foo", "update-kpa-failure", "Reserve", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "update-kpa-failure", "Reserve", "busybox"),
+		}, {
+			Object: makeStatus(
+				rev("foo", "update-kpa-failure", "Reserve", "busybox"),
+				// After reconciliation, the status will change to reflect that this is being Deactivated.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-kpa-failure", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "update-kpa-failure" is Inactive.`,
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: svc("foo", "update-kpa-failure", "Reserve", "busybox").Name,
+			// We don't reach deleting the autoscaler service.
+		}},
+		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
+		Key: "foo/update-kpa-failure",
+	}, {
 		Name: "failure updating autoscaler deployment",
 		// Induce a failure updating the autoscaler deployment
 		WantErr: true,
@@ -484,8 +604,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
 				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
@@ -504,6 +622,8 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+			kpa("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 			deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
@@ -569,6 +689,7 @@ func TestReconcile(t *testing.T) {
 						Message: `Revision "stable-deactivation" is Inactive.`,
 					}},
 				}),
+			kpa("foo", "stable-deactivation", "Reserve", "busybox"),
 			// The Deployments match what we'd expect of an Reserve revision.
 			deploy("foo", "stable-deactivation", "Reserve", "busybox"),
 			deployAS("foo", "stable-deactivation", "Reserve", "busybox"),
@@ -603,6 +724,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "retire", "Retired", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deploy("foo", "retire", "Active", "busybox"),
 			deployAS("foo", "retire", "Active", "busybox"),
@@ -673,6 +795,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "delete-user-deploy-failure", "Retired", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
 			deployAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
@@ -715,6 +838,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "delete-user-svc-failure", "Retired", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deployAS("foo", "delete-user-svc-failure", "Active", "busybox"),
 			// The Services match what we'd expect of an Active revision.
@@ -756,6 +880,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "delete-as-deploy-failure", "Retired", "busybox"),
 			// The Deployments match what we'd expect of an Active revision.
 			deployAS("foo", "delete-as-deploy-failure", "Active", "busybox"),
 			// The Services match what we'd expect of an Active revision.
@@ -796,6 +921,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "delete-as-svc-failure", "Retired", "busybox"),
 			// The Services match what we'd expect of an Active revision.
 			svcAS("foo", "delete-as-svc-failure", "Active", "busybox"),
 		},
@@ -832,6 +958,7 @@ func TestReconcile(t *testing.T) {
 						Message: `Revision "stable-retirement" is Inactive.`,
 					}},
 				}),
+			kpa("foo", "stable-retirement", "Retired", "busybox"),
 		},
 		Key: "foo/stable-retirement",
 	}, {
@@ -864,6 +991,7 @@ func TestReconcile(t *testing.T) {
 						Message: `Revision "activate-revision" is Inactive.`,
 					}},
 				}),
+			kpa("foo", "activate-revision", "Reserve", "busybox"),
 			// The Deployments match what we'd expect of an Reserve revision.
 			deploy("foo", "activate-revision", "Reserve", "busybox"),
 			deployAS("foo", "activate-revision", "Reserve", "busybox"),
@@ -874,6 +1002,8 @@ func TestReconcile(t *testing.T) {
 			svcAS("foo", "activate-revision", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "activate-revision", "Active", "busybox"),
+		}, {
 			Object: makeStatus(
 				rev("foo", "activate-revision", "Active", "busybox"),
 				// After activating the Revision status looks like this.
@@ -910,6 +1040,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "create-in-reserve", "Reserve", "busybox"),
 		},
 		WantCreates: []metav1.Object{
+			kpa("foo", "create-in-reserve", "Reserve", "busybox"),
 			// Only Deployments are created and they have no replicas.
 			deploy("foo", "create-in-reserve", "Reserve", "busybox"),
 			deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
@@ -966,9 +1097,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
 					}},
 				}),
+			kpa("foo", "endpoint-created-not-ready", "Active", "busybox"),
 			deploy("foo", "endpoint-created-not-ready", "Active", "busybox"),
 			deployAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
 			svc("foo", "endpoint-created-not-ready", "Active", "busybox"),
@@ -1006,6 +1138,7 @@ func TestReconcile(t *testing.T) {
 						// on the Endpoints to become ready.
 					}},
 				}),
+			kpa("foo", "endpoint-created-timeout", "Active", "busybox"),
 			deploy("foo", "endpoint-created-timeout", "Active", "busybox"),
 			deployAS("foo", "endpoint-created-timeout", "Active", "busybox"),
 			svc("foo", "endpoint-created-timeout", "Active", "busybox"),
@@ -1064,6 +1197,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "endpoint-ready", "Active", "busybox"),
 			deploy("foo", "endpoint-ready", "Active", "busybox"),
 			deployAS("foo", "endpoint-ready", "Active", "busybox"),
 			svc("foo", "endpoint-ready", "Active", "busybox"),
@@ -1117,9 +1251,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
 					}},
 				}),
+			kpa("foo", "fix-mutated-service", "Active", "busybox"),
 			deploy("foo", "fix-mutated-service", "Active", "busybox"),
 			deployAS("foo", "fix-mutated-service", "Active", "busybox"),
 			changeService(svc("foo", "fix-mutated-service", "Active", "busybox")),
@@ -1180,9 +1315,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
 					}},
 				}),
+			kpa("foo", "update-user-svc-failure", "Active", "busybox"),
 			deploy("foo", "update-user-svc-failure", "Active", "busybox"),
 			deployAS("foo", "update-user-svc-failure", "Active", "busybox"),
 			changeService(svc("foo", "update-user-svc-failure", "Active", "busybox")),
@@ -1220,9 +1356,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
 					}},
 				}),
+			kpa("foo", "update-as-svc-failure", "Active", "busybox"),
 			deploy("foo", "update-as-svc-failure", "Active", "busybox"),
 			deployAS("foo", "update-as-svc-failure", "Active", "busybox"),
 			svc("foo", "update-as-svc-failure", "Active", "busybox"),
@@ -1260,9 +1397,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
 					}},
 				}),
+			kpa("foo", "deploy-timeout", "Active", "busybox"),
 			timeoutDeploy(deploy("foo", "deploy-timeout", "Active", "busybox")),
 			deployAS("foo", "deploy-timeout", "Active", "busybox"),
 			svc("foo", "deploy-timeout", "Active", "busybox"),
@@ -1397,6 +1535,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
+			kpa("foo", "done-build", "Active", "busybox"),
 			deploy("foo", "done-build", "Active", "busybox"),
 			svc("foo", "done-build", "Active", "busybox"),
 			deployAS("foo", "done-build", "Active", "busybox"),
@@ -1456,6 +1595,7 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "stable-reconcile-with-build", "Active", "busybox"),
 			build("foo", "the-build", buildv1alpha1.BuildCondition{
 				Type:   buildv1alpha1.BuildSucceeded,
 				Status: corev1.ConditionTrue,
@@ -1567,6 +1707,7 @@ func TestReconcile(t *testing.T) {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
+			kpaLister:           listers.GetKPALister(),
 			buildLister:         listers.GetBuildLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -1604,6 +1745,11 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			loggingConfig, networkConfig, observabilityConfig,
 			autoscalerConfig, controllerConfig)
 	}
+	kpa := func(namespace, name, servingState, image string) *kpa.PodAutoscaler {
+		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
 	svc := func(namespace, name, servingState, image string) *corev1.Service {
 		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
 			loggingConfig, networkConfig, observabilityConfig,
@@ -1631,6 +1777,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
+			kpa("foo", "first-reconcile-var-log", "Active", "busybox"),
 			deploy("foo", "first-reconcile-var-log", "Active", "busybox"),
 			svc("foo", "first-reconcile-var-log", "Active", "busybox"),
 			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "Active", "busybox"), observabilityConfig),
@@ -1723,6 +1870,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "steady-state", "Active", "busybox"),
 			deploy("foo", "steady-state", "Active", "busybox"),
 			deployAS("foo", "steady-state", "Active", "busybox"),
 			svc("foo", "steady-state", "Active", "busybox"),
@@ -1753,6 +1901,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
+			kpa("foo", "update-fluentd-config", "Active", "busybox"),
 			deploy("foo", "update-fluentd-config", "Active", "busybox"),
 			deployAS("foo", "update-fluentd-config", "Active", "busybox"),
 			svc("foo", "update-fluentd-config", "Active", "busybox"),
@@ -1826,6 +1975,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
+			kpaLister:           listers.GetKPALister(),
 			buildLister:         listers.GetBuildLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -1922,6 +2072,14 @@ func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStat
 		autoscalerConfig, controllerConfig)
 	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig, replicaCount)
+}
+
+func getKPA(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *kpa.PodAutoscaler {
+	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
+		autoscalerConfig, controllerConfig)
+	return resources.MakeKPA(rev)
 }
 
 func getService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
