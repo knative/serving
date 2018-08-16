@@ -49,6 +49,11 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	logger := loggerWithKPAInfo(rs.logger, kpa.Namespace, kpa.Name)
 
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return nil
+	}
+
 	// TODO(mattmoor): Drop this once the KPA is the source of truth for ServingState.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
 	owner := metav1.GetControllerOf(kpa)
