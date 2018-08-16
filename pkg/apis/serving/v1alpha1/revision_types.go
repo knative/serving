@@ -123,7 +123,7 @@ type RevisionSpec struct {
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
 	// Revision. Defaults to Multi.
-	// Deprecated in favor of InstanceMaxRequestConcurrency.
+	// Deprecated in favor of InstanceConcurrency.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
