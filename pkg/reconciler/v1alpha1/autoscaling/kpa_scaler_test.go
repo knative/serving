@@ -82,6 +82,14 @@ func TestKPAScaler(t *testing.T) {
 		wantState:     v1alpha1.RevisionServingStateActive,
 		wantReplicas:  0,
 		wantScaling:   false,
+	}, {
+		label:         "ignore negative scale",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 12,
+		scaleTo:       -1,
+		wantState:     v1alpha1.RevisionServingStateActive,
+		wantReplicas:  12,
+		wantScaling:   false,
 	}}
 
 	for _, e := range examples {
