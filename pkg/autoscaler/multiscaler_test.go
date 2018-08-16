@@ -18,114 +18,300 @@ package autoscaler_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/autoscaler"
-
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/autoscaler"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
+	testRevision    = "test-revision"
+	testNamespace   = "test-namespace"
 	testRevisionKey = "test-namespace/test-revision"
+	testKPAKey      = "test-namespace/test-revision"
 )
 
 func TestMultiScalerScaling(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	ctx := context.TODO()
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
+	defer close(stopCh)
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
+	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+
 	uniScaler.setScaleResult(1, true)
 
-	ms.OnPresent(revision, logger)
+	// Before it exists, we should get a NotFound.
+	m, err := ms.Get(ctx, kpaKey)
+	if !errors.IsNotFound(err) {
+		t.Errorf("Get() = (%v, %v), want not found error", m, err)
+	}
 
-	revisionScaler.checkScaleCall(t, 0, revision, 1)
-
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
-
-	revisionScaler.checkScaleNoLongerCalled(t)
-}
-
-func TestMultiScalerStop(t *testing.T) {
-	ms, stopChan, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
-		TickInterval: time.Millisecond * 1,
+	done := make(chan struct{})
+	defer close(done)
+	ms.Watch(func(key string) {
+		// When we return, let the main process know.
+		defer func() {
+			done <- struct{}{}
+		}()
+		if key != kpaKey {
+			t.Errorf("Watch() = %v, wanted %v", key, kpaKey)
+		}
+		m, err := ms.Get(ctx, key)
+		if err != nil {
+			t.Errorf("Get() = %v", err)
+		}
+		if got, want := m.DesiredScale, int32(1); got != want {
+			t.Errorf("Get() = %v, wanted %v", got, want)
+		}
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
-	uniScaler.setScaleResult(1, true)
+	m, err = ms.Create(ctx, kpa)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
 
-	close(stopChan)
+	// Verify that we see a "tick"
+	select {
+	case <-done:
+		// We got the signal!
+	case <-time.After(30 * time.Millisecond):
+		t.Fatalf("timed out waiting for Watch()")
+	}
 
-	ms.OnPresent(revision, logger)
+	// Verify that subsequent "ticks" don't trigger a callback, since
+	// the desired scale has not changed.
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	err = ms.Delete(ctx, kpaKey)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	// Verify that we stop seeing "ticks"
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
 }
 
-func TestMultiScalerScaleToZeroWhenEnabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+func TestMultiScalerScaleToZero(t *testing.T) {
+	ctx := context.TODO()
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
+	defer close(stopCh)
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
+	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+
 	uniScaler.setScaleResult(0, true)
 
-	ms.OnPresent(revision, logger)
+	// Before it exists, we should get a NotFound.
+	m, err := ms.Get(ctx, kpaKey)
+	if !errors.IsNotFound(err) {
+		t.Errorf("Get() = (%v, %v), want not found error", m, err)
+	}
 
-	revisionScaler.checkScaleCall(t, 0, revision, 0)
+	done := make(chan struct{})
+	defer close(done)
+	ms.Watch(func(key string) {
+		// When we return, let the main process know.
+		defer func() {
+			done <- struct{}{}
+		}()
+		if key != kpaKey {
+			t.Errorf("Watch() = %v, wanted %v", key, kpaKey)
+		}
+		m, err := ms.Get(ctx, key)
+		if err != nil {
+			t.Errorf("Get() = %v", err)
+		}
+		if got, want := m.DesiredScale, int32(0); got != want {
+			t.Errorf("Get() = %v, wanted %v", got, want)
+		}
+	})
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	m, err = ms.Create(ctx, kpa)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	// Verify that we see a "tick"
+	select {
+	case <-done:
+		// We got the signal!
+	case <-time.After(30 * time.Millisecond):
+		t.Fatalf("timed out waiting for Watch()")
+	}
+
+	err = ms.Delete(ctx, kpaKey)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
+
+	// Verify that we stop seeing "ticks"
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
 }
 
-func TestMultiScalerDoesNotScaleToZeroWhenDisabled(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+func TestMultiScalerWithoutScaleToZero(t *testing.T) {
+	ctx := context.TODO()
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: false,
 	})
+	defer close(stopCh)
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
+	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+
 	uniScaler.setScaleResult(0, true)
 
-	ms.OnPresent(revision, logger)
+	// Before it exists, we should get a NotFound.
+	m, err := ms.Get(ctx, kpaKey)
+	if !errors.IsNotFound(err) {
+		t.Errorf("Get() = (%v, %v), want not found error", m, err)
+	}
 
-	revisionScaler.checkScaleNoLongerCalled(t)
-
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
-}
-
-func TestMultiScalerIgnoresNegativeScales(t *testing.T) {
-	ms, _, revisionScaler, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
-		TickInterval: time.Millisecond * 1,
+	done := make(chan struct{})
+	defer close(done)
+	ms.Watch(func(key string) {
+		// Let the main process know when this is called.
+		done <- struct{}{}
 	})
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	m, err = ms.Create(ctx, kpa)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+
+	// Verify that we get no "ticks", because the desired scale is zero
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
+
+	err = ms.Delete(ctx, kpaKey)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
+
+	// Verify that we stop seeing "ticks"
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
+}
+
+func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
+	ctx := context.TODO()
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+		TickInterval:      time.Millisecond * 1,
+		EnableScaleToZero: true,
+	})
+	defer close(stopCh)
+
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
+	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+
 	uniScaler.setScaleResult(-1, true)
 
-	ms.OnPresent(revision, logger)
+	// Before it exists, we should get a NotFound.
+	m, err := ms.Get(ctx, kpaKey)
+	if !errors.IsNotFound(err) {
+		t.Errorf("Get() = (%v, %v), want not found error", m, err)
+	}
 
-	revisionScaler.checkScaleNoLongerCalled(t)
+	done := make(chan struct{})
+	defer close(done)
+	ms.Watch(func(key string) {
+		// Let the main process know when this is called.
+		done <- struct{}{}
+	})
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	m, err = ms.Create(ctx, kpa)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+
+	// Verify that we get no "ticks", because the desired scale is negative
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
+
+	err = ms.Delete(ctx, kpaKey)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
+
+	// Verify that we stop seeing "ticks"
+	select {
+	case <-done:
+		t.Fatalf("Got unexpected tick")
+	case <-time.After(30 * time.Millisecond):
+		// We got nothing!
+	}
 }
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
-	ms, _, _, uniScaler, logger := createMultiScaler(t, &autoscaler.Config{
+	ctx := context.TODO()
+	servingClient := fakeKna.NewSimpleClientset()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
+	defer close(stopCh)
 
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	kpa := newKPA(t, servingClient, revision)
+	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+
 	uniScaler.setScaleResult(1, true)
 
-	ms.OnPresent(revision, logger)
+	_, err := ms.Create(ctx, kpa)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
 
 	now := time.Now()
 	testStat := autoscaler.Stat{
@@ -135,34 +321,34 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 		RequestCount:              20,
 	}
 
-	ms.RecordStat(testRevisionKey, testStat)
+	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
 	testStat.RequestCount = 10
-	ms.RecordStat(testRevisionKey, testStat)
+	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
-	ms.OnAbsent(revision.Namespace, revision.Name, logger)
+	err = ms.Delete(ctx, kpaKey)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 
-	// Should not continue to record statistics after the revision has been deleted.
+	// Should not continue to record statistics after the KPA has been deleted.
 	newStat := testStat
 	newStat.RequestCount = 30
-	ms.RecordStat(testRevisionKey, newStat)
+	ms.RecordStat(testKPAKey, newStat)
 	uniScaler.checkLastStat(t, testStat)
 }
 
-func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeRevisionScaler, *fakeUniScaler, *zap.SugaredLogger) {
+func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeUniScaler) {
 	logger := TestLogger(t)
-	revisionScaler := &fakeRevisionScaler{
-		scaleChan: make(chan scaleParameterValues),
-	}
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
 	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
-		revisionScaler, stopChan, uniscaler.fakeUniScalerFactory, logger)
+		stopChan, uniscaler.fakeUniScalerFactory, logger)
 
-	return ms, stopChan, revisionScaler, uniscaler, logger
+	return ms, stopChan, uniscaler
 }
 
 type fakeUniScaler struct {
@@ -172,7 +358,7 @@ type fakeUniScaler struct {
 	lastStat autoscaler.Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*v1alpha1.Revision, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
 }
 
@@ -207,58 +393,35 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat autoscaler.Stat) {
 }
 
 type scaleParameterValues struct {
-	revision *v1alpha1.Revision
+	kpa      *kpa.PodAutoscaler
 	replicas int32
 }
 
-type fakeRevisionScaler struct {
-	scaleParameters []scaleParameterValues
-	scaleChan       chan scaleParameterValues
+func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *kpa.PodAutoscaler {
+	kpa := revisionresources.MakeKPA(revision)
+	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	if err != nil {
+		t.Fatal("Failed to create KPA.", err)
+	}
+
+	return kpa
 }
 
-func (rs *fakeRevisionScaler) Scale(rev *v1alpha1.Revision, desiredScale int32) {
-	rs.scaleChan <- scaleParameterValues{rev, desiredScale}
-}
-
-func (rs *fakeRevisionScaler) awaitScale(t *testing.T, n int) {
-	t.Helper()
-
-	for {
-		if len(rs.scaleParameters) >= n {
-			return
-		}
-		select {
-		case pv := <-rs.scaleChan:
-			rs.scaleParameters = append(rs.scaleParameters, pv)
-		case <-time.After(time.Second * 10):
-			t.Fatalf("Timed out waiting for Scale to be called at least %d times", n)
-		}
+func newRevision(t *testing.T, servingClient clientset.Interface, servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testRevision,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			ServingState:     servingState,
+			ConcurrencyModel: "Multi",
+		},
 	}
-}
-
-func (rs *fakeRevisionScaler) checkScaleCall(t *testing.T, index int, rev *v1alpha1.Revision, desiredReplicas int32) {
-	t.Helper()
-
-	rs.awaitScale(t, index+1)
-
-	actualScaleParms := rs.scaleParameters[index]
-	if actualScaleParms.revision != rev {
-		t.Fatalf("Scale was called with unexpected revision %#v instead of expected revision %#v",
-			actualScaleParms.revision, rev)
+	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	if err != nil {
+		t.Fatal("Failed to create revision.", err)
 	}
-	if actualScaleParms.replicas != desiredReplicas {
-		t.Fatalf("Scale was called with unexpected replicas %d instead of expected replicas %d",
-			actualScaleParms.replicas, desiredReplicas)
-	}
-}
 
-func (rs *fakeRevisionScaler) checkScaleNoLongerCalled(t *testing.T) {
-	t.Helper()
-
-	select {
-	case <-rs.scaleChan:
-		t.Fatal("Scale was called unexpectedly")
-	case <-time.After(time.Millisecond * 50):
-		return
-	}
+	return rev
 }

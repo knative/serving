@@ -61,7 +61,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
 	logger := logging.FromContext(ctx)
 
@@ -88,7 +87,6 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	return d, WasChanged, err
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
 func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
 	logger := logging.FromContext(ctx)
 
@@ -114,6 +112,7 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 	desiredKPA := resources.MakeKPA(rev)
 	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
 	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
+	desiredKPA.Spec.Generation = kpa.Spec.Generation
 	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
 		return kpa, Unchanged, nil
 	}
@@ -162,15 +161,6 @@ func (c *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) err
 		return err
 	}
 	return nil
-}
-
-func (c *Reconciler) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	var replicaCount int32 = 1
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
-	}
-	deployment := resources.MakeAutoscalerDeployment(rev, c.getControllerConfig().AutoscalerImage, replicaCount)
-	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
 func (c *Reconciler) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {

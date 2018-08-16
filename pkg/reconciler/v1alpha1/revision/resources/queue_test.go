@@ -18,7 +18,6 @@ package resources
 
 import (
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -264,62 +263,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_LOGGING_LEVEL",
 				Value: "error", // from logging config
-			}},
-		},
-	}, {
-		name: "autoscaler configuration options",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "what-does-the",
-				Name:      "autoscaler-do",
-				UID:       "4321",
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
-			},
-		},
-		lc: &logging.Config{},
-		ac: &autoscaler.Config{
-			ConcurrencyQuantumOfTime: 12 * time.Minute,
-		},
-		cc: &config.Controller{
-			AutoscalerImage: "ubuntu:xenial",
-		},
-		want: &corev1.Container{
-			// These are effectively constant
-			Name:           queueContainerName,
-			Resources:      queueResources,
-			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
-			ReadinessProbe: queueReadinessProbe,
-			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=12m0s", "-concurrencyModel=Multi"},
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "what-does-the", // matches namespace
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No Configuration owner.
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "autoscaler-do", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler-do-autoscaler",
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging config
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging config
 			}},
 		},
 	}}
