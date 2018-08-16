@@ -54,7 +54,8 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 		return nil
 	}
 
-	// TODO(mattmoor): Drop this once the KPA is the source of truth for ServingState.
+	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
+	// scale exclusively on metrics.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
 	owner := metav1.GetControllerOf(kpa)
 	if owner == nil || owner.Kind != revGVK.Kind ||
@@ -64,7 +65,6 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	}
 
 	// Do not scale an inactive revision.
-	// TODO(mattmoor): Switch this to the KPA when it becomes the source of truth for ServingState.
 	revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
 	rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
 	if err != nil {
@@ -103,7 +103,6 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	// Don't scale if current scale is zero. Rely on the activator to scale
 	// from zero.
 	if currentScale == 0 {
-		// TODO(mattmoor): rs.Status.MarkActivating(reason, message)
 		logger.Info("Cannot scale: Current scale is 0; activator must scale from 0.")
 		return nil
 	}
@@ -111,6 +110,8 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 
 	// When scaling to zero, flip the revision's ServingState to Reserve.
 	if desiredScale == 0 {
+		// TODO(mattmoor): Delay the scale to zero until the LTT of "Active=False"
+		// is some time in the past.
 		logger.Debug("Setting revision ServingState to Reserve.")
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		if _, err := revisionClient.Update(rev); err != nil {
