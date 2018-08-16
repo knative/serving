@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,10 +17,27 @@ limitations under the License.
 package autoscaler
 
 import (
+	"strings"
 	"testing"
 
 	"go.opencensus.io/stats/view"
 )
+
+func TestNewStatsReporterErrors(t *testing.T) {
+	// These are invalid as defined by the current OpenCensus library.
+	invalidTagValues := []string{
+		"naïve",                  // Includes non-ASCII character.
+		strings.Repeat("a", 256), // Longer than 255 characters.
+	}
+
+	for _, v := range invalidTagValues {
+		_, err := NewStatsReporter(v, v, v)
+		if err == nil {
+			t.Errorf("Expected err to not be nil for value %q, got nil", v)
+		}
+
+	}
+}
 
 func TestReporter_Report(t *testing.T) {
 	r := &Reporter{}

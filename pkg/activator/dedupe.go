@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,8 +50,10 @@ func NewDedupingActivator(a Activator) Activator {
 	}
 }
 
-func (a *dedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
-	id := revisionID{namespace: namespace, name: name}
+func (a *dedupingActivator) ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error) {
+	id := revisionID{namespace: namespace,
+		configuration: configuration,
+		name:          name}
 	ch := make(chan activationResult, 1)
 	a.dedupe(id, ch)
 	result := <-ch
@@ -86,7 +88,7 @@ func (a *dedupingActivator) dedupe(id revisionID, ch chan activationResult) {
 }
 
 func (a *dedupingActivator) activate(id revisionID) {
-	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.name)
+	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.configuration, id.name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	result := activationResult{

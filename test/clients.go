@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,8 +19,10 @@ limitations under the License.
 package test
 
 import (
+	buildversioned "github.com/knative/build/pkg/client/clientset/versioned"
+	buildtyped "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
-	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,9 +31,11 @@ import (
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
 	Kube      *kubernetes.Clientset
-	Routes    elatyped.RouteInterface
-	Configs   elatyped.ConfigurationInterface
-	Revisions elatyped.RevisionInterface
+	Routes    servingtyped.RouteInterface
+	Configs   servingtyped.ConfigurationInterface
+	Revisions servingtyped.RevisionInterface
+	Services  servingtyped.ServiceInterface
+	Builds    buildtyped.BuildInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -52,9 +57,16 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	bcs, err := buildversioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
 	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
 	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
+	clients.Services = cs.ServingV1alpha1().Services(namespace)
+	clients.Builds = bcs.BuildV1alpha1().Builds(namespace)
 
 	return clients, nil
 }

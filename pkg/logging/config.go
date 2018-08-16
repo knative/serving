@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,65 +17,45 @@ limitations under the License.
 package logging
 
 import (
-	"encoding/json"
-	"errors"
-
-	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/pkg/logging"
 )
 
+const (
+	ConfigName = "config-logging"
+)
+
+var components = []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"}
+
 // NewLogger creates a logger with the supplied configuration.
+// In addition to the logger, it returns AtomicLevel that can
+// be used to change the logging level at runtime.
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string, levelOverride string) *zap.SugaredLogger {
-	logger, err := newLoggerFromConfig(configJSON, levelOverride)
-	if err == nil {
-		return logger.Sugar()
-	}
-
-	logger, err2 := zap.NewProduction()
-	if err2 != nil {
-		panic(err2)
-	}
-
-	logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
-	return logger.Sugar()
+func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap.AtomicLevel) {
+	return logging.NewLogger(configJSON, levelOverride)
 }
 
-// NewLoggerFromDefaultConfigMap creates a logger using the configuration within /etc/config-logging file.
-func NewLoggerFromDefaultConfigMap(logLevelKey string) *zap.SugaredLogger {
-	loggingFlagSet := k8sflag.NewFlagSet("/etc/config-logging")
-	zapCfg := loggingFlagSet.String("zap-logger-config", "")
-	zapLevelOverride := loggingFlagSet.String(logLevelKey, "")
-	return NewLogger(zapCfg.Get(), zapLevelOverride.Get())
+// NewLoggerFromConfig creates a logger using the provided Config
+func NewLoggerFromConfig(config *logging.Config, name string) (*zap.SugaredLogger, zap.AtomicLevel) {
+	return logging.NewLoggerFromConfig(config, name)
 }
 
-func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, error) {
-	if len(configJSON) == 0 {
-		return nil, errors.New("empty logging configuration")
-	}
+// NewConfigFromMap creates a LoggingConfig from the supplied map
+func NewConfigFromMap(data map[string]string) (*logging.Config, error) {
+	return logging.NewConfigFromMap(data, components...)
+}
 
-	var loggingCfg zap.Config
-	if err := json.Unmarshal([]byte(configJSON), &loggingCfg); err != nil {
-		return nil, err
-	}
+// NewConfigFromConfigMap creates a LoggingConfig from the supplied ConfigMap
+func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*logging.Config, error) {
+	return logging.NewConfigFromConfigMap(configMap, components...)
+}
 
-	if len(levelOverride) > 0 {
-		var level zapcore.Level
-		if err := level.Set(levelOverride); err == nil {
-			loggingCfg.Level = zap.NewAtomicLevelAt(level)
-		}
-	}
-
-	logger, err := loggingCfg.Build()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
-	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
-	return logger, nil
+// UpdateLevelFromConfigMap returns a helper func that can be used to update the logging level
+// when a config map is updated
+func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, levelKey string) func(configMap *corev1.ConfigMap) {
+	return logging.UpdateLevelFromConfigMap(logger, atomicLevel, levelKey, components...)
 }

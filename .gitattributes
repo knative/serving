@@ -8,4 +8,4 @@
 # coverage-excluded is an attribute used to explicitly exclude a path from being included in code
 # coverage. If a path is marked as linguist-generated already, it will be implicitly excluded and
 # there is no need to add the coverage-excluded attribute
-/pkg/controller/testing/** coverage-excluded=true
+/pkg/**/testing/** coverage-excluded=true

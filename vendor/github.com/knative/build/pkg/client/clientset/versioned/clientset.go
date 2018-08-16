@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google, Inc. All rights reserved.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ limitations under the License.
 package versioned
 
 import (
-	glog "github.com/golang/glog"
 	buildv1alpha1 "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -71,7 +70,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
-		glog.Errorf("failed to create the DiscoveryClient: %v", err)
 		return nil, err
 	}
 	return &cs, nil

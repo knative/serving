@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-autoscaler
-  namespace: knative-serving-system
+  namespace: knative-serving
 data:
   # Static parameters:
 
@@ -52,6 +52,18 @@ data:
   # Scale to zero feature flag
   enable-scale-to-zero: "true"
 
+  # Experimental: enable vertical pod autoscaling.
+  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
+  enable-vertical-pod-autoscaling: "false"
+  #
+  # This will be the multi-concurrency-target when
+  # enable-vertical-pod-autoscaling is true. And it will be the new
+  # default when the experiment is launched and removed.
+  vpa-multi-concurrency-target: "10.0"
+
+  # Tick interval is the time between autoscaling calculations.
+  tick-interval: "2s"
+  
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before

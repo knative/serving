@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -32,14 +33,15 @@ import (
 	"syscall"
 	"time"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
 	"go.uber.org/zap"
 
@@ -67,17 +69,18 @@ const (
 )
 
 var (
-	podName           string
-	elaNamespace      string
-	elaConfiguration  string
-	elaRevision       string
-	elaAutoscaler     string
-	elaAutoscalerPort string
-	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
-	kubeClient        *kubernetes.Clientset
-	statSink          *websocket.Conn
-	logger            *zap.SugaredLogger
+	podName               string
+	servingNamespace      string
+	servingConfiguration  string
+	servingRevision       string
+	servingRevisionKey    string
+	servingAutoscaler     string
+	servingAutoscalerPort string
+	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
+	kubeClient            *kubernetes.Clientset
+	statSink              *websocket.Conn
+	logger                *zap.SugaredLogger
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
@@ -88,23 +91,23 @@ var (
 )
 
 func initEnv() {
-	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
-	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
-	elaConfiguration = util.GetRequiredEnvOrFatal("ELA_CONFIGURATION", logger)
-	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
-	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
-	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
+	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
+	servingConfiguration = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
+	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
+	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
+	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+
+	// TODO(mattmoor): Move this key to be in terms of the KPA.
+	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
 }
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
+		servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		// Everything is coming up at the same time.  We wait a
-		// second first to let the autoscaler start serving.  And
-		// we wait 1 second between attempts to connect so we
-		// don't overwhelm the autoscaler.
+		// TODO: use exponential backoff here
 		time.Sleep(time.Second)
 
 		dialer := &websocket.Dialer{
@@ -116,6 +119,16 @@ func connectStatSink() {
 		} else {
 			logger.Info("Connected to stat sink.")
 			statSink = conn
+			waitForClose(conn)
+		}
+	}
+}
+
+func waitForClose(c *websocket.Conn) {
+	for {
+		if _, _, err := c.NextReader(); err != nil {
+			logger.Error("Error reading from websocket", zap.Error(err))
+			c.Close()
 			return
 		}
 	}
@@ -128,19 +141,20 @@ func statReporter() {
 			logger.Error("Stat sink not connected.")
 			continue
 		}
+		sm := autoscaler.StatMessage{
+			Stat: *s,
+			Key:  servingRevisionKey,
+		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
-		err := enc.Encode(s)
+		err := enc.Encode(sm)
 		if err != nil {
 			logger.Error("Failed to encode data from stats channel", zap.Error(err))
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			logger.Error("Failed to write to stat sink. Attempting to reconnect to stat sink.", zap.Error(err))
-			statSink = nil
-			go connectStatSink()
-			continue
+			logger.Error("Failed to write to stat sink.", zap.Error(err))
 		}
 	}
 }
@@ -254,15 +268,16 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("queueproxy")
+	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
+	logger = logger.Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()
 	logger = logger.With(
-		zap.String(logkey.Namespace, elaNamespace),
-		zap.String(logkey.Configuration, elaConfiguration),
-		zap.String(logkey.Revision, elaRevision),
-		zap.String(logkey.Pod, podName))
+		zap.String(commonlogkey.Namespace, servingNamespace),
+		zap.String(logkey.Configuration, servingConfiguration),
+		zap.String(logkey.Revision, servingRevision),
+		zap.String(commonlogkey.Pod, podName))
 
 	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
@@ -271,7 +286,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2cutil.NewTransport()
+	h2cProxy.Transport = h2cutil.DefaultTransport
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()

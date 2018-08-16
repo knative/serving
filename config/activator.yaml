@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: activator
-  namespace: knative-serving-system
+  namespace: knative-serving
 spec:
   # TODO: Increase the replicas
   # https://github.com/knative/serving/issues/695
@@ -36,12 +36,13 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/activator
         ports:
-        - name: http
+        - name: activator-port
           containerPort: 8080
         args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-
+          # Disable glog writing into stderr. Our code doesn't use glog
+          # and seeing k8s logs in addition to ours is not useful.
+        - "-logtostderr=false"
+        - "-stderrthreshold=FATAL"
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging

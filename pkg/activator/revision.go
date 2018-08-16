@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import (
 	"net/http"
 	"time"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging/logkey"
+	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -36,17 +37,19 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
+	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, logger *zap.SugaredLogger) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
-		knaClient:   elaClient,
+		knaClient:   servingClient,
 		logger:      logger,
+		reporter:    reporter,
 	}
 }
 
@@ -54,12 +57,14 @@ func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
+func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, activationError error) {
 	logger := loggerWithRevisionInfo(r.logger, namespace, name)
-	rev := revisionID{namespace: namespace, name: name}
+	rev := revisionID{namespace: namespace,
+		configuration: configuration,
+		name:          name}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
-		logger.Infof(msg, args...)
+		logger.Errorf(msg, args...)
 		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(fmt.Sprintf("%s for namespace: %s, revision name: %s ", msg, namespace, name), args...)
 	}
 
@@ -69,6 +74,8 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	if err != nil {
 		return internalError("Unable to get revision: %v", err)
 	}
+
+	r.reporter.ReportRequest(namespace, configuration, name, string(revision.Spec.ServingState), 1.0)
 	switch revision.Spec.ServingState {
 	default:
 		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
@@ -118,7 +125,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
-	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
+	serviceName := revisionresourcenames.K8sService(revision)
 	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get service %s for revision: %v",
@@ -126,7 +133,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// TODO: in the future, the target service could have more than one port.
-	// https://github.com/elafros/elafros/issues/837
+	// https://github.com/knative/serving/issues/837
 	if len(svc.Spec.Ports) != 1 {
 		return internalError("Revision needs one port. Found %v", len(svc.Spec.Ports))
 	}
@@ -143,5 +150,5 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
 func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
 }

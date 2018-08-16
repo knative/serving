@@ -1,9 +1,12 @@
 /*
-Copyright 2018 Google LLC. All rights reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,104 +39,79 @@ func TestConfigurationIsReady(t *testing.T) {
 		name    string
 		status  ConfigurationStatus
 		isReady bool
-	}{
-		{
-			name:    "empty status should not be ready",
-			status:  ConfigurationStatus{},
-			isReady: false,
+	}{{
+		name:    "empty status should not be ready",
+		status:  ConfigurationStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Different condition type should not be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "False condition status should not be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
 		},
-		{
-			name: "Unknown condition status should not be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type: ConfigurationConditionReady,
+			}},
 		},
-		{
-			name: "Missing condition status should not be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type: ConfigurationConditionReady,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "True condition status should be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status should be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status false should not be ready",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
-	}
+		isReady: false,
+	}}
 
 	for _, tc := range cases {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
@@ -160,13 +138,6 @@ func TestConfigurationConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove a non-existent condition.
-	config.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(config.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
 	// Add a second condition.
 	config.Status.setCondition(bar)
 
@@ -174,17 +145,10 @@ func TestConfigurationConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove an existing condition.
-	config.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(config.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
 	// Add nil condition.
 	config.Status.setCondition(nil)
 
-	if got, want := len(config.Status.Conditions), 1; got != want {
+	if got, want := len(config.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
@@ -194,61 +158,48 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 		name           string
 		status         ConfigurationStatus
 		isUpdateToDate bool
-	}{
-		{
-			name: "Not ready status should not be up-to-date",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isUpdateToDate: false,
+	}{{
+		name: "Not ready status should not be up-to-date",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "Missing LatestReadyRevisionName should not be up-to-date",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-				LatestCreatedRevisionName: "rev-1",
-			},
-			isUpdateToDate: false,
+		isUpdateToDate: false,
+	}, {
+		name: "Missing LatestReadyRevisionName should not be up-to-date",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+			LatestCreatedRevisionName: "rev-1",
 		},
-		{
-			name: "Different revision names should not be up-to-date",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-				LatestCreatedRevisionName: "rev-2",
-				LatestReadyRevisionName:   "rev-1",
-			},
-			isUpdateToDate: false,
+		isUpdateToDate: false,
+	}, {
+		name: "Different revision names should not be up-to-date",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+			LatestCreatedRevisionName: "rev-2",
+			LatestReadyRevisionName:   "rev-1",
 		},
-		{
-			name: "Same revision names and ready status should be up-to-date",
-			status: ConfigurationStatus{
-				Conditions: []ConfigurationCondition{
-					{
-						Type:   ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-				LatestCreatedRevisionName: "rev-1",
-				LatestReadyRevisionName:   "rev-1",
-			},
-			isUpdateToDate: true,
+		isUpdateToDate: false,
+	}, {
+		name: "Same revision names and ready status should be up-to-date",
+		status: ConfigurationStatus{
+			Conditions: []ConfigurationCondition{{
+				Type:   ConfigurationConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+			LatestCreatedRevisionName: "rev-1",
+			LatestReadyRevisionName:   "rev-1",
 		},
-	}
+		isUpdateToDate: true,
+	}}
 
 	for _, tc := range cases {
 		if e, a := tc.isUpdateToDate, tc.status.IsLatestReadyRevisionNameUpToDate(); e != a {
@@ -260,88 +211,94 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 func TestTypicalFlow(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
 	// e.g. on a subsequent reconciliation.
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func TestFailingFirstRevisionWithRecovery(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	want := "the message"
 	r.Status.MarkLatestCreatedFailed("foo", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
-	}
 	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
 
-	// When a new revision comes along the LatestRevisionReady condition becomes Unknown,
-	// but Ready is still false (we've never seen a Ready Revision).
+	// When a new revision comes along the Ready condition becomes Unknown.
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	// When the new revision becomes ready, then Ready becomes true as well.
 	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func TestFailingSecondRevision(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
-	// When the second revision fails, the Configuration remains "Ready" because there is a
-	// revision suitable for serving traffic.
+	// When the second revision fails, the Configuration becomes Failed.
 	want := "the message"
 	r.Status.MarkLatestCreatedFailed("bar", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
+}
+
+func TestLatestRevisionDeletedThenFixed(t *testing.T) {
+	r := &Configuration{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	// When the latest revision is deleted, the Configuration became Failed.
+	want := "was deleted"
+	r.Status.MarkLatestReadyDeleted()
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", c.Message, want)
+	}
+
+	// But creating new revision 'bar' and making it Ready will fix things.
+	r.Status.SetLatestCreatedRevisionName("bar")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("bar")
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 

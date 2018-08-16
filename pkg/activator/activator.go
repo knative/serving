@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,19 +15,26 @@ limitations under the License.
 */
 package activator
 
+const (
+	// The name of the activator service.
+	K8sServiceName          = "activator-service"
+	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
+)
+
 // Status is an HTTP status code.
 type Status int
 
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
-	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
+	ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error)
 	Shutdown()
 }
 
 type revisionID struct {
-	namespace string
-	name      string
+	namespace     string
+	configuration string
+	name          string
 }
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.

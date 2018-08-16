@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ func (c *FakeConfigurations) List(opts v1.ListOptions) (result *v1alpha1.Configu
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.ConfigurationList{}
+	list := &v1alpha1.ConfigurationList{ListMeta: obj.(*v1alpha1.ConfigurationList).ListMeta}
 	for _, item := range obj.(*v1alpha1.ConfigurationList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

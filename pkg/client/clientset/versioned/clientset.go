@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@ limitations under the License.
 package versioned
 
 import (
-	glog "github.com/golang/glog"
-	configv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -26,9 +25,9 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ConfigV1alpha2() configv1alpha2.ConfigV1alpha2Interface
+	AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
-	Config() configv1alpha2.ConfigV1alpha2Interface
+	Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface
 	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Serving() servingv1alpha1.ServingV1alpha1Interface
@@ -38,19 +37,19 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	configV1alpha2  *configv1alpha2.ConfigV1alpha2Client
-	servingV1alpha1 *servingv1alpha1.ServingV1alpha1Client
+	autoscalingV1alpha1 *autoscalingv1alpha1.AutoscalingV1alpha1Client
+	servingV1alpha1     *servingv1alpha1.ServingV1alpha1Client
 }
 
-// ConfigV1alpha2 retrieves the ConfigV1alpha2Client
-func (c *Clientset) ConfigV1alpha2() configv1alpha2.ConfigV1alpha2Interface {
-	return c.configV1alpha2
+// AutoscalingV1alpha1 retrieves the AutoscalingV1alpha1Client
+func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
+	return c.autoscalingV1alpha1
 }
 
-// Deprecated: Config retrieves the default version of ConfigClient.
+// Deprecated: Autoscaling retrieves the default version of AutoscalingClient.
 // Please explicitly pick a version.
-func (c *Clientset) Config() configv1alpha2.ConfigV1alpha2Interface {
-	return c.configV1alpha2
+func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
+	return c.autoscalingV1alpha1
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
@@ -80,7 +79,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.configV1alpha2, err = configv1alpha2.NewForConfig(&configShallowCopy)
+	cs.autoscalingV1alpha1, err = autoscalingv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +90,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
-		glog.Errorf("failed to create the DiscoveryClient: %v", err)
 		return nil, err
 	}
 	return &cs, nil
@@ -101,7 +99,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.configV1alpha2 = configv1alpha2.NewForConfigOrDie(c)
+	cs.autoscalingV1alpha1 = autoscalingv1alpha1.NewForConfigOrDie(c)
 	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -111,7 +109,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.configV1alpha2 = configv1alpha2.New(c)
+	cs.autoscalingV1alpha1 = autoscalingv1alpha1.New(c)
 	cs.servingV1alpha1 = servingv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

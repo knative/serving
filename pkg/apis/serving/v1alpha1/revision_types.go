@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,18 +19,24 @@ package v1alpha1
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Revision is an immutable snapshot of code and configuration.
+// Revision is an immutable snapshot of code and configuration.  A revision
+// references a container image, and optionally a build that is responsible for
+// materializing that container image from source. Revisions are created by
+// updates to a Configuration.
+//
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
@@ -45,6 +51,11 @@ type Revision struct {
 	// +optional
 	Status RevisionStatus `json:"status,omitempty"`
 }
+
+// Check that Revision can be validated, can be defaulted, and has immutable fields.
+var _ apis.Validatable = (*Revision)(nil)
+var _ apis.Defaultable = (*Revision)(nil)
+var _ apis.Immutable = (*Revision)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
@@ -157,7 +168,7 @@ const (
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady RevisionConditionType = "Ready"
 	// RevisionConditionBuildComplete is set when the revision has an associated build
-	// and is marked True if/once the Build has completed succesfully.
+	// and is marked True if/once the Build has completed successfully.
 	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
@@ -174,7 +185,9 @@ type RevisionCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+	// differences (all other things held constant).
+	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -241,6 +254,18 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
+func (rs *RevisionStatus) IsActivationRequired() bool {
+	if c := rs.GetCondition(RevisionConditionReady); c != nil {
+		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
+			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
+	}
+	return false
+}
+
+func (rs *RevisionStatus) IsRoutable() bool {
+	return rs.IsReady() || rs.IsActivationRequired()
+}
+
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -268,18 +293,9 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	rs.Conditions = conditions
-}
-
-func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	var conditions []RevisionCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	rs.Conditions = conditions
 }
 
@@ -309,41 +325,25 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 	}
 }
 
-func (rs *RevisionStatus) MarkBuilding() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionBuildSucceeded,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:   cond,
-			Status: corev1.ConditionUnknown,
-			Reason: "Building",
-		})
+func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
+	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+	if bc == nil {
+		return
 	}
-}
-
-func (rs *RevisionStatus) MarkBuildSucceeded() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
-	})
-	// Clear "Reason: Building".  There is a risk this could reset a "Ready: False" state,
-	// but not as things exist today.
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionUnknown,
-	})
-}
-
-func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionBuildSucceeded,
-		RevisionConditionReady,
-	} {
+	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
+	// If the underlying Build is not ready, then mark the Revision not ready.
+	if bc.Status != corev1.ConditionTrue {
+		rct = append(rct, RevisionConditionReady)
+	}
+	reason := "Building"
+	if bc.Status != corev1.ConditionUnknown {
+		reason = bc.Reason
+	}
+	for _, cond := range rct {
 		rs.setCondition(&RevisionCondition{
 			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  bc.Reason,
+			Status:  bc.Status,
+			Reason:  reason,
 			Message: bc.Message,
 		})
 	}
@@ -407,11 +407,12 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RevisionStatus) MarkInactive() {
+func (rs *RevisionStatus) MarkInactive(message string) {
 	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Inactive",
+		Type:    RevisionConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "Inactive",
+		Message: message,
 	})
 }
 

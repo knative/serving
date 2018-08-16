@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving-system
+  namespace: knative-serving
 data:
   # Specifies the IP ranges that Istio sidecar will intercept.
   # Replace this with the IP ranges of your cluster (see below for some examples).
@@ -32,7 +32,7 @@ data:
   # provided at Istio deployment time is used. In default Knative serving
   # deployment, global.proxy.includeIPRanges value is set to "*".
   # 
-  # If an invalid value is used, "" is used.
+  # If an invalid value is passed, "" is used instead.
   # 
   # If valid set of IP address ranges are put into this value,
   # Istio will no longer intercept traffic going to IP addresses

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package fake
 
 import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	configv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
-	fakeconfigv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
+	fakeautoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1/fake"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	fakeservingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,9 +40,10 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		}
 	}
 
-	fakePtr := testing.Fake{}
-	fakePtr.AddReactor("*", "*", testing.ObjectReaction(o))
-	fakePtr.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
+	cs := &Clientset{}
+	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
+	cs.AddReactor("*", "*", testing.ObjectReaction(o))
+	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
 		watch, err := o.Watch(gvr, ns)
@@ -52,7 +53,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		return true, watch, nil
 	})
 
-	return &Clientset{fakePtr, &fakediscovery.FakeDiscovery{Fake: &fakePtr}}
+	return cs
 }
 
 // Clientset implements clientset.Interface. Meant to be embedded into a
@@ -69,14 +70,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// ConfigV1alpha2 retrieves the ConfigV1alpha2Client
-func (c *Clientset) ConfigV1alpha2() configv1alpha2.ConfigV1alpha2Interface {
-	return &fakeconfigv1alpha2.FakeConfigV1alpha2{Fake: &c.Fake}
+// AutoscalingV1alpha1 retrieves the AutoscalingV1alpha1Client
+func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
+	return &fakeautoscalingv1alpha1.FakeAutoscalingV1alpha1{Fake: &c.Fake}
 }
 
-// Config retrieves the ConfigV1alpha2Client
-func (c *Clientset) Config() configv1alpha2.ConfigV1alpha2Interface {
-	return &fakeconfigv1alpha2.FakeConfigV1alpha2{Fake: &c.Fake}
+// Autoscaling retrieves the AutoscalingV1alpha1Client
+func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
+	return &fakeautoscalingv1alpha1.FakeAutoscalingV1alpha1{Fake: &c.Fake}
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client

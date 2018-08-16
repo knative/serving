@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -50,6 +53,10 @@ type Configuration struct {
 	// +optional
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
+
+// Check that Configuration may be validated and defaulted.
+var _ apis.Validatable = (*Configuration)(nil)
+var _ apis.Defaultable = (*Configuration)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
@@ -78,12 +85,9 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// ConfigurationConditionReady is set when the configuration is starting to materialize
-	// runtime resources, and becomes true when those resources are ready.
+	// ConfigurationConditionReady is set when the configuration's latest
+	// underlying revision has reported readiness.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
-	// ConfigurationConditionLatestRevisionReady is set to indicate the status of the latest
-	// revision of the configuration when it has not become ready yet
-	ConfigurationConditionLatestRevisionReady ConfigurationConditionType = "LatestRevisionReady"
 )
 
 // ConfigurationCondition defines a readiness condition for a Configuration.
@@ -94,7 +98,9 @@ type ConfigurationCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+	// differences (all other things held constant).
+	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -180,7 +186,6 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	if new == nil {
 		return
 	}
-
 	t := new.Type
 	var conditions []ConfigurationCondition
 	for _, cond := range cs.Conditions {
@@ -194,24 +199,14 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	cs.Conditions = conditions
-}
-
-func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
-	var conditions []ConfigurationCondition
-	for _, cond := range cs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	cs.Conditions = conditions
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
 	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady,
 		ConfigurationConditionReady,
 	} {
 		if rc := cs.GetCondition(cond); rc == nil {
@@ -227,7 +222,7 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
 		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionLatestRevisionReady,
+			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionUnknown,
 		})
 	}
@@ -236,7 +231,6 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
 	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady,
 		ConfigurationConditionReady,
 	} {
 		cs.setCondition(&ConfigurationCondition{
@@ -247,7 +241,7 @@ func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cct := []ConfigurationConditionType{ConfigurationConditionLatestRevisionReady}
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
 	if cs.LatestReadyRevisionName == "" {
 		cct = append(cct, ConfigurationConditionReady)
 	}
@@ -256,7 +250,29 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
 		})
 	}
+}
+
+func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
+	cs.setCondition(&ConfigurationCondition{
+		Type:    ConfigurationConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionFailed",
+		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
+	})
+}
+
+func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
+	for _, cond := range cct {
+		cs.setCondition(&ConfigurationCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "RevisionDeleted",
+			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
+		})
+	}
+	cs.LatestReadyRevisionName = ""
 }

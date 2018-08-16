@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: controller
-  namespace: knative-serving-system
+  namespace: knative-serving
 spec:
   replicas: 1
   template:
@@ -32,32 +32,13 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/controller
-        args:
-        - "-queueSidecarImage"
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        - github.com/knative/serving/cmd/queue
-        - "-autoscalerImage"
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        - github.com/knative/serving/cmd/autoscaler
         ports:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: config-autoscaler
-          mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
-        - name: config-observability
-          mountPath: /etc/config-observability
       volumes:
-        - name: config-autoscaler
-          configMap:
-            name: config-autoscaler
         - name: config-logging
           configMap:
             name: config-logging
-        - name: config-observability
-          configMap:
-            name: config-observability

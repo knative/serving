@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,17 +17,20 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
-	"net/http"
+	"log"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/pkg/configmap"
 
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
-	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/reconciler"
 
+	"github.com/knative/serving/pkg/system"
+
+	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -37,74 +40,40 @@ import (
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
+	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller/configuration"
-	"github.com/knative/serving/pkg/controller/revision"
-	"github.com/knative/serving/pkg/controller/route"
-	"github.com/knative/serving/pkg/controller/service"
-	"github.com/knative/serving/pkg/signals"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 )
 
 const (
 	threadsPerController = 2
-	metricsScrapeAddr    = ":9090"
-	metricsScrapePath    = "/metrics"
+	logLevelKey          = "controller"
 )
 
 var (
-	masterURL         string
-	kubeconfig        string
-	queueSidecarImage string
-	autoscalerImage   string
-
-	autoscaleFlagSet                  = k8sflag.NewFlagSet("/etc/config-autoscaler")
-	autoscaleConcurrencyQuantumOfTime = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
-	autoscaleEnableScaleToZero        = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
-	autoscaleEnableSingleConcurrency  = autoscaleFlagSet.Bool("enable-single-concurrency", false)
-
-	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
-	loggingEnableVarLogCollection    = observabilityFlagSet.Bool("logging.enable-var-log-collection", false)
-	loggingFluentSidecarImage        = observabilityFlagSet.String("logging.fluentd-sidecar-image", "")
-	loggingFluentSidecarOutputConfig = observabilityFlagSet.String("logging.fluentd-sidecar-output-config", "")
-	loggingURLTemplate               = observabilityFlagSet.String("logging.revision-url-template", "")
-
-	loggingFlagSet         = k8sflag.NewFlagSet("/etc/config-logging")
-	zapConfig              = loggingFlagSet.String("zap-logger-config", "")
-	queueProxyLoggingLevel = loggingFlagSet.String("loglevel.queueproxy", "")
+	masterURL  string
+	kubeconfig string
 )
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
 	defer logger.Sync()
 
-	if loggingEnableVarLogCollection.Get() {
-		if len(loggingFluentSidecarImage.Get()) != 0 {
-			logger.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
-		} else {
-			logger.Fatal("missing required flag: -fluentdSidecarImage")
-		}
-		logger.Infof("Using fluentd sidecar output config: %s", loggingFluentSidecarOutputConfig)
-	}
-
-	if loggingURLTemplate.Get() != "" {
-		logger.Infof("Using logging url template: %s", loggingURLTemplate)
-	}
-
-	if len(queueSidecarImage) != 0 {
-		logger.Infof("Using queue sidecar image: %s", queueSidecarImage)
-	} else {
-		logger.Fatal("missing required flag: -queueSidecarImage")
-	}
-
-	if len(autoscalerImage) != 0 {
-		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-	} else {
-		logger.Fatal("missing required flag: -autoscalerImage")
-	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
@@ -118,69 +87,106 @@ func main() {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
-	elaClient, err := clientset.NewForConfig(cfg)
+	sharedClient, err := sharedclientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatalf("Error building shared clientset: %v", err)
+	}
+
+	servingClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
 	buildClient, err := buildclientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
-
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
-	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
-	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
-		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
-
-	revControllerConfig := revision.ControllerConfig{
-		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
-		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
-		AutoscalerImage:                   autoscalerImage,
-		QueueSidecarImage:                 queueSidecarImage,
-
-		EnableVarLogCollection:     loggingEnableVarLogCollection.Get(),
-		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
-		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
-		LoggingURLTemplate:         loggingURLTemplate.Get(),
-
-		QueueProxyLoggingConfig: zapConfig.Get(),
-		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
+	vpaClient, err := vpa.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building VPA clientset: %v", err)
 	}
 
-	opt := controller.Options{
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
+	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
+	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
+		time.Minute*5, system.Namespace, nil)
+	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
+
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+
+	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
-		ServingClientSet: elaClient,
+		SharedClientSet:  sharedClient,
+		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
+		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}
 
-	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
-	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
-	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
+	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
+	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
+	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
+	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
+	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
+	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []controller.Interface{
-		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
-		revision.NewController(opt, revisionInformer, buildInformer, configMapInformer,
-			deploymentInformer, endpointsInformer, cfg, &revControllerConfig),
-		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
-			configMapInformer, cfg, autoscaleEnableScaleToZero),
-		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
+	controllers := []*controller.Impl{
+		configuration.NewController(
+			opt,
+			configurationInformer,
+			revisionInformer,
+		),
+		revision.NewController(
+			opt,
+			vpaClient,
+			revisionInformer,
+			kpaInformer,
+			buildInformer,
+			deploymentInformer,
+			coreServiceInformer,
+			endpointsInformer,
+			configMapInformer,
+			vpaInformer,
+		),
+		route.NewController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			revisionInformer,
+			coreServiceInformer,
+			virtualServiceInformer,
+		),
+		service.NewController(
+			opt,
+			serviceInformer,
+			configurationInformer,
+			routeInformer,
+		),
 	}
 
-	go kubeInformerFactory.Start(stopCh)
-	go elaInformerFactory.Start(stopCh)
-	go buildInformerFactory.Start(stopCh)
-	go servingSystemInformerFactory.Start(stopCh)
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+
+	// These are non-blocking.
+	kubeInformerFactory.Start(stopCh)
+	sharedInformerFactory.Start(stopCh)
+	servingInformerFactory.Start(stopCh)
+	buildInformerFactory.Start(stopCh)
+	servingSystemInformerFactory.Start(stopCh)
+	vpaInformerFactory.Start(stopCh)
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
+	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
@@ -189,11 +195,13 @@ func main() {
 		routeInformer.Informer().HasSynced,
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
+		kpaInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
-		configMapInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
+		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
-		ingressInformer.Informer().HasSynced,
+		configMapInformer.Informer().HasSynced,
+		virtualServiceInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)
@@ -202,7 +210,7 @@ func main() {
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {
-		go func(ctrlr controller.Interface) {
+		go func(ctrlr *controller.Impl) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
@@ -211,36 +219,10 @@ func main() {
 		}(ctrlr)
 	}
 
-	// Setup the metrics to flow to Prometheus.
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "knative"})
-	if err != nil {
-		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(10 * time.Second)
-
-	// Start the endpoint that Prometheus scraper talks to
-	srv := &http.Server{Addr: metricsScrapeAddr}
-	http.Handle(metricsScrapePath, promExporter)
-	go func() {
-		logger.Infof("Starting metrics listener at %s", metricsScrapeAddr)
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
-		}
-	}()
-
 	<-stopCh
-
-	// Close the http server gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	srv.Shutdown(ctx)
 }
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
-	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }

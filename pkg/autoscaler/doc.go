@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -30,5 +31,9 @@ concurrency reaches 2x the target stable concurrency. Panic mode will
 last at least 60 seconds--longer if the 2x threshold is repeatedly
 breached. During panic mode the number of pods is never decreased in
 order to prevent flapping.
+
+Package autoscaler supports both single-tenant (one autoscaler per
+revision) and multitenant (one autoscaler for all revisions) autoscalers;
+config/controller.yaml determines which kind of autoscaler is used.
 */
 package autoscaler

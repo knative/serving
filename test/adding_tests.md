@@ -24,7 +24,8 @@ you can use in your tests.
 You can:
 
 * [Use common test flags](#use-common-test-flags)
-* [Output log](#output-log)
+* [Output logs](#output-logs)
+* [Emit metrics](#emit-metrics)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
 * [Check Knative Serving resources](#check-knative-serving-resources)
@@ -46,12 +47,72 @@ imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 
 _See [e2e_flags.go](./e2e_flags.go)._
 
-### Output log
+### Output logs
 
-Log output should be provided exclusively using [the glog library](https://godoc.org/github.com/golang/glog).
-Package "github.com/knative/serving/test" contains a `Verbose` function to be used for all verbose logging.
-Internally, it defines `glog.Level` 10 as log level. _See [e2e_flags.go](./e2e_flags.go)._
-Also _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `test.Verbose()` call.
+[When tests are run with `--logverbose`
+option](README.md#output-verbose-logs), debug logs will be emitted to stdout.
+
+We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
+Tests should initialize the global logger to use a test specifc context with `test.GetContextLogger`:
+
+```go
+// The convention is for the name of the logger to match the name of the test.
+test.GetContextLogger("TestHelloWorld")
+```
+
+Logs can then be emitted using the `logger` object which is required by
+many functions in the test library. To emit logs:
+
+```go
+logger.Infof("Creating a new Route %s and Configuration %s", route, configuration)
+logger.Debugf("The LogURL is %s, not yet verifying", logURL)
+```
+
+_See [logging.go](./logging.go)._
+
+### Emit metrics
+
+You can emit metrics from your tests using [the opencensus
+library](https://github.com/census-instrumentation/opencensus-go), which [is being
+used inside Knative as well](/docs/telemetry.md). These metrics will be emitted by
+the test if the test is run with [the `--emitmetrics` option](README.md#emit-metrics).
+
+You can record arbitrary metrics with
+[`stats.Record`](https://github.com/census-instrumentation/opencensus-go#stats) or
+measure latency with [`trace.StartSpan`](https://github.com/census-instrumentation/opencensus-go#traces):
+
+```go
+ctx, span := trace.StartSpan(context.Background(), "MyMetric")
+```
+
+* These traces will be emitted automatically by [the generic crd polling
+  functions](#check-knative-serving-resources).
+* The traces are emitted by [a custom metric exporter](./logging.go)
+  that uses the global logger instance.
+
+#### Metric format
+
+When a `trace` metric is emitted, the format is `metric name startTime endTime duration`. The name
+of the metric is arbitrary and can be any string. The values are:
+
+* "metric" - Indicates this log is a metric
+* name - Arbitrary string indentifying the metric. TODO(#1379) determine metric format
+* startTime - Unix time in nanoseconds when measurement started
+* endTime - Unix time in nanoseconds when measurement ended
+* duration - The difference in ms between the startTime and endTime
+
+For example:
+
+```bash
+metric WaitForConfigurationState/prodxiparjxt/ConfigurationUpdatedWithRevision 1529980772357637397 1529980772431586609 73.949212ms
+```
+
+_The [`Wait` methods](#check-knative-serving-resources) (which poll resources) will
+prefix the metric names with the name of the function, and if applicable, the name of the resource,
+separated by `/`. In the example above, `WaitForConfigurationState` is the name of
+the function, and `prodxiparjxt` is the name of the configuration resource being polled.
+`ConfigurationUpdatedWithRevision` is the string passed to `WaitForConfigurationState` by
+the caller to identify what state is being polled for._
 
 ### Get access to client objects
 
@@ -101,9 +162,13 @@ ready to serve requests right away. To poll a deployed endpoint and wait for it 
 in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
-err = test.WaitForEndpointState(clients.Kube, resolvableDomain, updatedRoute.Status.Domain, namespaceName, routeName, func(body string) (bool, error) {
-    return body == expectedText, nil
-})
+err = test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		test.ServingFlags.ResolvableDomain,
+		updatedRoute.Status.Domain,
+		test.EventuallyMatchesBody(expectedText),
+		"SomeDescription")
 if err != nil {
     t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
 }
@@ -113,6 +178,24 @@ This function makes use of [the environment flag `resolvableDomain`](#use-flags)
 should be used or the domain should be used directly.
 
 _See [request.go](./request.go)._
+
+If you need more low-level access to the http request or response against a deployed
+service, you can directly use the `SpoofingClient` that `WaitForEndpointState` wraps.
+
+
+```go
+// Error handling elided for brevity, but you know better.
+client, err := spoof.New(clients.Kube, logger, route.Status.Domain, test.Flags.ResolvableDomain)
+req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", route.Status.Domain), nil)
+
+// Single request.
+resp, err := client.Do(req)
+
+// Polling until we meet some condition.
+resp, err := client.Poll(req, test.BodyMatches(expectedText))
+```
+
+_See [spoof.go](./spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
@@ -138,8 +221,10 @@ err := test.WaitForConfigurationState(clients.Configs, configName, func(c *v1alp
         return true, nil
     }
     return false, nil
-})
+}, "ConfigurationUpdatedWithRevision")
 ```
+
+_[Metrics will be emitted](#emit-metrics) for these `Wait` method tracking how long test poll for._
 
 We also have `Check*` variants of many of these methods with identical signatures, same example:
 
@@ -154,11 +239,11 @@ err := test.CheckConfigurationState(clients.Configs, configName, func(c *v1alpha
 })
 ```
 
-_See [crd_checks.go](./crd_checks.go)._
+_See [crd_checks.go](./crd_checks.go) and [kube_checks.go](./kube_checks.go)._
 
 ### Verify resource state transitions
 
-To use the [polling functions](#poll-knative-serving-resources) you must provide a function to check the
+To use the [check functions](#check-knative-serving-resources) you must provide a function to check the
 state. Some of the expected transition states (as defined in [the Knative Serving spec](/docs/spec/spec.md))
 are expressed in functions in [states.go](./states.go).
 

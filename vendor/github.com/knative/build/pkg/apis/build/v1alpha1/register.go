@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google, Inc. All rights reserved.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,8 +38,10 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
+	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// AddToScheme adds Build types to the scheme.
+	AddToScheme = schemeBuilder.AddToScheme
 )
 
 // Adds the list of known types to Scheme.

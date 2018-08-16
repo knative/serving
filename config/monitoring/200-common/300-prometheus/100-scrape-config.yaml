@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,15 +31,12 @@ data:
       scrape_interval: 3s
       scrape_timeout: 3s
       kubernetes_sd_configs:
-      - role: endpoints
+      - role: pod
       relabel_configs:
       # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_service_label_serving_knative_dev_autoscaler]
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: .+
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: knative-serving-system;autoscaler-port
+        regex: knative-serving;autoscaler;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -56,15 +53,17 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Knative Serving controller
-    - job_name: controller
+    # Activator pods
+    - job_name: activator
+      scrape_interval: 3s
+      scrape_timeout: 3s
       kubernetes_sd_configs:
-      - role: endpoints
+      - role: pod
       relabel_configs:
       # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: knative-serving-system;controller;metrics
+        regex: knative-serving;activator;activator-port
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -80,7 +79,7 @@ data:
         action: replace
         regex: (.*)
         target_label: service
-        replacement: $1
+        replacement: $1        
     # Fluentd daemonset
     - job_name: fluentd-ds
       kubernetes_sd_configs:
