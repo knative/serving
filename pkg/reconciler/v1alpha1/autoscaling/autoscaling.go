@@ -213,16 +213,15 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	want := metric.DesiredScale
 	logger.Infof("KPA got=%v, want=%v (%v)", got, want, kpa.Spec.ServingState)
 
-	// TODO(josephburnett): Replace ServingState with "want"
+	// TODO(josephburnett): Remove ServingState once scale to
+	// zero decisions don't bounce off of zero.
 	switch {
-	case got == 0 && (kpa.Spec.ServingState != "Active"):
-		kpa.Status.MarkInactive("Deactivated", "Resources have been reclaimed due to inactivity.")
+	case want == 0 || kpa.Spec.ServingState != "Active":
+		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got > 0 && (kpa.Spec.ServingState != "Active"):
-		kpa.Status.MarkActivating("Deactivating", "Resources are being torn down due to inactivity.")
-
-	case got == 0 && (kpa.Spec.ServingState == "Active"):
-		kpa.Status.MarkActivating("Activating", "Resources are being brought up to service new activity.")
+	case got == 0 && want > 0:
+		kpa.Status.MarkActivating(
+			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
 	case got > 0 && (kpa.Spec.ServingState == "Active"):
 		kpa.Status.MarkActive()
