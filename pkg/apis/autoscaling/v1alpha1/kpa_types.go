@@ -256,3 +256,17 @@ func (rs *PodAutoscalerStatus) markReady() {
 		Status: corev1.ConditionTrue,
 	})
 }
+
+// CanScaleToZero checks whether the pod autoscaler has been in an inactive state
+// for at least the specified grace period.
+func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
+	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
+		switch cond.Status {
+		case corev1.ConditionFalse:
+			// Check that this PodAutoscaler has been inactive for
+			// at least the grace period.
+			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod))
+		}
+	}
+	return false
+}
