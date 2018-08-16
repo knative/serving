@@ -49,18 +49,18 @@ func TestHelloWorld(t *testing.T) {
 	defer TearDown(clients, names, logger)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
 
 	err = test.WaitForEndpointState(
-		clients.Kube,
+		clients.KubeClient,
 		logger,
 		domain,
 		test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),

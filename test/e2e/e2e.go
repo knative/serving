@@ -38,8 +38,8 @@ func Setup(t *testing.T) *test.Clients {
 
 // TearDown will delete created names using clients.
 func TearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
-	if clients != nil {
-		clients.Delete([]string{names.Route}, []string{names.Config})
+	if clients != nil && clients.ServingClient != nil {
+		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
 	}
 }
 
@@ -52,13 +52,13 @@ func CreateRouteAndConfig(clients *test.Clients, logger *zap.SugaredLogger, imag
 // CreateRouteAndConfigWithEnv will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath and configured with given environment variables.
 func CreateRouteAndConfigWithEnv(clients *test.Clients, logger *zap.SugaredLogger, imagePath string, envVars []corev1.EnvVar) (test.ResourceNames, error) {
-        var names test.ResourceNames
-        names.Config = test.AppendRandomString(configName, logger)
-        names.Route = test.AppendRandomString(routeName, logger)
+	var names test.ResourceNames
+	names.Config = test.AppendRandomString(configName, logger)
+	names.Route = test.AppendRandomString(routeName, logger)
 
-        if err := test.CreateConfigurationWithEnv(logger, clients, names, imagePath, envVars); err != nil {
-                return test.ResourceNames{}, err
-        }
-        err := test.CreateRoute(logger, clients, names)
-        return names, err
+	if err := test.CreateConfigurationWithEnv(logger, clients, names, imagePath, envVars); err != nil {
+		return test.ResourceNames{}, err
+	}
+	err := test.CreateRoute(logger, clients, names)
+	return names, err
 }
