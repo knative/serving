@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/knative/pkg/configmap"
@@ -166,6 +167,10 @@ func main() {
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(time.Second * 10)
+	go func() {
+		http.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", nil)
+	}()
 
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
