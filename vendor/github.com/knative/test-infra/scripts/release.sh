@@ -36,9 +36,7 @@ source $(dirname ${BASH_SOURCE})/library.sh
 
 # Simple banner for logging purposes.
 function banner() {
-    local msg="@@@@ $* @@@@"
-    local border="${msg//[-0-9A-Za-z _.]/@}"
-    echo -e "${border}\n${msg^^}\n$border"
+    make_banner "@" "$1"
 }
 
 # Tag images in the yaml file with a tag. If not tag is passed, does nothing.

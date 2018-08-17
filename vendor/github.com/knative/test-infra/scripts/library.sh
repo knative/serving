@@ -33,18 +33,28 @@ readonly KNATIVE_EVENTING_RELEASE=https://storage.googleapis.com/knative-release
 readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
+# Display a box banner.
+# Parameters: $1 - character to use for the box.
+#             $2 - banner message.
+function make_banner() {
+    local msg="$1$1$1$1 $2 $1$1$1$1"
+    local border="${msg//[-0-9A-Za-z _.,]/$1}"
+    echo -e "${border}\n${msg}\n${border}"
+}
+
 # Simple header for logging purposes.
 function header() {
-  echo "================================================="
-  echo ${1^^}
-  echo "================================================="
+  make_banner "=" "${1^^}"
 }
 
 # Simple subheader for logging purposes.
 function subheader() {
-  echo "-------------------------------------------------"
-  echo $1
-  echo "-------------------------------------------------"
+  make_banner "-" "$1"
+}
+
+# Simple warning banner for logging purposes.
+function warning() {
+  make_banner "!" "$1"
 }
 
 # Remove ALL images in the given GCR repository.
@@ -261,4 +271,18 @@ function update_licenses() {
     go get -u github.com/mattmoor/dep-collector
   fi
   dep-collector $@ > ./${dst}
+}
+
+# Check links in all .md files in the repo.
+function check_links_in_markdown() {
+  local checker="markdown-link-check"
+  if ! hash ${checker} 2>/dev/null; then
+    warning "${checker} not installed, not checking links in .md files"
+    return 0
+  fi
+  local failed=0
+  for md_file in $(find ${REPO_ROOT_DIR} -name \*.md); do
+    ${checker} -q ${md_file} || failed=1
+  done
+  return ${failed}
 }
