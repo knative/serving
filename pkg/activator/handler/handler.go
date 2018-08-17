@@ -55,9 +55,5 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
 
-	// TODO: Clear the host to avoid 404's.
-	// https://github.com/knative/serving/issues/964
-	r.Host = ""
-
 	proxy.ServeHTTP(w, r)
 }
