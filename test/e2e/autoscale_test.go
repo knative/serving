@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -50,25 +51,40 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
-	concurrentRequests := make(chan bool, num)
+func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, want int, domain string) error {
+	concurrentRequests := make(chan bool, want)
 
-	logger.Infof("Performing %d concurrent requests.", num)
-	for i := 0; i < num; i++ {
+	logger.Infof("Performing %d concurrent requests.", want)
+	for i := 0; i < want; i++ {
 		go func() {
-			test.WaitForEndpointState(clients.KubeClient,
+			res, err := test.WaitForEndpointState(clients.KubeClient,
 				logger,
 				domain,
 				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
 				"MakingConcurrentRequests")
-			concurrentRequests <- true
+			if err != nil {
+				logger.Errorf("Unsuccessful request: %v", err)
+				if res != nil {
+					logger.Errorf("Response headers: %v", res.Header)
+				} else {
+					logger.Errorf("Nil response. No response headers to show.")
+				}
+			}
+			concurrentRequests <- err == nil
 		}()
 	}
 
 	logger.Infof("Waiting for all requests to complete.")
-	for i := 0; i < num; i++ {
-		<-concurrentRequests
+	got := 0
+	for i := 0; i < want; i++ {
+		if <-concurrentRequests {
+			got++
+		}
 	}
+	if got != want {
+		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.", got, want)
+	}
+	return nil
 }
 
 func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
@@ -155,7 +171,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(
+	_, err = test.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
@@ -171,7 +187,10 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, logger, 5, domain)
+	err = generateTrafficBurst(clients, logger, 5, domain)
+	if err != nil {
+		logger.Fatalf("Error during initial scale up: %v", err)
+	}
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -199,7 +218,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	logger.Infof("Wait until there are pods available to scale into.")	
+	logger.Infof("Wait for all pods to terminate.")
 
 	err = test.WaitForPodListState(
 		clients.KubeClient,
@@ -211,7 +230,10 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	generateTrafficBurst(clients, logger, 8, domain)
+	err = generateTrafficBurst(clients, logger, 8, domain)
+	if err != nil {
+		t.Fatalf("Error during final scale up: %v", err)
+	}
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
