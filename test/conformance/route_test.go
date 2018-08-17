@@ -81,7 +81,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
-	err = test.WaitForEndpointState(
+	_, err = test.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		updatedRoute.Status.Domain,
