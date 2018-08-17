@@ -81,13 +81,14 @@ var (
 	kubeClient            *kubernetes.Clientset
 	statSink              *websocket.Conn
 	logger                *zap.SugaredLogger
+	breaker               *queue.Breaker
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
-	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
+	instanceConcurrency      = flag.Int("instanceConcurrency", 0, "")
 )
 
 func initEnv() {
@@ -187,16 +188,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqChan <- queue.ReqOut
 	}()
-	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
-		// Enforce single concurrency and breaking
-		ok := singleConcurrencyBreaker.Maybe(func() {
-			proxy.ServeHTTP(w, r)
-		})
-		if !ok {
-			http.Error(w, "overload", http.StatusServiceUnavailable)
-		}
-	} else {
+	// Enforce queuing and concurrency limits
+	ok := breaker.Maybe(func() {
 		proxy.ServeHTTP(w, r)
+	})
+	if !ok {
+		http.Error(w, "overload", http.StatusServiceUnavailable)
 	}
 }
 
@@ -288,7 +285,14 @@ func main() {
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2cutil.DefaultTransport
 
-	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
+	// TODO(josephburnett) allow Breaker to have queue depth of 0 (disabled)
+	queueDepth := 1
+	if *instanceConcurrency > 0 {
+		queueDepth = *instanceConcurrency
+	}
+	breaker = queue.NewBreaker(int32(queueDepth), int32(*instanceConcurrency))
+	logger.Infof("Queue container is starting with queueDepth: %s and instanceConcurrency: %s", queueDepth, *instanceConcurrency)
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))
