@@ -35,7 +35,6 @@ import (
 
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -87,8 +86,7 @@ var (
 	httpProxy *httputil.ReverseProxy
 
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
-	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
-	instanceConcurrency      = flag.Int("instanceConcurrency", 0, "")
+	containerConcurrency     = flag.Int("containerConcurrency", 0, "")
 )
 
 func initEnv() {
@@ -287,11 +285,11 @@ func main() {
 
 	// TODO(josephburnett) allow Breaker to have queue depth of 0 (disabled)
 	queueDepth := 1
-	if *instanceConcurrency > 0 {
-		queueDepth = *instanceConcurrency
+	if *containerConcurrency > 0 {
+		queueDepth = *containerConcurrency
 	}
-	breaker = queue.NewBreaker(int32(queueDepth), int32(*instanceConcurrency))
-	logger.Infof("Queue container is starting with queueDepth: %s and instanceConcurrency: %s", queueDepth, *instanceConcurrency)
+	breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
+	logger.Infof("Queue container is starting with queueDepth: %s and containerConcurrency: %s", queueDepth, *containerConcurrency)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
