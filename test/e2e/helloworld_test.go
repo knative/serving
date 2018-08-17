@@ -59,7 +59,7 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(
+	_, err = test.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,

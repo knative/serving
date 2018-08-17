@@ -72,7 +72,7 @@ func TestBuildAndServe(t *testing.T) {
 	domain := route.Status.Domain
 
 	endState := test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-	if err := test.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText"); err != nil {
+	if _, err := test.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText"); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
