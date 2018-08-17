@@ -38,7 +38,7 @@ func Setup(t *testing.T) *test.Clients {
 // TearDown will delete created names using clients.
 func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
 	if clients != nil {
-		clients.Delete([]string{names.Route}, []string{names.Config})
+		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
 	}
 }
 

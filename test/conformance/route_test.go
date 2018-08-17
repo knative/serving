@@ -60,7 +60,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 		},
 	}
 	patchBytes, err := json.Marshal(patches)
-	_, err = clients.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
+	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
 	}
@@ -69,19 +69,19 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, expectedGeneration, expectedText string) {
 	logger.Info("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	logger.Info("Serves the expected data at the endpoint")
-	updatedRoute, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	updatedRoute, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
 	err = test.WaitForEndpointState(
-		clients.Kube,
+		clients.KubeClient,
 		logger,
 		updatedRoute.Status.Domain,
 		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusServiceUnavailable, http.StatusNotFound),
@@ -92,29 +92,29 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.Bas
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Info("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady)
+	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 	logger.Info("The Revision will be annotated with the generation")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
 		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 	logger.Info("Updates the Configuration that the Revision is ready")
-	err = test.CheckConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	logger.Info("Updates the Route to route traffic to the Revision")
-	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names))
+	err = test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
 	logger.Info("TODO: The Route is accessible from inside the cluster without external DNS")
-	err = test.CheckRouteState(clients.Routes, names.Route, test.TODO_RouteTrafficToRevisionWithInClusterDNS)
+	err = test.CheckRouteState(clients.ServingClient, names.Route, test.TODO_RouteTrafficToRevisionWithInClusterDNS)
 	if err != nil {
 		t.Fatalf("The Route %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Route, names.Revision, err)
 	}
@@ -122,7 +122,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.Bas
 
 func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var newRevisionName string
-	err := test.WaitForConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			newRevisionName = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -145,8 +145,8 @@ func setup(t *testing.T) *test.Clients {
 }
 
 func tearDown(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil {
-		clients.Delete([]string{names.Route}, []string{names.Config})
+	if clients != nil && clients.ServingClient != nil {
+		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
 	}
 }
 

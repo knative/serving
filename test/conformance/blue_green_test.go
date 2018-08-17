@@ -51,7 +51,7 @@ const (
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
 func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -209,11 +209,11 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// TODO(#882): Remove these?
 	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q was not marked as Ready: %v", blue.Revision, err)
 	}
 	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q was not marked as Ready: %v", green.Revision, err)
 	}
 
@@ -227,11 +227,11 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	logger.Info("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}

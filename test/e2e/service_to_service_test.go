@@ -42,7 +42,7 @@ const (
 )
 
 func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
-	helloWorldRoute, err := clients.Routes.Get(routeName, metav1.GetOptions{})
+	helloWorldRoute, err := clients.ServingClient.Routes.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Route of helloworld app: %v", err)
 	}
@@ -56,7 +56,7 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 
 func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
 	logger.Infof("The domain of request is %s.", domain)
-	client, err := spoof.New(clients.Kube, logger, domain, resolvableDomain)
+	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { TearDown(clients, helloWorldNames, logger) }, logger)
 	defer TearDown(clients, helloWorldNames, logger)
-	if err := test.WaitForRouteState(clients.Routes, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", helloWorldNames.Route, err)
 	}
 
@@ -101,14 +101,18 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { TearDown(clients, httpProxyNames, logger) }, logger)
 	defer TearDown(clients, httpProxyNames, logger)
-	if err := test.WaitForRouteState(clients.Routes, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", httpProxyNames.Route, err)
 	}
-	httpProxyRoute, err := clients.Routes.Get(httpProxyNames.Route, metav1.GetOptions{})
+	httpProxyRoute, err := clients.ServingClient.Routes.Get(httpProxyNames.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Route %s: %v", httpProxyNames.Route, err)
 	}
-	if err = test.WaitForEndpointState(clients.Kube, logger, httpProxyRoute.Status.Domain, test.Retrying(test.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound), "HttpProxy"); err != nil {
+	if err = test.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		httpProxyRoute.Status.Domain, test.Retrying(test.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound),
+		"HttpProxy"); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
 	logger.Info("httpproxy is ready.")

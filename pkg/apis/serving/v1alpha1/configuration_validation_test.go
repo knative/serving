@@ -17,10 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 )
@@ -119,6 +121,22 @@ func TestConfigurationValidation(t *testing.T) {
 		name: "empty spec",
 		c:    &Configuration{},
 		want: apis.ErrMissingField("spec"),
+	}, {
+		name: "invalid name - dots",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "do.not.use.dots",
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid name - too long",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("a", 65),
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
 	}}
 
 	for _, test := range tests {

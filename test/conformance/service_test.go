@@ -32,14 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func tearDownService(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil {
-		if clients.Services != nil {
-			clients.Services.Delete(names.Service, nil)
-		}
-	}
-}
-
 func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, imagePath string) error {
 	patches := []jsonpatch.JsonPatchOperation{
 		{
@@ -52,7 +44,7 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 	if err != nil {
 		return err
 	}
-	_, err = clients.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
 	}
@@ -63,7 +55,7 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	err := test.WaitForEndpointState(
-		clients.Kube,
+		clients.KubeClient,
 		logger,
 		routeDomain,
 		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusNotFound),
@@ -74,16 +66,16 @@ func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, cli
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Info("The Revision will be marked as Ready when it can serve traffic")
-	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady); err != nil {
+	if err := test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady); err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 	logger.Infof("The Revision will be annotated with the generation")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
 		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 	logger.Info("The Service's latestReadyRevisionName should match the Configuration's")
-	err = test.CheckConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
@@ -91,12 +83,12 @@ func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, cli
 	}
 
 	logger.Info("Updates the Route to route traffic to the Revision")
-	if err := test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names)); err != nil {
+	if err := test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names)); err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
 
 	logger.Infof("TODO: The Service's Route is accessible from inside the cluster without external DNS")
-	err = test.CheckServiceState(clients.Services, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
+	err = test.CheckServiceState(clients.ServingClient, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
 	if err != nil {
 		t.Fatalf("The Service %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Service, names.Revision, err)
 	}
@@ -106,7 +98,7 @@ func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, cli
 
 func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var revisionName string
-	err := test.WaitForServiceState(clients.Services, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
 			return true, nil
@@ -118,7 +110,7 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 
 func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var routeDomain string
-	err := test.WaitForServiceState(clients.Services, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.Domain != "" {
 			routeDomain = s.Status.Domain
 			return true, nil
@@ -141,8 +133,8 @@ func TestRunLatestService(t *testing.T) {
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
 
-	defer tearDownService(clients, names)
-	test.CleanupOnInterrupt(func() { tearDownService(clients, names) }, logger)
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Info("Creating a new Service")
 	svc, err := test.CreateLatestService(logger, clients, names, imagePaths[0])
@@ -166,7 +158,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
@@ -184,7 +176,7 @@ func TestRunLatestService(t *testing.T) {
 	names.Revision = revisionName
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "2", "Re-energize yourself with a slice of pepperoni!")

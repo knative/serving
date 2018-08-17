@@ -56,7 +56,7 @@ func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, num
 	logger.Infof("Performing %d concurrent requests.", num)
 	for i := 0; i < num; i++ {
 		go func() {
-			test.WaitForEndpointState(clients.Kube,
+			test.WaitForEndpointState(clients.KubeClient,
 				logger,
 				domain,
 				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
@@ -72,7 +72,7 @@ func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, num
 }
 
 func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
-	return clients.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
+	return test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
 }
 
 func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
@@ -81,7 +81,7 @@ func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
 		return err
 	}
 	configMap.Data["scale-to-zero-threshold"] = threshold
-	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving").Update(configMap)
+	_, err = test.GetConfigMap(clients.KubeClient).Update(configMap)
 	return err
 }
 
@@ -132,7 +132,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
-		clients.Routes,
+		clients.ServingClient,
 		names.Route,
 		test.IsRouteReady,
 		"RouteIsReady")
@@ -142,21 +142,21 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 
 	logger.Infof("Serves the expected data at the endpoint")
-	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(`Configuration %s was not updated with the new
 		         revision: %v`, names.Config, err)
 	}
 	deploymentName :=
 		config.Status.LatestCreatedRevisionName + "-deployment"
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
 
 	err = test.WaitForEndpointState(
-		clients.Kube,
+		clients.KubeClient,
 		logger,
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
@@ -173,7 +173,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    increases.`)
 	generateTrafficBurst(clients, logger, 5, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
+		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp")
@@ -189,7 +189,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    faster testing.`)
 
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
+		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero")
@@ -199,11 +199,10 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	logger.Infof("Wait until there are pods available to scale into.")
-	pc := clients.Kube.CoreV1().Pods(test.Flags.Namespace)
+	logger.Infof("Wait until there are pods available to scale into.")	
 
 	err = test.WaitForPodListState(
-		pc,
+		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			return len(p.Items) == 0, nil
 		},
@@ -214,7 +213,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
               traffic increases.`)
 	generateTrafficBurst(clients, logger, 8, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
+		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentScaledUp")

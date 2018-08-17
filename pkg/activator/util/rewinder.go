@@ -17,9 +17,11 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"sync"
 )
 
 type rewinder struct {
+	sync.Mutex
 	rc io.ReadCloser
 	rs io.ReadSeeker
 }
@@ -30,6 +32,8 @@ func NewRewinder(rc io.ReadCloser) io.ReadCloser {
 }
 
 func (r *rewinder) Read(b []byte) (int, error) {
+	r.Lock()
+	defer r.Unlock()
 	// On the first `Read()`, the contents of `rc` is read into a buffer `rs`.
 	// This buffer is used for all subsequent reads
 	if r.rs == nil {
@@ -46,6 +50,8 @@ func (r *rewinder) Read(b []byte) (int, error) {
 }
 
 func (r *rewinder) Close() error {
+	r.Lock()
+	defer r.Unlock()
 	// Rewind the buffer on `Close()` for the next call to `Read`
 	r.rs.Seek(0, io.SeekStart)
 

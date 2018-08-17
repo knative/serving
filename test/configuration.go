@@ -38,6 +38,6 @@ func CreateConfigurationWithEnv(logger *logging.BaseLogger, clients *Clients, na
 	}
 
 	LogResourceObject(logger, ResourceObjects{Configuration: config})
-	_, err := clients.Configs.Create(config)
+	_, err := clients.ServingClient.Configs.Create(config)
 	return err
 }

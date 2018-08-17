@@ -19,18 +19,25 @@ package autoscaling
 import (
 	"context"
 	"fmt"
-	"time"
+	"reflect"
 
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,21 +45,37 @@ const (
 	controllerAgentName = "autoscaling-controller"
 )
 
-// RevisionSynchronizer is an interface for notifying the presence or absence of revisions.
-type RevisionSynchronizer interface {
-	// OnPresent is called when the given revision exists.
-	OnPresent(rev *v1alpha1.Revision, logger *zap.SugaredLogger)
+// KPAMetrics is an interface for notifying the presence or absence of KPAs.
+type KPAMetrics interface {
+	// Get accesses the Metric resource for this key, returning any errors.
+	Get(ctx context.Context, key string) (*autoscaler.Metric, error)
 
-	// OnAbsent is called when a revision in the given namespace with the given name ceases to exist.
-	OnAbsent(namespace string, name string, logger *zap.SugaredLogger)
+	// Create adds a Metric resource for a given key, returning any errors.
+	Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error)
+
+	// Delete removes the Metric resource for a given key, returning any errors.
+	Delete(ctx context.Context, key string) error
+
+	// Watch registers a function to call when Metrics change.
+	Watch(watcher func(string))
 }
 
-// Reconciler tracks revisions and notifies a RevisionSynchronizer of their presence and absence.
+// KPAScaler knows how to scale the targets of KPAs
+type KPAScaler interface {
+	// Scale attempts to scale the given KPA's target to the desired scale.
+	Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error
+}
+
+// Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
+// information from KPAMetrics.
 type Reconciler struct {
 	*reconciler.Base
 
-	revisionLister listers.RevisionLister
-	revSynch       RevisionSynchronizer
+	kpaLister       listers.PodAutoscalerLister
+	endpointsLister corev1listers.EndpointsLister
+
+	kpaMetrics KPAMetrics
+	kpaScaler  KPAScaler
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -61,56 +84,168 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // NewController creates an autoscaling Controller.
 func NewController(
 	opts *reconciler.Options,
-	revisionInformer servinginformers.RevisionInformer,
-	revSynch RevisionSynchronizer,
-	informerResyncInterval time.Duration,
+
+	kpaInformer informers.PodAutoscalerInformer,
+	endpointsInformer corev1informers.EndpointsInformer,
+
+	kpaMetrics KPAMetrics,
+	kpaScaler KPAScaler,
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:           reconciler.NewBase(*opts, controllerAgentName),
-		revisionLister: revisionInformer.Lister(),
-		revSynch:       revSynch,
+		Base:            reconciler.NewBase(*opts, controllerAgentName),
+		kpaLister:       kpaInformer.Lister(),
+		endpointsLister: endpointsInformer.Lister(),
+		kpaMetrics:      kpaMetrics,
+		kpaScaler:       kpaScaler,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
 
 	c.Logger.Info("Setting up event handlers")
-	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	kpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 		DeleteFunc: impl.Enqueue,
 	})
 
+	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.EnqueueEndpointsKPA(impl),
+		UpdateFunc: controller.PassNew(c.EnqueueEndpointsKPA(impl)),
+	})
+
+	// Have the KPAMetrics enqueue the KPAs whose metrics have changed.
+	kpaMetrics.Watch(impl.EnqueueKey)
+
 	return impl
 }
 
-// Reconcile notifies the RevisionSynchronizer of the presence or absence.
-func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(revKey)
+func (c *Reconciler) EnqueueEndpointsKPA(impl *controller.Impl) func(obj interface{}) {
+	return func(obj interface{}) {
+		endpoints := obj.(*corev1.Endpoints)
+		// Use the label on the Endpoints (from Service) to determine the KPA
+		// with which it is associated, and if so queue that KPA.
+		if kpaName, ok := endpoints.Labels[autoscaling.KPALabelKey]; ok {
+			impl.EnqueueKey(endpoints.Namespace + "/" + kpaName)
+		}
+	}
+}
+
+// Reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", revKey, err))
+		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
 		return nil
 	}
+	logger := loggerWithKPAInfo(c.Logger, namespace, name)
+	ctx = logging.WithLogger(ctx, logger)
+	logger.Debug("Reconcile KPA")
 
-	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
-	logger.Debug("Reconcile Revision")
+	original, err := c.kpaLister.PodAutoscalers(namespace).Get(name)
+	if errors.IsNotFound(err) {
+		logger.Debug("KPA no longer exists")
+		return c.kpaMetrics.Delete(ctx, key)
+	} else if err != nil {
+		return err
+	}
+	// Don't modify the informer's copy.
+	kpa := original.DeepCopy()
 
-	rev, err := c.revisionLister.Revisions(namespace).Get(name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Debug("Revision no longer exists")
-			c.revSynch.OnAbsent(namespace, name, logger)
-			return nil
+	// Reconcile this copy of the kpa and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, key, kpa)
+	if equality.Semantic.DeepEqual(original.Status, kpa.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else {
+		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, kpa))
+		if _, err := c.updateStatus(kpa); err != nil {
+			logger.Warn("Failed to update kpa status", zap.Error(err))
+			return err
 		}
-		runtime.HandleError(err)
+	}
+	return err
+}
+
+func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
+	kpa.Status.InitializeConditions()
+	logger.Debug("KPA exists")
+
+	metric, err := c.kpaMetrics.Get(ctx, key)
+	if errors.IsNotFound(err) {
+		metric, err = c.kpaMetrics.Create(ctx, kpa)
+		if err != nil {
+			logger.Errorf("Error creating Metric: %v", err)
+			return err
+		}
+	} else if err != nil {
+		logger.Errorf("Error fetching Metric: %v", err)
 		return err
 	}
 
-	logger.Debug("Revision exists")
-	c.revSynch.OnPresent(rev.DeepCopy(), logger)
+	// Get the appropriate current scale from the metric, and right size
+	// the scaleTargetRef based on it.
+	if err := c.kpaScaler.Scale(kpa, metric.DesiredScale); err != nil {
+		logger.Errorf("Error scaling target: %v", err)
+		return err
+	}
+
+	// Compare the desired and observed resources to determine our situation.
+	got := 0
+
+	// Look up the Endpoints resource to determine the available resources.
+	endpoints, err := c.endpointsLister.Endpoints(kpa.Namespace).Get(kpa.Spec.ServiceName)
+	if errors.IsNotFound(err) {
+		// Treat not found as zero endpoints, it either hasn't been created
+		// or it has been torn down.
+	} else if err != nil {
+		logger.Errorf("Error checking Endpoints %q: %v", kpa.Spec.ServiceName, err)
+		return err
+	} else {
+		for _, es := range endpoints.Subsets {
+			got += len(es.Addresses)
+		}
+	}
+	want := metric.DesiredScale
+	logger.Infof("KPA got=%v, want=%v (%v)", got, want, kpa.Spec.ServingState)
+
+	// TODO(josephburnett): Remove ServingState once scale to
+	// zero decisions don't bounce off of zero.
+	switch {
+	case want == 0 || kpa.Spec.ServingState != "Active":
+		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+
+	case got == 0 && want > 0:
+		kpa.Status.MarkActivating(
+			"Queued", "Requests to the target are being buffered as resources are provisioned.")
+
+	case got > 0 && (kpa.Spec.ServingState == "Active"):
+		kpa.Status.MarkActive()
+	}
 
 	return nil
 }
 
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
+func (c *Reconciler) updateStatus(kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+	newKPA, err := c.kpaLister.PodAutoscalers(kpa.Namespace).Get(kpa.Name)
+	if err != nil {
+		return nil, err
+	}
+	// Check if there is anything to update.
+	if !reflect.DeepEqual(newKPA.Status, kpa.Status) {
+		newKPA.Status = kpa.Status
+
+		// TODO: for CRD there's no updatestatus, so use normal update
+		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(newKPA)
+		//	return prClient.UpdateStatus(newKPA)
+	}
+	return kpa, nil
+}
+
+func loggerWithKPAInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.KPA, name))
 }

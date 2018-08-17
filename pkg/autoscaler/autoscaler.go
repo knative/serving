@@ -45,8 +45,8 @@ type Stat struct {
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
 type StatMessage struct {
-	RevisionKey string
-	Stat        Stat
+	Key  string
+	Stat Stat
 }
 
 type statKey struct {

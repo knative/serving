@@ -28,6 +28,6 @@ import (
 func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
 	service := LatestService(Flags.Namespace, names, imagePath)
 	LogResourceObject(logger, ResourceObjects{Service: service})
-	svc, err := clients.Services.Create(service)
+	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
 }

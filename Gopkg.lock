@@ -318,7 +318,7 @@
   revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[projects]]
-  digest = "1:7eff6e4a02854116799050b5dc6ac1f857b7d6c220e302a379c7362c81eda2a5"
+  digest = "1:358640ffd7336aa49b208b14a572c184f96009478ff007f70116d92f9794df13"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -343,7 +343,15 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "bc264c290f777cc51f53644a1996f5e8887dcba6"
+  revision = "a3bc2db77a14d9ca6195172e81b4bf33e6190f85"
+
+[[projects]]
+  branch = "master"
+  digest = "1:851129618684df5fe963fd5fe7bf75efb28e9adde03855d836cfe1a9ed1e5f4a"
+  name = "github.com/knative/test-infra"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "f53c40459b2d126c32f5139ee0d9251748ad6dd8"
 
 [[projects]]
   branch = "master"
@@ -1024,6 +1032,7 @@
     "github.com/knative/pkg/logging/testing",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/webhook",
+    "github.com/knative/test-infra",
     "github.com/mattbaird/jsonpatch",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
@@ -1073,7 +1082,6 @@
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
-    "k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
     "k8s.io/client-go/listers/apps/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",

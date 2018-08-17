@@ -24,4 +24,8 @@ const (
 	//   autoscaling.knative.dev/class: foo
 	// This uses a different domain because unlike the resource, it is user-facing.
 	ClassAnnotationKey = "autoscaling.knative.dev/class"
+
+	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
+	// which services/endpoints should trigger reconciles.
+	KPALabelKey = "autoscaling.knative.dev/kpa"
 )

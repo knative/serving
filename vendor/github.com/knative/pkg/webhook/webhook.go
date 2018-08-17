@@ -558,24 +558,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 		}
 	}
 
-	if err := validateMetadata(newObj); err != nil {
-		logger.Error("Failed to validate", zap.Error(err))
-		return nil, fmt.Errorf("Failed to validate: %s", err)
-	}
 	return json.Marshal(patches)
-}
-
-func validateMetadata(new GenericCRD) error {
-	name := new.GetObjectMeta().GetName()
-
-	if strings.Contains(name, ".") {
-		return errors.New("Invalid resource name: special character . must not be present")
-	}
-
-	if len(name) > 63 {
-		return errors.New("Invalid resource name: length must be no more than 63 characters")
-	}
-	return nil
 }
 
 // updateGeneration sets the generation by following this logic:
