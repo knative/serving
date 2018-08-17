@@ -108,7 +108,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get Route %s: %v", httpProxyNames.Route, err)
 	}
-	if err = test.WaitForEndpointState(
+	if _, err = test.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		httpProxyRoute.Status.Domain, test.Retrying(test.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound),

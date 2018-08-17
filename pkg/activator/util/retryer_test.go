@@ -28,25 +28,25 @@ func TestRetryer(t *testing.T) {
 		{
 			label:       "atleast once",
 			maxRetries:  0,
-			responses:   []bool{true},
+			responses:   []bool{false},
 			wantRetries: 1,
 		},
 		{
 			label:       "< maxRetries",
 			maxRetries:  3,
-			responses:   []bool{false, true},
+			responses:   []bool{true, false},
 			wantRetries: 2,
 		},
 		{
 			label:       "= maxRetries",
 			maxRetries:  3,
-			responses:   []bool{false, false, true},
+			responses:   []bool{true, true, false},
 			wantRetries: 3,
 		},
 		{
 			label:       "> maxRetries",
 			maxRetries:  3,
-			responses:   []bool{false, false, false, true},
+			responses:   []bool{true, true, true, false},
 			wantRetries: 3,
 		},
 	}

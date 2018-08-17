@@ -202,3 +202,21 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 		t.Fatal("The retry round tripper read the request body more than once")
 	}
 }
+
+func TestRetryRoundTripperNilBody(t *testing.T) {
+	retry := RetryerFunc(func(action ActionFunc) int {
+		action()
+		return 1
+	})
+
+	rt := NewRetryRoundTripper(
+		http.DefaultTransport,
+		TestLogger(t),
+		retry,
+		RetryStatus(http.StatusInternalServerError),
+	)
+
+	req, _ := http.NewRequest("GET", "http://knative.dev/test/", nil)
+
+	rt.RoundTrip(req)
+}
