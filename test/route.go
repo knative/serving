@@ -68,7 +68,7 @@ func RunRouteProber(logger *zap.SugaredLogger, clients *Clients, domain string) 
 		// We keep polling Route if the response status is OK.
 		// If the response status is not OK, we stop the prober and
 		// generate error based on the response.
-		_, err = client.Poll(req, Retrying(disallowesAny, http.StatusOK))
+		_, err = client.Poll(req, Retrying(disallowsAny, http.StatusOK))
 		if err != nil {
 			errorChan <- err
 			close(errorChan)
@@ -89,6 +89,6 @@ func GetRouteProberError(errorChan <-chan error, logger *zap.SugaredLogger) erro
 	}
 }
 
-func disallowesAny(response *spoof.Response) (bool, error) {
+func disallowsAny(response *spoof.Response) (bool, error) {
 	return true, fmt.Errorf("Get unexpected response %v.", response)
 }
