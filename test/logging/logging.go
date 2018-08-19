@@ -165,3 +165,13 @@ func (b *BaseLogger) Debugf(template string, args ...interface{}) {
 func (b *BaseLogger) Debug(args ...interface{}) {
 	b.Logger.Debug(args...)
 }
+
+// Errorf logs a templated error message.
+func (b *BaseLogger) Errorf(template string, args ...interface{}) {
+	b.Logger.Errorf(template, args...)
+}
+
+// Error logs an error message.
+func (b *BaseLogger) Error(args ...interface{}){
+	b.Logger.Error(args...)
+}
