@@ -45,7 +45,7 @@ func (r RetryerFunc) Retry(f ActionFunc) int {
 // between retries by the `intervalFunc`
 func NewRetryer(intervalFunc IntervalFunc, maxRetries int) Retryer {
 	return RetryerFunc(func(action ActionFunc) (retries int) {
-		for retries = 1; !action() && retries < maxRetries; retries++ {
+		for retries = 1; action() && retries < maxRetries; retries++ {
 			time.Sleep(intervalFunc(retries))
 		}
 		return
