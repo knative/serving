@@ -534,18 +534,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dd68d1a2c578b5a578bb36851bf3a2edb0ffe5d130f898c65b994e41fc0848b5"
+  digest = "1:8a40385c0245fa401d71b719925b3cc0514b95587223a6368b0d913d06825a47"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
     "http/httpguts",
     "http2",
+    "http2/h2c",
     "http2/hpack",
     "idna",
   ]
   pruneopts = "NUT"
-  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
+  revision = "aaf60122140d3fcf75376d319f0554393160eb50"
 
 [[projects]]
   branch = "master"
@@ -1065,9 +1066,8 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
-    "golang.org/x/net/http/httpguts",
     "golang.org/x/net/http2",
-    "golang.org/x/net/http2/hpack",
+    "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
     "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
