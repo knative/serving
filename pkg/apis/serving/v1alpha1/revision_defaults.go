@@ -27,7 +27,5 @@ func (r *Revision) SetDefaults() {
 }
 
 func (rs *RevisionSpec) SetDefaults() {
-	if rs.ConcurrencyModel == "" {
-		rs.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
-	}
+	// Nothing to do
 }

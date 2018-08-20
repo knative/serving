@@ -106,6 +106,11 @@ const (
 // in-flight (concurrent) requests.
 type RevisionContainerConcurrencyType int64
 
+const (
+	// The maximum configurable container concurrency.
+	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed

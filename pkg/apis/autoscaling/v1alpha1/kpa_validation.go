@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/knative/pkg/apis"
+	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
@@ -42,7 +43,10 @@ func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
 	if err := rs.ServingState.Validate(); err != nil {
 		return err.ViaField("servingState")
 	}
-	return rs.ConcurrencyModel.Validate().ViaField("concurrencyModel")
+	if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+		return err.ViaField("containerConcurrency")
+	}
+	return nil
 }
 
 func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
