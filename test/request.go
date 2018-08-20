@@ -27,7 +27,6 @@ import (
 	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
 	"go.opencensus.io/trace"
-	"go.uber.org/zap"
 )
 
 // MatchesAny is a NOP matcher. This is useful for polling until a 200 is returned.

@@ -20,7 +20,6 @@ limitations under the License.
 package logging
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"time"

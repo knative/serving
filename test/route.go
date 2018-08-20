@@ -25,7 +25,6 @@ import (
 
 	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
-	"go.uber.org/zap"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names

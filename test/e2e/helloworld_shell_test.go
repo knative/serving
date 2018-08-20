@@ -29,7 +29,6 @@ import (
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/logging"
-	"go.uber.org/zap"
 )
 
 const (
