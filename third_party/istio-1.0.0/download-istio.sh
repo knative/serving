@@ -19,7 +19,6 @@ helm template --namespace=istio-system \
   --set global.proxy.autoInject=disabled \
   --set prometheus.enabled=false \
   --set gateways.istio-ingressgateway.enabled=false \
-  --set mixer.enabled=false \
   install/kubernetes/helm/istio > ../istio-lean.yaml
 
 # Clean up.
