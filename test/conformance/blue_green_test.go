@@ -26,8 +26,8 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -50,7 +50,7 @@ const (
 
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
-func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
+func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
 	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(logger *logging.BaseLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -143,7 +143,7 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
 	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.GetContextLogger("TestBlueGreenRoute")
+	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
@@ -179,20 +179,20 @@ func TestBlueGreenRoute(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
-	logger.Infof("Creating a Configuration")
+	logger.Info("Creating a Configuration")
 	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
 	var err error
 
-	logger.Infof("The Configuration will be updated with the name of the Revision once it is created")
+	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
 	blue.Revision, err = getNextRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 
-	logger.Infof("Updating the Configuration to use a different image")
+	logger.Info("Updating the Configuration to use a different image")
 	err = updateConfigWithImage(clients, names, imagePaths)
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
@@ -201,7 +201,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// getNextRevisionName waits for names.Revision to change, so we set it to the blue revision and wait for the (new) green revision.
 	names.Revision = blue.Revision
 
-	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	green.Revision, err = getNextRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
@@ -221,12 +221,12 @@ func TestBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
 
-	logger.Infof("Creating a Route")
+	logger.Info("Creating a Route")
 	if err := test.CreateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("When the Route reports as Ready, everything should be ready.")
+	logger.Info("When the Route reports as Ready, everything should be ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}

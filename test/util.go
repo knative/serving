@@ -14,20 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// service.go provides methods to perform actions on the service resource.
+// util.go provides shared utilities methods across knative serving test
 
 package test
 
 import (
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"encoding/json"
+
 	"github.com/knative/serving/test/logging"
 )
 
-// CreateLatestService creates a service in namespace with the name names.Service
-// that uses the image specified by imagePath
-func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
-	service := LatestService(Flags.Namespace, names, imagePath)
-	LogResourceObject(logger, ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
-	return svc, err
+// LogResourceObject logs the resource object with the resource name and value
+func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
+	// Log the route object
+	if resourceJSON, err := json.Marshal(value); err != nil {
+		logger.Infof("Failed to create json from resource object: %v", err)
+	} else {
+		logger.Infof("resource %s", string(resourceJSON))
+	}
 }
