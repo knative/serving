@@ -74,9 +74,13 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 	// The request body cannot be read multiple times for retries.
 	// The workaround is to clone the request body into a byte reader
 	// so the body can be read multiple times.
-	r.Body = NewRewinder(r.Body)
+	if r.Body != nil {
+		rrt.logger.Debugf("Wrapping body in a rewinder.")
+		r.Body = NewRewinder(r.Body)
+	}
 
 	attempts := rrt.retryer.Retry(func() bool {
+		rrt.logger.Debugf("Retrying")
 		resp, err = rrt.transport.RoundTrip(r)
 
 		if err != nil {

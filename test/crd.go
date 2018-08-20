@@ -25,7 +25,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"go.uber.org/zap"
+	"github.com/knative/serving/test/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -166,7 +166,7 @@ var (
 // once is used to initialize r
 var once sync.Once
 
-func initSeed(logger *zap.SugaredLogger) func() {
+func initSeed(logger *logging.BaseLogger) func() {
 	return func() {
 		seed := time.Now().UTC().UnixNano()
 		logger.Infof("Seeding rand.Rand with %v", seed)
@@ -179,7 +179,7 @@ func initSeed(logger *zap.SugaredLogger) func() {
 // if you want to make sure that your tests can run at the same time against the same
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
-func AppendRandomString(prefix string, logger *zap.SugaredLogger) string {
+func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
 	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
 	rndMutex.Lock()

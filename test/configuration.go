@@ -19,25 +19,25 @@ limitations under the License.
 package test
 
 import (
-        corev1 "k8s.io/api/core/v1"
-        "go.uber.org/zap"
+	"github.com/knative/serving/test/logging"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by imagePath.
-func CreateConfiguration(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) error {
-        return CreateConfigurationWithEnv(logger, clients, names, imagePath, nil)
+func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) error {
+	return CreateConfigurationWithEnv(logger, clients, names, imagePath, nil)
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specifed by imagePath and give environment variables.
-func CreateConfigurationWithEnv(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string, envVars []corev1.EnvVar) error {
-        config := Configuration(Flags.Namespace, names, imagePath)
-        if envVars != nil && len(envVars) > 0 {
-                config.Spec.RevisionTemplate.Spec.Container.Env = envVars
-        }
+func CreateConfigurationWithEnv(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string, envVars []corev1.EnvVar) error {
+	config := Configuration(Flags.Namespace, names, imagePath)
+	if envVars != nil && len(envVars) > 0 {
+		config.Spec.RevisionTemplate.Spec.Container.Env = envVars
+	}
 
-        LogResourceObject(logger, ResourceObjects{Configuration: config})
-        _, err := clients.Configs.Create(config)
-        return err
+	LogResourceObject(logger, ResourceObjects{Configuration: config})
+	_, err := clients.ServingClient.Configs.Create(config)
+	return err
 }
