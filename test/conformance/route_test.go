@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -130,8 +129,19 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 }
 
 func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	return route.Status.Domain, err
+	var domain string
+
+	err := test.WaitForRouteState(
+		clients.ServingClient,
+		names.Route,
+		func(r *v1alpha1.Route) (bool, error) {
+			domain = r.Status.Domain
+			return domain != "", nil
+		},
+		"RouteDomain",
+	)
+
+	return domain, err
 }
 
 func setup(t *testing.T) *test.Clients {
@@ -188,6 +198,7 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Failed to get domain from route %s: %v", names.Route, err)
 	}
 
+	logger.Infof("The Route domain is: %s", domain)
 	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "1", "What a spaceport!")
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
