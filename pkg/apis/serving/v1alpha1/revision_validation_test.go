@@ -161,36 +161,42 @@ func TestContainerValidation(t *testing.T) {
 	}
 }
 
-func TestConcurrencyModelValidation(t *testing.T) {
+func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string
+		cc   RevisionContainerConcurrencyType
 		cm   RevisionRequestConcurrencyModelType
 		want *apis.FieldError
 	}{{
 		name: "single",
+		cc:   1,
 		cm:   RevisionRequestConcurrencyModelSingle,
 		want: nil,
 	}, {
 		name: "multi",
+		cc:   0,
 		cm:   RevisionRequestConcurrencyModelMulti,
 		want: nil,
 	}, {
 		name: "empty",
+		cc:   0,
 		cm:   "",
 		want: nil,
 	}, {
 		name: "bogus",
+		cc:   0,
 		cm:   "bogus",
 		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
 	}, {
 		name: "balderdash",
+		cc:   0,
 		cm:   "balderdash",
 		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.cm.Validate()
+			got := ValidateContainerConcurrency(test.cc, test.cm)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

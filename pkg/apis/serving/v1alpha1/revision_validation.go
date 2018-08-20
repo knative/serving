@@ -66,25 +66,32 @@ func (ss RevisionServingStateType) Validate() *apis.FieldError {
 }
 
 func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
-	// Request must provide one of containerConcurrency or concurrencyModel.
-	// Except when compatible values are provided (0,Multi) and (1,Single).
-	switch cc {
-	case 0: // unlimited concurrency
-		if cm != "" && cm != RevisionRequestConcurrencyModelMulti {
-			return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
-		}
-	case 1: // single concurrency
-		if cm != "" && cm != RevisionRequestConcurrencyModelSingle {
-			return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
-		}
-	default: // other values
-		if cm != "" {
-			return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
-		}
-		if cc < 0 || cc > RevisionContainerConcurrencyMax {
-			return apis.ErrInvalidValue(string(cc), apis.CurrentField)
-		}
+	// Validate ConcurrencyModel (deprecated)
+	switch cm {
+	case RevisionRequestConcurrencyModelType(""),
+		RevisionRequestConcurrencyModelMulti,
+		RevisionRequestConcurrencyModelSingle:
+		// Valid
+	default:
+		return apis.ErrInvalidValue(string(cm), "concurrencyModel")
 	}
+
+	// Validate ContainerConcurrency
+	if cc < 0 || cc > RevisionContainerConcurrencyMax {
+		return apis.ErrInvalidValue(string(cc), apis.CurrentField)
+	}
+
+	// Validate combinations of ConcurrencyModel and ContainerConcurrency
+	if cc == 0 && cm != RevisionRequestConcurrencyModelMulti {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+	if cc == 1 && cm != RevisionRequestConcurrencyModelSingle {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+	if cc > 1 && cm != RevisionRequestConcurrencyModelType("") {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+
 	return nil
 }
 
