@@ -27,8 +27,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"github.com/mattbaird/jsonpatch"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -52,7 +52,7 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 }
 
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
-func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := test.WaitForEndpointState(
 		clients.KubeClient,
@@ -124,7 +124,7 @@ func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := test.GetContextLogger("TestRunLatestService")
+	logger := logging.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
