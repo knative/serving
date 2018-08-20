@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"go.uber.org/zap"
 )
 
@@ -47,14 +48,14 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
+func cleanup(yamlFilename string, logger *logging.BaseLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestHelloWorldFromShell")
+	logger := logging.GetContextLogger("TestHelloWorldFromShell")
 
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 

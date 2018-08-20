@@ -26,8 +26,8 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -50,7 +50,7 @@ const (
 
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
-func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
+func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
 	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(logger *logging.BaseLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -143,7 +143,7 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
 	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.GetContextLogger("TestBlueGreenRoute")
+	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))

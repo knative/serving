@@ -23,12 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap"
-
 	"encoding/json"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,7 +42,7 @@ const (
 	defaultNamespaceName = "serving-tests"
 )
 
-func createRouteAndConfig(logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
+func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
 	err := test.CreateConfiguration(logger, clients, names, imagePaths[0])
 	if err != nil {
 		return err
@@ -68,7 +67,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 	return nil
 }
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
@@ -156,7 +155,7 @@ func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestRouteCreation")
+	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))

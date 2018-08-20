@@ -23,12 +23,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
 	"go.uber.org/zap"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
+func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
@@ -37,7 +38,7 @@ func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceName
 
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
-func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
+func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
@@ -46,7 +47,7 @@ func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, bl
 
 // RunRouteProber creates and runs a prober as background goroutine to keep polling Route.
 // It stops when getting an error response from Route.
-func RunRouteProber(logger *zap.SugaredLogger, clients *Clients, domain string) <-chan error {
+func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string) <-chan error {
 	logger.Infof("Starting Route prober for route domain %s.", domain)
 	errorChan := make(chan error, 1)
 	go func() {
@@ -79,7 +80,7 @@ func RunRouteProber(logger *zap.SugaredLogger, clients *Clients, domain string) 
 }
 
 // GetRouteProberError gets the error of route prober.
-func GetRouteProberError(errorChan <-chan error, logger *zap.SugaredLogger) error {
+func GetRouteProberError(errorChan <-chan error, logger *logging.BaseLogger) error {
 	select {
 	case err := <-errorChan:
 		return err
