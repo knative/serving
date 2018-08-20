@@ -67,7 +67,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 	return nil
 }
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, expectedGeneration, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
 	logger.Info("When the Route reports as Ready, everything should be ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
@@ -75,19 +75,15 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.Bas
 
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	logger.Info("Serves the expected data at the endpoint")
-	updatedRoute, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
-	}
 
-	_, err = test.WaitForEndpointState(
+	_, err := test.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
-		updatedRoute.Status.Domain,
+		domain,
 		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusServiceUnavailable, http.StatusNotFound),
 		"WaitForEndpointToServeText")
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, expectedText, err)
 	}
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
@@ -130,6 +126,11 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	return newRevisionName, err
+}
+
+func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	return route.Status.Domain, err
 }
 
 func setup(t *testing.T) *test.Clients {
@@ -181,7 +182,15 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "1", "What a spaceport!")
+	domain, err := getRouteDomain(clients, names)
+	if err != nil {
+		t.Fatalf("Failed to get domain from route %s: %v", names.Route, err)
+	}
+
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "1", "What a spaceport!")
+
+	// We start a prober at background thread to test if Route is always healthy even during Route update.
+	routeProberErrorChan := test.RunRouteProber(logger, clients, domain)
 
 	logger.Info("Updating the Configuration to use a different image")
 	err = updateConfigWithImage(clients, names, imagePaths)
@@ -196,5 +205,10 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "2", "Re-energize yourself with a slice of pepperoni!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "2", "Re-energize yourself with a slice of pepperoni!")
+
+	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
+		t.Fatalf("Route prober failed with error %v", err)
+	}
+
 }

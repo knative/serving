@@ -51,7 +51,7 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, want int, domain string) error {
 	concurrentRequests := make(chan bool, want)
 
 	logger.Infof("Performing %d concurrent requests.", want)
