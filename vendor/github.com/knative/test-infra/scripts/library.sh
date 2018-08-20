@@ -44,7 +44,8 @@ function make_banner() {
 
 # Simple header for logging purposes.
 function header() {
-  make_banner "=" "${1^^}"
+  local upper="$(echo $1 | tr a-z A-Z)"
+  make_banner "=" "${upper}"
 }
 
 # Simple subheader for logging purposes.
@@ -259,6 +260,16 @@ function start_latest_knative_build() {
   wait_until_pods_running knative-build || return 1
 }
 
+# Run dep-collector, installing it first if necessary.
+# Parameters: $1..$n - parameters passed to dep-collector.
+function run_dep_collector() {
+  local local_dep_collector="$(which dep-collector)"
+  if [[ -z ${local_dep_collector} ]]; then
+    go get -u github.com/mattmoor/dep-collector
+  fi
+  dep-collector $@
+}
+
 # Run dep-collector to update licenses.
 # Parameters: $1 - output file, relative to repo root dir.
 #             $2...$n - directories and files to inspect.
@@ -266,11 +277,16 @@ function update_licenses() {
   cd ${REPO_ROOT_DIR} || return 1
   local dst=$1
   shift
-  local local_dep_collector="$(which dep-collector)"
-  if [[ -z ${local_dep_collector} ]]; then
-    go get -u github.com/mattmoor/dep-collector
-  fi
-  dep-collector $@ > ./${dst}
+  run_dep_collector $@ > ./${dst}
+}
+
+# Run dep-collector to check for forbidden liceses.
+# Parameters: $1...$n - directories and files to inspect.
+function check_licenses() {
+  # Fetch the google/licenseclassifier for its license db
+  go get -u github.com/google/licenseclassifier
+  # Check that we don't have any forbidden licenses in our images.
+  run_dep_collector -check $@
 }
 
 # Check links in all .md files in the repo.
