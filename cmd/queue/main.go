@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -109,10 +108,12 @@ func connectStatSink() {
 		servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 
-	wait.ExponentialBackoff(wait.Backoff{
+	// Will retry connecting to the autoscaler for roughly 1.5 minutes.
+	err := wait.ExponentialBackoff(wait.Backoff{
 		Duration: 100 * time.Millisecond,
 		Factor:   1.3,
-		Steps:    math.MaxInt32,
+		Steps:    20,
+		Jitter:   0.5,
 	}, func() (bool, error) {
 		dialer := &websocket.Dialer{
 			HandshakeTimeout: 3 * time.Second,
@@ -123,10 +124,15 @@ func connectStatSink() {
 			return false, nil
 		}
 
-		logger.Info("Connected to stat sink.")
+		logger.Info("Connected to autoscaler.")
 		statSink = conn
 		return true, nil
 	})
+
+	// Exit iff a connection could not be established in the timeout boundaries.
+	if err == wait.ErrWaitTimeout {
+		logger.Fatal("Was not able to connect to autoscaler. Aborting.")
+	}
 
 	waitForClose(statSink)
 }
