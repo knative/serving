@@ -18,14 +18,18 @@ package autoscaling
 
 import (
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/scale"
 
+	"github.com/knative/pkg/configmap"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 )
 
@@ -34,15 +38,48 @@ type kpaScaler struct {
 	servingClientSet clientset.Interface
 	scaleClientSet   scale.ScalesGetter
 	logger           *zap.SugaredLogger
+
+	// autoscalerConfig could change over time and access to it
+	// must go through autoscalerConfigMutex
+	autoscalerConfig      *autoscaler.Config
+	autoscalerConfigMutex sync.Mutex
 }
 
 // NewKPAScaler creates a kpaScaler.
-func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter, logger *zap.SugaredLogger) KPAScaler {
-	return &kpaScaler{
+func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
+	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) KPAScaler {
+	ks := &kpaScaler{
 		servingClientSet: servingClientSet,
 		scaleClientSet:   scaleClientSet,
 		logger:           logger,
 	}
+
+	// Watch for config changes.
+	configMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
+
+	return ks
+}
+
+func (ks *kpaScaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
+	ks.autoscalerConfigMutex.Lock()
+	defer ks.autoscalerConfigMutex.Unlock()
+	if err != nil {
+		if ks.autoscalerConfig != nil {
+			ks.logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
+		} else {
+			ks.logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
+		}
+		return
+	}
+	ks.logger.Infof("Autoscaler config map is added or updated: %v", configMap)
+	ks.autoscalerConfig = newAutoscalerConfig
+}
+
+func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
+	ks.autoscalerConfigMutex.Lock()
+	defer ks.autoscalerConfigMutex.Unlock()
+	return ks.autoscalerConfig.DeepCopy()
 }
 
 // Scale attempts to scale the given KPA's target reference to the desired scale.
@@ -93,8 +130,6 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 
 	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
-		// TODO(mattmoor): Delay the scale to zero until the LTT of "Active=False"
-		// is some time in the past.
 		logger.Debug("Setting revision ServingState to Reserve.")
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		if _, err := revisionClient.Update(rev); err != nil {
@@ -107,6 +142,11 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	// When ServingState=Reserve (see above) propagates to us, then actually scale
 	// things to zero.
 	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
+		// Delay the scale to zero until the LTT of "Active=False" is some time in the past.
+		if !kpa.Status.CanScaleToZero(rs.getAutoscalerConfig().ScaleToZeroGracePeriod) {
+			logger.Debug("Waiting for Active=False grace period.")
+			return nil
+		}
 		desiredScale = 0
 	}
 

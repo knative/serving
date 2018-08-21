@@ -108,6 +108,8 @@ func TestNewConfig(t *testing.T) {
 			StableWindow:              5 * time.Minute,
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
+			ScaleToZeroGracePeriod:    2 * time.Minute,
+			ScaleToZeroIdlePeriod:     8 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
 			TickInterval:              2 * time.Second,
 		},
@@ -132,6 +134,8 @@ func TestNewConfig(t *testing.T) {
 			StableWindow:              5 * time.Minute,
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
+			ScaleToZeroGracePeriod:    2 * time.Minute,
+			ScaleToZeroIdlePeriod:     8 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
 			TickInterval:              2 * time.Second,
 		},
@@ -159,6 +163,8 @@ func TestNewConfig(t *testing.T) {
 			StableWindow:              5 * time.Minute,
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
+			ScaleToZeroGracePeriod:    2 * time.Minute,
+			ScaleToZeroIdlePeriod:     8 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
 			TickInterval:              2 * time.Second,
 		},
@@ -186,6 +192,8 @@ func TestNewConfig(t *testing.T) {
 			StableWindow:              5 * time.Minute,
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
+			ScaleToZeroGracePeriod:    2 * time.Minute,
+			ScaleToZeroIdlePeriod:     8 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
 			TickInterval:              2 * time.Second,
 		},
@@ -211,6 +219,36 @@ func TestNewConfig(t *testing.T) {
 			StableWindow:              5 * time.Minute,
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
+			ScaleToZeroGracePeriod:    2 * time.Minute,
+			ScaleToZeroIdlePeriod:     8 * time.Minute,
+			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
+		},
+	}, {
+		name: "with explicit grace period",
+		input: map[string]string{
+			"enable-scale-to-zero":            "false",
+			"enable-vertical-pod-autoscaling": "False",
+			"max-scale-up-rate":               "1.0",
+			"single-concurrency-target":       "1.0",
+			"multi-concurrency-target":        "1.0",
+			"stable-window":                   "5m",
+			"panic-window":                    "10s",
+			"scale-to-zero-threshold":         "60s",
+			"scale-to-zero-grace-period":      "30s",
+			"concurrency-quantum-of-time":     "100ms",
+			"tick-interval":                   "2s",
+		},
+		want: &Config{
+			SingleTargetConcurrency:   1.0,
+			MultiTargetConcurrency:    1.0,
+			VPAMultiTargetConcurrency: 10.0,
+			MaxScaleUpRate:            1.0,
+			StableWindow:              5 * time.Minute,
+			PanicWindow:               10 * time.Second,
+			ScaleToZeroThreshold:      60 * time.Second,
+			ScaleToZeroGracePeriod:    30 * time.Second,
+			ScaleToZeroIdlePeriod:     30 * time.Second,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
 			TickInterval:              2 * time.Second,
 		},
@@ -279,7 +317,6 @@ func TestNewConfig(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestOurConfig(t *testing.T) {

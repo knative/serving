@@ -47,8 +47,12 @@ type Config struct {
 	StableWindow             time.Duration
 	PanicWindow              time.Duration
 	TickInterval             time.Duration
-	ScaleToZeroThreshold     time.Duration
 	ConcurrencyQuantumOfTime time.Duration
+
+	ScaleToZeroThreshold   time.Duration
+	ScaleToZeroGracePeriod time.Duration
+	// This is computed by ScaleToZeroThreshold - ScaleToZeroGracePeriod
+	ScaleToZeroIdlePeriod time.Duration
 }
 
 func (c *Config) TargetConcurrency(model v1alpha1.RevisionRequestConcurrencyModelType) float64 {
@@ -125,8 +129,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	// Process Duration fields
 	for _, dur := range []struct {
-		key   string
-		field *time.Duration
+		key      string
+		field    *time.Duration
+		optional bool
+		// specified exactly when optional
+		defaultValue time.Duration
 	}{{
 		key:   "stable-window",
 		field: &lc.StableWindow,
@@ -137,6 +144,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "scale-to-zero-threshold",
 		field: &lc.ScaleToZeroThreshold,
 	}, {
+		key:          "scale-to-zero-grace-period",
+		field:        &lc.ScaleToZeroGracePeriod,
+		optional:     true,
+		defaultValue: 2 * time.Minute,
+	}, {
 		key:   "concurrency-quantum-of-time",
 		field: &lc.ConcurrencyQuantumOfTime,
 	}, {
@@ -144,12 +156,26 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field: &lc.TickInterval,
 	}} {
 		if raw, ok := data[dur.key]; !ok {
+			if dur.optional {
+				*dur.field = dur.defaultValue
+				continue
+			}
 			return nil, fmt.Errorf("Autoscaling configmap is missing %q", dur.key)
 		} else if val, err := time.ParseDuration(raw); err != nil {
 			return nil, err
 		} else {
 			*dur.field = val
 		}
+	}
+
+	if lc.ScaleToZeroGracePeriod < 30*time.Second {
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	}
+
+	lc.ScaleToZeroIdlePeriod = lc.ScaleToZeroThreshold - lc.ScaleToZeroGracePeriod
+	if lc.ScaleToZeroIdlePeriod < 30*time.Second {
+		return nil, fmt.Errorf("scale-to-zero-threshold minus scale-to-zero-grace-period must be at least 30s, got %v (%v - %v)",
+			lc.ScaleToZeroIdlePeriod, lc.ScaleToZeroThreshold, lc.ScaleToZeroGracePeriod)
 	}
 
 	return lc, nil
