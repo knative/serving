@@ -281,9 +281,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -463,9 +462,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
