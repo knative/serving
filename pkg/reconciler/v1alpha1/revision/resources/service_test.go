@@ -64,7 +64,6 @@ func TestMakeK8sService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: servicePorts,
-				Type:  "NodePort",
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
 				},
@@ -101,7 +100,6 @@ func TestMakeK8sService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: servicePorts,
-				Type:  "NodePort",
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
 				},
