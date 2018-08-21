@@ -19,7 +19,7 @@
 # called from command line.
 
 # Default GKE version to be used with Knative Serving
-readonly SERVING_GKE_VERSION=default
+readonly SERVING_GKE_VERSION=latest
 readonly SERVING_GKE_IMAGE=cos
 
 # Public images and yaml files.
@@ -44,7 +44,8 @@ function make_banner() {
 
 # Simple header for logging purposes.
 function header() {
-  make_banner "=" "${1^^}"
+  local upper="$(echo $1 | tr a-z A-Z)"
+  make_banner "=" "${upper}"
 }
 
 # Simple subheader for logging purposes.
@@ -102,7 +103,7 @@ function wait_until_pods_running() {
     local pods="$(kubectl get pods --no-headers -n $1 2>/dev/null)"
     # All pods must be running
     local not_running=$(echo "${pods}" | grep -v Running | grep -v Completed | wc -l)
-    if [[ -n "${pods}" && ${not_running} == 0 ]]; then
+    if [[ -n "${pods}" && ${not_running} -eq 0 ]]; then
       local all_ready=1
       while read pod ; do
         local status=(`echo -n ${pod} | cut -f2 -d' ' | tr '/' ' '`)
@@ -112,17 +113,16 @@ function wait_until_pods_running() {
         [[ ${status[0]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[1]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[0]} -ne ${status[1]} ]] && all_ready=0 && break
-      done <<< $(echo "${pods}")
+      done <<< $(echo "${pods}" | grep -v Completed)
       if (( all_ready )); then
-        echo -e "\nAll pods are up:"
-        kubectl get pods -n $1
+        echo -e "\nAll pods are up:\n${pods}"
         return 0
       fi
     fi
     echo -n "."
     sleep 2
   done
-  echo -e "\n\nERROR: timeout waiting for pods to come up"
+  echo -e "\n\nERROR: timeout waiting for pods to come up\n${pods}"
   kubectl get pods -n $1
   return 1
 }
@@ -164,10 +164,16 @@ function acquire_cluster_admin_role() {
   # might not have the necessary permission.
   local password=$(gcloud --format="value(masterAuth.password)" \
       container clusters describe $2 --zone=$3)
-  kubectl --username=admin --password=$password \
-      create clusterrolebinding cluster-admin-binding \
+  kubectl config set-credentials cluster-admin \
+      --username=admin --password=${password}
+  kubectl config set-context $(kubectl config current-context) \
+      --user=cluster-admin
+  kubectl create clusterrolebinding cluster-admin-binding \
       --clusterrole=cluster-admin \
       --user=$1
+  # Reset back to the default account
+  gcloud container clusters get-credentials \
+      $2 --zone=$3 --project $(gcloud config get-value project)
 }
 
 # Runs a go test and generate a junit summary through bazel.
@@ -259,6 +265,16 @@ function start_latest_knative_build() {
   wait_until_pods_running knative-build || return 1
 }
 
+# Run dep-collector, installing it first if necessary.
+# Parameters: $1..$n - parameters passed to dep-collector.
+function run_dep_collector() {
+  local local_dep_collector="$(which dep-collector)"
+  if [[ -z ${local_dep_collector} ]]; then
+    go get -u github.com/mattmoor/dep-collector
+  fi
+  dep-collector $@
+}
+
 # Run dep-collector to update licenses.
 # Parameters: $1 - output file, relative to repo root dir.
 #             $2...$n - directories and files to inspect.
@@ -266,11 +282,16 @@ function update_licenses() {
   cd ${REPO_ROOT_DIR} || return 1
   local dst=$1
   shift
-  local local_dep_collector="$(which dep-collector)"
-  if [[ -z ${local_dep_collector} ]]; then
-    go get -u github.com/mattmoor/dep-collector
-  fi
-  dep-collector $@ > ./${dst}
+  run_dep_collector $@ > ./${dst}
+}
+
+# Run dep-collector to check for forbidden liceses.
+# Parameters: $1...$n - directories and files to inspect.
+function check_licenses() {
+  # Fetch the google/licenseclassifier for its license db
+  go get -u github.com/google/licenseclassifier
+  # Check that we don't have any forbidden licenses in our images.
+  run_dep_collector -check $@
 }
 
 # Check links in all .md files in the repo.

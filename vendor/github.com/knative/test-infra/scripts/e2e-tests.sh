@@ -58,7 +58,8 @@ function build_resource_name() {
 readonly E2E_BASE_NAME=k$(basename ${REPO_ROOT_DIR})
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
-readonly E2E_CLUSTER_ZONE=us-central1-a
+readonly E2E_CLUSTER_REGION=us-central1
+readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_REGION}-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
@@ -88,6 +89,45 @@ function fail_test() {
   [[ -n $1 ]] && echo "ERROR: $1"
   dump_cluster_state
   exit 1
+}
+
+# Download the k8s binaries required by kubetest.
+function download_k8s() {
+  local version=${SERVING_GKE_VERSION}
+  if [[ "${version}" == "latest" ]]; then
+    # Fetch latest valid version
+    local versions="$(gcloud container get-server-config \
+        --project=${GCP_PROJECT} \
+        --format='value(validMasterVersions)' \
+        --region=${E2E_CLUSTER_REGION})"
+    local gke_versions=(`echo -n ${versions//;/ /}`)
+    # Get first (latest) version, excluding the "-gke.#" suffix
+    version="${gke_versions[0]%-*}"
+    echo "Latest GKE is ${version}, from [${versions//;/, /}]"
+  elif [[ "${version}" == "default" ]]; then
+    echo "ERROR: `default` GKE version is not supported yet"
+    return 1
+  fi
+  # Download k8s to staging dir
+  version=v${version}
+  local staging_dir=${GOPATH}/src/k8s.io/kubernetes/_output/gcs-stage
+  rm -fr ${staging_dir}
+  staging_dir=${staging_dir}/${version}
+  mkdir -p ${staging_dir}
+  pushd ${staging_dir}
+  export KUBERNETES_PROVIDER=gke
+  export KUBERNETES_RELEASE=${version}
+  curl -fsSL https://get.k8s.io | bash
+  local result=$?
+  if [[ ${result} -eq 0 ]]; then
+    mv kubernetes/server/kubernetes-server-*.tar.gz .
+    mv kubernetes/client/kubernetes-client-*.tar.gz .
+    rm -fr kubernetes
+    # Create an empty kubernetes test tarball; we don't use it but kubetest will fetch it
+    tar -czf kubernetes-test.tar.gz -T /dev/null
+  fi
+  popd
+  return ${result}
 }
 
 # Dump info about the test cluster. If dump_extra_cluster_info() is defined, calls it too.
@@ -126,6 +166,8 @@ function create_test_cluster() {
   )
   if (( ! IS_PROW )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
+  else
+    CLUSTER_CREATION_ARGS+=(--gcp-service-account=/etc/service-account/service-account.json)
   fi
   # SSH keys are not used, but kubetest checks for their existence.
   # Touch them so if they don't exist, empty files are create to satisfy the check.
@@ -136,15 +178,19 @@ function create_test_cluster() {
   # be a writeable docker repo.
   export K8S_USER_OVERRIDE=
   export K8S_CLUSTER_OVERRIDE=
+  # Get the current GCP project
+  export GCP_PROJECT=${PROJECT_ID}
+  [[ -z ${GCP_PROJECT} ]] && export GCP_PROJECT=$(gcloud config get-value project)
   # Assume test failed (see more details at the end of this script).
   echo -n "1"> ${TEST_RESULT_FILE}
   local test_cmd_args="--run-tests"
   (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   echo "Test script is ${E2E_SCRIPT}"
+  download_k8s || return 1
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "gke-${SERVING_GKE_VERSION}" \
+    --extract local \
     --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${E2E_SCRIPT}" \
     --test-cmd-args "${test_cmd_args}"
@@ -152,23 +198,20 @@ function create_test_cluster() {
   # Delete target pools and health checks that might have leaked.
   # See https://github.com/knative/serving/issues/959 for details.
   # TODO(adrcunha): Remove once the leak issue is resolved.
-  local gcp_project=${PROJECT_ID}
-  [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)
   local http_health_checks="$(gcloud compute target-pools list \
-    --project=${gcp_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    --project=${GCP_PROJECT} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
     grep httpHealthChecks | tr '\n' ' ')"
   local target_pools="$(gcloud compute target-pools list \
-    --project=${gcp_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    --project=${GCP_PROJECT} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
     tr '\n' ' ')"
-  local region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
   if [[ -n "${target_pools}" ]]; then
     echo "Found leaked target pools, deleting"
-    gcloud compute forwarding-rules delete -q --project=${gcp_project} --region=${region} ${target_pools}
-    gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
+    gcloud compute forwarding-rules delete -q --project=${GCP_PROJECT} --region=${E2E_CLUSTER_REGION} ${target_pools}
+    gcloud compute target-pools delete -q --project=${GCP_PROJECT} --region=${E2E_CLUSTER_REGION} ${target_pools}
   fi
   if [[ -n "${http_health_checks}" ]]; then
     echo "Found leaked health checks, deleting"
-    gcloud compute http-health-checks delete -q --project=${gcp_project} ${http_health_checks}
+    gcloud compute http-health-checks delete -q --project=${GCP_PROJECT} ${http_health_checks}
   fi
   local result="$(cat ${TEST_RESULT_FILE})"
   echo "Test result code is $result"
