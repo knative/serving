@@ -32,7 +32,6 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in:   &PodAutoscaler{},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
 				// In the context of a PodAutoscaler we initialize ServingState.
 				ServingState: "Active",
 			},
@@ -41,27 +40,22 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		name: "no overwrite",
 		in: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ServingState: "Reserve",
 			},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ServingState: "Reserve",
 			},
 		},
 	}, {
 		name: "partially initialized",
 		in: &PodAutoscaler{
-			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-			},
+			Spec: PodAutoscalerSpec{},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServingState:     "Active",
+				ServingState: "Active",
 			},
 		},
 	}}

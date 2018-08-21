@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -161,6 +162,43 @@ func TestContainerValidation(t *testing.T) {
 	}
 }
 
+func TestConcurrencyModelValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		cm   RevisionRequestConcurrencyModelType
+		want *apis.FieldError
+	}{{
+		name: "single",
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: nil,
+	}, {
+		name: "multi",
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: nil,
+	}, {
+		name: "empty",
+		cm:   "",
+		want: nil,
+	}, {
+		name: "bogus",
+		cm:   "bogus",
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+	}, {
+		name: "balderdash",
+		cm:   "balderdash",
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.cm.Validate()
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -168,30 +206,43 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 		cm   RevisionRequestConcurrencyModelType
 		want *apis.FieldError
 	}{{
-		name: "single",
+		name: "single with only container concurrency",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "single with container currency and concurrency model",
 		cc:   1,
 		cm:   RevisionRequestConcurrencyModelSingle,
 		want: nil,
 	}, {
-		name: "multi",
+		name: "multi with only container concurrency",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "multi with container concurrency and concurrency model",
 		cc:   0,
 		cm:   RevisionRequestConcurrencyModelMulti,
 		want: nil,
 	}, {
-		name: "empty",
-		cc:   0,
-		cm:   "",
-		want: nil,
+		name: "mismatching container concurrency (1) and concurrency model (multi)",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
 	}, {
-		name: "bogus",
+		name: "mismatching container concurrency (0) and concurrency model (single)",
 		cc:   0,
-		cm:   "bogus",
-		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
 	}, {
-		name: "balderdash",
-		cc:   0,
-		cm:   "balderdash",
-		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+		name: "invalid container concurrency (too small)",
+		cc:   -1,
+		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+	}, {
+		name: "invalid container concurrency (too large)",
+		cc:   RevisionContainerConcurrencyMax + 1,
+		want: apis.ErrInvalidValue(strconv.Itoa(int(RevisionContainerConcurrencyMax)+1), "containerConcurrency"),
 	}}
 
 	for _, test := range tests {

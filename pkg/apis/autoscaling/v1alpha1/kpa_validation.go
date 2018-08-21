@@ -43,8 +43,11 @@ func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
 	if err := rs.ServingState.Validate(); err != nil {
 		return err.ViaField("servingState")
 	}
+	if err := rs.ConcurrencyModel.Validate(); err != nil {
+		return err.ViaField("concurrencyModel")
+	}
 	if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
-		return err.ViaField("containerConcurrency")
+		return err
 	}
 	return nil
 }

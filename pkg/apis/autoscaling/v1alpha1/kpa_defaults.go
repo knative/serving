@@ -28,7 +28,4 @@ func (rs *PodAutoscalerSpec) SetDefaults() {
 	if rs.ServingState == "" {
 		rs.ServingState = servingv1alpha1.RevisionServingStateActive
 	}
-	if rs.ConcurrencyModel == "" {
-		rs.ConcurrencyModel = servingv1alpha1.RevisionRequestConcurrencyModelMulti
-	}
 }

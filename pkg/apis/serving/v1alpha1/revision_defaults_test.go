@@ -32,7 +32,6 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel: "Multi",
 				// In the context of a Revision we initialize ServingState.
 				ServingState: "Active",
 			},
@@ -41,27 +40,22 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ServingState: "Reserve",
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ServingState: "Reserve",
 			},
 		},
 	}, {
 		name: "partially initialized",
 		in: &Revision{
-			Spec: RevisionSpec{
-				ConcurrencyModel: "Multi",
-			},
+			Spec: RevisionSpec{},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel: "Multi",
-				ServingState:     "Active",
+				ServingState: "Active",
 			},
 		},
 	}}
