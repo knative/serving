@@ -102,14 +102,16 @@ func main() {
 
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
 
-	ah := &activatorhandler.ReportingHTTPHandler{
-		Reporter: reporter,
-		NextHandler: &activatorhandler.EnforceMaxContentLengthHandler{
-			MaxContentLengthBytes: maxUploadBytes,
-			NextHandler: &activatorhandler.ActivationHandler{
-				Activator: a,
-				Transport: rt,
-				Logger:    logger,
+	ah := &activatorhandler.FilteringHandler{
+		NextHandler: &activatorhandler.ReportingHTTPHandler{
+			Reporter: reporter,
+			NextHandler: &activatorhandler.EnforceMaxContentLengthHandler{
+				MaxContentLengthBytes: maxUploadBytes,
+				NextHandler: &activatorhandler.ActivationHandler{
+					Activator: a,
+					Transport: rt,
+					Logger:    logger,
+				},
 			},
 		},
 	}

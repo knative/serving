@@ -27,13 +27,14 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 )
 
 func TestBuildAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := test.GetContextLogger("TestBuildAndServe")
+	logger := logging.GetContextLogger("TestBuildAndServe")
 
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
@@ -104,7 +105,7 @@ func TestBuildFailure(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := test.GetContextLogger("TestBuildFailure")
+	logger := logging.GetContextLogger("TestBuildFailure")
 
 	logger.Infof("Creating a new Configuration with failing build")
 	names := test.ResourceNames{

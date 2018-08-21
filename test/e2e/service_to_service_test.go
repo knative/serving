@@ -24,9 +24,8 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
-
-	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,7 @@ import (
 
 var (
 	clients *test.Clients
-	logger  *zap.SugaredLogger
+	logger  *logging.BaseLogger
 )
 
 const (
@@ -76,7 +75,7 @@ func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) 
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
-	logger = test.GetContextLogger("TestServiceToServiceCall")
+	logger = logging.GetContextLogger("TestServiceToServiceCall")
 	clients = Setup(t)
 
 	// Set up helloworld app.

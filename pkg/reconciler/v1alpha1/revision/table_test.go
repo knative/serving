@@ -361,7 +361,7 @@ func TestReconcile(t *testing.T) {
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
-						Reason: "Updating",
+						Reason: "Deploying",
 					}, {
 						Type:    "Ready",
 						Status:  "False",
@@ -370,56 +370,15 @@ func TestReconcile(t *testing.T) {
 					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
-						Reason: "Updating",
+						Reason: "Deploying",
 					}},
 				}),
-		}, {
-			Object: deploy("foo", "deactivate", "Reserve", "busybox"),
 		}},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			Name: svc("foo", "deactivate", "Reserve", "busybox").Name,
 		}},
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/deactivate",
-	}, {
-		Name: "failure updating user deployment",
-		// Induce a failure updating the user deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "update-user-deploy-failure", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			// We don't get to updating the autoscaler deployment or deleting services.
-		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/update-user-deploy-failure",
 	}, {
 		Name: "failure updating kpa",
 		// Induce a failure updating the kpa
@@ -751,8 +710,6 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
-		}, {
-			Object: deploy("foo", "activate-revision", "Active", "busybox"),
 		}},
 		Key: "foo/activate-revision",
 	}, {

@@ -71,10 +71,6 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 		logger.Error("Unable to fetch Revision.", zap.Error(err))
 		return err
 	}
-	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		logger.Info("Don't scale an inactive revision.")
-		return nil
-	}
 
 	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
@@ -95,21 +91,8 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 		return err
 	}
 
-	currentScale := scl.Spec.Replicas
-	if desiredScale == currentScale {
-		return nil
-	}
-
-	// Don't scale if current scale is zero. Rely on the activator to scale
-	// from zero.
-	if currentScale == 0 {
-		logger.Info("Cannot scale: Current scale is 0; activator must scale from 0.")
-		return nil
-	}
-	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-
-	// When scaling to zero, flip the revision's ServingState to Reserve.
-	if desiredScale == 0 {
+	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
+	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		// TODO(mattmoor): Delay the scale to zero until the LTT of "Active=False"
 		// is some time in the past.
 		logger.Debug("Setting revision ServingState to Reserve.")
@@ -120,6 +103,18 @@ func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
 		}
 		return nil
 	}
+
+	// When ServingState=Reserve (see above) propagates to us, then actually scale
+	// things to zero.
+	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
+		desiredScale = 0
+	}
+
+	currentScale := scl.Spec.Replicas
+	if desiredScale == currentScale {
+		return nil
+	}
+	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale

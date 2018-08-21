@@ -52,12 +52,12 @@ _See [e2e_flags.go](./e2e_flags.go)._
 [When tests are run with `--logverbose`
 option](README.md#output-verbose-logs), debug logs will be emitted to stdout.
 
-We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
-Tests should initialize the global logger to use a test specifc context with `test.GetContextLogger`:
+We are using the common [e2e logging library](/pkg/test/logging) that uses the [Knative logging library](/pkg/logging/) for structured logging. 
+It is built on top of [zap](https://github.com/uber-go/zap). Tests should initialize the global logger to use a test specifc context with `logging.GetContextLogger`:
 
 ```go
 // The convention is for the name of the logger to match the name of the test.
-test.GetContextLogger("TestHelloWorld")
+logging.GetContextLogger("TestHelloWorld")
 ```
 
 Logs can then be emitted using the `logger` object which is required by
@@ -68,7 +68,7 @@ logger.Infof("Creating a new Route %s and Configuration %s", route, configuratio
 logger.Debugf("The LogURL is %s, not yet verifying", logURL)
 ```
 
-_See [logging.go](./logging.go)._
+_See [logging.go](./logging/logging.go)._
 
 ### Emit metrics
 

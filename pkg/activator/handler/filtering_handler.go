@@ -1,12 +1,9 @@
 /*
 Copyright 2018 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,27 +11,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// cleanup allows you to define a cleanup function that will be executed
-// if your test is interrupted.
-
-package test
+package handler
 
 import (
-	"os"
-	"os/signal"
+	"net/http"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/serving/pkg/activator"
 )
 
-// CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
-func CleanupOnInterrupt(cleanup func(), logger *logging.BaseLogger) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		for _ = range c {
-			logger.Infof("Test interrupted, cleaning up.")
-			cleanup()
-			os.Exit(1)
-		}
-	}()
+// FilteringHandler will filter requests sent by the
+// activator itself.
+type FilteringHandler struct {
+	NextHandler http.Handler
+}
+
+func (h *FilteringHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If this header is set the request was sent by the activator itself, thus
+	// we immediatly return a 503 to trigger a retry.
+	if r.Header.Get(activator.ResponseCountHTTPHeader) != "" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	h.NextHandler.ServeHTTP(w, r)
 }

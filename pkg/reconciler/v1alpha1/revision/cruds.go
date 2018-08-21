@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	commonlogging "github.com/knative/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -37,13 +36,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
 
+	// TODO(mattmoor): REMOVE ME
 	var replicaCount int32 = 1
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
@@ -62,29 +61,20 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
-	logger := logging.FromContext(ctx)
-
-	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// resources.MakeDeployment() would produce.
-	desiredDeployment := deployment.DeepCopy()
-	if desiredDeployment.Spec.Replicas == nil {
-		var one int32 = 1
-		desiredDeployment.Spec.Replicas = &one
-	}
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
-		*desiredDeployment.Spec.Replicas = 1
-	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *desiredDeployment.Spec.Replicas != 0 {
-		*desiredDeployment.Spec.Replicas = 0
-	}
-
-	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-		return deployment, Unchanged, nil
-	}
-	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
-		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
-	deployment.Spec = desiredDeployment.Spec
-	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	return d, WasChanged, err
+	return deployment, Unchanged, nil
+	// // TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
+	// // resources.MakeDeployment() would produce.
+	//
+	// logger := logging.FromContext(ctx)
+	// desiredDeployment := deployment.DeepCopy()
+	// if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
+	// 	return deployment, Unchanged, nil
+	// }
+	// logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
+	// 	cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
+	// deployment.Spec = desiredDeployment.Spec
+	// d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
+	// return d, WasChanged, err
 }
 
 func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {

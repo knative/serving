@@ -72,7 +72,7 @@ func TestHTTPRoundTripper(t *testing.T) {
 }
 
 func TestRetryRoundTripper(t *testing.T) {
-	req := &http.Request{}
+	req := &http.Request{Header: http.Header{}}
 
 	resp := func(status int) *http.Response {
 		return &http.Response{StatusCode: status, Body: &spyReadCloser{}}
@@ -136,7 +136,12 @@ func TestRetryRoundTripper(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
+			allRequestsGotRetryHeader := true
 			transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				if r.Header.Get(activator.ResponseCountHTTPHeader) == "" {
+					allRequestsGotRetryHeader = false
+				}
+
 				return e.resp, e.err
 			})
 
@@ -168,6 +173,10 @@ func TestRetryRoundTripper(t *testing.T) {
 
 			if e.wantBodyClosed && !e.resp.Body.(*spyReadCloser).Closed {
 				t.Errorf("Expected response body to be closed.")
+			}
+
+			if !allRequestsGotRetryHeader {
+				t.Errorf("Not all retry requests had the retry header set.")
 			}
 
 			if resp != nil {
