@@ -257,21 +257,13 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	if cc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
-	// If the underlying Configuration reported not ready, then bubble it up.
-	if cc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  cc.Status,
-			Reason:  cc.Reason,
-			Message: cc.Message,
-		})
-	}
-	if cc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
+	switch {
+	case cc.Status == corev1.ConditionUnknown:
+		ss.markUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionTrue:
+		ss.markTrue(ServiceConditionConfigurationsReady)
+	case cc.Status == corev1.ConditionFalse:
+		ss.markFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -284,25 +276,21 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	if rc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionRoutesReady}
-	// If the underlying Route reported not ready, then bubble it up.
-	if rc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  rc.Status,
-			Reason:  rc.Reason,
-			Message: rc.Message,
-		})
-	}
-	if rc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
+	switch {
+	case rc.Status == corev1.ConditionUnknown:
+		ss.markUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case rc.Status == corev1.ConditionTrue:
+		ss.markTrue(ServiceConditionRoutesReady)
+	case rc.Status == corev1.ConditionFalse:
+		ss.markFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 
-func (ss *ServiceStatus) checkAndMarkReady() {
+func (ss *ServiceStatus) markTrue(t ServiceConditionType) {
+	ss.setCondition(&ServiceCondition{
+		Type:   t,
+		Status: corev1.ConditionTrue,
+	})
 	for _, cond := range []ServiceConditionType{
 		ServiceConditionConfigurationsReady,
 		ServiceConditionRoutesReady,
@@ -312,12 +300,47 @@ func (ss *ServiceStatus) checkAndMarkReady() {
 			return
 		}
 	}
-	ss.markReady()
-}
-
-func (ss *ServiceStatus) markReady() {
 	ss.setCondition(&ServiceCondition{
 		Type:   ServiceConditionReady,
 		Status: corev1.ConditionTrue,
 	})
+}
+
+func (ss *ServiceStatus) markUnknown(t ServiceConditionType, reason, message string) {
+	ss.setCondition(&ServiceCondition{
+		Type:    t,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: message,
+	})
+	for _, cond := range []ServiceConditionType{
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
+	} {
+		c := ss.GetCondition(cond)
+		if c == nil || c.Status == corev1.ConditionFalse {
+			// Failed conditions trump unknown conditions
+			return
+		}
+	}
+	ss.setCondition(&ServiceCondition{
+		Type:    ServiceConditionReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: message,
+	})
+}
+
+func (ss *ServiceStatus) markFalse(t ServiceConditionType, reason, message string) {
+	for _, cond := range []ServiceConditionType{
+		t,
+		ServiceConditionReady,
+	} {
+		ss.setCondition(&ServiceCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
+		})
+	}
 }
