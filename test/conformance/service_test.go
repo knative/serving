@@ -163,9 +163,6 @@ func TestRunLatestService(t *testing.T) {
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
 
-	// We start a background prober to test if Route is always healthy even during Route update.
-	routeProberErrorChan := test.RunRouteProber(logger, clients, routeDomain)
-
 	logger.Info("Updating the Service to use a different image")
 	if err := updateServiceWithImage(clients, names, imagePaths[1]); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
@@ -183,10 +180,6 @@ func TestRunLatestService(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "2", "Re-energize yourself with a slice of pepperoni!")
-
-	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
-		t.Fatalf("Route prober failed with error %v", err)
-	}
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.
