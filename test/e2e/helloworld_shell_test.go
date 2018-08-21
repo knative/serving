@@ -27,8 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 )
 
 const (

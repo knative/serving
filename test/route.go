@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test/spoof"
 )
 

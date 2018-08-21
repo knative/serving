@@ -14,7 +14,7 @@ limitations under the License.
  package test
  import (
 	"encoding/json"
- 	"github.com/knative/serving/test/logging"
+ 	"github.com/knative/pkg/test/logging"
 )
 
 // LogResourceObject logs the resource object with the resource name and value

@@ -24,10 +24,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/types"
 )
