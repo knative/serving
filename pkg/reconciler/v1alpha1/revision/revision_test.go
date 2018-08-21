@@ -473,8 +473,6 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		return HookComplete
 	})
 
-	completeMessage := "a long human-readable complete message."
-
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -504,9 +502,8 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// successfully.
 	bld.Status = buildv1alpha1.BuildStatus{
 		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildSucceeded,
-			Status:  corev1.ConditionTrue,
-			Message: completeMessage,
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
 		}},
 	}
 	// Since Reconcile looks in the lister, we need to add it to the informer
@@ -525,7 +522,6 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		want := &v1alpha1.RevisionCondition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
-			Message:            completeMessage,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {

@@ -206,15 +206,11 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		if rc := cs.GetCondition(cond); rc == nil {
-			cs.setCondition(&ConfigurationCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+	if rc := cs.GetCondition(ConfigurationConditionReady); rc == nil {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionUnknown,
+		})
 	}
 }
 
@@ -230,29 +226,19 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   cond,
-			Status: corev1.ConditionTrue,
-		})
-	}
+	cs.setCondition(&ConfigurationCondition{
+		Type:   ConfigurationConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	if cs.LatestReadyRevisionName == "" {
-		cct = append(cct, ConfigurationConditionReady)
-	}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
-		})
-	}
+	cs.setCondition(&ConfigurationCondition{
+		Type:    ConfigurationConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionFailed",
+		Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
+	})
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
@@ -265,14 +251,11 @@ func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionDeleted",
-			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
-		})
-	}
+	cs.setCondition(&ConfigurationCondition{
+		Type:    ConfigurationConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionDeleted",
+		Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
+	})
 	cs.LatestReadyRevisionName = ""
 }
