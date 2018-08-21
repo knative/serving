@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaling_test
+package autoscaling
 
 import (
 	"context"
@@ -28,7 +28,6 @@ import (
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -59,10 +58,10 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -146,10 +145,10 @@ func TestNoEndpointsActive(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -207,10 +206,10 @@ func TestEmptyEndpointsActive(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -268,10 +267,10 @@ func TestNoEndpointsReserve(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -330,10 +329,10 @@ func TestReserveWithEndpoints(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -389,9 +388,9 @@ func TestControllerCreateError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
@@ -427,9 +426,9 @@ func TestControllerUpdateError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
@@ -465,9 +464,9 @@ func TestControllerGetError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
@@ -504,10 +503,10 @@ func TestScaleFailure(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
@@ -546,9 +545,9 @@ func TestBadKey(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
-	ctl := autoscaling.NewController(&opts,
+	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{},

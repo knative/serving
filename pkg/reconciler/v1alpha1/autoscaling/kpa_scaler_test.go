@@ -14,16 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaling_test
+package autoscaling
 
 import (
 	"testing"
+	"time"
 
+	"github.com/knative/pkg/apis"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"k8s.io/api/apps/v1"
@@ -52,7 +53,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling   bool
 		kpaMutation   func(*kpa.PodAutoscaler)
 	}{{
-		label:         "waits to scale to zero",
+		label:         "waits to scale to zero (fresh)",
 		startState:    v1alpha1.RevisionServingStateReserve,
 		startReplicas: 1,
 		scaleTo:       0,
@@ -60,7 +61,24 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(kpa *kpa.PodAutoscaler) {
+			// Sets LTT to time.Now()
 			kpa.Status.MarkInactive("foo", "bar")
+		},
+	}, {
+		label:         "waits to scale to zero (just before grace period)",
+		startState:    v1alpha1.RevisionServingStateReserve,
+		startReplicas: 1,
+		scaleTo:       0,
+		wantState:     v1alpha1.RevisionServingStateReserve,
+		wantReplicas:  1,
+		wantScaling:   false,
+		kpaMutation: func(k *kpa.PodAutoscaler) {
+			ltt := time.Now().Add(-gracePeriod).Add(1 * time.Second)
+			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
+				Type:               "Active",
+				Status:             "False",
+				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
+			}}
 		},
 	}, {
 		label:         "scale to zero after grace period",
@@ -71,10 +89,11 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
+			ltt := time.Now().Add(-gracePeriod)
 			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
-				Type:   "Active",
-				Status: "False",
-				// No LTT == a long long time ago
+				Type:               "Active",
+				Status:             "False",
+				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
 			}}
 		},
 	}, {
@@ -126,7 +145,7 @@ func TestKPAScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, e.startState)
 			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
-			revisionScaler := autoscaling.NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
 
 			kpa := newKPA(t, servingClient, revision)
 			if e.kpaMutation != nil {

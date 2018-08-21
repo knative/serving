@@ -30,7 +30,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 )
 
-var (
+const (
 	// The period we wait after Active=False before actually scaling to zero.
 	gracePeriod = 60 * time.Second
 )
