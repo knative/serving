@@ -26,8 +26,7 @@ func TestFilteringHandler(t *testing.T) {
 		headers        http.Header
 		passed         bool
 		expectedStatus int
-	}{
-		{
+	}{{
 			label:          "forward a normal request",
 			headers:        http.Header{},
 			passed:         true,
