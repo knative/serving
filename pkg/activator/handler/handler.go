@@ -55,5 +55,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
 
+	// Clear the host to avoid the request to be routed by istio.
+	r.Host = ""
+
 	proxy.ServeHTTP(w, r)
 }
