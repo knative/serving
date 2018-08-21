@@ -108,10 +108,13 @@ func TestActivationHandler(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
+			var host string
 			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				if e.wantErr != nil {
 					return nil, e.wantErr
 				}
+
+				host = r.Host
 
 				return http.DefaultTransport.RoundTrip(r)
 			})
@@ -137,6 +140,10 @@ func TestActivationHandler(t *testing.T) {
 			gotBody, _ := ioutil.ReadAll(resp.Body)
 			if string(gotBody) != e.wantBody {
 				t.Errorf("Unexpected response body. Want %q, got %q", e.wantBody, gotBody)
+			}
+
+			if host != "" {
+				t.Errorf("Unexpected Host header. Wanted empty, got %s.", host)
 			}
 		})
 	}
