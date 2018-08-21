@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

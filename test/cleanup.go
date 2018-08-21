@@ -23,7 +23,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 )
 
 // CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught

@@ -25,9 +25,9 @@ import (
 
 	"encoding/json"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/types"
 

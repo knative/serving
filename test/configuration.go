@@ -19,7 +19,7 @@ limitations under the License.
 package test
 
 import (
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 	corev1 "k8s.io/api/core/v1"
 )
 

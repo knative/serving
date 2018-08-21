@@ -318,7 +318,7 @@
   revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[projects]]
-  digest = "1:358640ffd7336aa49b208b14a572c184f96009478ff007f70116d92f9794df13"
+  digest = "1:7fec517511463f9e518f3edf581e9b5ddb579cb3ef5b30ec2b87b78b5d8c0f5f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -340,10 +340,11 @@
     "logging/logkey",
     "logging/testing",
     "signals",
+    "test/logging",
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "a3bc2db77a14d9ca6195172e81b4bf33e6190f85"
+  revision = "f4a77d77082cf7efcc4cf8949f8d85e3967ebde1"
 
 [[projects]]
   branch = "master"
@@ -1031,6 +1032,7 @@
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
     "github.com/knative/pkg/signals",
+    "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra",
     "github.com/mattbaird/jsonpatch",

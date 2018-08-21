@@ -19,8 +19,8 @@ limitations under the License.
 package test
 
 import (
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test/logging"
 )
 
 // CreateLatestService creates a service in namespace with the name names.Service

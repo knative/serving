@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
