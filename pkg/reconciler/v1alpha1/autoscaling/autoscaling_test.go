@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/configmap"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -29,6 +30,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	"github.com/knative/serving/pkg/system"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,6 +41,31 @@ import (
 
 	. "github.com/knative/pkg/logging/testing"
 )
+
+var (
+	gracePeriod = 60 * time.Second
+)
+
+func newConfigWatcher() configmap.Watcher {
+	return configmap.NewFixedWatcher(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      autoscaler.ConfigName,
+			},
+			Data: map[string]string{
+				"max-scale-up-rate":           "1.0",
+				"single-concurrency-target":   "1.0",
+				"multi-concurrency-target":    "1.0",
+				"stable-window":               "5m",
+				"panic-window":                "10s",
+				"scale-to-zero-threshold":     "10m",
+				"scale-to-zero-grace-period":  gracePeriod.String(),
+				"concurrency-quantum-of-time": "100ms",
+				"tick-interval":               "2s",
+			},
+		})
+}
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
@@ -58,7 +85,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -145,7 +172,7 @@ func TestNoEndpointsActive(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -206,7 +233,7 @@ func TestEmptyEndpointsActive(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -267,7 +294,7 @@ func TestNoEndpointsReserve(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -329,7 +356,7 @@ func TestReserveWithEndpoints(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -388,7 +415,7 @@ func TestControllerCreateError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -426,7 +453,7 @@ func TestControllerUpdateError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -464,7 +491,7 @@ func TestControllerGetError(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -503,7 +530,7 @@ func TestScaleFailure(t *testing.T) {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
@@ -545,7 +572,7 @@ func TestBadKey(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),

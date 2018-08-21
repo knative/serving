@@ -145,7 +145,7 @@ func TestKPAScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, e.startState)
 			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
-			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t))
+			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 			kpa := newKPA(t, servingClient, revision)
 			if e.kpaMutation != nil {
