@@ -136,7 +136,7 @@ func (b *Breaker) concurrentRequest() request {
 	// will fail about 3 runs.
 	runtime.Gosched()
 
-	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 2)}
+	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
 	var start sync.WaitGroup
 	start.Add(1)
