@@ -137,16 +137,17 @@ func (b *Breaker) concurrentRequest() request {
 
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 2)}
 	r.lock.Lock()
-	started := make(chan bool)
+	var start sync.WaitGroup
+	start.Add(1)
 	go func() {
-		started <- true
+		start.Done()
 		ok := b.Maybe(func() {
 			r.lock.Lock() // Will block on locked mutex.
 			r.lock.Unlock()
 		})
 		r.accepted <- ok
 	}()
-	<-started // Ensure that the go func has had a chance to execute.
+	start.Wait() // Ensure that the go func has had a chance to execute.
 	return r
 }
 
