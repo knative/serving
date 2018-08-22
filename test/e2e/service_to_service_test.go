@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
 
 	corev1 "k8s.io/api/core/v1"

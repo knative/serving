@@ -43,16 +43,16 @@ var baseLogger *BaseLogger
 
 var exporter *zapMetricExporter
 
-// BaseLogger is a common knative test files logger.
-type BaseLogger struct {
-	Logger *zap.SugaredLogger
-}
-
 // zapMetricExporter is a stats and trace exporter that logs the
 // exported data to the provided (probably test specific) zap logger.
 // It conforms to the view.Exporter and trace.Exporter interfaces.
 type zapMetricExporter struct {
 	logger *zap.SugaredLogger
+}
+
+// BaseLogger is a common knative test files logger.
+type BaseLogger struct {
+	Logger *zap.SugaredLogger
 }
 
 // ExportView will emit the view data vd (i.e. the stats that have been
@@ -140,23 +140,28 @@ func GetContextLogger(context string) *BaseLogger {
 func (b *BaseLogger) Infof(template string, args ...interface{}) {
 	b.Logger.Infof(template, args...)
 }
- // Info logs an info message.
+
+// Info logs an info message.
 func (b *BaseLogger) Info(args ...interface{}) {
 	b.Logger.Info(args...)
 }
- // Fatal logs a fatal message.
+
+// Fatal logs a fatal message.
 func (b *BaseLogger) Fatal(args ...interface{}) {
 	b.Logger.Fatal(args...)
 }
- // Fatalf logs a templated fatal message.
+
+// Fatalf logs a templated fatal message.
 func (b *BaseLogger) Fatalf(template string, args ...interface{}) {
 	b.Logger.Fatalf(template, args...)
 }
- // Debugf logs a templated debug message.
+
+// Debugf logs a templated debug message.
 func (b *BaseLogger) Debugf(template string, args ...interface{}) {
 	b.Logger.Debugf(template, args...)
 }
- // Debug logs a debug message.
+
+// Debug logs a debug message.
 func (b *BaseLogger) Debug(args ...interface{}) {
 	b.Logger.Debug(args...)
 }
@@ -165,8 +170,8 @@ func (b *BaseLogger) Debug(args ...interface{}) {
 func (b *BaseLogger) Errorf(template string, args ...interface{}) {
 	b.Logger.Errorf(template, args...)
 }
- // Error logs an error message.
-func (b *BaseLogger) Error(args ...interface{}){
+
+// Error logs an error message.
+func (b *BaseLogger) Error(args ...interface{}) {
 	b.Logger.Error(args...)
 }
-

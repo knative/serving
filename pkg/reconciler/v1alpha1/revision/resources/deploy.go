@@ -135,7 +135,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 
 func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	podTemplateAnnotations := makeAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
@@ -154,6 +154,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		}
 	}
 
+	one := int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Deployment(rev),
@@ -163,7 +164,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                &replicaCount,
+			Replicas:                &one,
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{

@@ -294,12 +294,15 @@ func (r *mockReporter) Report(m Measurement, v float64) error {
 func newTestAutoscaler(model v1alpha1.RevisionRequestConcurrencyModelType, targetConcurrency float64) *Autoscaler {
 	stableWindow := 60 * time.Second
 	panicWindow := 6 * time.Second
-	scaleToZeroThreshold := 5 * time.Minute
+	scaleToZeroIdlePeriod := 4*time.Minute + 30*time.Second
+	scaleToZeroGracePeriod := 30 * time.Second
 	config := &Config{
-		MaxScaleUpRate:       10.0,
-		StableWindow:         stableWindow,
-		PanicWindow:          panicWindow,
-		ScaleToZeroThreshold: scaleToZeroThreshold,
+		MaxScaleUpRate:         10.0,
+		StableWindow:           stableWindow,
+		PanicWindow:            panicWindow,
+		ScaleToZeroThreshold:   scaleToZeroIdlePeriod + scaleToZeroGracePeriod,
+		ScaleToZeroIdlePeriod:  scaleToZeroIdlePeriod,
+		ScaleToZeroGracePeriod: scaleToZeroGracePeriod,
 	}
 
 	switch model {

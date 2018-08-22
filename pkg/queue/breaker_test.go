@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -100,28 +101,8 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	unlockAll(locks[50:])
 
 	got := accepted(locks)
-	// Check the first few suceeded
-	if !reflect.DeepEqual(want[:10], got[:10]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker tripped
-	if !reflect.DeepEqual(want[60:70], got[60:70]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker reset
-	if !reflect.DeepEqual(want[len(want)-10:], got[len(got)-10:]) {
-		t.Fatalf("Wanted\n%v.\nGot\n%v.", want, got)
-	}
-}
-
-func TestUnlimitedBreaker(t *testing.T) {
-	b := NewBreaker(1, 0)
-	requests := b.concurrentRequests(1000)
-	unlockAll(requests)
-	for i, ok := range accepted(requests) {
-		if !ok {
-			t.Fatalf("Expected request %d to be successful, but it failed.", i)
-		}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("Wanted %v\n. Got %v\n.", want, got)
 	}
 }
 
@@ -135,18 +116,19 @@ func (b *Breaker) concurrentRequest() request {
 	// will fail about 3 runs.
 	runtime.Gosched()
 
-	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 2)}
+	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
-	started := make(chan bool)
+	var start sync.WaitGroup
+	start.Add(1)
 	go func() {
-		started <- true
+		start.Done()
 		ok := b.Maybe(func() {
 			r.lock.Lock() // Will block on locked mutex.
 			r.lock.Unlock()
 		})
 		r.accepted <- ok
 	}()
-	<-started // Ensure that the go func has had a chance to execute.
+	start.Wait() // Ensure that the go func has had a chance to execute.
 	return r
 }
 
@@ -154,7 +136,7 @@ func (b *Breaker) concurrentRequest() request {
 // request which succeeded, and a slice of bools for all requests.
 func (b *Breaker) concurrentRequests(n int) []request {
 	requests := make([]request, n)
-	for i := 0; i < n; i++ {
+	for i := range requests {
 		requests[i] = b.concurrentRequest()
 	}
 	return requests

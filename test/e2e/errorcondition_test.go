@@ -25,9 +25,9 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

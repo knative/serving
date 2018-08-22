@@ -351,75 +351,9 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa("foo", "deactivate", "Reserve", "busybox"),
-		}, {
-			Object: makeStatus(
-				rev("foo", "deactivate", "Reserve", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Deactivated.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "deactivate" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}},
-				}),
-		}, {
-			Object: deploy("foo", "deactivate", "Reserve", "busybox"),
-		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "deactivate", "Reserve", "busybox").Name,
 		}},
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/deactivate",
-	}, {
-		Name: "failure updating user deployment",
-		// Induce a failure updating the user deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "update-user-deploy-failure", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			// We don't get to updating the autoscaler deployment or deleting services.
-		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/update-user-deploy-failure",
 	}, {
 		Name: "failure updating kpa",
 		// Induce a failure updating the kpa
@@ -454,32 +388,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa("foo", "update-kpa-failure", "Reserve", "busybox"),
-		}, {
-			Object: makeStatus(
-				rev("foo", "update-kpa-failure", "Reserve", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Deactivated.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-kpa-failure", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "update-kpa-failure" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "update-kpa-failure", "Reserve", "busybox").Name,
-			// We don't reach deleting the autoscaler service.
 		}},
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/update-kpa-failure",
@@ -496,200 +404,25 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "stable-deactivation", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
-						Reason: "Updating",
+						Reason: "Deploying",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "stable-deactivation" is Inactive.`,
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
 					}},
 				}),
 			kpa("foo", "stable-deactivation", "Reserve", "busybox"),
 			// The Deployments match what we'd expect of an Reserve revision.
 			deploy("foo", "stable-deactivation", "Reserve", "busybox"),
+			svc("foo", "stable-deactivation", "Reserve", "busybox"),
 		},
 		Key: "foo/stable-deactivation",
-	}, {
-		Name: "retire a revision",
-		// Test the transition that's made when Retired is set.
-		// We initialize the world to a stable Active state, but make the
-		// Revision's ServingState Retired.  We then looks for the expected
-		// mutations, which should include the deletion of all Kubernetes
-		// resources.
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "retire", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "retire", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "retire", "Retired", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "retire", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "retire", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "retire", "Retired", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Retired.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "retire", "Retired", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "retire" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deploy("foo", "retire", "Retired", "busybox").Name,
-		}, {
-			Name: svc("foo", "retire", "Retired", "busybox").Name,
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/retire",
-	}, {
-		Name: "failure deleting user deployment",
-		// Induce a failure deleting the user's deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "delete-user-deploy-failure", "Retired", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deploy("foo", "delete-user-deploy-failure", "Retired", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-user-deploy-failure",
-	}, {
-		Name: "failure deleting user service",
-		// Induce a failure deleting the user's service
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "services"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-user-svc-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "delete-user-svc-failure", "Retired", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "delete-user-svc-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-user-svc-failure",
-	}, {
-		Name: "retired revision is stable",
-		// Test a simple stable reconciliation of a Retired Revision.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (port-Retired), and verify that no changes are necessary.
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "stable-retirement", "Retired", "busybox"),
-				// The Status properly reflects that of a Retired revision.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "stable-retirement", "Retired", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "stable-retirement" is Inactive.`,
-					}},
-				}),
-			kpa("foo", "stable-retirement", "Retired", "busybox"),
-		},
-		Key: "foo/stable-retirement",
 	}, {
 		Name: "activate a reserve revision",
 		// Test the transition that's made when Active is set.
@@ -751,8 +484,6 @@ func TestReconcile(t *testing.T) {
 						Reason: "Deploying",
 					}},
 				}),
-		}, {
-			Object: deploy("foo", "activate-revision", "Active", "busybox"),
 		}},
 		Key: "foo/activate-revision",
 	}, {
@@ -768,6 +499,7 @@ func TestReconcile(t *testing.T) {
 			kpa("foo", "create-in-reserve", "Reserve", "busybox"),
 			// Only Deployments are created and they have no replicas.
 			deploy("foo", "create-in-reserve", "Reserve", "busybox"),
+			svc("foo", "create-in-reserve", "Reserve", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: makeStatus(
@@ -1705,14 +1437,10 @@ func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStat
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
-	var replicaCount int32 = 1
-	if servingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
-	}
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
 	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig, replicaCount)
+		autoscalerConfig, controllerConfig)
 }
 
 func getKPA(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,

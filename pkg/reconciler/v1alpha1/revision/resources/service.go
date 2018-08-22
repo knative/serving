@@ -52,7 +52,6 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: servicePorts,
-			Type:  "NodePort",
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,
 			},

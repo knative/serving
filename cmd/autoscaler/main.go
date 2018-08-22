@@ -93,9 +93,6 @@ func main() {
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClientSet, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
-	if err := configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalf("failed to start watching logging config: %v", err)
-	}
 
 	// This is based on how Kubernetes sets up its scale client based on discovery:
 	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
@@ -136,12 +133,15 @@ func main() {
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
-	kpaScaler := autoscaling.NewKPAScaler(servingClientSet, scaleClient, logger)
+	kpaScaler := autoscaling.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	ctl := autoscaling.NewController(&opt, kpaInformer, endpointsInformer, multiScaler, kpaScaler)
 
 	// Start the serving informer factory.
 	kubeInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start watching logging config: %v", err)
+	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")

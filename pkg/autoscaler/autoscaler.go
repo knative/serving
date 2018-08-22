@@ -200,7 +200,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Scale to zero if the last request is from too long ago
-	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(config.ScaleToZeroThreshold).Before(now) {
+	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
 		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
 		a.scaleToZeroThresholdExceeded = true
 		return 0, true

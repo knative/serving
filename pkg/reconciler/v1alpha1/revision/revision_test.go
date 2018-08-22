@@ -473,8 +473,6 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		return HookComplete
 	})
 
-	completeMessage := "a long human-readable complete message."
-
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -504,9 +502,8 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// successfully.
 	bld.Status = buildv1alpha1.BuildStatus{
 		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildSucceeded,
-			Status:  corev1.ConditionTrue,
-			Message: completeMessage,
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
 		}},
 	}
 	// Since Reconcile looks in the lister, we need to add it to the informer
@@ -525,7 +522,6 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		want := &v1alpha1.RevisionCondition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
-			Message:            completeMessage,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -693,62 +689,6 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-}
-
-// TODO(mattmoor): Add table testing that varies the replica counts of Deployments.
-func TestReconcileReplicaCount(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	createRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	getDeployments := func() *appsv1.Deployment {
-		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resourcenames.Deployment(rev), metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Expected to have a deployment but found none: %v", err)
-		}
-		return d1
-	}
-
-	d1 := getDeployments()
-
-	// Update the replica count to a positive number. This should get reconciled back to 0.
-	d1.Spec.Replicas = new(int32)
-	*d1.Spec.Replicas = 10
-	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1 = getDeployments()
-	if *d1.Spec.Replicas != 0 {
-		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
-	}
-
-	// Activate the revision. Replicas should increase to 1
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1 = getDeployments()
-	if *d1.Spec.Replicas != 1 {
-		t.Fatalf("Expected deployment to have 1 replicas, got: %v", *d1.Spec.Replicas)
-	}
-
-	// Increase the replica count - those should be kept intact
-	d1.Spec.Replicas = new(int32)
-	*d1.Spec.Replicas = 30
-	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1 = getDeployments()
-	if *d1.Spec.Replicas != 30 {
-		t.Fatalf("Expected deployment to have 30 replicas, got: %v", *d1.Spec.Replicas)
-	}
-
-	// Deactivate the revision. Replicas should go back to 0.
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1 = getDeployments()
-	if *d1.Spec.Replicas != 0 {
-		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
 	}
 }
 

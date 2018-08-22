@@ -9,8 +9,8 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 )
 
 const (
