@@ -28,7 +28,7 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.0/istio-lean.yaml
 
 # Helper functions.
 
