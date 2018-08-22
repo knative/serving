@@ -147,7 +147,7 @@ func (b *Breaker) concurrentRequest() request {
 // request which succeeded, and a slice of bools for all requests.
 func (b *Breaker) concurrentRequests(n int) []request {
 	requests := make([]request, n)
-	for i := 0; i < n; i++ {
+	for i := range requests {
 		requests[i] = b.concurrentRequest()
 	}
 	return requests
