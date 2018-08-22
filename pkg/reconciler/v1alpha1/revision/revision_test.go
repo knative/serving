@@ -42,6 +42,7 @@ import (
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/pkg/controller"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -90,6 +91,13 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 			}},
 		}},
 	}
+}
+
+func getTestReadyKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
+	kpa := resources.MakeKPA(rev)
+	kpa.Status.InitializeConditions()
+	kpa.Status.MarkActive()
+	return kpa
 }
 
 func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
@@ -564,6 +572,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	endpoints := getTestReadyEndpoints(rev.Name)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
+	kpa := getTestReadyKPA(rev)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 	f := controller.Reconciler.(*Reconciler).EnqueueEndpointsRevision(controller)
 	f(endpoints)
 	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
