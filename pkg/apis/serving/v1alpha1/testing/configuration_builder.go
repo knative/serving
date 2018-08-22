@@ -32,11 +32,11 @@ type ConfigBuilder struct {
 	obj *v1alpha1.Configuration
 }
 
-func Config(name, namespace string) ConfigBuilder {
+func Config(name string) ConfigBuilder {
 	return ConfigBuilder{&v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
@@ -74,6 +74,11 @@ func (bldr ConfigBuilder) ToUpdateAction() clientgotesting.UpdateActionImpl {
 	action.Verb = "update"
 	action.Object = bldr.Build()
 	return action
+}
+
+func (bldr ConfigBuilder) WithNamespace(namespace string) ConfigBuilder {
+	bldr.obj.ObjectMeta.Namespace = namespace
+	return bldr
 }
 
 func (bldr ConfigBuilder) WithGeneration(generation int64) ConfigBuilder {
