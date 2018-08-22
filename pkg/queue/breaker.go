@@ -36,8 +36,8 @@ func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
-	if maxConcurrency < 0 {
-		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", maxConcurrency))
+	if maxConcurrency <= 0 {
+		panic(fmt.Sprintf("Max concurrency must be greater than 0. Got %v.", maxConcurrency))
 	}
 	return &Breaker{
 		maxConcurrency:  maxConcurrency,
@@ -51,13 +51,6 @@ func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
 // already consumed, Maybe returns immediately without calling thunk. If
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(thunk func()) bool {
-
-	if b.maxConcurrency == 0 {
-		// Unlimited concurrency
-		thunk()
-		return true
-	}
-
 	var t token
 	select {
 	default:

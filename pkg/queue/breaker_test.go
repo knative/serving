@@ -106,17 +106,6 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	}
 }
 
-func TestUnlimitedBreaker(t *testing.T) {
-	b := NewBreaker(1, 0)
-	requests := b.concurrentRequests(1000)
-	unlockAll(requests)
-	for i, ok := range accepted(requests) {
-		if !ok {
-			t.Fatalf("Expected request %d to be successful, but it failed.", i)
-		}
-	}
-}
-
 // Attempts to perform a concurrent request against the specified breaker.
 func (b *Breaker) concurrentRequest() request {
 
