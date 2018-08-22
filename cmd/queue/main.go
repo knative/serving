@@ -61,10 +61,6 @@ const (
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
-
-	// Single concurency queue depth.  The maximum number of requests
-	// to enqueue before returing 503 overload.
-	singleConcurrencyQueueDepth = 10
 )
 
 var (
@@ -187,11 +183,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		reqChan <- queue.ReqOut
 	}()
 	// Enforce queuing and concurrency limits
-	ok := breaker.Maybe(func() {
+	if breaker != nil {
+		ok := breaker.Maybe(func() {
+			proxy.ServeHTTP(w, r)
+		})
+		if !ok {
+			http.Error(w, "overload", http.StatusServiceUnavailable)
+		}
+	} else {
 		proxy.ServeHTTP(w, r)
-	})
-	if !ok {
-		http.Error(w, "overload", http.StatusServiceUnavailable)
 	}
 }
 
@@ -283,13 +283,12 @@ func main() {
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2cutil.DefaultTransport
 
-	// TODO(josephburnett) allow Breaker to have queue depth of 0 (disabled)
-	queueDepth := 1
+	// If containerConcurrency == 0 then concurrency is unlimited.
 	if *containerConcurrency > 0 {
-		queueDepth = *containerConcurrency
+		// We set the queue depth to be equal to the container concurrency.
+		breaker = queue.NewBreaker(int32(*containerConcurrency), int32(*containerConcurrency))
+		logger.Infof("Queue container is starting with queueDepth and containerConcurrency: %s", *containerConcurrency)
 	}
-	breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
-	logger.Infof("Queue container is starting with queueDepth: %s and containerConcurrency: %s", queueDepth, *containerConcurrency)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
