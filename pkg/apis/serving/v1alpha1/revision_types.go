@@ -136,8 +136,8 @@ type RevisionSpec struct {
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
-	// Defaults to `0` which means the system should
-	// decide. This field replaces ConcurrencyModel. A value of `1`
+	// Defaults to `0` which means unlimited concurrency.
+	// This field replaces ConcurrencyModel. A value of `1`
 	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
 	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
