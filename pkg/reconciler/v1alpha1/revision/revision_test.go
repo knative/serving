@@ -201,6 +201,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		buildInformer.Build().V1alpha1().Builds(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
@@ -269,6 +270,16 @@ func addResourcesToInformers(t *testing.T,
 
 	ns := rev.Namespace
 
+	kpaName := resourcenames.KPA(rev)
+	kpa, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+		// If we're doing a Build this won't exist yet.
+	} else if err != nil {
+		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
+	} else {
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	}
+
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
@@ -279,12 +290,6 @@ func addResourcesToInformers(t *testing.T,
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 	}
 
-	// Add autoscaler deployment if any
-	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-	if err == nil {
-		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(autoscalerDeployment)
-	}
-
 	serviceName := resourcenames.K8sService(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
@@ -293,12 +298,6 @@ func addResourcesToInformers(t *testing.T,
 		t.Errorf("Services.Get(%v) = %v", serviceName, err)
 	} else {
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(service)
-	}
-
-	// Add autoscaler service if any
-	autoscalerService, err := kubeClient.CoreV1().Services(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-	if err == nil {
-		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
 	}
 
 	// Add fluentd configmap if any
@@ -704,76 +703,52 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 	createRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	getDeployments := func() (*appsv1.Deployment, *appsv1.Deployment) {
+	getDeployments := func() *appsv1.Deployment {
 		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resourcenames.Deployment(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have a deployment but found none: %v", err)
 		}
-		d2, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Expected to have an autoscaler deployment but found none: %v", err)
-		}
-		return d1, d2
+		return d1
 	}
 
-	d1, d2 := getDeployments()
+	d1 := getDeployments()
 
 	// Update the replica count to a positive number. This should get reconciled back to 0.
 	d1.Spec.Replicas = new(int32)
 	*d1.Spec.Replicas = 10
-	d2.Spec.Replicas = new(int32)
-	*d2.Spec.Replicas = 20
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
+	d1 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 0 {
-		t.Fatalf("Expected autoscaler deployment to have 0 replicas, got: %v", *d2.Spec.Replicas)
 	}
 
 	// Activate the revision. Replicas should increase to 1
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
+	d1 = getDeployments()
 	if *d1.Spec.Replicas != 1 {
 		t.Fatalf("Expected deployment to have 1 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 1 {
-		t.Fatalf("Expected autoscaler deployment to have 1 replicas, got: %v", *d2.Spec.Replicas)
 	}
 
 	// Increase the replica count - those should be kept intact
 	d1.Spec.Replicas = new(int32)
 	*d1.Spec.Replicas = 30
-	d2.Spec.Replicas = new(int32)
-	*d2.Spec.Replicas = 40
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
+	d1 = getDeployments()
 	if *d1.Spec.Replicas != 30 {
 		t.Fatalf("Expected deployment to have 30 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 40 {
-		t.Fatalf("Expected autoscaler deployment to have 40 replicas, got: %v", *d2.Spec.Replicas)
 	}
 
 	// Deactivate the revision. Replicas should go back to 0.
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
+	d1 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 0 {
-		t.Fatalf("Expected autoscaler deployment to have 0 replicas, got: %v", *d2.Spec.Replicas)
 	}
 }
 

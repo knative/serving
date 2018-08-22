@@ -24,10 +24,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/knative/serving/test/logging"
 	"github.com/knative/serving/test/spoof"
 	"go.opencensus.io/trace"
-	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
 )
 
 // MatchesAny is a NOP matcher. This is useful for polling until a 200 is returned.
@@ -81,21 +80,21 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain string, inState spoof.ResponseChecker, desc string) error {
+func WaitForEndpointState(kubeClientset *KubeClient, logger *logging.BaseLogger, domain string, inState spoof.ResponseChecker, desc string) (*spoof.Response, error) {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	client, err := spoof.New(kubeClientset, logger, domain, Flags.ResolvableDomain)
+	client, err := spoof.New(kubeClientset.Kube, logger, domain, ServingFlags.ResolvableDomain)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = client.Poll(req, inState)
-	return err
+	res, err := client.Poll(req, inState)
+	return res, err
 }

@@ -52,12 +52,12 @@ _See [e2e_flags.go](./e2e_flags.go)._
 [When tests are run with `--logverbose`
 option](README.md#output-verbose-logs), debug logs will be emitted to stdout.
 
-We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
-Tests should initialize the global logger to use a test specifc context with `test.GetContextLogger`:
+We are using the common [e2e logging library](/pkg/test/logging) that uses the [Knative logging library](/pkg/logging/) for structured logging. 
+It is built on top of [zap](https://github.com/uber-go/zap). Tests should initialize the global logger to use a test specifc context with `logging.GetContextLogger`:
 
 ```go
 // The convention is for the name of the logger to match the name of the test.
-test.GetContextLogger("TestHelloWorld")
+logging.GetContextLogger("TestHelloWorld")
 ```
 
 Logs can then be emitted using the `logger` object which is required by
@@ -68,7 +68,7 @@ logger.Infof("Creating a new Route %s and Configuration %s", route, configuratio
 logger.Debugf("The LogURL is %s, not yet verifying", logURL)
 ```
 
-_See [logging.go](./logging.go)._
+_See [logging.go](./logging/logging.go)._
 
 ### Emit metrics
 
@@ -139,7 +139,7 @@ The `Clients` struct contains initialized clients for accessing:
 For example, to create a `Route`:
 
 ```bash
-_, err = clients.Routes.Create(test.Route(namespaceName, routeName, configName))
+_, err = clients.ServingClient.Routes.Create(test.Route(namespaceName, routeName, configName))
 ```
 
 And you can use the client to clean up `Route` and `Configuration` resources created
@@ -163,9 +163,9 @@ in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
 err = test.WaitForEndpointState(
-		clients.Kube,
+		clients.KubeClient,
 		logger,
-		test.Flags.ResolvableDomain,
+		test.ServingFlags.ResolvableDomain,
 		updatedRoute.Status.Domain,
 		test.EventuallyMatchesBody(expectedText),
 		"SomeDescription")
@@ -185,7 +185,7 @@ service, you can directly use the `SpoofingClient` that `WaitForEndpointState` w
 
 ```go
 // Error handling elided for brevity, but you know better.
-client, err := spoof.New(clients.Kube, logger, route.Status.Domain, test.Flags.ResolvableDomain)
+client, err := spoof.New(clients.KubeClient.Kube, logger, route.Status.Domain, test.Flags.ResolvableDomain)
 req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", route.Status.Domain), nil)
 
 // Single request.
@@ -215,7 +215,7 @@ for it:
 
 ```go
 var revisionName string
-err := test.WaitForConfigurationState(clients.Configs, configName, func(c *v1alpha1.Configuration) (bool, error) {
+err := test.WaitForConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
     if c.Status.LatestCreatedRevisionName != "" {
         revisionName = c.Status.LatestCreatedRevisionName
         return true, nil
@@ -230,7 +230,7 @@ We also have `Check*` variants of many of these methods with identical signature
 
 ```go
 var revisionName string
-err := test.CheckConfigurationState(clients.Configs, configName, func(c *v1alpha1.Configuration) (bool, error) {
+err := test.CheckConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
     if c.Status.LatestCreatedRevisionName != "" {
         revisionName = c.Status.LatestCreatedRevisionName
         return true, nil
@@ -252,7 +252,7 @@ actually serve it, and then the `Revision` object will be updated to indicate it
 can be polled with `test.IsRevisionReady`:
 
 ```go
-err := test.WaitForRevisionState(clients.Revisions, revisionName, test.IsRevisionReady(revisionName))
+err := test.WaitForRevisionState(clients.ServingClient, revisionName, test.IsRevisionReady(revisionName))
 if err != nil {
     t.Fatalf("Revision %s did not become ready to serve traffic: %v", revisionName, err)
 }
@@ -262,7 +262,7 @@ Once the `Revision` is created, all traffic for a `Route` should be routed to it
 `test.AllRouteTrafficAtRevision`:
 
 ```go
-err = test.WaitForRouteState(clients.Routes, routeName, test.AllRouteTrafficAtRevision(routeName, revisionName))
+err = test.WaitForRouteState(clients.ServingClient, routeName, test.AllRouteTrafficAtRevision(routeName, revisionName))
 if err != nil {
     t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", routeName, revisionName, err)
 }
@@ -284,7 +284,7 @@ randomized name:
 ```go
 var names test.ResourceNames
 names.Config := test.RandomizedName('hotdog')
-_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePath))
+_, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
 }

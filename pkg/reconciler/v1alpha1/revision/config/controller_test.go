@@ -90,24 +90,6 @@ func TestControllerConfiguration(t *testing.T) {
 			},
 		},
 	}, {
-		name:    "controller with autoscaler images",
-		wantErr: false,
-		wantController: &Controller{
-			QueueSidecarImage:              noSidecarImage,
-			AutoscalerImage:                "autoscale-image",
-			RegistriesSkippingTagResolving: map[string]struct{}{},
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
-				Name:      ControllerConfigName,
-			},
-			Data: map[string]string{
-				queueSidecarImageKey: noSidecarImage,
-				autoscalerImageKey:   "autoscale-image",
-			},
-		},
-	}, {
 		name:           "controller with no side car image",
 		wantErr:        true,
 		wantController: (*Controller)(nil),

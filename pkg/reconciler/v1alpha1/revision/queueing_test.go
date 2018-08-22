@@ -206,6 +206,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		buildInformer.Build().V1alpha1().Builds(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),

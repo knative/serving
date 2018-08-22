@@ -24,12 +24,14 @@ func Deployment(rev *v1alpha1.Revision) string {
 	return rev.Name + "-deployment"
 }
 
-func Autoscaler(rev *v1alpha1.Revision) string {
-	return rev.Name + "-autoscaler"
-}
-
 func VPA(rev *v1alpha1.Revision) string {
 	return rev.Name + "-vpa"
+}
+
+func KPA(rev *v1alpha1.Revision) string {
+	// We want the KPA's "key" to match the revision,
+	// to simplify the transition to the KPA.
+	return rev.Name
 }
 
 func K8sService(rev *v1alpha1.Revision) string {

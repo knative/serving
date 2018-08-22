@@ -14,14 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-
-if [ -z "${KNATIVE_TEST_INFRA}" ]; then
-  exit 1
-fi
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 set -o errexit
 set -o nounset
@@ -32,12 +25,10 @@ cd ${REPO_ROOT_DIR}
 # Ensure we have everything we need under vendor/
 dep ensure
 
-# Patch the Kubernetes client to fix panics in fake watches. This patch is from
-# https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
-# that PR makes it here.
-git apply --exclude='*_test.go' ${REPO_ROOT_DIR}/hack/61195.patch
-
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
+
+# Keep the only dir in knative/test-infra we're interested in
+find vendor/github.com/knative/test-infra -mindepth 1 -maxdepth 1 ! -name scripts -exec rm -fr {} \;
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"

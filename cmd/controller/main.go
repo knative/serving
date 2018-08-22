@@ -40,6 +40,8 @@ import (
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
+	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -85,6 +87,11 @@ func main() {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
+	sharedClient, err := sharedclientset.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building shared clientset: %v", err)
+	}
+
 	servingClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building serving clientset: %v", err)
@@ -100,6 +107,7 @@ func main() {
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
@@ -110,6 +118,7 @@ func main() {
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
+		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
 		ConfigMapWatcher: configMapWatcher,
@@ -120,12 +129,13 @@ func main() {
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := servingInformerFactory.Networking().V1alpha3().VirtualServices()
+	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -140,6 +150,7 @@ func main() {
 			opt,
 			vpaClient,
 			revisionInformer,
+			kpaInformer,
 			buildInformer,
 			deploymentInformer,
 			coreServiceInformer,
@@ -168,6 +179,7 @@ func main() {
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)
+	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
 	servingSystemInformerFactory.Start(stopCh)
@@ -183,6 +195,7 @@ func main() {
 		routeInformer.Informer().HasSynced,
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
+		kpaInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,

@@ -22,10 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/knative/pkg/apis"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-func (rt *Route) Validate() *apis.FieldError {
-	return rt.Spec.Validate().ViaField("spec")
+func (r *Route) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(r.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
+	return r.Spec.Validate().ViaField("spec")
 }
 
 func (rs *RouteSpec) Validate() *apis.FieldError {
@@ -85,18 +89,17 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 func (tt *TrafficTarget) Validate() *apis.FieldError {
 	switch {
 	case tt.RevisionName != "" && tt.ConfigurationName != "":
-		return &apis.FieldError{
-			Message: "Expected exactly one, got both",
-			Paths:   []string{"revisionName", "configurationName"},
-		}
+		return apis.ErrMultipleOneOf("revisionName", "configurationName")
 	case tt.RevisionName != "":
-	case tt.ConfigurationName != "":
-		// These are fine.
-	default:
-		return &apis.FieldError{
-			Message: "Expected exactly one, got neither",
-			Paths:   []string{"revisionName", "configurationName"},
+		if errs := validation.IsQualifiedName(tt.RevisionName); len(errs) > 0 {
+			return apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", errs...)
 		}
+	case tt.ConfigurationName != "":
+		if errs := validation.IsQualifiedName(tt.ConfigurationName); len(errs) > 0 {
+			return apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", errs...)
+		}
+	default:
+		return apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
 	if tt.Percent < 0 || tt.Percent > 100 {
 		return apis.ErrInvalidValue(fmt.Sprintf("%d", tt.Percent), "percent")

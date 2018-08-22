@@ -21,6 +21,9 @@ import (
 )
 
 func (s *Service) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(s.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
 	return s.Spec.Validate().ViaField("spec")
 }
 
@@ -34,19 +37,13 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 
 	switch {
 	case ss.RunLatest != nil && ss.Pinned != nil:
-		return &apis.FieldError{
-			Message: "Expected exactly one, got both",
-			Paths:   []string{"runLatest", "pinned"},
-		}
+		return apis.ErrMultipleOneOf("runLatest", "pinned")
 	case ss.RunLatest != nil:
 		return ss.RunLatest.Validate().ViaField("runLatest")
 	case ss.Pinned != nil:
 		return ss.Pinned.Validate().ViaField("pinned")
 	default:
-		return &apis.FieldError{
-			Message: "Expected exactly one, got neither",
-			Paths:   []string{"runLatest", "pinned"},
-		}
+		return apis.ErrMissingOneOf("runLatest", "pinned")
 	}
 }
 

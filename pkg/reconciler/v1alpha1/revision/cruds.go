@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	commonlogging "github.com/knative/pkg/logging"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
@@ -60,7 +61,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
 	logger := logging.FromContext(ctx)
 
@@ -87,7 +87,6 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	return d, WasChanged, err
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
 func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
 	logger := logging.FromContext(ctx)
 
@@ -99,6 +98,28 @@ func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.De
 		return err
 	}
 	return nil
+}
+
+func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpa.PodAutoscaler, error) {
+	kpa := resources.MakeKPA(rev)
+
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
+}
+
+func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revision, kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, Changed, error) {
+	logger := logging.FromContext(ctx)
+
+	desiredKPA := resources.MakeKPA(rev)
+	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
+	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
+	desiredKPA.Spec.Generation = kpa.Spec.Generation
+	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
+		return kpa, Unchanged, nil
+	}
+	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
+	kpa.Spec = desiredKPA.Spec
+	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
+	return kpa, WasChanged, err
 }
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
@@ -140,15 +161,6 @@ func (c *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) err
 		return err
 	}
 	return nil
-}
-
-func (c *Reconciler) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	var replicaCount int32 = 1
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
-	}
-	deployment := resources.MakeAutoscalerDeployment(rev, c.getControllerConfig().AutoscalerImage, replicaCount)
-	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
 func (c *Reconciler) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {

@@ -18,8 +18,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
-	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	v1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	serving_v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -50,20 +50,18 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=networking.istio.io, Version=v1alpha3
-	case v1alpha3.SchemeGroupVersion.WithResource("gateways"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().Gateways().Informer()}, nil
-	case v1alpha3.SchemeGroupVersion.WithResource("virtualservices"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().VirtualServices().Informer()}, nil
+	// Group=autoscaling.internal.knative.dev, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("configurations"):
+	case serving_v1alpha1.SchemeGroupVersion.WithResource("configurations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Configurations().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("revisions"):
+	case serving_v1alpha1.SchemeGroupVersion.WithResource("revisions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Revisions().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("routes"):
+	case serving_v1alpha1.SchemeGroupVersion.WithResource("routes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Routes().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("services"):
+	case serving_v1alpha1.SchemeGroupVersion.WithResource("services"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Services().Informer()}, nil
 
 	}

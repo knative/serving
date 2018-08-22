@@ -17,9 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 )
@@ -67,12 +69,28 @@ func TestRouteValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "Expected exactly one, got neither",
+			Message: "expected exactly one, got neither",
 			Paths: []string{
 				"spec.traffic[0].revisionName",
 				"spec.traffic[0].configurationName",
 			},
 		},
+	}, {
+		name: "invalid name - dots",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "do.not.use.dots",
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid name - too long",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("a", 65),
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
 	}}
 
 	for _, test := range tests {
@@ -126,8 +144,34 @@ func TestRouteSpecValidation(t *testing.T) {
 			}},
 		},
 		want: &apis.FieldError{
-			Message: "Expected exactly one, got neither",
+			Message: "expected exactly one, got neither",
 			Paths:   []string{"traffic[0].revisionName", "traffic[0].configurationName"},
+		},
+	}, {
+		name: "invalid revision name",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				RevisionName: "b@r",
+				Percent:      100,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `invalid key name "b@r"`,
+			Paths:   []string{"traffic[0].revisionName"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
+		},
+	}, {
+		name: "invalid revision name",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				ConfigurationName: "f**",
+				Percent:           100,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `invalid key name "f**"`,
+			Paths:   []string{"traffic[0].configurationName"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
 		},
 	}, {
 		name: "invalid name conflict",
@@ -229,7 +273,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			ConfigurationName: "bar",
 		},
 		want: &apis.FieldError{
-			Message: "Expected exactly one, got both",
+			Message: "expected exactly one, got both",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
 	}, {
@@ -239,7 +283,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent: 100,
 		},
 		want: &apis.FieldError{
-			Message: "Expected exactly one, got neither",
+			Message: "expected exactly one, got neither",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
 	}, {

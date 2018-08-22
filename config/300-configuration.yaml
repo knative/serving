@@ -27,4 +27,7 @@ spec:
     - all
     - knative
     - serving
+    shortNames:
+    - config
+    - cfg
   scope: Namespaced

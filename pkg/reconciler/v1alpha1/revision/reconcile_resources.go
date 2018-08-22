@@ -26,9 +26,9 @@ import (
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"github.com/knative/serving/pkg/system"
 
 	"go.uber.org/zap"
 
@@ -107,6 +107,38 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
 		return nil
 	}
+}
+
+func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	kpaName := resourcenames.KPA(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KPA, kpaName))
+
+	kpa, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
+	if apierrs.IsNotFound(getKPAErr) {
+		// KPA does not exist. Create it.
+		var err error
+		kpa, err = c.createKPA(ctx, rev)
+		if err != nil {
+			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
+			return err
+		}
+		logger.Infof("Created kpa %q", kpaName)
+	} else if getKPAErr != nil {
+		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
+		return getKPAErr
+	} else {
+		// KPA exists. Update the replica count based on the serving state if necessary
+		var err error
+		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
+		if err != nil {
+			logger.Errorf("Error updating kpa %q: %v", kpaName, err)
+			return err
+		}
+	}
+
+	// TODO(mattmoor): Update status based on the KPA status.
+	return nil
 }
 
 func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -241,130 +273,6 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		}
 	}
 	return nil
-}
-
-func (c *Reconciler) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
-	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.getControllerConfig().AutoscalerImage == "" {
-		return nil
-	}
-
-	ns := system.Namespace
-	serviceName := resourcenames.Autoscaler(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
-
-	service, err := c.serviceLister.Services(ns).Get(serviceName)
-	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive:
-		// When Active, the Service should exist and have a particular specification.
-		if apierrs.IsNotFound(err) {
-			// If it does not exist, then create it.
-			service, err = c.createService(ctx, rev, resources.MakeAutoscalerService)
-			if err != nil {
-				logger.Errorf("Error creating Autoscaler Service %q: %v", serviceName, err)
-				return err
-			}
-			logger.Infof("Created Autoscaler Service %q", serviceName)
-		} else if err != nil {
-			logger.Errorf("Error reconciling Active Autoscaler Service %q: %v", serviceName, err)
-			return err
-		} else {
-			// If it exists, then make sure if looks as we expect.
-			// It may change if a user edits things around our controller, which we
-			// should not allow, or if our expectations of how the service should look
-			// changes (e.g. we update our controller with new sidecars).
-			var changed Changed
-			service, changed, err = c.checkAndUpdateService(
-				ctx, rev, resources.MakeAutoscalerService, service)
-			if err != nil {
-				logger.Errorf("Error updating Autoscaler Service %q: %v", serviceName, err)
-				return err
-			}
-			if changed == WasChanged {
-				logger.Infof("Updated Autoscaler Service %q", serviceName)
-			}
-		}
-
-		// TODO(mattmoor): We don't predicate the Revision's readiness on any readiness
-		// properties of the autoscaler, but perhaps we should.
-		return nil
-
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the autoscaling Service.
-		if apierrs.IsNotFound(err) {
-			// If it does not exist, then we have nothing to do.
-			return nil
-		}
-		if err := c.deleteService(ctx, service); err != nil {
-			logger.Errorf("Error deleting Autoscaler Service %q: %v", serviceName, err)
-			return err
-		}
-		logger.Infof("Deleted Autoscaler Service %q", serviceName)
-		return nil
-
-	default:
-		logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
-		return nil
-	}
-}
-
-func (c *Reconciler) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.getControllerConfig().AutoscalerImage == "" {
-		return nil
-	}
-
-	ns := system.Namespace
-	deploymentName := resourcenames.Autoscaler(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
-
-	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
-	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
-		// When Active or Reserved, Autoscaler deployment should exist and have a particular specification.
-		if apierrs.IsNotFound(getDepErr) {
-			// Deployment does not exist. Create it.
-			var err error
-			deployment, err = c.createAutoscalerDeployment(ctx, rev)
-			if err != nil {
-				logger.Errorf("Error creating Autoscaler deployment %q: %v", deploymentName, err)
-				return err
-			}
-			logger.Infof("Created Autoscaler deployment %q", deploymentName)
-		} else if getDepErr != nil {
-			logger.Errorf("Error reconciling Autoscaler deployment %q: %v", deploymentName, getDepErr)
-			return getDepErr
-		} else {
-			// Deployment exist. Update the replica count based on the serving state if necessary
-			var err error
-			deployment, _, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
-			if err != nil {
-				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
-				return err
-			}
-		}
-
-		// TODO(mattmoor): We don't predicate the Revision's readiness on any readiness
-		// properties of the autoscaler, but perhaps we should.
-		return nil
-
-	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the underlying Autoscaler Deployment.
-		if apierrs.IsNotFound(getDepErr) {
-			// If it does not exist, then we have nothing to do.
-			return nil
-		}
-		if err := c.deleteDeployment(ctx, deployment); err != nil {
-			logger.Errorf("Error deleting Autoscaler Deployment %q: %v", deploymentName, err)
-			return err
-		}
-		logger.Infof("Deleted Autoscaler Deployment %q", deploymentName)
-		return nil
-
-	default:
-		logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
-		return nil
-	}
 }
 
 func (c *Reconciler) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {

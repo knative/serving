@@ -36,7 +36,7 @@ const testAddress = "127.0.0.1:0"
 
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.New(testAddress, statsCh, zap.NewNop().Sugar())
+	server := stats.NewTestServer(statsCh)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -48,6 +48,7 @@ func TestServerLifecycle(t *testing.T) {
 		}
 	}()
 
+	server.ListenAddr()
 	server.Shutdown(time.Second)
 
 	wg.Wait()
@@ -129,7 +130,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	// Check the number of goroutines eventually reduces to the number there were before the connection was created
 	for i := 1000; i >= 0; i-- {
 		currentGoRoutines := runtime.NumGoroutine()
-		if currentGoRoutines == originalGoroutines {
+		if currentGoRoutines <= originalGoroutines {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)

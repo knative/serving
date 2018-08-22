@@ -6,6 +6,7 @@ This directory contains tests and testing docs for `Knative Serving`:
 * [End-to-end tests](#running-end-to-end-tests), of which there are two types:
   * Conformance tests in [`/test/conformance`](./conformance)
   * Other end-to-end tests in [`/test/e2e`](./e2e)
+* [Performance tests](./performance)
 
 The conformance tests are a subset of the end to end test with [more strict requirements](./conformance/README.md#requirements) around what can be tested.
 
@@ -61,7 +62,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `serving-tests``:
+2. The namespace `serving-tests`:
     ```bash
     kubectl create namespace serving-tests
 
@@ -99,6 +100,8 @@ go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 
 ### Building the test images
 
+Note: this is only required when you run conformance/e2e tests locally with `go test` commands.
+
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to build and push the
 test images used by the conformance and e2e tests. It requires:
 
@@ -110,18 +113,12 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh ./test/e2e/test_images ./test/conformance/test_images
+./test/upload-test-images.sh
 ```
 
 ### Adding new test images
 
-New test images should be placed in their own subdirectories. Be sure to to include a `Dockerfile`
-for building and running the test image.
-
-The new test images will also need to be uploaded to the e2e tests Docker repo. You will need one
-of the owners found in [`/test/OWNERS`](OWNERS) to do this.
-
-Because the test images are uploaded to the same folder, they **must** have different names.
+New test images should be placed in `./test/test_images`.
 
 ## Flags
 
@@ -142,7 +139,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~/.kube/config`.
+at `~/.kube/config`. If there is an error getting the current user, it will use `kubeconfig` instead as the default value.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the tests with a non-default kubeconfig file:

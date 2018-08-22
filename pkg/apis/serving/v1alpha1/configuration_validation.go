@@ -23,6 +23,9 @@ import (
 )
 
 func (c *Configuration) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(c.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
 	return c.Spec.Validate().ViaField("spec")
 }
 
@@ -35,5 +38,6 @@ func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 	if cs.RevisionTemplate.Spec.ServingState != "" {
 		return apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
 	}
+
 	return cs.RevisionTemplate.Validate().ViaField("revisionTemplate")
 }

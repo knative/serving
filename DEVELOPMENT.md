@@ -65,9 +65,13 @@ export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
 export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
-(Make sure to configure [authentication](
+Make sure to configure [authentication](
 https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
-for your `KO_DOCKER_REPO` if required.)
+for your `KO_DOCKER_REPO` if required. To be able to push images to `gcr.io/<project>`, you need to run this once:
+
+```shell
+gcloud auth configure-docker
+```
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
@@ -124,7 +128,7 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0-prerelease/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
@@ -215,7 +219,7 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0-prerelease/istio.yaml
+  -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
 ## Telemetry

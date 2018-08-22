@@ -38,6 +38,7 @@ import (
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
+	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -53,6 +54,7 @@ import (
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 )
@@ -88,6 +90,7 @@ type Reconciler struct {
 
 	// lister indexes properties about Revision
 	revisionLister   listers.RevisionLister
+	kpaLister        kpalisters.PodAutoscalerLister
 	buildLister      buildlisters.BuildLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
@@ -137,6 +140,7 @@ func NewController(
 	opt reconciler.Options,
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
+	kpaInformer kpainformers.PodAutoscalerInformer,
 	buildInformer buildinformers.BuildInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
@@ -149,6 +153,7 @@ func NewController(
 		Base:             reconciler.NewBase(opt, controllerAgentName),
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
+		kpaLister:        kpaInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
@@ -303,11 +308,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "fluentd configmap",
 			f:    c.reconcileFluentdConfigMap,
 		}, {
-			name: "autoscaler deployment",
-			f:    c.reconcileAutoscalerDeployment,
-		}, {
-			name: "autoscaler k8s service",
-			f:    c.reconcileAutoscalerService,
+			name: "KPA",
+			f:    c.reconcileKPA,
 		}, {
 			name: "vertical pod autoscaler",
 			f:    c.reconcileVPA,
@@ -315,7 +317,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 		for _, phase := range phases {
 			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorf("Failed to reconcile %s", phase.name, zap.Error(err))
+				logger.Errorf("Failed to reconcile %s: %v", phase.name, zap.Error(err))
 				return err
 			}
 		}

@@ -14,11 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 set -o errexit
 
@@ -62,6 +58,7 @@ gcloud --project=${PROJECT_ID} container clusters create \
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 
+kubectl config set-context $(kubectl config current-context) --namespace=default
 start_latest_knative_serving
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"

@@ -14,11 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/release.sh
-[ -f /workspace/release.sh ] \
-  && source /workspace/release.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat release.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
 # Set default GCS/GCR
 : ${SERVING_RELEASE_GCS:="knative-releases/serving"}
@@ -28,7 +24,7 @@ readonly SERVING_RELEASE_GCR
 
 # istio.yaml file to upload
 # We publish our own istio.yaml, so users don't need to use helm"
-readonly ISTIO_YAML=./third_party/istio-1.0-prerelease/istio.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml
 # Local generated yaml file.
 readonly OUTPUT_YAML=release.yaml
 # Local generated lite yaml file.

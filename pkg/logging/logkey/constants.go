@@ -18,17 +18,20 @@ package logkey
 
 const (
 	// Service is the key used for service name in structured logs
-	Service = "knative.dev/service"
+	Service = "serving.knative.dev/service"
 
 	// Configuration is the key used for configuration name in structured logs
-	Configuration = "knative.dev/configuration"
+	Configuration = "serving.knative.dev/configuration"
 
 	// Revision is the key used for revision name in structured logs
-	Revision = "knative.dev/revision"
+	Revision = "serving.knative.dev/revision"
 
 	// Route is the key used for route name in structured logs
-	Route = "knative.dev/route"
+	Route = "serving.knative.dev/route"
 
 	// Build is the key used for build name in structured logs
-	Build = "knative.dev/build"
+	Build = "build.knative.dev/build"
+
+	// KPA is the key used for autoscaler name in structured logs
+	KPA = "autoscaling.knative.dev/podautoscaler"
 )

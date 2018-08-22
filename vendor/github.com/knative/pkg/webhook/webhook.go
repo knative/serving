@@ -107,11 +107,10 @@ type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd Generic
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	Client       kubernetes.Interface
-	Options      ControllerOptions
-	GroupVersion schema.GroupVersion
-	Handlers     map[string]runtime.Object
-	Logger       *zap.SugaredLogger
+	Client   kubernetes.Interface
+	Options  ControllerOptions
+	Handlers map[schema.GroupVersionKind]runtime.Object
+	Logger   *zap.SugaredLogger
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -329,30 +328,43 @@ func (ac *AdmissionController) register(
 	logger := logging.FromContext(ctx)
 	failurePolicy := admissionregistrationv1beta1.Fail
 
-	resources := sort.StringSlice{}
-	for k := range ac.Handlers {
+	var rules []admissionregistrationv1beta1.RuleWithOperations
+	for gvk := range ac.Handlers {
 		// Lousy pluralizer
-		resources = append(resources, strings.ToLower(k)+"s")
+		plural := strings.ToLower(gvk.Kind) + "s"
+
+		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
+			Operations: []admissionregistrationv1beta1.OperationType{
+				admissionregistrationv1beta1.Create,
+				admissionregistrationv1beta1.Update,
+			},
+			Rule: admissionregistrationv1beta1.Rule{
+				APIGroups:   []string{gvk.Group},
+				APIVersions: []string{gvk.Version},
+				Resources:   []string{plural},
+			},
+		})
 	}
-	resources.Sort()
+
+	// Sort the rules by Group, Version, Kind so that things are deterministically ordered.
+	sort.Slice(rules, func(i, j int) bool {
+		lhs, rhs := rules[i], rules[j]
+		if lhs.APIGroups[0] != rhs.APIGroups[0] {
+			return lhs.APIGroups[0] < rhs.APIGroups[0]
+		}
+		if lhs.APIVersions[0] != rhs.APIVersions[0] {
+			return lhs.APIVersions[0] < rhs.APIVersions[0]
+		}
+		return lhs.Resources[0] < rhs.Resources[0]
+	})
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.Options.WebhookName,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name: ac.Options.WebhookName,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{ac.GroupVersion.Group},
-					APIVersions: []string{ac.GroupVersion.Version},
-					Resources:   resources,
-				},
-			}},
+			Name:  ac.Options.WebhookName,
+			Rules: rules,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: ac.Options.Namespace,
@@ -460,7 +472,7 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	patchBytes, err := ac.mutate(ctx, request.Kind.Kind, request.OldObject.Raw, request.Object.Raw)
+	patchBytes, err := ac.mutate(ctx, request.Kind, request.OldObject.Raw, request.Object.Raw)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
@@ -476,12 +488,19 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 	}
 }
 
-func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
+func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVersionKind, oldBytes []byte, newBytes []byte) ([]byte, error) {
+	// Why, oh why are these different types...
+	gvk := schema.GroupVersionKind{
+		Group:   kind.Group,
+		Version: kind.Version,
+		Kind:    kind.Kind,
+	}
+
 	logger := logging.FromContext(ctx)
-	handler, ok := ac.Handlers[kind]
+	handler, ok := ac.Handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind %q", kind)
-		return nil, fmt.Errorf("unhandled kind: %q", kind)
+		logger.Errorf("Unhandled kind %v", gvk)
+		return nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
 	oldObj := handler.DeepCopyObject().(GenericCRD)
@@ -539,24 +558,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		}
 	}
 
-	if err := validateMetadata(newObj); err != nil {
-		logger.Error("Failed to validate", zap.Error(err))
-		return nil, fmt.Errorf("Failed to validate: %s", err)
-	}
 	return json.Marshal(patches)
-}
-
-func validateMetadata(new GenericCRD) error {
-	name := new.GetObjectMeta().GetName()
-
-	if strings.Contains(name, ".") {
-		return errors.New("Invalid resource name: special character . must not be present")
-	}
-
-	if len(name) > 63 {
-		return errors.New("Invalid resource name: length must be no more than 63 characters")
-	}
-	return nil
 }
 
 // updateGeneration sets the generation by following this logic:

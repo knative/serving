@@ -16,15 +16,11 @@
 
 set -o errexit
 
-: ${1:?"Pass the directories with the test images as arguments"}
 : ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
 
-DOCKER_FILES="$(find $@ -name Dockerfile)"
-: ${DOCKER_FILES:?"No subdirectories with Dockerfile files found in $@"}
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+IMAGE_DIRS="$(find $(dirname $0)/test_images -mindepth 1 -maxdepth 1 -type d)"
 
-for docker_file in ${DOCKER_FILES}; do
-  image_dir="$(dirname ${docker_file})"
-  versioned_name="${DOCKER_REPO_OVERRIDE}/knative-serving/$(basename ${image_dir})"
-  docker build "${image_dir}" -f "${docker_file}" -t "${versioned_name}"
-  docker push "${versioned_name}"
+for image_dir in ${IMAGE_DIRS}; do
+  ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
 done
