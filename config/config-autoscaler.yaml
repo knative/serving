@@ -20,12 +20,23 @@ metadata:
 data:
   # Static parameters:
 
-  # Target concurrency is the desired number of concurrent requests for
-  # each pod. This is the primary knob for fast autoscaling which will
-  # try achieve an concurrency per pod of the target
-  # concurrency. Single-concurrency must target a value close to 1.0.
-  multi-concurrency-target: "1.0"
-  single-concurrency-target: "0.9"
+  # The Revision ContainerConcurrency field specifies the maximum number
+  # of requests the Container can handle at once. Container concurrency
+  # target percentage is how much of that maximum to use in a stable
+  # state. E.g. if a Revision specifies ContainerConcurrency of 10, then
+  # the Autoscaler will try to maintain 5 concurrent connections per pod
+  # on average. A value of 0.5 is chosen because the Autoscaler panics
+  # when concurrency exceeds 2x the desired set point. So we will panic
+  # when we reach the limit.
+  container-concurrency-target-percentage: "0.5"
+
+  # The container concurrency target default is what the Autoscaler will
+  # try to maintain when the Revision specifies unlimited concurrency. A
+  # value of 10 is chosen because it's enough to allow vertical pod
+  # autoscaling to tune resource requests. E.g. maintaining 1 concurrent
+  # "hello world" request doesn't consume enough resources to allow VPA
+  # to achieve efficient resource usage (VPA CPU minimum is 300m).
+  container-concurrency-target-default: "10"
 
   # When operating in a stable mode, the autoscaler operates on the
   # average concurrency over the stable window.
@@ -55,11 +66,6 @@ data:
   # Experimental: enable vertical pod autoscaling.
   # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
   enable-vertical-pod-autoscaling: "false"
-  #
-  # This will be the multi-concurrency-target when
-  # enable-vertical-pod-autoscaling is true. And it will be the new
-  # default when the experiment is launched and removed.
-  vpa-multi-concurrency-target: "10.0"
 
   # Tick interval is the time between autoscaling calculations.
   tick-interval: "2s"
