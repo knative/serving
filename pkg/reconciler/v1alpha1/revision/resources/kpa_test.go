@@ -87,8 +87,8 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "4321",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ServingState:        "Reserve",
-				ContainerConcurreny: 0,
+				ServingState:         "Reserve",
+				ContainerConcurrency: 0,
 			},
 		},
 		want: &kpa.PodAutoscaler{
