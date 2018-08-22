@@ -88,7 +88,7 @@ const (
 
 // RevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
-// Deprecated in favor of InstanceMaxRequestConcurrency.
+// Deprecated in favor of RevisionContainerConcurrencyType.
 type RevisionRequestConcurrencyModelType string
 
 const (
