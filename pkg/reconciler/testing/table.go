@@ -151,7 +151,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := deleteActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
@@ -171,7 +171,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		}
 
 		got := patchActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
