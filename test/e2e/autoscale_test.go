@@ -230,6 +230,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			return len(p.Items) == 0, nil
 		},
 		"WaitForAvailablePods")
+	if err != nil {
+		logger.Fatalf(`Waiting for Pod.List to have no items: %v`, err)
+	}
 
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
