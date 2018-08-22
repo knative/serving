@@ -46,7 +46,7 @@ func NewDurableSendingConnection(target string) (conn *Connection, err error) {
 		}
 	}()
 
-	return
+	return conn, err
 }
 
 func connect(target string) (rConnection *websocket.Conn, rError error) {
