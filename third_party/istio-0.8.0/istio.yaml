@@ -2137,7 +2137,7 @@ spec:
           name: istio-statsd-prom-bridge
       containers:
       - name: statsd-prom-bridge
-        image: "prom/statsd-exporter:latest"
+        image: "prom/statsd-exporter:v0.6.0"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102
