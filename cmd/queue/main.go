@@ -97,7 +97,7 @@ func statReporter() {
 	for {
 		s := <-statChan
 		if statSink == nil {
-			logger.Error("Stat sink not connected.")
+			logger.Warn("Stat sink not (yet) connected.")
 			continue
 		}
 		sm := autoscaler.StatMessage{
@@ -257,11 +257,12 @@ func main() {
 
 	go func() {
 		autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
-		logger.Info("Connecting to autoscaler at %s", autoscalerEndpoint)
+		logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 		conn, err := websocket.NewDurableSendingConnection(autoscalerEndpoint)
 		if err != nil {
 			logger.Fatal("Failed to connect to autoscaler, shutting down", zap.Error(err))
 		}
+		logger.Info("Connection to autoscaler established")
 		statSink = conn
 	}()
 	go statReporter()
