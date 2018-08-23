@@ -197,6 +197,14 @@ func NewController(
 		},
 	})
 
+	vpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
+	})
+
 	opt.ConfigMapWatcher.Watch(config.NetworkConfigName, c.receiveNetworkConfig)
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
 	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
