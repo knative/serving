@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test/spoof"
 	"go.opencensus.io/trace"
 )

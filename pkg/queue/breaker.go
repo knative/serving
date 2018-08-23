@@ -25,6 +25,7 @@ type token struct{}
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
+	maxConcurrency  int32
 	pendingRequests chan token
 	activeRequests  chan token
 }
@@ -39,7 +40,8 @@ func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
 		panic(fmt.Sprintf("Max concurrency must be greater than 0. Got %v.", maxConcurrency))
 	}
 	return &Breaker{
-		pendingRequests: make(chan token, queueDepth),
+		maxConcurrency:  maxConcurrency,
+		pendingRequests: make(chan token, queueDepth+maxConcurrency),
 		activeRequests:  make(chan token, maxConcurrency),
 	}
 }
@@ -58,10 +60,8 @@ func (b *Breaker) Maybe(thunk func()) bool {
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
 		b.activeRequests <- t
-		// Release capacity in the pending request queue.
-		<-b.pendingRequests
-		// Defer releasing capacity in the active request queue.
-		defer func() { <-b.activeRequests }()
+		// Defer releasing capacity in the active and pending request queue.
+		defer func() { <-b.activeRequests; <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success

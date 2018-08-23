@@ -25,7 +25,7 @@ import (
 	"os/user"
 	"path"
 
-	"github.com/knative/serving/test/logging"
+	"github.com/knative/pkg/test/logging"
 	"github.com/golang/glog"
 )
 

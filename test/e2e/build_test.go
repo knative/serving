@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 )
 
 func TestBuildAndServe(t *testing.T) {

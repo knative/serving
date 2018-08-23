@@ -688,7 +688,7 @@ func TestMakePodSpec(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -696,15 +696,14 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name     string
-		rev      *v1alpha1.Revision
-		lc       *logging.Config
-		nc       *config.Network
-		oc       *config.Observability
-		ac       *autoscaler.Config
-		cc       *config.Controller
-		replicas int32
-		want     *appsv1.Deployment
+		name string
+		rev  *v1alpha1.Revision
+		lc   *logging.Config
+		nc   *config.Network
+		oc   *config.Observability
+		ac   *autoscaler.Config
+		cc   *config.Controller
+		want *appsv1.Deployment
 	}{{
 		name: "simple concurrency=single no owner",
 		rev: &v1alpha1.Revision{
@@ -720,12 +719,11 @@ func TestMakeDeployment(t *testing.T) {
 				},
 			},
 		},
-		lc:       &logging.Config{},
-		nc:       &config.Network{},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		lc: &logging.Config{},
+		nc: &config.Network{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -792,12 +790,11 @@ func TestMakeDeployment(t *testing.T) {
 				},
 			},
 		},
-		lc:       &logging.Config{},
-		nc:       &config.Network{},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		lc: &logging.Config{},
+		nc: &config.Network{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -861,10 +858,9 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
 		},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -932,10 +928,9 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
 		},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -990,7 +985,7 @@ func TestMakeDeployment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			test.want.Spec.Template.Spec = *makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
-			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc, test.replicas)
+			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
 			}

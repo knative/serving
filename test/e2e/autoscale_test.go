@@ -24,8 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logging"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,8 @@ const (
 )
 
 var (
-	initialScaleToZeroThreshold string
+	initialScaleToZeroThreshold   string
+	initialScaleToZeroGracePeriod string
 )
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
@@ -91,12 +92,13 @@ func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
 	return test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
 }
 
-func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
+func setScaleToZeroThreshold(clients *test.Clients, threshold string, gracePeriod string) error {
 	configMap, err := getAutoscalerConfigMap(clients)
 	if err != nil {
 		return err
 	}
 	configMap.Data["scale-to-zero-threshold"] = threshold
+	configMap.Data["scale-to-zero-grace-period"] = gracePeriod
 	_, err = test.GetConfigMap(clients.KubeClient).Update(configMap)
 	return err
 }
@@ -108,11 +110,13 @@ func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 	if err != nil {
 		logger.Infof("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
 		initialScaleToZeroThreshold = "5m"
+		initialScaleToZeroGracePeriod = "2m"
 	} else {
 		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
+		initialScaleToZeroGracePeriod = configMap.Data["scale-to-zero-grace-period"]
 	}
 
-	err = setScaleToZeroThreshold(clients, "1m")
+	err = setScaleToZeroThreshold(clients, "1m", "30s")
 	if err != nil {
 		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
 		          cause the test to time out. Failing fast instead. %v`, err)
@@ -122,7 +126,7 @@ func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 }
 
 func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
-	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold, initialScaleToZeroGracePeriod)
 	TearDown(clients, names, logger)
 }
 
@@ -226,6 +230,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			return len(p.Items) == 0, nil
 		},
 		"WaitForAvailablePods")
+	if err != nil {
+		logger.Fatalf(`Waiting for Pod.List to have no items: %v`, err)
+	}
 
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
