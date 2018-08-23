@@ -91,12 +91,7 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 	// Note: only reconcile the spec we set.
 	rawDesiredService := sf(rev)
 	desiredService := service.DeepCopy()
-	desiredService.Spec.Type = rawDesiredService.Spec.Type
 	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
-	if len(desiredService.Spec.Ports) > 0 {
-		// NodePort is randomly assigned by k8s, backfill it to the raw desired service.
-		rawDesiredService.Spec.Ports[0].NodePort = desiredService.Spec.Ports[0].NodePort
-	}
 	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
 
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
