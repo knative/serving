@@ -225,7 +225,7 @@ func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicC
 		return nil, err
 	}
 
-	return autoscaler.New(dynamicConfig, kpa.Spec.ConcurrencyModel, reporter), nil
+	return autoscaler.New(dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
 }
 
 func configurationName(kpa *kpa.PodAutoscaler) string {
