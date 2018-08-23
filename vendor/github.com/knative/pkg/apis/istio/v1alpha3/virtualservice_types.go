@@ -18,6 +18,7 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/knative/pkg/apis/istio/common/v1alpha1"
 )
 
 // +genclient
@@ -234,7 +235,7 @@ type HTTPMatchRequest struct {
 	//
 	// - `regex: "value"` for ECMAscript style regex-based match
 	//
-	Uri *StringMatch `json:"uri,omitempty"`
+	Uri *v1alpha1.StringMatch `json:"uri,omitempty"`
 
 	// URI Scheme
 	// values are case-sensitive and formatted as follows:
@@ -245,7 +246,7 @@ type HTTPMatchRequest struct {
 	//
 	// - `regex: "value"` for ECMAscript style regex-based match
 	//
-	Scheme *StringMatch `json:"scheme,omitempty"`
+	Scheme *v1alpha1.StringMatch `json:"scheme,omitempty"`
 
 	// HTTP Method
 	// values are case-sensitive and formatted as follows:
@@ -256,7 +257,7 @@ type HTTPMatchRequest struct {
 	//
 	// - `regex: "value"` for ECMAscript style regex-based match
 	//
-	Method *StringMatch `json:"method,omitempty"`
+	Method *v1alpha1.StringMatch `json:"method,omitempty"`
 
 	// HTTP Authority
 	// values are case-sensitive and formatted as follows:
@@ -267,7 +268,7 @@ type HTTPMatchRequest struct {
 	//
 	// - `regex: "value"` for ECMAscript style regex-based match
 	//
-	Authority *StringMatch `json:"authority,omitempty"`
+	Authority *v1alpha1.StringMatch `json:"authority,omitempty"`
 
 	// The header keys must be lowercase and use hyphen as the separator,
 	// e.g. _x-request-id_.
@@ -281,22 +282,7 @@ type HTTPMatchRequest struct {
 	// - `regex: "value"` for ECMAscript style regex-based match
 	//
 	// **Note:** The keys `uri`, `scheme`, `method`, and `authority` will be ignored.
-	Headers map[string]StringMatch `json:"headers,omitempty"`
-}
-
-// Describes how to match a given string in HTTP headers. Match is
-// case-sensitive.
-type StringMatch struct {
-	// Specified exactly one of the fields below.
-
-	// exact string match
-	Exact string `json:"exact,omitempty"`
-
-	// prefix-based match
-	Prefix string `json:"prefix,omitempty"`
-
-	// ECMAscript style regex-based match
-	Regex string `json:"regex,omitempty"`
+	Headers map[string]v1alpha1.StringMatch `json:"headers,omitempty"`
 }
 
 type DestinationWeight struct {
