@@ -88,10 +88,11 @@ func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, 
 func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
 	logger := logging.FromContext(ctx)
 
-	desiredService := sf(rev)
-
-	// Preserve the ClusterIP field in the Service's Spec, if it has been set.
-	desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+	// Note: only reconcile the spec we set.
+	rawDesiredService := sf(rev)
+	desiredService := service.DeepCopy()
+	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
+	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
 
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
 		return service, Unchanged, nil
