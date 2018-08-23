@@ -115,7 +115,7 @@ type Autoscaler struct {
 	*DynamicConfig
 	stats                        map[statKey]Stat
 	statsMutex                   sync.Mutex
-	model                        v1alpha1.RevisionRequestConcurrencyModelType
+	model                        v1alpha1.RevisionContainerConcurrencyType
 	panicking                    bool
 	panicTime                    *time.Time
 	maxPanicPods                 float64
@@ -125,7 +125,7 @@ type Autoscaler struct {
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, model v1alpha1.RevisionRequestConcurrencyModelType, reporter StatsReporter) *Autoscaler {
+func New(dynamicConfig *DynamicConfig, model v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
 		DynamicConfig:                dynamicConfig,
 		model:                        model,
