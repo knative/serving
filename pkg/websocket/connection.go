@@ -33,7 +33,7 @@ import (
 func NewDurableSendingConnection(target string) (conn *Connection, err error) {
 	// The error of the first connection attempt is surfaced to rule out
 	// unrecoverable configuration issues.
-	conn, err = NewConnection(target)
+	conn, err = newConnection(target)
 
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
@@ -41,7 +41,7 @@ func NewDurableSendingConnection(target string) (conn *Connection, err error) {
 		for {
 			if _, _, err := conn.connection.NextReader(); err != nil {
 				conn.connection.Close()
-				conn.Reconnect()
+				conn.reconnect()
 			}
 		}
 	}()
@@ -82,7 +82,7 @@ type Connection struct {
 }
 
 // NewConnection creates a new websocket connection to the given target.
-func NewConnection(target string) (*Connection, error) {
+func newConnection(target string) (*Connection, error) {
 	conn, err := connect(target)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func NewConnection(target string) (*Connection, error) {
 }
 
 // Reconnect reestablishes a websocket connection.
-func (c *Connection) Reconnect() (err error) {
+func (c *Connection) reconnect() (err error) {
 	c.connection, err = connect(c.target)
 	return err
 }
