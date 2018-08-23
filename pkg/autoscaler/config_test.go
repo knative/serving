@@ -30,50 +30,31 @@ import (
 )
 
 func TestTargetConcurrency(t *testing.T) {
-	wantSingle := 3.14
-	wantMulti := 1.618
-	wantVPAMulti := 2.718
 	c := &Config{
-		SingleTargetConcurrency:   wantSingle,
-		MultiTargetConcurrency:    wantMulti,
-		VPAMultiTargetConcurrency: wantVPAMulti,
+		ContainerConcurrencyTargetPercentage: wantPercentage,
+		ContainerConcurrencyTargetDefault:    wantDefault,
 	}
 
 	tests := []struct {
-		name      string
-		enableVPA bool
-		model     v1alpha1.RevisionRequestConcurrencyModelType
-		want      float64
+		name  string
+		model v1alpha1.RevisionRequestConcurrencyModelType
+		want  float64
 	}{{
-		name:      "multi with vpa",
-		enableVPA: true,
-		model:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		want:      wantVPAMulti,
+		name:  "default",
+		model: v1alpha1.RevisionContainerConcurrencyType(0),
+		want:  10.0,
 	}, {
-		name:      "multi without vpa",
-		enableVPA: false,
-		model:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		want:      wantMulti,
+		name:  "single",
+		model: v1alpha1.RevisionContainerConcurrencyType(1),
+		want:  0.5,
 	}, {
-		name:      "single with vpa",
-		enableVPA: true,
-		model:     v1alpha1.RevisionRequestConcurrencyModelSingle,
-		want:      wantSingle,
-	}, {
-		name:      "single without vpa",
-		enableVPA: false,
-		model:     v1alpha1.RevisionRequestConcurrencyModelSingle,
-		want:      wantSingle,
-	}, {
-		name:      "unknown mode defaults to multi",
-		enableVPA: false,
-		model:     "zomg",
-		want:      wantMulti,
+		name:  "multi",
+		model: v1alpha1.RevisionContainerConcurrencyType(10),
+		want:  5.0,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c.EnableVPA = test.enableVPA
 			got := c.TargetConcurrency(test.model)
 			if got != test.want {
 				t.Errorf("TargetConcurrency() = %v, want %v", got, test.want)
