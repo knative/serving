@@ -20,10 +20,9 @@ import (
 	"net/http"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/logging/logkey"
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,10 +57,13 @@ func (r *revisionActivator) Shutdown() {
 }
 
 func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, activationError error) {
-	logger := loggerWithRevisionInfo(r.logger, namespace, name)
-	rev := revisionID{namespace: namespace,
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	logger := r.logger.With(zap.String(logkey.Key, key))
+	rev := revisionID{
+		namespace:     namespace,
 		configuration: configuration,
-		name:          name}
+		name:          name,
+	}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
 		logger.Errorf(msg, args...)
@@ -146,9 +148,4 @@ func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string
 		Port: port,
 	}
 	return end, 0, nil
-}
-
-// loggerWithRevisionInfo enriches the logs with revision name and namespace.
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
 }

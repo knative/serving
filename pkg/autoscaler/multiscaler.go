@@ -22,13 +22,11 @@ import (
 	"sync"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -160,11 +158,6 @@ func (m *MultiScaler) Watch(fn func(string)) {
 	m.watcher = fn
 }
 
-// loggerWithKPAInfo enriches the logs with KPA name and namespace.
-func loggerWithKPAInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.KPA, name))
-}
-
 func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) (*scalerRunner, error) {
 	scaler, err := m.uniScalerFactory(kpa, m.dynConfig)
 	if err != nil {
@@ -241,12 +234,7 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 
 	scaler, exists := m.scalers[key]
 	if exists {
-		namespace, name, err := cache.SplitMetaNamespaceKey(key)
-		if err != nil {
-			m.logger.Errorf("Invalid KPA key %s", key)
-			return
-		}
-		logger := loggerWithKPAInfo(m.logger, namespace, name)
+		logger := m.logger.With(zap.String(logkey.Key, key))
 		ctx := logging.WithLogger(context.TODO(), logger)
 		scaler.scaler.Record(ctx, stat)
 	}

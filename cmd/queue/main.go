@@ -33,13 +33,12 @@ import (
 	"syscall"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
@@ -274,10 +273,8 @@ func main() {
 
 	initEnv()
 	logger = logger.With(
-		zap.String(commonlogkey.Namespace, servingNamespace),
-		zap.String(logkey.Configuration, servingConfiguration),
-		zap.String(logkey.Revision, servingRevision),
-		zap.String(commonlogkey.Pod, podName))
+		zap.String(logkey.Key, servingRevisionKey),
+		zap.String(logkey.Pod, podName))
 
 	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
