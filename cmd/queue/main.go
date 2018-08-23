@@ -260,7 +260,7 @@ func main() {
 		logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 		conn, err := websocket.NewDurableSendingConnection(autoscalerEndpoint)
 		if err != nil {
-			logger.Fatal("Failed to connect to autoscaler, shutting down", zap.Error(err))
+			logger.Error("Failed to connect to autoscaler, shutting down", zap.Error(err))
 		}
 		logger.Info("Connection to autoscaler established")
 		statSink = conn
