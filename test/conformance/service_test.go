@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
@@ -54,12 +55,13 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	_, err := test.WaitForEndpointState(
+	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		routeDomain,
-		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusNotFound),
-		"WaitForEndpointToServeText")
+		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(expectedText), http.StatusNotFound),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
@@ -127,8 +129,8 @@ func TestRunLatestService(t *testing.T) {
 	logger := logging.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image1}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image2}, "/"))
 
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("pizzaplanet-service", logger)

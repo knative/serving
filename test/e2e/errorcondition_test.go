@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -49,7 +50,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
+	imagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	logger.Infof("Creating a new Route and Configuration %s", imagePath)
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

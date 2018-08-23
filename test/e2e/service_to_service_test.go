@@ -23,9 +23,10 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/spoof"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +57,7 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 
 func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
 	logger.Infof("The domain of request is %s.", domain)
-	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, resolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	clients = Setup(t)
 
 	// Set up helloworld app.
-	helloWorldImagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	helloWorldImagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, "helloworld"}, "/")
 	logger.Infof("Creating a Route and Configuration for helloworld test app.")
 	helloWorldNames, err := CreateRouteAndConfig(clients, logger, helloWorldImagePath)
 	if err != nil {
@@ -92,7 +93,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 
 	// Set up httpproxy app.
-	httpProxyImagePath := strings.Join([]string{test.Flags.DockerRepo, "httpproxy"}, "/")
+	httpProxyImagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, "httpproxy"}, "/")
 	logger.Infof("Creating a Route and Configuration for httpproxy test app.")
 	envVars := createTargetHostEnvVars(helloWorldNames.Route, t)
 	httpProxyNames, err := CreateRouteAndConfigWithEnv(clients, logger, httpProxyImagePath, envVars)
@@ -108,11 +109,12 @@ func TestServiceToServiceCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get Route %s: %v", httpProxyNames.Route, err)
 	}
-	if _, err = test.WaitForEndpointState(
+	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
-		httpProxyRoute.Status.Domain, test.Retrying(test.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound),
-		"HttpProxy"); err != nil {
+		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound),
+		"HttpProxy",
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
 	logger.Info("httpproxy is ready.")

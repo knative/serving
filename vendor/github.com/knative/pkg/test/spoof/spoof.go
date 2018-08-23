@@ -46,6 +46,7 @@ type Response struct {
 	Body       []byte
 }
 
+// Interface defines the actions that can be performed by the spoofing client.
 type Interface interface {
 	Do(*http.Request) (*Response, error)
 	Poll(*http.Request, ResponseChecker) (*Response, error)

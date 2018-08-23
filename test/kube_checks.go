@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 
+	pkgTest "github.com/knative/pkg/test"
 	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -34,8 +35,8 @@ import (
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForDeploymentState(client *KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string) error {
-	d := client.Kube.ExtensionsV1beta1().Deployments(Flags.Namespace)
+func WaitForDeploymentState(client *pkgTest.KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string) error {
+	d := client.Kube.ExtensionsV1beta1().Deployments(pkgTest.Flags.Namespace)
 	metricName := fmt.Sprintf("WaitForDeploymentState/%s/%s", name, desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
@@ -53,8 +54,8 @@ func WaitForDeploymentState(client *KubeClient, name string, inState func(d *api
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took to get into the state checked by inState.
-func WaitForPodListState(client *KubeClient, inState func(p *corev1.PodList) (bool, error), desc string) error {
-	p := client.Kube.CoreV1().Pods(Flags.Namespace)
+func WaitForPodListState(client *pkgTest.KubeClient, inState func(p *corev1.PodList) (bool, error), desc string) error {
+	p := client.Kube.CoreV1().Pods(pkgTest.Flags.Namespace)
 	metricName := fmt.Sprintf("WaitForPodListState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()

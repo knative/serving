@@ -39,10 +39,10 @@ These flags are useful for running against an existing cluster, making use of yo
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
 By importing `github.com/knative/serving/test` you get access to a global variable called
-`test.Flags` which holds the values of [the command line flags](/test/README.md#flags).
+`pkgTest.Flags` which holds the values of [the command line flags](/test/README.md#flags).
 
 ```go
-imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
+imagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, image}, "/"))
 ```
 
 _See [e2e_flags.go](./e2e_flags.go)._
@@ -162,13 +162,13 @@ ready to serve requests right away. To poll a deployed endpoint and wait for it 
 in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
-err = test.WaitForEndpointState(
+err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
-		test.ServingFlags.ResolvableDomain,
+		logger,		
 		updatedRoute.Status.Domain,
-		test.EventuallyMatchesBody(expectedText),
-		"SomeDescription")
+		pkgTest.EventuallyMatchesBody(expectedText),
+        "SomeDescription",
+        test.ServingFlags.ResolvableDomain)
 if err != nil {
     t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
 }
@@ -185,7 +185,7 @@ service, you can directly use the `SpoofingClient` that `WaitForEndpointState` w
 
 ```go
 // Error handling elided for brevity, but you know better.
-client, err := spoof.New(clients.KubeClient.Kube, logger, route.Status.Domain, test.Flags.ResolvableDomain)
+client, err := pkgTest.NewSpoofingClient(clients.KubeClient.Kube, logger, route.Status.Domain, test.ServingFlags.ResolvableDomain)
 req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", route.Status.Domain), nil)
 
 // Single request.

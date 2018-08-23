@@ -25,9 +25,10 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/spoof"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -51,7 +52,7 @@ const (
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
 func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
-	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain strin
 		return err
 	}
 	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
+	_, err = client.Poll(req, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
 	return err
 }
 
@@ -144,7 +145,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := spoof.New(clients.KubeClient.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -169,8 +170,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image1}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image2}, "/"))
 
 	var names, blue, green test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)

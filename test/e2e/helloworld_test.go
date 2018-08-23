@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ func TestHelloWorld(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath = strings.Join([]string{pkgTest.Flags.DockerRepo, "helloworld"}, "/")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)
@@ -60,12 +61,13 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	_, err = test.WaitForEndpointState(
+	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
-		test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
-		"HelloWorldServesText")
+		pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+		"HelloWorldServesText",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
