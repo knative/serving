@@ -27,15 +27,15 @@ import (
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/system"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 // TableRow holds a single row of our table test.
@@ -115,7 +115,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := createActions[i]
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
@@ -154,7 +154,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}
@@ -174,7 +174,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
