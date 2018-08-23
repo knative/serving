@@ -35,7 +35,8 @@ const (
 	PortNumber = 80
 	PortName   = "http"
 
-	DefaultRouteTimeout = "60s"
+	DefaultRouteTimeout       = "60s"
+	DefaultRouteRetryAttempts = 3
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -150,6 +151,10 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		Match:   matches,
 		Route:   weights,
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	// Add traffic rules for activator.
 	return addActivatorRoutes(&route, ns, inactive)
