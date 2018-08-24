@@ -5,6 +5,9 @@ set -x
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
+go run webserver.go &
+curl localhost:8901
+
 echo "I am G$(whoami)"
 echo "HOME is $HOME"
 echo "I am at $(pwd)"
