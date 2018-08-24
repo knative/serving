@@ -18,6 +18,7 @@ helm template --namespace=istio-system \
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=false \
   --set global.proxy.autoInject=disabled \
+  --set global.omitSidecarInjectorConfigMap=true \
   --set prometheus.enabled=false \
   install/kubernetes/helm/istio > ../istio-lean.yaml
 
