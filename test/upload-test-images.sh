@@ -20,7 +20,15 @@ set -o errexit
 
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 IMAGE_DIRS="$(find $(dirname $0)/test_images -mindepth 1 -maxdepth 1 -type d)"
+DOCKER_TAG=$1
 
 for image_dir in ${IMAGE_DIRS}; do
-  ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  IMAGE="github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  ko publish -P $IMAGE
+  if [ -n "$DOCKER_TAG" ]; then
+    IMAGE=$KO_DOCKER_REPO/$IMAGE
+    DIGEST=$(docker images | grep $IMAGE | head -1 | awk '{print $2}')
+    echo "Tagging $IMAGE:$DIGEST with $DOCKER_TAG"
+    docker tag $IMAGE:$DIGEST $IMAGE:$DOCKER_TAG
+  fi
 done

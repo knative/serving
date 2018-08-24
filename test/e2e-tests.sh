@@ -25,6 +25,9 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
+$(dirname $0)/minikube.sh
+exit 0
+
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster

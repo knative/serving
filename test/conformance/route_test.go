@@ -19,8 +19,8 @@ limitations under the License.
 package conformance
 
 import (
+	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"encoding/json"
@@ -168,8 +168,8 @@ func TestRouteCreation(t *testing.T) {
 	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image1, test.Flags.Tag))
+	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image2, test.Flags.Tag))
 
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
