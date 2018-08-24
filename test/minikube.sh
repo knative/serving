@@ -5,7 +5,7 @@ set -x
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
-go run webserver.go &
+go run test/webserver.go &
 curl localhost:8901
 
 echo "I am G$(whoami)"
