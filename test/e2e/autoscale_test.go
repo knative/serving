@@ -139,7 +139,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	clients := setup(t, logger)
 	imagePath := strings.Join(
 		[]string{
-			pkgTest.Flags.DockerRepo,
+			test.ServingFlags.DockerRepo,
 			"autoscale"},
 		"/")
 

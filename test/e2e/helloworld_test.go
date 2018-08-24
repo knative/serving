@@ -40,7 +40,7 @@ func TestHelloWorld(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = strings.Join([]string{pkgTest.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath = strings.Join([]string{test.ServingFlags.DockerRepo, "helloworld"}, "/")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

@@ -21,6 +21,8 @@ package test
 
 import (
 	"flag"
+	"os"
+	"path"
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
@@ -28,7 +30,8 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -36,6 +39,10 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+
+	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
+	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
+		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
 
 	return &f
 }

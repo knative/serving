@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
@@ -57,7 +56,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
 
-	imagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath := strings.Join([]string{test.ServingFlags.DockerRepo, "helloworld"}, "/")
 
 	logger.Infof("Creating manifest")
 

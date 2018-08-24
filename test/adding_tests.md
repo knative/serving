@@ -42,7 +42,7 @@ By importing `github.com/knative/serving/test` you get access to a global variab
 `test.Flags` which holds the values of [the command line flags](/test/README.md#flags).
 
 ```go
-imagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, image}, "/"))
+imagePath := strings.Join([]string{test.ServingFlags.DockerRepo, image}, "/"))
 ```
 
 _See [e2e_flags.go](./e2e_flags.go)._

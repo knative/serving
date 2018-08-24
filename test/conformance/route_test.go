@@ -170,8 +170,8 @@ func TestRouteCreation(t *testing.T) {
 	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{pkgTest.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image1}, "/"))
+	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image2}, "/"))
 
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
