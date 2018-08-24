@@ -14,6 +14,8 @@ echo "Path is $PATH"
 echo "$@" > /usr/bin/sudo
 chmod +x /usr/bin/sudo
 
+apt-get install kmod
+
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo systemctl enable docker
@@ -29,10 +31,11 @@ mkdir -p $HOME/.kube
 touch $HOME/.kube/config
 
 export KUBECONFIG=$HOME/.kube/config
-./minikube stop
-./minikube logs
+./minikube stop --loglevel 0 --logtostderr
+./minikube logs --loglevel 0 --logtostderr
 
 ./minikube start --vm-driver=none \
+--loglevel 0 --logtostderr \
 --memory=8192 --cpus=4 \
 --kubernetes-version=v1.10.5 \
 --bootstrapper=kubeadm \
@@ -73,4 +76,4 @@ start_latest_knative_serving
 
 go test -v -tags=e2e -count=1 ./test/conformance --tag minikube
 
-./minikube stop
+./minikube stop --loglevel 0 --logtostderr
