@@ -11,10 +11,11 @@ echo "I am at $(pwd)"
 echo "Path is $PATH"
 
 # Fake sudo
-echo "$@" > /usr/bin/sudo
-chmod +x /usr/bin/sudo
+#echo "$@" > /usr/bin/sudo
+#chmod +x /usr/bin/sudo
 
-apt-get install kmod
+#apt-get install kmod
+apt-get install sudo
 
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
