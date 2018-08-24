@@ -39,7 +39,7 @@ These flags are useful for running against an existing cluster, making use of yo
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
 By importing `github.com/knative/serving/test` you get access to a global variable called
-`pkgTest.Flags` which holds the values of [the command line flags](/test/README.md#flags).
+`test.Flags` which holds the values of [the command line flags](/test/README.md#flags).
 
 ```go
 imagePath := strings.Join([]string{pkgTest.Flags.DockerRepo, image}, "/"))
@@ -163,10 +163,10 @@ in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
 err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		logger,		
-		updatedRoute.Status.Domain,
-		pkgTest.EventuallyMatchesBody(expectedText),
+        clients.KubeClient,
+        logger,
+        updatedRoute.Status.Domain,
+        pkgTest.EventuallyMatchesBody(expectedText),
         "SomeDescription",
         test.ServingFlags.ResolvableDomain)
 if err != nil {
