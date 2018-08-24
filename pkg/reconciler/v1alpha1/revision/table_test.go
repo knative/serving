@@ -1339,7 +1339,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/failed-build-stable",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
@@ -1357,7 +1357,7 @@ func TestReconcile(t *testing.T) {
 			resolver:            &nopResolver{},
 			buildtracker:        &buildTracker{builds: map[key]set{}},
 		}
-	})
+	}))
 }
 
 func TestReconcileWithVarLogEnabled(t *testing.T) {
@@ -1608,7 +1608,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Key: "foo/update-configmap-failure",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
@@ -1626,7 +1626,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			resolver:            &nopResolver{},
 			buildtracker:        &buildTracker{builds: map[key]set{}},
 		}
-	})
+	}))
 }
 
 var (

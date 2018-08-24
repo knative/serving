@@ -336,13 +336,13 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/revision-recovers",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 		}
-	})
+	}))
 }
 
 func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
