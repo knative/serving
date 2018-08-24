@@ -1,9 +1,9 @@
 aliases:
   serving-api-approvers:
   - mattmoor
-  - nghia
+  - tcnghia
   - grantr
   serving-api-reviewers:
   - mattmoor
-  - nghia
+  - tcnghia
   - grantr
