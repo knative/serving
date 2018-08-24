@@ -47,7 +47,8 @@ export KUBECONFIG=$HOME/.kube/config
 ./minikube dashboard --loglevel 0 --logtostderr
 
 # this for loop waits until kubectl can access the api server that Minikube has created
-for i in {1..150}; do # timeout for 5 minutes
+#for i in {1..150}; do # timeout for 5 minutes
+for i in {1..15}; do # timeout for 5 minutes
    kubectl get po &> /dev/null
    if [ $? -ne 1 ]; then
       break
