@@ -7,6 +7,12 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 echo "I am G$(whoami)"
 echo "HOME is $HOME"
 echo "I am at $(pwd)"
+echo "Path is $PATH"
+
+# Fake sudo
+echo "$@" > /usr/bin/sudo
+chmod +x /usr/bin/sudo
+
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
 
 export MINIKUBE_WANTUPDATENOTIFICATION=false
