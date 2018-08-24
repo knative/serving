@@ -24,7 +24,7 @@ func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,
-		pkgTest.Flags.Namespace)
+		test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

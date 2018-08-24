@@ -30,7 +30,7 @@ import (
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) error {
-	route := Route(pkgTest.Flags.Namespace, names)
+	route := Route(ServingNamespace, names)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
@@ -39,7 +39,7 @@ func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNam
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
-	route := BlueGreenRoute(pkgTest.Flags.Namespace, names, blue, green)
+	route := BlueGreenRoute(ServingNamespace, names, blue, green)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err

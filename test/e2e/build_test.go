@@ -51,10 +51,10 @@ func TestBuildAndServe(t *testing.T) {
 		}},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(pkgTest.Flags.Namespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	if _, err := clients.ServingClient.Routes.Create(test.Route(pkgTest.Flags.Namespace, names)); err != nil {
+	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	imagePath := test.ImagePath("helloworld")
-	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(pkgTest.Flags.Namespace, names, build, imagePath))
+	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}

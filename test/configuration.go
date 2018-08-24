@@ -19,7 +19,6 @@ limitations under the License.
 package test
 
 import (
-	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -33,7 +32,7 @@ func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names Res
 // CreateConfigurationWithEnv create a configuration resource in namespace with the name names.Config
 // that uses the image specifed by imagePath and give environment variables.
 func CreateConfigurationWithEnv(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string, envVars []corev1.EnvVar) error {
-	config := Configuration(pkgTest.Flags.Namespace, names, imagePath)
+	config := Configuration(ServingNamespace, names, imagePath)
 	if envVars != nil && len(envVars) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Env = envVars
 	}

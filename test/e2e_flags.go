@@ -25,6 +25,11 @@ import (
 	"path"
 )
 
+const (
+	// ServingNamespace is the default namespace for serving e2e tests
+	ServingNamespace = "serving-tests"
+)
+
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
 var ServingFlags = initializeServingFlags()
 

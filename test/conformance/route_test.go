@@ -144,7 +144,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 }
 
 func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, pkgTest.Flags.Namespace)
+	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}
