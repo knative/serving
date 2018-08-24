@@ -41,7 +41,7 @@ export KUBECONFIG=$HOME/.kube/config
 ./minikube stop --loglevel 0 --logtostderr
 ./minikube logs --loglevel 0 --logtostderr
 
-sudo -E ./minikube start --vm-driver=none \
+./minikube start --vm-driver=none \
 --extra-config=apiserver.ServiceNodePortRange=90-32000 \
 --loglevel 0 --logtostderr \
 --memory=8192 --cpus=4 \
