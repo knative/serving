@@ -15,10 +15,10 @@ echo "Path is $PATH"
 #chmod +x /usr/bin/sudo
 
 #apt-get install kmod
-apt-get install sudo
+apt-get install sudo docker
 
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+#curl -fsSL https://get.docker.com -o get-docker.sh
+#sudo sh get-docker.sh
 sudo systemctl enable docker
 dockerd &
 
@@ -35,7 +35,7 @@ export KUBECONFIG=$HOME/.kube/config
 ./minikube stop --loglevel 0 --logtostderr
 ./minikube logs --loglevel 0 --logtostderr
 
-./minikube start --vm-driver=none \
+sudo -E ./minikube start --vm-driver=none \
 --extra-config=apiserver.ServiceNodePortRange=90-32000 \
 --loglevel 0 --logtostderr \
 --memory=8192 --cpus=4 \
