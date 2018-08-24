@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set +x
+set -x
+#set -e
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
@@ -23,6 +24,9 @@ mkdir -p $HOME/.kube
 touch $HOME/.kube/config
 
 export KUBECONFIG=$HOME/.kube/config
+./minikube stop
+./minikube logs
+
 ./minikube start --vm-driver=none \
 --memory=8192 --cpus=4 \
 --kubernetes-version=v1.10.5 \
@@ -30,6 +34,7 @@ export KUBECONFIG=$HOME/.kube/config
 --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
 --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
 --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+./minikube logs
 
 # this for loop waits until kubectl can access the api server that Minikube has created
 for i in {1..150}; do # timeout for 5 minutes
@@ -57,7 +62,6 @@ export KO_DOCKER_REPO="ko.local"
 
 export DOCKER_REPO_OVERRIDE=${KO_DOCKER_REPO}
 
-echo Starting Knative
 start_latest_knative_serving
 
 ./test/upload-test-images.sh minikube
