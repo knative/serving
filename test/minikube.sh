@@ -5,7 +5,9 @@ set +x
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 echo "I am G$(whoami)"
-curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo cp minikube /usr/local/bin/ && rm minikube
+echo "HOME is $HOME"
+echo "I am at $(pwd)"
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
 
 export MINIKUBE_WANTUPDATENOTIFICATION=false
 export MINIKUBE_WANTREPORTERRORPROMPT=false
@@ -15,7 +17,7 @@ mkdir -p $HOME/.kube
 touch $HOME/.kube/config
 
 export KUBECONFIG=$HOME/.kube/config
-sudo -E /usr/local/bin/minikube start --vm-driver=none \
+./minikube start --vm-driver=none \
 --memory=8192 --cpus=4 \
 --kubernetes-version=v1.10.5 \
 --bootstrapper=kubeadm \
@@ -38,7 +40,7 @@ export K8S_CLUSTER_OVERRIDE='minikube'
 # When using Minikube, the K8s user is your local user.
 export K8S_USER_OVERRIDE=$USER
 
-sudo ip route add $(grep ServiceCIDR ~/.minikube/profiles/minikube/config.json | cut -f4 -d\") via $(minikube ip)
+ip route add $(grep ServiceCIDR ~/.minikube/profiles/minikube/config.json | cut -f4 -d\") via $(./minikube ip)
 kubectl run minikube-lb-patch --replicas=1 --image=elsonrodriguez/minikube-lb-patch:0.1 --namespace=kube-system
 
 # Switch the current kubectl context to minikube
@@ -56,4 +58,4 @@ start_latest_knative_serving
 
 go test -v -tags=e2e -count=1 ./test/conformance --tag minikube
 
-sudo -E /usr/local/bin/minikube stop
+./minikube stop
