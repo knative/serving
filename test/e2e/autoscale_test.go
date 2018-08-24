@@ -134,7 +134,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
 
 	clients := setup(t, logger)
-	imagePath := fmt.Sprintf("%s/autoscale:%s", test.Flags.DockerRepo, test.Flags.Tag)
+	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

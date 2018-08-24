@@ -19,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -163,8 +162,8 @@ func TestRouteCreation(t *testing.T) {
 	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image1, test.Flags.Tag))
-	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image2, test.Flags.Tag))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)

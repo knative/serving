@@ -51,7 +51,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
+	imagePath := test.ImagePath("invalidhelloworld")
 
 	logger.Infof("Creating a new Route and Configuration %s", imagePath)
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

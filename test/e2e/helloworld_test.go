@@ -19,7 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -39,7 +38,7 @@ func TestHelloWorld(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = fmt.Sprintf("%s/helloworld:%s", test.Flags.DockerRepo, test.Flags.Tag)
+	imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

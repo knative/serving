@@ -18,7 +18,6 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -36,7 +35,7 @@ func TestBuildAndServe(t *testing.T) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildAndServe")
 
-	imagePath := fmt.Sprintf("%s/helloworld:%s", test.Flags.DockerRepo, test.Flags.Tag)
+	imagePath := test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
@@ -120,7 +119,7 @@ func TestBuildFailure(t *testing.T) {
 		}},
 	}
 
-	imagePath := fmt.Sprintf("%s/helloworld:%s", test.Flags.DockerRepo, test.Flags.Tag)
+	imagePath := test.ImagePath("helloworld")
 	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.Flags.Namespace, names, build, imagePath))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
