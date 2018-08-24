@@ -49,6 +49,7 @@ type EnvironmentFlags struct {
 	Namespace   string // K8s namespace (blank by default, to be overwritten by test suite)
 	LogVerbose  bool   // Enable verbose logging
 	EmitMetrics bool   // Emit metrics
+	Tag         string
 }
 
 func initializeCommonFlags() *EnvironmentFlags {
