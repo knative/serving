@@ -352,6 +352,14 @@
   revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:c9a813ac651ba08533e49b886b85d272296119512ca3fda10bc318a5199080cd"
+  name = "github.com/knative/test-infra"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "4a4a682ee1fd31f33e450406393c3553b9ec5c2a"
+
+[[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
   revision = "c2353362d570a7bfa228149c62842019201cfb71"
