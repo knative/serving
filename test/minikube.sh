@@ -44,6 +44,7 @@ export KUBECONFIG=$HOME/.kube/config
 --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
 --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 ./minikube logs
+./minikube dashboard --loglevel 0 --logtostderr
 
 # this for loop waits until kubectl can access the api server that Minikube has created
 for i in {1..150}; do # timeout for 5 minutes
