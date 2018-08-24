@@ -79,7 +79,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	clients = Setup(t)
 
 	// Set up helloworld app.
-	helloWorldImagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	helloWorldImagePath := test.ImagePath("helloworld")
 	logger.Infof("Creating a Route and Configuration for helloworld test app.")
 	helloWorldNames, err := CreateRouteAndConfig(clients, logger, helloWorldImagePath)
 	if err != nil {
@@ -92,7 +92,8 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 
 	// Set up httpproxy app.
-	httpProxyImagePath := strings.Join([]string{test.Flags.DockerRepo, "httpproxy"}, "/")
+	httpProxyImagePath := test.ImagePath("httpproxy")
+
 	logger.Infof("Creating a Route and Configuration for httpproxy test app.")
 	envVars := createTargetHostEnvVars(helloWorldNames.Route, t)
 	httpProxyNames, err := CreateRouteAndConfigWithEnv(clients, logger, httpProxyImagePath, envVars)
