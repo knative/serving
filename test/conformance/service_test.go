@@ -127,8 +127,8 @@ func TestRunLatestService(t *testing.T) {
 	logger := logging.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image1, test.Flags.Tag))
-	imagePaths = append(imagePaths, fmt.Sprintf("%s/%s:%s", test.Flags.DockerRepo, image2, test.Flags.Tag))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("pizzaplanet-service", logger)

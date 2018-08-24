@@ -19,7 +19,6 @@ package e2e
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -36,7 +35,7 @@ func TestBuildAndServe(t *testing.T) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildAndServe")
 
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath := test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
@@ -120,7 +119,7 @@ func TestBuildFailure(t *testing.T) {
 		}},
 	}
 
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath := test.ImagePath("helloworld")
 	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.Flags.Namespace, names, build, imagePath))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)

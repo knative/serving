@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -39,7 +38,7 @@ func TestHelloWorld(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

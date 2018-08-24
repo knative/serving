@@ -129,6 +129,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Authority: &v1alpha3.StringMatch{Exact: "v1.domain.com"},
@@ -141,6 +145,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}}
 	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
@@ -219,6 +227,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -256,6 +268,10 @@ func TestMakeVirtualServiceRoute_ZeroPercentTarget(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -300,6 +316,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Weight: 10,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -338,6 +358,10 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			"knative-serving-namespace":     "test-ns",
 		},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -381,6 +405,10 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			"knative-serving-namespace":     "test-ns",
 		},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -419,6 +447,10 @@ func TestMakeVirtualServiceRoute_ZeroPercentNamedTargetScaledToZero(t *testing.T
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      DefaultRouteRetryAttempts,
+			PerTryTimeout: DefaultRouteTimeout,
+		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

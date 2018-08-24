@@ -45,6 +45,7 @@ type ServingEnvironmentFlags struct {
 type EnvironmentFlags struct {
 	Cluster     string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
 	DockerRepo  string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Tag         string // Test images version tag
 	Kubeconfig  string // Path to kubeconfig (defaults to ./kube/config)
 	Namespace   string // K8s namespace (blank by default, to be overwritten by test suite)
 	LogVerbose  bool   // Enable verbose logging
@@ -72,8 +73,11 @@ func initializeCommonFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 
-	flag.StringVar(&f.Namespace, "namespace", "",
+	flag.StringVar(&f.Namespace, "namespace", "serving-tests",
 		"Provide the namespace you would like to use for these tests.")
+
+	flag.StringVar(&f.Tag, "tag", "latest",
+		"Provide the version tag for the test images.")
 
 	flag.BoolVar(&f.LogVerbose, "logverbose", false,
 		"Set this flag to true if you would like to see verbose logging.")
