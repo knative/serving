@@ -32,6 +32,7 @@ var ServingFlags = initializeServingFlags()
 type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Tag              string // Test images version tag
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -43,6 +44,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
+
+	flag.StringVar(&f.Tag, "tag", "latest",
+		"Provide the version tag for the test images.")
 
 	return &f
 }

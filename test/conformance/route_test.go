@@ -20,7 +20,6 @@ package conformance
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"encoding/json"
@@ -37,9 +36,8 @@ import (
 )
 
 const (
-	image1               = "pizzaplanetv1"
-	image2               = "pizzaplanetv2"
-	defaultNamespaceName = "serving-tests"
+	image1 = "pizzaplanetv1"
+	image2 = "pizzaplanetv2"
 )
 
 func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
@@ -146,10 +144,6 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 }
 
 func setup(t *testing.T) *test.Clients {
-	if pkgTest.Flags.Namespace == "" {
-		pkgTest.Flags.Namespace = defaultNamespaceName
-	}
-
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, pkgTest.Flags.Namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
@@ -170,8 +164,8 @@ func TestRouteCreation(t *testing.T) {
 	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)

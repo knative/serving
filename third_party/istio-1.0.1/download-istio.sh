@@ -1,6 +1,7 @@
+
 # Download and unpack Istio
-ISTIO_VERSION=1.0.0
-DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
+ISTIO_VERSION=release-1.0-20180823-09-15
+DOWNLOAD_URL=https://storage.googleapis.com/istio-prerelease/daily-build/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
@@ -17,6 +18,7 @@ helm template --namespace=istio-system \
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=false \
   --set global.proxy.autoInject=disabled \
+  --set global.omitSidecarInjectorConfigMap=true \
   --set prometheus.enabled=false \
   install/kubernetes/helm/istio > ../istio-lean.yaml
 

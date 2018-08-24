@@ -21,7 +21,6 @@ package conformance
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -129,8 +128,8 @@ func TestRunLatestService(t *testing.T) {
 	logger := logging.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.ServingFlags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("pizzaplanet-service", logger)

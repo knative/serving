@@ -358,6 +358,10 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -450,6 +454,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Weight: 10,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -543,6 +551,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -650,6 +662,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "test-revision-1." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -660,6 +676,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "test-revision-2." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -670,6 +690,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -762,6 +786,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "bar." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -772,6 +800,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "foo." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -782,6 +814,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {

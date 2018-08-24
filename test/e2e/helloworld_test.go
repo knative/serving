@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -39,8 +38,7 @@ func TestHelloWorld(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorld")
 
-	var imagePath string
-	imagePath = strings.Join([]string{test.ServingFlags.DockerRepo, "helloworld"}, "/")
+	var imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

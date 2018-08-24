@@ -10,11 +10,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
- // util.go provides shared utilities methods across knative serving test
- package test
- import (
+// util.go provides shared utilities methods across knative serving test
+package test
+
+import (
 	"encoding/json"
- 	"github.com/knative/pkg/test/logging"
+	"fmt"
+
+	"github.com/knative/pkg/test/logging"
 )
 
 // LogResourceObject logs the resource object with the resource name and value
@@ -25,4 +28,9 @@ func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
 	} else {
 		logger.Infof("resource %s", string(resourceJSON))
 	}
+}
+
+// ImagePath is a helper function to prefix image name with repo and suffix with tag
+func ImagePath(name string) string {
+	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
 }
