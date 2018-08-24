@@ -21,6 +21,7 @@ apt-get install sudo docker
 #sudo sh get-docker.sh
 sudo systemctl enable docker
 dockerd &
+sleep 30
 
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
 curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.10.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
@@ -47,6 +48,10 @@ sudo -E ./minikube start --vm-driver=none \
 --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 ./minikube logs
 ./minikube dashboard --loglevel 0 --logtostderr
+
+sudo systemctl daemon-reload
+sudo systemctl enable kubelet
+sudo systemctl start kubelet
 
 # this for loop waits until kubectl can access the api server that Minikube has created
 #for i in {1..150}; do # timeout for 5 minutes
