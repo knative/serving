@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set +x
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
