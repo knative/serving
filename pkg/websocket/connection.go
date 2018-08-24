@@ -19,59 +19,13 @@ package websocket
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/gorilla/websocket"
 )
-
-// NewDurableSendingConnection creates a new websocket connection
-// that can only send messages to the endpoint it connects to.
-// The connection will continuously be kept alive and reconnected
-// in case of a loss of connectivity.
-func NewDurableSendingConnection(target string) (conn *Connection, err error) {
-	// The error of the first connection attempt is surfaced to rule out
-	// unrecoverable configuration issues.
-	conn, err = newConnection(target)
-
-	// Keep the connection alive asynchronously and reconnect on
-	// connection failure.
-	go func() {
-		for {
-			if _, _, err := conn.connection.NextReader(); err != nil {
-				conn.connection.Close()
-				conn.reconnect()
-			}
-		}
-	}()
-
-	return conn, err
-}
-
-func connect(target string) (rConnection *websocket.Conn, rError error) {
-	wait.ExponentialBackoff(wait.Backoff{
-		Duration: 100 * time.Millisecond,
-		Factor:   1.3,
-		Steps:    20,
-		Jitter:   0.5,
-	}, func() (bool, error) {
-		dialer := &websocket.Dialer{
-			HandshakeTimeout: 3 * time.Second,
-		}
-		conn, _, err := dialer.Dial(target, nil)
-		if err != nil {
-			rError = err
-			return false, nil
-		}
-
-		rError = nil
-		rConnection = conn
-		return true, nil
-	})
-
-	return rConnection, rError
-}
 
 // Connection represents a websocket connection.
 type Connection struct {
@@ -81,30 +35,67 @@ type Connection struct {
 	messageEncoder *gob.Encoder
 }
 
-// NewConnection creates a new websocket connection to the given target.
-func newConnection(target string) (*Connection, error) {
-	conn, err := connect(target)
-	if err != nil {
-		return nil, err
-	}
+// NewDurableSendingConnection creates a new websocket connection
+// that can only send messages to the endpoint it connects to.
+// The connection will continuously be kept alive and reconnected
+// in case of a loss of connectivity.
+func NewDurableSendingConnection(target string) *Connection {
+	conn := newConnection(target)
 
+	// Keep the connection alive asynchronously and reconnect on
+	// connection failure.
+	go func() {
+		for {
+			if err := conn.connect(); err != nil {
+				continue
+			}
+			if _, _, err := conn.connection.NextReader(); err != nil {
+				conn.connection.Close()
+			}
+		}
+	}()
+
+	return conn
+}
+
+// NewConnection creates a new websocket connection to the given target.
+func newConnection(target string) *Connection {
 	buffer := &bytes.Buffer{}
 	return &Connection{
 		target:         target,
-		connection:     conn,
+		connection:     nil,
 		messageBuffer:  buffer,
 		messageEncoder: gob.NewEncoder(buffer),
-	}, nil
+	}
 }
 
-// Reconnect reestablishes a websocket connection.
-func (c *Connection) reconnect() (err error) {
-	c.connection, err = connect(c.target)
+func (c *Connection) connect() (err error) {
+	dialer := &websocket.Dialer{
+		HandshakeTimeout: 3 * time.Second,
+	}
+
+	wait.ExponentialBackoff(wait.Backoff{
+		Duration: 100 * time.Millisecond,
+		Factor:   1.3,
+		Steps:    20,
+		Jitter:   0.5,
+	}, func() (bool, error) {
+		c.connection, _, err = dialer.Dial(c.target, nil)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
 	return err
 }
 
 // Send sends an encodable message over the websocket connection.
 func (c *Connection) Send(msg interface{}) error {
+	if c.connection == nil {
+		return errors.New("connection has not yet been established")
+	}
+
 	if err := c.messageEncoder.Encode(msg); err != nil {
 		return err
 	}
@@ -114,5 +105,8 @@ func (c *Connection) Send(msg interface{}) error {
 
 // Close closes the websocket connection.
 func (c *Connection) Close() error {
-	return c.connection.Close()
+	if c.connection != nil {
+		return c.connection.Close()
+	}
+	return nil
 }

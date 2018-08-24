@@ -255,16 +255,10 @@ func main() {
 	}
 	kubeClient = kc
 
-	go func() {
-		autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
-		logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-		conn, err := websocket.NewDurableSendingConnection(autoscalerEndpoint)
-		if err != nil {
-			logger.Error("Failed to connect to autoscaler, shutting down", zap.Error(err))
-		}
-		logger.Info("Connection to autoscaler established")
-		statSink = conn
-	}()
+	// Open a websocket connection to the autoscaler
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
+	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
