@@ -88,7 +88,6 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 			return nil
 		})
 	}
-
 	return responses, g.Wait()
 }
 
@@ -209,12 +208,12 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// TODO(#882): Remove these?
 	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", blue.Revision, err)
+	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionRoutable, "RevisionIsRoutable"); err != nil {
+		t.Fatalf("The Revision %q still can't serve traffic: %v", blue.Revision, err)
 	}
 	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", green.Revision, err)
+	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionRoutable, "RevisionIsRoutable"); err != nil {
+		t.Fatalf("The Revision %q still can't serve traffic: %v", green.Revision, err)
 	}
 
 	// Set names for traffic targets to make them directly routable.

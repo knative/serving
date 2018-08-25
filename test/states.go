@@ -79,6 +79,13 @@ func IsRevisionReady(r *v1alpha1.Revision) (bool, error) {
 	return r.Status.IsReady(), nil
 }
 
+// IsRevisionRoutable will check the status conditions of the
+// revision and return true if the revision is ready to serve traffic,
+// or inactive.
+func IsRevisionRoutable(r *v1alpha1.Revision) (bool, error) {
+	return r.Status.IsReady() || r.Status.IsActivationRequired(), nil
+}
+
 // IsServiceReady will check the status conditions of the service and return true if the service is
 // ready. This means that its configurations and routes have all reported ready.
 func IsServiceReady(s *v1alpha1.Service) (bool, error) {
