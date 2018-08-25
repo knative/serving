@@ -19,6 +19,7 @@ limitations under the License.
 package conformance
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 

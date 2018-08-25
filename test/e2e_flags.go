@@ -50,6 +50,7 @@ type EnvironmentFlags struct {
 	Namespace   string // K8s namespace (blank by default, to be overwritten by test suite)
 	LogVerbose  bool   // Enable verbose logging
 	EmitMetrics bool   // Emit metrics
+	Tag         string
 }
 
 func initializeCommonFlags() *EnvironmentFlags {
@@ -83,6 +84,8 @@ func initializeCommonFlags() *EnvironmentFlags {
 
 	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
 		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+	flag.StringVar(&f.Tag, "tag", "latest",
+		"Provide the version tag for the test images.")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")

@@ -20,6 +20,7 @@ package conformance
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
