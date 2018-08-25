@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
-
 set -o errexit
+
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 : ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
