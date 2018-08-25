@@ -23,11 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
@@ -46,7 +45,7 @@ const (
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
+	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	// When Active or Reserved, deployment should exist and have a particular specification.
@@ -81,7 +80,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	kpaName := resourcenames.KPA(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.KPA, kpaName))
+	logger := logging.FromContext(ctx)
 
 	kpa, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
 	if apierrs.IsNotFound(getKPAErr) {
@@ -124,7 +123,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	serviceName := resourcenames.K8sService(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
 

@@ -22,12 +22,10 @@ import (
 	"reflect"
 
 	"github.com/knative/pkg/controller"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
@@ -83,11 +81,6 @@ func NewController(
 	return impl
 }
 
-// loggerWithConfigInfo enriches the logs with configuration name and namespace.
-func loggerWithConfigInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Configuration, name))
-}
-
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
@@ -98,9 +91,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	// Wrap our logger with the additional context of the configuration that we are reconciling.
-	logger := loggerWithConfigInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
+	logger := logging.FromContext(ctx)
 
 	// Get the Configuration resource with this namespace/name
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -138,7 +129,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	revName := resourcenames.Revision(config)
 	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
 	if errors.IsNotFound(err) {
-		latestCreatedRevision, err = c.createRevision(config, revName)
+		latestCreatedRevision, err = c.createRevision(ctx, config, revName)
 		if err != nil {
 			logger.Errorf("Failed to create Revision %q: %v", revName, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
@@ -198,8 +189,8 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
-func (c *Reconciler) createRevision(config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
-	logger := loggerWithConfigInfo(c.Logger, config.Namespace, config.Name)
+func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
+	logger := logging.FromContext(ctx)
 
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.

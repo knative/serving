@@ -24,11 +24,9 @@ import (
 	"sync"
 
 	commonlogging "github.com/knative/pkg/logging"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -206,11 +204,6 @@ func NewController(
 	return impl
 }
 
-// loggerWithRevisionInfo enriches the logs with revision name and namespace.
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
-}
-
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
@@ -221,9 +214,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
+	logger := logging.FromContext(ctx)
 
-	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name

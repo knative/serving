@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 
+	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -120,7 +121,7 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	// Istio list of matches are OR'ed together.  The following build a match set that matches any of the given domains.
 	for _, domain := range domains {
 		matches = append(matches, v1alpha3.HTTPMatchRequest{
-			Authority: &v1alpha3.StringMatch{
+			Authority: &istiov1alpha1.StringMatch{
 				Exact: domain,
 			},
 		})

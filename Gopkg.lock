@@ -318,21 +318,29 @@
   revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[projects]]
-  digest = "1:7fec517511463f9e518f3edf581e9b5ddb579cb3ef5b30ec2b87b78b5d8c0f5f"
+  digest = "1:00fec0ff4025bb98b1dc5ef92348dd706cc41b5aa0275c9646da5476fd16e48b"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "apis/istio",
+    "apis/istio/authentication",
+    "apis/istio/authentication/v1alpha1",
+    "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
     "client/clientset/versioned/scheme",
+    "client/clientset/versioned/typed/authentication/v1alpha1",
+    "client/clientset/versioned/typed/authentication/v1alpha1/fake",
     "client/clientset/versioned/typed/istio/v1alpha3",
     "client/clientset/versioned/typed/istio/v1alpha3/fake",
     "client/informers/externalversions",
+    "client/informers/externalversions/authentication",
+    "client/informers/externalversions/authentication/v1alpha1",
     "client/informers/externalversions/internalinterfaces",
     "client/informers/externalversions/istio",
     "client/informers/externalversions/istio/v1alpha3",
+    "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
@@ -344,7 +352,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "f4a77d77082cf7efcc4cf8949f8d85e3967ebde1"
+  revision = "3ca427071dcd0b1155830a19bce769b4902fa645"
 
 [[projects]]
   branch = "master"
