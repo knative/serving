@@ -306,7 +306,7 @@ For a high-level description of Services,
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
-kind: :
+kind: Service	
 metadata:
   name: myservice
   namespace: default
