@@ -32,11 +32,11 @@ data:
 
   # The container concurrency target default is what the Autoscaler will
   # try to maintain when the Revision specifies unlimited concurrency. A
-  # value of 10 is chosen because it's enough to allow vertical pod
+  # value of 100 is chosen because it's enough to allow vertical pod
   # autoscaling to tune resource requests. E.g. maintaining 1 concurrent
   # "hello world" request doesn't consume enough resources to allow VPA
   # to achieve efficient resource usage (VPA CPU minimum is 300m).
-  container-concurrency-target-default: "10"
+  container-concurrency-target-default: "100"
 
   # When operating in a stable mode, the autoscaler operates on the
   # average concurrency over the stable window.
