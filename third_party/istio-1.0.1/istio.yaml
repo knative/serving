@@ -2217,7 +2217,7 @@ spec:
         - containerPort: 9125
           protocol: UDP
         args:
-        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        - '--statsd.mapping-config=/etc/statsd/mapping.conf'
         resources:
           requests:
             cpu: 10m
