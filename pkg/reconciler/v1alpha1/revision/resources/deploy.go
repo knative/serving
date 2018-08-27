@@ -68,10 +68,10 @@ var (
 	}}
 
 	// Expose containerPort as env PORT.
-	userEnv = []corev1.EnvVar{{
+	userEnv = corev1.EnvVar{
 		Name:  userPortEnvName,
 		Value: strconv.Itoa(userPort),
-	}}
+	}
 
 	userResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -118,13 +118,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
-
-	// Merge user container env vars.
-	if userContainer.Env == nil {
-		userContainer.Env = userEnv
-	} else {
-		userContainer.Env = append(userContainer.Env, userEnv...)
-	}
+	userContainer.Env = append(userContainer.Env, userEnv)
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)

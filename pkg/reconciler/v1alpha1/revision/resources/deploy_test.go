@@ -75,7 +75,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -148,7 +148,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -230,7 +230,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -310,7 +310,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -392,7 +392,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -470,7 +470,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -539,7 +539,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          userEnv,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
