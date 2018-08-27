@@ -28,6 +28,7 @@ data:
   # on average. A value of 0.7 is chosen because the Autoscaler panics
   # when concurrency exceeds 2x the desired set point. So we will panic
   # before we reach the limit.
+  # TODO(#1956): tune target usage based on empirical data.
   container-concurrency-target-percentage: "0.7"
 
   # The container concurrency target default is what the Autoscaler will
