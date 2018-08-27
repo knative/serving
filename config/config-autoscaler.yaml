@@ -24,11 +24,11 @@ data:
   # of requests the Container can handle at once. Container concurrency
   # target percentage is how much of that maximum to use in a stable
   # state. E.g. if a Revision specifies ContainerConcurrency of 10, then
-  # the Autoscaler will try to maintain 5 concurrent connections per pod
-  # on average. A value of 0.5 is chosen because the Autoscaler panics
+  # the Autoscaler will try to maintain 7 concurrent connections per pod
+  # on average. A value of 0.7 is chosen because the Autoscaler panics
   # when concurrency exceeds 2x the desired set point. So we will panic
-  # when we reach the limit.
-  container-concurrency-target-percentage: "0.5"
+  # before we reach the limit.
+  container-concurrency-target-percentage: "0.7"
 
   # The container concurrency target default is what the Autoscaler will
   # try to maintain when the Revision specifies unlimited concurrency. A
