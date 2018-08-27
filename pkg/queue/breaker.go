@@ -52,12 +52,6 @@ func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(thunk func()) bool {
 
-	if b.maxConcurrency == 0 {
-		// Unlimited concurrency
-		thunk()
-		return true
-	}
-
 	var t token
 	select {
 	default:
