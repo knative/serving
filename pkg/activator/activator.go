@@ -19,6 +19,10 @@ const (
 	// The name of the activator service.
 	K8sServiceName          = "activator-service"
 	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
+	// Knative service header names
+	RevisionHeaderName      string = "knative-serving-revision"
+	ConfigurationHeader     string = "knative-serving-configuration"
+	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
 // Status is an HTTP status code.

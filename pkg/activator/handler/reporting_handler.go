@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 // ReportingHTTPHandler will forward request & response metrics
@@ -30,9 +29,9 @@ type ReportingHTTPHandler struct {
 }
 
 func (h *ReportingHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
-	name := r.Header.Get(reconciler.GetRevisionHeaderName())
-	config := r.Header.Get(reconciler.GetConfigurationHeader())
+	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
+	name := r.Header.Get(activator.RevisionHeaderName)
+	config := r.Header.Get(activator.ConfigurationHeader)
 	start := time.Now()
 
 	capture := &statusCapture{

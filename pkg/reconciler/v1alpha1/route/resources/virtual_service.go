@@ -204,9 +204,9 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		Weight: totalInactivePercent,
 	})
 	r.AppendHeaders = map[string]string{
-		reconciler.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
-		reconciler.GetConfigurationHeader():     maxInactiveTarget.ConfigurationName,
-		reconciler.GetRevisionHeaderNamespace(): ns,
+		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
+		activator.ConfigurationHeader:     maxInactiveTarget.ConfigurationName,
+		activator.RevisionHeaderNamespace: ns,
 	}
 	return r
 }
