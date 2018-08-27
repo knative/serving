@@ -206,13 +206,21 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
 	}
 
-	// TODO(#882): Remove these?
+	// We should only need to wait until the Revision is routable,
+	// i.e. Ready or Inactive.  At that point, activator could start
+	// queuing requests until the Revision wakes up.  However, due to
+	// #882 we are currently lumping the inactive splits and that
+	// would result in 100% requests reaching Blue or Green.
+	//
+	// TODO: After we implement #1583 and honor the split percentage
+	// for inactive cases, change this wait to allow for inactive
+	// revisions as well.
 	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionRoutable, "RevisionIsRoutable"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", blue.Revision, err)
 	}
 	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionRoutable, "RevisionIsRoutable"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", green.Revision, err)
 	}
 
