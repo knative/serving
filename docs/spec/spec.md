@@ -185,7 +185,12 @@ spec:
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
-      # +optional max request concurrency per instance.  Defaults to `0` (system decides).
+      # +optional concurrency strategy.  Defaults to Multi.
+      # Deprecated in favor of ContainerConcurrency.
+      concurrencyModel: ...
+      # +optional max request concurrency per instance.  Defaults to `0` (system decides)
+      # when concurrencyModel is unspecified as well.  Defaults to `1` when
+      # concurrencyModel `Single` is provided.
       containerConcurrency: ...
       # +optional. max time the instance is allowed for responding to a request
       timeoutSeconds: ...
@@ -269,6 +274,8 @@ spec:
   # limit request concurrency to that value.  A value of `0` means the
   # system should decide.
   containerConcurrency: 0 | 1 | 2-N
+  # Deprecated in favor of containerConcurrency
+  concurrencyModel: Single | Multi
 
   # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
