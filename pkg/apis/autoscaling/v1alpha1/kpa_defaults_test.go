@@ -62,6 +62,22 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				ServingState:         "Active",
 			},
 		},
+	}, {
+		name: "fall back to concurrency model",
+		in: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 0, // unspecified
+				ServingState:         "Active",
+			},
+		},
+		want: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 1,
+				ServingState:         "Active",
+			},
+		},
 	}}
 
 	for _, test := range tests {

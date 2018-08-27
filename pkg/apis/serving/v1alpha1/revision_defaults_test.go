@@ -62,6 +62,22 @@ func TestRevisionDefaulting(t *testing.T) {
 				ServingState:         "Active",
 			},
 		},
+	}, {
+		name: "fall back to concurrency model",
+		in: &Revision{
+			Spec: RevisionSpec{
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 0, // unspecified
+				ServingState:         "Active",
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 1,
+				ServingState:         "Active",
+			},
+		},
 	}}
 
 	for _, test := range tests {
