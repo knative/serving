@@ -23,13 +23,11 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -63,7 +61,7 @@ type KPAMetrics interface {
 // KPAScaler knows how to scale the targets of KPAs
 type KPAScaler interface {
 	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error
+	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error
 }
 
 // Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
@@ -137,8 +135,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
 		return nil
 	}
-	logger := loggerWithKPAInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
+	logger := logging.FromContext(ctx)
 	logger.Debug("Reconcile KPA")
 
 	original, err := c.kpaLister.PodAutoscalers(namespace).Get(name)
@@ -189,7 +186,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	if err := c.kpaScaler.Scale(kpa, metric.DesiredScale); err != nil {
+	if err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale); err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
@@ -244,8 +241,4 @@ func (c *Reconciler) updateStatus(kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, e
 		//	return prClient.UpdateStatus(newKPA)
 	}
 	return kpa, nil
-}
-
-func loggerWithKPAInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.KPA, name))
 }

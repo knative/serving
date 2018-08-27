@@ -152,7 +152,7 @@ func TestKPAScaler(t *testing.T) {
 				e.kpaMutation(kpa)
 			}
 
-			revisionScaler.Scale(kpa, e.scaleTo)
+			revisionScaler.Scale(TestContextWithLogger(t), kpa, e.scaleTo)
 
 			checkServingState(t, servingClient, e.wantState)
 

@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaling
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/scale"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -83,8 +85,8 @@ func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
 }
 
 // Scale attempts to scale the given KPA's target reference to the desired scale.
-func (rs *kpaScaler) Scale(kpa *kpa.PodAutoscaler, desiredScale int32) error {
-	logger := loggerWithKPAInfo(rs.logger, kpa.Namespace, kpa.Name)
+func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
+	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")

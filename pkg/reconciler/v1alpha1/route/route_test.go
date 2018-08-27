@@ -858,33 +858,6 @@ func TestEnqueueReferringRoute(t *testing.T) {
 	}
 }
 
-func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
-	_, _, _, controller, reconciler, _, _, _, _ := newTestSetup(t)
-
-	config := getTestConfiguration()
-	rev := getTestRevisionForConfig(config)
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           100,
-		}},
-	)
-
-	// Update config to have LatestReadyRevisionName and route label.
-	config.Status.LatestReadyRevisionName = rev.Name
-	config.Labels = map[string]string{
-		serving.RouteLabelKey: route.Name,
-	}
-	f := reconciler.EnqueueReferringRoute(controller)
-	f(config)
-	// add this item to avoid being blocked by queue.
-	expected := "queue-has-no-work"
-	controller.WorkQueue.AddRateLimited(expected)
-	if k, _ := controller.WorkQueue.Get(); k != expected {
-		t.Errorf("Expected %v, saw %v", expected, k)
-	}
-}
-
 func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
 	_, _, _, controller, reconciler, _, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
