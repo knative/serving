@@ -54,23 +54,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
-	return deployment, Unchanged, nil
-	// // TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// // resources.MakeDeployment() would produce.
-	//
-	// logger := logging.FromContext(ctx)
-	// desiredDeployment := deployment.DeepCopy()
-	// if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-	// 	return deployment, Unchanged, nil
-	// }
-	// logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
-	// 	cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
-	// deployment.Spec = desiredDeployment.Spec
-	// d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	// return d, WasChanged, err
-}
-
 func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpa.PodAutoscaler, error) {
 	kpa := resources.MakeKPA(rev)
 
@@ -105,10 +88,11 @@ func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, 
 func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
 	logger := logging.FromContext(ctx)
 
-	desiredService := sf(rev)
-
-	// Preserve the ClusterIP field in the Service's Spec, if it has been set.
-	desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+	// Note: only reconcile the spec we set.
+	rawDesiredService := sf(rev)
+	desiredService := service.DeepCopy()
+	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
+	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
 
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
 		return service, Unchanged, nil

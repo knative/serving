@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha3
 
+// DestinationRuleListerExpansion allows custom methods to be added to
+// DestinationRuleLister.
+type DestinationRuleListerExpansion interface{}
+
+// DestinationRuleNamespaceListerExpansion allows custom methods to be added to
+// DestinationRuleNamespaceLister.
+type DestinationRuleNamespaceListerExpansion interface{}
+
 // GatewayListerExpansion allows custom methods to be added to
 // GatewayLister.
 type GatewayListerExpansion interface{}

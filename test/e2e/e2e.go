@@ -14,17 +14,12 @@ import (
 )
 
 const (
-	configName           = "prod"
-	routeName            = "noodleburg"
-	defaultNamespaceName = "serving-tests"
+	configName = "prod"
+	routeName  = "noodleburg"
 )
 
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
-	if test.Flags.Namespace == "" {
-		test.Flags.Namespace = defaultNamespaceName
-	}
-
 	clients, err := test.NewClients(
 		test.Flags.Kubeconfig,
 		test.Flags.Cluster,

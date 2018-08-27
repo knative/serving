@@ -31,8 +31,9 @@ const (
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
-	userPortName = "user-port"
-	userPort     = 8080
+	userPortName    = "user-port"
+	userPort        = 8080
+	userPortEnvName = "PORT"
 
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	AutoscalerPort       = 8080

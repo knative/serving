@@ -75,6 +75,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -147,6 +148,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -228,6 +230,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -307,6 +310,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -388,6 +392,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -465,6 +470,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -533,6 +539,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -639,6 +646,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "BAZ",
 					Value: "blah",
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 				Resources:    userResources,
 				Ports:        userPorts,

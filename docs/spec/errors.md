@@ -96,6 +96,10 @@ how the status is presented to CLI and UI tools via the API.
   * [Configuration not found by Route](#configuration-not-found-by-route)
   * [Latest Revision of a Configuration deleted](#latest-revision-of-a-configuration-deleted)
   * [Traffic shift progressing slowly/stuck](#traffic-shift-progressing-slowly-stuck)
+* [Scale-to-Zero](#scale-to-zero)
+  * [Inactive Revision](#inactive-revision)
+  * [Activating Revision](#activating-revision)
+  * [Active Revision](#active-revision)
 
 ## Deployment-Related Failures
 
@@ -481,4 +485,75 @@ status:
     reason: ProgressDeadlineExceeded
     # reason is a short status, message provides error details
     message: "Unable to update traffic split for more than 120 seconds."
+```
+
+## Scale to Zero
+
+The following scenarios outline the various circumstances surrounding scaling
+the resources underlying a Revision to zero.
+
+### Inactive Revision
+
+When a Revision becomes inactive this is reflected by setting the `Active`
+condition to `False`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
+```
+
+```yaml
+...
+status:
+  conditions:
+  - type: Ready
+    status: False
+    reason: NoTraffic
+    message: The target is not receiving traffic.
+  - type: Active
+    status: False
+    reason: NoTraffic
+    message: The target is not receiving traffic.
+```
+
+### Activating Revision
+
+When an inactive Revision receives traffic, while traffic is buffered as
+resources are provisioned, the Revision may reflect this by setting the
+`Active` condition to `Unknown`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
+```
+
+```yaml
+...
+status:
+  conditions:
+  - type: Ready
+    status: Unknown
+    reason: Queued
+    message: Requests to the target are being buffered as resources are provisioned.
+  - type: Active
+    status: Unknown
+    reason: Queued
+    message: Requests to the target are being buffered as resources are provisioned.
+```
+
+### Active Revision
+
+When a Revision is actively receiving traffic, the Revision reflects this by
+setting the `Active` condition to `True`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
+```
+
+```yaml
+...
+status:
+  conditions:
+  - type: Ready
+    status: True
+  - type: Active
+    status: True
 ```

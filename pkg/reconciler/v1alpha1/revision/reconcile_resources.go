@@ -23,11 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
@@ -46,7 +45,7 @@ const (
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
+	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	// When Active or Reserved, deployment should exist and have a particular specification.
@@ -63,20 +62,9 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	} else if getDepErr != nil {
 		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, getDepErr)
 		return getDepErr
-	} else {
-		// Deployment exist. Update the replica count based on the serving state if necessary
-		var changed Changed
-		var err error
-		deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
-		if err != nil {
-			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
-			return err
-		}
-		if changed == WasChanged {
-			logger.Infof("Updated deployment %q", deploymentName)
-			rev.Status.MarkDeploying("Updating")
-		}
 	}
+	// TODO(mattmoor): Consider reconciling the deployment spec to make sure it matches
+	// what we expect.
 
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
@@ -92,7 +80,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	kpaName := resourcenames.KPA(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.KPA, kpaName))
+	logger := logging.FromContext(ctx)
 
 	kpa, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
 	if apierrs.IsNotFound(getKPAErr) {
@@ -121,13 +109,13 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
 	switch {
 	case cond == nil:
-		// TODO(mattmoor): rev.Status.MarkActivating("Deploying", "")
+		rev.Status.MarkActivating("Deploying", "")
 	case cond.Status == corev1.ConditionUnknown:
-		// TODO(mattmoor): rev.Status.MarkActivating(cond.Reason, cond.Message)
+		rev.Status.MarkActivating(cond.Reason, cond.Message)
 	case cond.Status == corev1.ConditionFalse:
-		rev.Status.MarkInactive(cond.Message)
+		rev.Status.MarkInactive(cond.Reason, cond.Message)
 	case cond.Status == corev1.ConditionTrue:
-		// TODO(mattmoor): rev.Status.MarkActive()
+		rev.Status.MarkActive()
 	}
 	return nil
 }
@@ -135,7 +123,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	serviceName := resourcenames.K8sService(rev)
-	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
 
@@ -270,10 +258,9 @@ func (c *Reconciler) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if err != nil {
 		logger.Errorf("Error reconciling Active VPA %q: %v", vpaName, err)
 		return err
-	} else {
-		// TODO(mattmoor): Should we checkAndUpdate the VPA, or would it
-		// suffer similar problems to Deployment?
 	}
+	// TODO(mattmoor): Consider reconciling the VPA spec to make sure it matches
+	// what we expect.
 
 	return nil
 }

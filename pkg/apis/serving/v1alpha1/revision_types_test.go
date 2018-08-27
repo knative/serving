@@ -59,9 +59,8 @@ func TestIsActivationRequired(t *testing.T) {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
+				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
 			}},
 		},
 		isActivationRequired: true,
@@ -70,6 +69,10 @@ func TestIsActivationRequired(t *testing.T) {
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Updating",
+			}, {
+				Type:   RevisionConditionActive,
 				Status: corev1.ConditionUnknown,
 				Reason: "Updating",
 			}},
@@ -96,9 +99,11 @@ func TestIsActivationRequired(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -124,19 +129,11 @@ func TestIsRoutable(t *testing.T) {
 		name: "Inactive status should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionActive,
+				Status: corev1.ConditionFalse,
+			}, {
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Updating status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
 			}},
 		},
 		isRoutable: true,
@@ -249,9 +246,11 @@ func TestIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -372,8 +371,20 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
 
+	r.Status.MarkActive()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	if r.Status.IsReady() {
+		t.Error("IsReady() = true, want false")
+	}
+
 	r.Status.MarkContainerHealthy()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
@@ -384,6 +395,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 
 	r.Status.MarkResourcesAvailable()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
@@ -395,6 +407,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	// Verify that this doesn't reset our conditions.
 	r.Status.InitializeConditions()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
@@ -513,41 +526,46 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
 
 	// Enter a Ready state.
+	r.Status.MarkActive()
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From a Ready state, make the revision inactive to simulate scale to zero.
-	r.Status.MarkInactive("Reserve")
+	want := "Deactivated"
+	r.Status.MarkInactive(want, "Reserve")
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {
-		t.Errorf("MarkInactive = %v, want Inactive", got)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
+		t.Errorf("MarkInactive = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
 
 	// From an Inactive state, start to activate the revision.
-	want := "Updating"
-	r.Status.MarkDeploying(want)
-	r.Status.MarkDeploying(want)
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
-	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	want = "Activating"
+	r.Status.MarkActivating(want, "blah blah blah")
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
+		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
 
 	// From the activating state, simulate the transition back to readiness.
-	r.Status.MarkContainerHealthy()
-	r.Status.MarkResourcesAvailable()
+	r.Status.MarkActive()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 

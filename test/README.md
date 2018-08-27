@@ -115,6 +115,13 @@ To run the script for all end to end test images:
 ```bash
 ./test/upload-test-images.sh
 ```
+A docker tag may be passed as an optional parameter. This can be
+useful on [Minikube] in tandem with the `--tag` [flag](#using-a-docker-tag):
+
+```bash
+eval $(minikube docker-env)
+./test/upload-test-images.sh any-old-tag
+```
 
 ### Adding new test images
 
@@ -131,6 +138,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--cluster`](#specifying-cluster)
 * [`--namespace`](#specifying-namespace)
 * [`--dockerrepo`](#overriding-docker-repo)
+* [`--tag`](#using-a-docker-tag)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
 * [`--logverbose`](#output-verbose-logs)
 * [`--emitmetrics`](#emit-metrics)
@@ -189,6 +197,22 @@ go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
 go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
+### Using a docker tag
+
+The default docker tag used for the test images is `latest`, which can
+be problematic on [Minikube]. To avoid having to configure a remote
+container registry to support the `Always` pull policy for `latest`
+tags, you can have the tests use a specific tag:
+
+```bash
+go test -v -tags=e2e -count=1 ./test/conformance --tag any-old-tag
+go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
+```
+
+Of course, this implies that you tagged the images when you [uploaded
+them](#building-the-test-images).
+
+
 ### Using a resolvable domain
 
 If you set up your cluster using [the getting started
@@ -219,3 +243,5 @@ the tests.
 
 * To add additional metrics to a test, see [emitting metrics](adding_tests.md#emit-metrics).
 * For more info on the format of the metrics, see [metric format](adding_tests.md#metric-format).
+
+[Minikube]: https://kubernetes.io/docs/setup/minikube/

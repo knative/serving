@@ -169,8 +169,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names, blue, green test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)

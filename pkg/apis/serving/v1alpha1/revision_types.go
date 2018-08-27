@@ -182,6 +182,8 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+	// RevisionConditionActive is set when the revision is receiving traffic.
+	RevisionConditionActive RevisionConditionType = "Active"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -262,9 +264,8 @@ func (rs *RevisionStatus) IsReady() bool {
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
-			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
+	if c := rs.GetCondition(RevisionConditionActive); c != nil {
+		return c.Status != corev1.ConditionTrue
 	}
 	return false
 }
@@ -312,6 +313,7 @@ func (rs *RevisionStatus) InitializeConditions() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionResourcesAvailable,
 		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
 		RevisionConditionReady,
 	} {
 		if rc := rs.GetCondition(cond); rc == nil {
@@ -369,8 +371,16 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	rs.markTrue(RevisionConditionResourcesAvailable)
 }
 
-func (rs *RevisionStatus) MarkInactive(message string) {
-	rs.markFalse(RevisionConditionReady, "Inactive", message)
+func (rs *RevisionStatus) MarkActive() {
+	rs.markTrue(RevisionConditionActive)
+}
+
+func (rs *RevisionStatus) MarkActivating(reason, message string) {
+	rs.markUnknown(RevisionConditionActive, reason, message)
+}
+
+func (rs *RevisionStatus) MarkInactive(reason, message string) {
+	rs.markFalse(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
@@ -406,6 +416,7 @@ func (rs *RevisionStatus) markUnknown(t RevisionConditionType, reason, message s
 	})
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
 		RevisionConditionResourcesAvailable,
 	} {
 		c := rs.GetCondition(cond)

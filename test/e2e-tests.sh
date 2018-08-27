@@ -28,7 +28,7 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0.0/istio-lean.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.1/istio-lean.yaml
 
 # Helper functions.
 
@@ -62,6 +62,7 @@ function create_everything() {
   #
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/822 is fixed.
+  echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
   create_monitoring
 }
@@ -109,6 +110,7 @@ function dump_extra_cluster_state() {
 }
 
 function publish_test_images() {
+  echo ">> Publishing test images"
   image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
     ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
@@ -123,10 +125,9 @@ initialize $@
 set -o errexit
 set -o pipefail
 
-header "Building and starting Knative Serving"
+header "Setting up environment"
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 create_everything
-
 publish_test_images
 
 # Handle test failures ourselves, so we can dump useful info.

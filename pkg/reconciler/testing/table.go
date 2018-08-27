@@ -23,17 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/system"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
@@ -70,44 +63,22 @@ type TableRow struct {
 	WithReactors []clientgotesting.ReactionFunc
 }
 
-type Ctor func(*Listers, reconciler.Options) controller.Reconciler
+type ExtractActions func() ([]clientgotesting.CreateAction, []clientgotesting.UpdateAction,
+	[]clientgotesting.DeleteAction, []clientgotesting.PatchAction)
 
-func (r *TableRow) Test(t *testing.T, ctor Ctor) {
-	ls := NewListers(r.Objects)
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ExtractActions)
 
-	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
-	sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
-	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
-
-	// Set up our Controller from the fakes.
-	c := ctor(&ls, reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		BuildClientSet:   buildClient,
-		ServingClientSet: client,
-		Logger:           TestLogger(t),
-	})
-
-	for _, reactor := range r.WithReactors {
-		kubeClient.PrependReactor("*", "*", reactor)
-		sharedClient.PrependReactor("*", "*", reactor)
-		client.PrependReactor("*", "*", reactor)
-		buildClient.PrependReactor("*", "*", reactor)
-	}
-
-	// Validate all Create operations through the serving client.
-	client.PrependReactor("create", "*", ValidateCreates)
-	client.PrependReactor("update", "*", ValidateUpdates)
+func (r *TableRow) Test(t *testing.T, factory Factory) {
+	c, actions := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
-	// Now check that the Reconcile had the desired effects.
+
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
-	createActions, updateActions, deleteActions, patchActions := extractActions(t, sharedClient, buildClient, client, kubeClient)
+	createActions, updateActions, deleteActions, patchActions := actions()
 
 	for i, want := range r.WantCreates {
 		if i >= len(createActions) {
@@ -115,7 +86,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := createActions[i]
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
@@ -154,7 +125,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}
@@ -174,7 +145,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
@@ -188,46 +159,12 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	}
 }
 
-type hasActions interface {
-	Actions() []clientgotesting.Action
-}
-
-func extractActions(t *testing.T, clients ...hasActions) (
-	createActions []clientgotesting.CreateAction,
-	updateActions []clientgotesting.UpdateAction,
-	deleteActions []clientgotesting.DeleteAction,
-	patchActions []clientgotesting.PatchAction,
-) {
-
-	for _, c := range clients {
-		for _, action := range c.Actions() {
-			switch action.GetVerb() {
-			case "create":
-				createActions = append(createActions,
-					action.(clientgotesting.CreateAction))
-			case "update":
-				updateActions = append(updateActions,
-					action.(clientgotesting.UpdateAction))
-			case "delete":
-				deleteActions = append(deleteActions,
-					action.(clientgotesting.DeleteAction))
-			case "patch":
-				patchActions = append(patchActions,
-					action.(clientgotesting.PatchAction))
-			default:
-				t.Errorf("Unexpected verb %v: %+v", action.GetVerb(), action)
-			}
-		}
-	}
-	return
-}
-
 type TableTest []TableRow
 
-func (tt TableTest) Test(t *testing.T, ctor Ctor) {
+func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
 		t.Run(test.Name, func(t *testing.T) {
-			test.Test(t, ctor)
+			test.Test(t, factory)
 		})
 	}
 }

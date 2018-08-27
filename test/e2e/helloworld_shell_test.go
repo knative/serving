@@ -56,7 +56,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
 
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath := test.ImagePath("helloworld")
 
 	logger.Infof("Creating manifest")
 
