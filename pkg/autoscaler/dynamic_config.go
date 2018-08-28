@@ -27,18 +27,23 @@ type DynamicConfig struct {
 	mutex  sync.RWMutex
 	config interface{} // discourage direct access as this is not goroutine safe
 
-	logger *zap.SugaredLogger
+	logger               *zap.SugaredLogger
+	containerConcurrency float64
 }
 
-func NewDynamicConfig(rawConfig map[string]string, logger *zap.SugaredLogger) (*DynamicConfig, error) {
+func NewDynamicConfig(config *Config, logger *zap.SugaredLogger) *DynamicConfig {
+	return &DynamicConfig{
+		logger: logger,
+		config: config.DeepCopy(),
+	}
+}
+
+func NewDynamicConfigFromMap(rawConfig map[string]string, logger *zap.SugaredLogger) (*DynamicConfig, error) {
 	config, err := NewConfigFromMap(rawConfig)
 	if err != nil {
 		return nil, err
 	}
-	return &DynamicConfig{
-		logger: logger,
-		config: config,
-	}, nil
+	return NewDynamicConfig(config, logger), nil
 }
 
 func (dc *DynamicConfig) Current() *Config {

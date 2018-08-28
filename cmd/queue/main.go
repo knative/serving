@@ -33,13 +33,11 @@ import (
 	"syscall"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
@@ -62,10 +60,6 @@ const (
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
-
-	// Single concurency queue depth.  The maximum number of requests
-	// to enqueue before returing 503 overload.
-	singleConcurrencyQueueDepth = 10
 )
 
 var (
@@ -81,13 +75,13 @@ var (
 	kubeClient            *kubernetes.Clientset
 	statSink              *websocket.Conn
 	logger                *zap.SugaredLogger
+	breaker               *queue.Breaker
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
-	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
-	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
+	containerConcurrency     = flag.Int("containerConcurrency", 0, "")
 )
 
 func initEnv() {
@@ -97,6 +91,8 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+
+	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
 }
 
@@ -140,8 +136,8 @@ func statReporter() {
 			continue
 		}
 		sm := autoscaler.StatMessage{
-			Stat:        *s,
-			RevisionKey: servingRevisionKey,
+			Stat: *s,
+			Key:  servingRevisionKey,
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
@@ -185,9 +181,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqChan <- queue.ReqOut
 	}()
-	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
-		// Enforce single concurrency and breaking
-		ok := singleConcurrencyBreaker.Maybe(func() {
+	// Enforce queuing and concurrency limits
+	if breaker != nil {
+		ok := breaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
 		})
 		if !ok {
@@ -272,10 +268,8 @@ func main() {
 
 	initEnv()
 	logger = logger.With(
-		zap.String(commonlogkey.Namespace, servingNamespace),
-		zap.String(logkey.Configuration, servingConfiguration),
-		zap.String(logkey.Revision, servingRevision),
-		zap.String(commonlogkey.Pod, podName))
+		zap.String(logkey.Key, servingRevisionKey),
+		zap.String(logkey.Pod, podName))
 
 	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
@@ -284,9 +278,15 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2cutil.NewTransport()
+	h2cProxy.Transport = h2cutil.DefaultTransport
 
-	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
+	// If containerConcurrency == 0 then concurrency is unlimited.
+	if *containerConcurrency > 0 {
+		// We set the queue depth to be equal to the container concurrency.
+		breaker = queue.NewBreaker(int32(*containerConcurrency), int32(*containerConcurrency))
+		logger.Infof("Queue container is starting with queueDepth and containerConcurrency: %s", *containerConcurrency)
+	}
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))

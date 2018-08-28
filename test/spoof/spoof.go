@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/knative/pkg/test/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -71,7 +71,7 @@ type SpoofingClient struct {
 	endpoint string
 	domain   string
 
-	logger *zap.SugaredLogger
+	logger *logging.BaseLogger
 }
 
 // New returns a SpoofingClient that rewrites requests if the target domain is not `resolveable`.
@@ -79,7 +79,7 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain string, resolvable bool) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          http.DefaultClient,
 		RequestInterval: requestInterval,

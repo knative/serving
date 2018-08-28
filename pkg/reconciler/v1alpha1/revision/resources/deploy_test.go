@@ -35,6 +35,10 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 )
 
+var (
+	one int32 = 1
+)
+
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
@@ -53,7 +57,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -71,6 +75,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -78,7 +83,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -125,7 +130,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -143,6 +148,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -150,7 +156,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -190,7 +196,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 					ReadinessProbe: &corev1.Probe{
@@ -224,6 +230,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -231,7 +238,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -271,7 +278,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 					ReadinessProbe: &corev1.Probe{
@@ -303,6 +310,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -310,7 +318,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -350,7 +358,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 					ReadinessProbe: &corev1.Probe{
@@ -384,6 +392,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -391,7 +400,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -431,7 +440,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 					LivenessProbe: &corev1.Probe{
@@ -461,6 +470,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -468,7 +478,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -508,7 +518,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -529,6 +539,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
+				Env:          []corev1.EnvVar{userEnv},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -536,7 +547,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -604,7 +615,7 @@ func TestMakePodSpec(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image:   "busybox",
 					Command: []string{"/bin/bash"},
@@ -635,6 +646,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "BAZ",
 					Value: "blah",
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -647,7 +661,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -684,7 +698,7 @@ func TestMakePodSpec(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -692,15 +706,14 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name     string
-		rev      *v1alpha1.Revision
-		lc       *logging.Config
-		nc       *config.Network
-		oc       *config.Observability
-		ac       *autoscaler.Config
-		cc       *config.Controller
-		replicas int32
-		want     *appsv1.Deployment
+		name string
+		rev  *v1alpha1.Revision
+		lc   *logging.Config
+		nc   *config.Network
+		oc   *config.Observability
+		ac   *autoscaler.Config
+		cc   *config.Controller
+		want *appsv1.Deployment
 	}{{
 		name: "simple concurrency=single no owner",
 		rev: &v1alpha1.Revision{
@@ -710,18 +723,17 @@ func TestMakeDeployment(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
 			},
 		},
-		lc:       &logging.Config{},
-		nc:       &config.Network{},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		lc: &logging.Config{},
+		nc: &config.Network{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -782,18 +794,17 @@ func TestMakeDeployment(t *testing.T) {
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
 			},
 		},
-		lc:       &logging.Config{},
-		nc:       &config.Network{},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		lc: &logging.Config{},
+		nc: &config.Network{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -847,7 +858,7 @@ func TestMakeDeployment(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -857,10 +868,9 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
 		},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -918,7 +928,7 @@ func TestMakeDeployment(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -928,10 +938,9 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
 		},
-		oc:       &config.Observability{},
-		ac:       &autoscaler.Config{},
-		cc:       &config.Controller{},
-		replicas: 1,
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -986,7 +995,7 @@ func TestMakeDeployment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			test.want.Spec.Template.Spec = *makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
-			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc, test.replicas)
+			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
 			}

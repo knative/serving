@@ -24,11 +24,9 @@ import (
 	"sync"
 
 	commonlogging "github.com/knative/pkg/logging"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,6 +36,7 @@ import (
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
+	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -53,6 +52,7 @@ import (
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 )
@@ -88,6 +88,7 @@ type Reconciler struct {
 
 	// lister indexes properties about Revision
 	revisionLister   listers.RevisionLister
+	kpaLister        kpalisters.PodAutoscalerLister
 	buildLister      buildlisters.BuildLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
@@ -137,6 +138,7 @@ func NewController(
 	opt reconciler.Options,
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
+	kpaInformer kpainformers.PodAutoscalerInformer,
 	buildInformer buildinformers.BuildInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
@@ -149,6 +151,7 @@ func NewController(
 		Base:             reconciler.NewBase(opt, controllerAgentName),
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
+		kpaLister:        kpaInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
@@ -201,11 +204,6 @@ func NewController(
 	return impl
 }
 
-// loggerWithRevisionInfo enriches the logs with revision name and namespace.
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
-}
-
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
@@ -216,9 +214,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
+	logger := logging.FromContext(ctx)
 
-	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name
@@ -303,11 +300,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "fluentd configmap",
 			f:    c.reconcileFluentdConfigMap,
 		}, {
-			name: "autoscaler deployment",
-			f:    c.reconcileAutoscalerDeployment,
-		}, {
-			name: "autoscaler k8s service",
-			f:    c.reconcileAutoscalerService,
+			name: "KPA",
+			f:    c.reconcileKPA,
 		}, {
 			name: "vertical pod autoscaler",
 			f:    c.reconcileVPA,
@@ -315,7 +309,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 		for _, phase := range phases {
 			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorf("Failed to reconcile %s", phase.name, zap.Error(err))
+				logger.Errorf("Failed to reconcile %s: %v", phase.name, zap.Error(err))
 				return err
 			}
 		}

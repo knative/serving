@@ -26,16 +26,17 @@ import (
 )
 
 var configMap = map[string]string{"max-scale-up-rate": "1",
-	"single-concurrency-target":   "2",
-	"multi-concurrency-target":    "3",
-	"stable-window":               "4s",
-	"panic-window":                "5s",
-	"scale-to-zero-threshold":     "6s",
-	"concurrency-quantum-of-time": "7s",
-	"tick-interval":               "8s"}
+	"container-concurrency-target-percentage": "0.5",
+	"container-concurrency-target-default":    "10.0",
+	"stable-window":                           "4s",
+	"panic-window":                            "5s",
+	"scale-to-zero-threshold":                 "60s", // min
+	"scale-to-zero-grace-period":              "30s", // min
+	"concurrency-quantum-of-time":             "7s",
+	"tick-interval":                           "8s"}
 
-func TestNewDynamicConfig(t *testing.T) {
-	dc, err := autoscaler.NewDynamicConfig(configMap, zap.NewNop().Sugar())
+func TestNewDynamicConfigFromMap(t *testing.T) {
+	dc, err := autoscaler.NewDynamicConfigFromMap(configMap, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
@@ -45,17 +46,17 @@ func TestNewDynamicConfig(t *testing.T) {
 	}
 }
 
-func TestNewDynamicConfigError(t *testing.T) {
+func TestNewDynamicConfigFromMapError(t *testing.T) {
 	invalidConfigMap := copyConfigMap()
 	invalidConfigMap["stable-window"] = "4"
-	_, err := autoscaler.NewDynamicConfig(invalidConfigMap, zap.NewNop().Sugar())
+	_, err := autoscaler.NewDynamicConfigFromMap(invalidConfigMap, zap.NewNop().Sugar())
 	if err == nil {
 		t.Fatal("Failed to detect configuration error")
 	}
 }
 
 func TestUpdateDynamicConfig(t *testing.T) {
-	dc, err := autoscaler.NewDynamicConfig(configMap, zap.NewNop().Sugar())
+	dc, err := autoscaler.NewDynamicConfigFromMap(configMap, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
@@ -73,7 +74,7 @@ func TestUpdateDynamicConfig(t *testing.T) {
 }
 
 func TestCurrentDynamicConfigIsSnapshot(t *testing.T) {
-	dc, err := autoscaler.NewDynamicConfig(configMap, zap.NewNop().Sugar())
+	dc, err := autoscaler.NewDynamicConfigFromMap(configMap, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
@@ -96,7 +97,7 @@ func TestCurrentDynamicConfigIsSnapshot(t *testing.T) {
 }
 
 func TestCurrentDynamicConfigIsImmutable(t *testing.T) {
-	dc, err := autoscaler.NewDynamicConfig(configMap, zap.NewNop().Sugar())
+	dc, err := autoscaler.NewDynamicConfigFromMap(configMap, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestCurrentDynamicConfigIsImmutable(t *testing.T) {
 }
 
 func TestUpdateDynamicConfigError(t *testing.T) {
-	dc, err := autoscaler.NewDynamicConfig(configMap, zap.NewNop().Sugar())
+	dc, err := autoscaler.NewDynamicConfigFromMap(configMap, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}

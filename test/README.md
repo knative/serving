@@ -6,6 +6,7 @@ This directory contains tests and testing docs for `Knative Serving`:
 * [End-to-end tests](#running-end-to-end-tests), of which there are two types:
   * Conformance tests in [`/test/conformance`](./conformance)
   * Other end-to-end tests in [`/test/e2e`](./e2e)
+* [Performance tests](./performance)
 
 The conformance tests are a subset of the end to end test with [more strict requirements](./conformance/README.md#requirements) around what can be tested.
 
@@ -61,7 +62,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `serving-tests``:
+2. The namespace `serving-tests`:
     ```bash
     kubectl create namespace serving-tests
 
@@ -99,6 +100,8 @@ go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 
 ### Building the test images
 
+Note: this is only required when you run conformance/e2e tests locally with `go test` commands.
+
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to build and push the
 test images used by the conformance and e2e tests. It requires:
 
@@ -110,18 +113,19 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh ./test/e2e/test_images ./test/conformance/test_images
+./test/upload-test-images.sh
+```
+A docker tag may be passed as an optional parameter. This can be
+useful on [Minikube] in tandem with the `--tag` [flag](#using-a-docker-tag):
+
+```bash
+eval $(minikube docker-env)
+./test/upload-test-images.sh any-old-tag
 ```
 
 ### Adding new test images
 
-New test images should be placed in their own subdirectories. Be sure to to include a `Dockerfile`
-for building and running the test image.
-
-The new test images will also need to be uploaded to the e2e tests Docker repo. You will need one
-of the owners found in [`/test/OWNERS`](OWNERS) to do this.
-
-Because the test images are uploaded to the same folder, they **must** have different names.
+New test images should be placed in `./test/test_images`.
 
 ## Flags
 
@@ -134,6 +138,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--cluster`](#specifying-cluster)
 * [`--namespace`](#specifying-namespace)
 * [`--dockerrepo`](#overriding-docker-repo)
+* [`--tag`](#using-a-docker-tag)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
 * [`--logverbose`](#output-verbose-logs)
 * [`--emitmetrics`](#emit-metrics)
@@ -142,7 +147,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~/.kube/config`.
+at `~/.kube/config`. If there is an error getting the current user, it will use `kubeconfig` instead as the default value.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the tests with a non-default kubeconfig file:
@@ -192,6 +197,22 @@ go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
 go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
+### Using a docker tag
+
+The default docker tag used for the test images is `latest`, which can
+be problematic on [Minikube]. To avoid having to configure a remote
+container registry to support the `Always` pull policy for `latest`
+tags, you can have the tests use a specific tag:
+
+```bash
+go test -v -tags=e2e -count=1 ./test/conformance --tag any-old-tag
+go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
+```
+
+Of course, this implies that you tagged the images when you [uploaded
+them](#building-the-test-images).
+
+
 ### Using a resolvable domain
 
 If you set up your cluster using [the getting started
@@ -222,3 +243,5 @@ the tests.
 
 * To add additional metrics to a test, see [emitting metrics](adding_tests.md#emit-metrics).
 * For more info on the format of the metrics, see [metric format](adding_tests.md#metric-format).
+
+[Minikube]: https://kubernetes.io/docs/setup/minikube/

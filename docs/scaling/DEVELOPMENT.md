@@ -29,40 +29,7 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 Note: Retired state is currently not set anywhere. See [issue 1203](https://github.com/knative/serving/issues/1203).
 
 ## Context 
-The following diagram shows the autoscaler configured for single-tenancy:
-
-```
-   +---------------------+
-   | ROUTE               |
-   |                     |
-   |   +-------------+   |
-   |   | Istio Route |---------------+
-   |   +-------------+   |           |
-   |         |           |           |
-   +---------|-----------+           |
-             |                       |
-             |                       |
-             | inactive              | active
-             |  route                | route
-             |                       |
-             |                       |
-             |                +------|------------------------------------+
-             V         watch  |      V                                    |
-       +-----------+   first  |   +- ----+  create   +------------+       |
-       | Activator |------------->| Pods |<----------| Deployment |       |
-       +-----------+          |   +------+           +------------+       |
-             |                |       |                     ^             |
-             |   activate     |       |                     | resize      |
-             +--------------->|       |                     |             |
-                              |       |    metrics    +---------------+   |
-                              |       +-------------->| Single-tenant |   |
-                              |                       |  Autoscaler   |   |
-                              |                       +---------------+   |
-                              | REVISION                                  |
-                              +-------------------------------------------+
-                              
-```
-The following diagram shows the autoscaler configured for multi-tenancy:
+The following diagram illustrates the mechanics of the autoscaler:
 
 ```
    +---------------------+
@@ -87,10 +54,10 @@ The following diagram shows the autoscaler configured for multi-tenancy:
              |                |       |                                |          | resize
              |   activate     |       |                                |          |
              +--------------->|       |                                |          |
-                              |       |               metrics          |   +--------------+ 
-                              |       +----------------------------------->| Multi-tenant | 
-                              |                                        |   |  Autoscaler  | 
-                              |                                        |   +--------------+ 
+                              |       |               metrics          |   +------------+
+                              |       +----------------------------------->| Autoscaler |
+                              |                                        |   +------------+
+                              |                                        |
                               | REVISION                               |
                               +----------------------------------------+
                               
@@ -115,8 +82,7 @@ This is subject to change as the Knative Serving implementation changes.
 ### Code
 
 * [Autoscaler Library](../../pkg/autoscaler/autoscaler.go)
-* [Single Tenant Autoscaler Binary](../../cmd/autoscaler/main.go)
-* [Multi-tenant Autoscaler Binary](../../cmd/multitenant-autoscaler/main.go)
+* [Autoscaler Binary](../../cmd/autoscaler/main.go)
 * [Queue Proxy Binary](../../cmd/queue/main.go)
 * [Autoscaling Controller](../../pkg/controller/autoscaling/autoscaling.go)
 * [Statistics Server](../../pkg/server/stats/server.go)
@@ -126,7 +92,7 @@ This is subject to change as the Knative Serving implementation changes.
 
 There is a proxy in the Knative Serving Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use [Envoy](https://www.envoyproxy.io/docs/envoy/latest/), that would be great (see [Design Goal #3](#design-goals)).  The Knative Serving controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
 
-The single tenant Autoscaler is also given the identity of the Revision through environment variables. The multi-tenant Autoscaler runs a controller which monitors Revisions and provides autoscaling for each Revision that is present.
+The Autoscaler runs a controller which monitors ["KPA"](../../pkg/apis/autoscaling/v1alpha1/kpa_types.go) resources and monitors and scales the embedded object reference via the `/scale` sub-resource.
 
 The Autoscaler provides a websocket-enabled Statistics Server.  Queue proxies send their metrics to the Autoscaler's Statistics Server and the Autoscaler maintains a 60-second sliding window of data points.
 

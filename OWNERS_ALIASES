@@ -1,0 +1,9 @@
+aliases:
+  serving-api-approvers:
+  - mattmoor
+  - tcnghia
+  - grantr
+  serving-api-reviewers:
+  - mattmoor
+  - tcnghia
+  - grantr

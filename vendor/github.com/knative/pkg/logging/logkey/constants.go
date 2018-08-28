@@ -20,6 +20,9 @@ const (
 	// ControllerType is the key used for controller type in structured logs
 	ControllerType = "knative.dev/controller"
 
+	// Key is the key (namespace/name) being reconciled.
+	Key = "knative.dev/key"
+
 	// Namespace is the key used for namespace in structured logs
 	Namespace = "knative.dev/namespace"
 

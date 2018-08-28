@@ -24,7 +24,9 @@ import (
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +56,7 @@ var servingObjectTypes = []runtime.Object{
 	&v1alpha1.Route{},
 	&v1alpha1.Configuration{},
 	&v1alpha1.Revision{},
+	&kpa.PodAutoscaler{},
 }
 
 type Listers struct {
@@ -139,6 +142,10 @@ func (f *Listers) GetConfigurationLister() servinglisters.ConfigurationLister {
 
 func (f *Listers) GetRevisionLister() servinglisters.RevisionLister {
 	return servinglisters.NewRevisionLister(f.indexerForType(&v1alpha1.Revision{}))
+}
+
+func (f *Listers) GetKPALister() kpalisters.PodAutoscalerLister {
+	return kpalisters.NewPodAutoscalerLister(f.indexerForType(&kpa.PodAutoscaler{}))
 }
 
 func (f *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {

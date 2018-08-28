@@ -14,14 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-
-if [ -z "${KNATIVE_TEST_INFRA}" ]; then
-  exit 1
-fi
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 set -o errexit
 set -o nounset
@@ -34,5 +27,8 @@ dep ensure
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
+
+# Keep the only dir in knative/test-infra we're interested in
+find vendor/github.com/knative/test-infra -mindepth 1 -maxdepth 1 ! -name scripts -exec rm -fr {} \;
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"

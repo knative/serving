@@ -20,9 +20,9 @@ package e2e
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,10 +35,10 @@ func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestHelloWorld")
+	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)
@@ -49,18 +49,18 @@ func TestHelloWorld(t *testing.T) {
 	defer TearDown(clients, names, logger)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(
-		clients.Kube,
+	_, err = test.WaitForEndpointState(
+		clients.KubeClient,
 		logger,
 		domain,
 		test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
