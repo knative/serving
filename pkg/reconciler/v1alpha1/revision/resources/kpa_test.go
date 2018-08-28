@@ -36,7 +36,7 @@ func TestMakeKPA(t *testing.T) {
 		rev  *v1alpha1.Revision
 		want *kpa.PodAutoscaler
 	}{{
-		name: "name is bar (ServiceState=Active, Concurrency=Single)",
+		name: "name is bar (ServiceState=Active, Concurrency=1)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -44,8 +44,8 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ServingState:     "Active",
-				ConcurrencyModel: "Single",
+				ServingState:         "Active",
+				ContainerConcurrency: 1,
 			},
 		},
 		want: &kpa.PodAutoscaler{
@@ -68,8 +68,8 @@ func TestMakeKPA(t *testing.T) {
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
-				ServingState:     "Active",
-				ConcurrencyModel: "Single",
+				ServingState:         "Active",
+				ContainerConcurrency: 1,
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -79,7 +79,7 @@ func TestMakeKPA(t *testing.T) {
 			},
 		},
 	}, {
-		name: "name is baz (ServiceState=Reserve, Concurrency=Multi)",
+		name: "name is baz (ServiceState=Reserve, Concurrency=0)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -87,8 +87,8 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "4321",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ServingState:     "Reserve",
-				ConcurrencyModel: "Multi",
+				ServingState:         "Reserve",
+				ContainerConcurrency: 0,
 			},
 		},
 		want: &kpa.PodAutoscaler{
@@ -111,8 +111,8 @@ func TestMakeKPA(t *testing.T) {
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
-				ServingState:     "Reserve",
-				ConcurrencyModel: "Multi",
+				ServingState:         "Reserve",
+				ContainerConcurrency: 0,
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",

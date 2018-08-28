@@ -32,36 +32,50 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in:   &PodAutoscaler{},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
 				// In the context of a PodAutoscaler we initialize ServingState.
-				ServingState: "Active",
+				ContainerConcurrency: 0,
+				ServingState:         "Active",
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ContainerConcurrency: 1,
+				ServingState:         "Reserve",
 			},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServingState:     "Reserve",
+				ContainerConcurrency: 1,
+				ServingState:         "Reserve",
 			},
 		},
 	}, {
 		name: "partially initialized",
 		in: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{},
+		},
+		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
+				ServingState:         "Active",
+			},
+		},
+	}, {
+		name: "fall back to concurrency model",
+		in: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 0, // unspecified
+				ServingState:         "Active",
 			},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServingState:     "Active",
+				ConcurrencyModel:     "Single",
+				ContainerConcurrency: 1,
+				ServingState:         "Active",
 			},
 		},
 	}}

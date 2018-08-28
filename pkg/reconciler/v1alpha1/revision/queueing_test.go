@@ -179,14 +179,14 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
-			"max-scale-up-rate":           "1.0",
-			"single-concurrency-target":   "1.0",
-			"multi-concurrency-target":    "1.0",
-			"stable-window":               "5m",
-			"panic-window":                "10s",
-			"scale-to-zero-threshold":     "10m",
-			"concurrency-quantum-of-time": "100ms",
-			"tick-interval":               "2s",
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "0.5",
+			"container-concurrency-target-default":    "10.0",
+			"stable-window":                           "5m",
+			"panic-window":                            "10s",
+			"scale-to-zero-threshold":                 "10m",
+			"concurrency-quantum-of-time":             "100ms",
+			"tick-interval":                           "2s",
 		},
 	}, getTestControllerConfigMap())
 

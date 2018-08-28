@@ -41,7 +41,7 @@ var (
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas >= 1, nil
+		return d.Status.ReadyReplicas > 1, nil
 	}
 }
 
@@ -186,7 +186,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	err = generateTrafficBurst(clients, logger, 5, domain)
+	err = generateTrafficBurst(clients, logger, 500, domain)
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	err = generateTrafficBurst(clients, logger, 8, domain)
+	err = generateTrafficBurst(clients, logger, 500, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}

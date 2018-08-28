@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -191,6 +192,62 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate()
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestContainerConcurrencyValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		cc   RevisionContainerConcurrencyType
+		cm   RevisionRequestConcurrencyModelType
+		want *apis.FieldError
+	}{{
+		name: "single with only container concurrency",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "single with container currency and concurrency model",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: nil,
+	}, {
+		name: "multi with only container concurrency",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "multi with container concurrency and concurrency model",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: nil,
+	}, {
+		name: "mismatching container concurrency (1) and concurrency model (multi)",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "mismatching container concurrency (0) and concurrency model (single)",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "invalid container concurrency (too small)",
+		cc:   -1,
+		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+	}, {
+		name: "invalid container concurrency (too large)",
+		cc:   RevisionContainerConcurrencyMax + 1,
+		want: apis.ErrInvalidValue(strconv.Itoa(int(RevisionContainerConcurrencyMax)+1), "containerConcurrency"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ValidateContainerConcurrency(test.cc, test.cm)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

@@ -35,7 +35,6 @@ func TestConfigurationDefaulting(t *testing.T) {
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						// ServingState is not initialized in this context.
-						ConcurrencyModel: "Multi",
 					},
 				},
 			},
@@ -46,7 +45,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ConcurrencyModel: "Single",
+						ContainerConcurrency: 1,
 					},
 				},
 			},
@@ -55,7 +54,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ConcurrencyModel: "Single",
+						ContainerConcurrency: 1,
 					},
 				},
 			},

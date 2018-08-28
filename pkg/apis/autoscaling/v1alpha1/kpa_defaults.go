@@ -28,7 +28,9 @@ func (rs *PodAutoscalerSpec) SetDefaults() {
 	if rs.ServingState == "" {
 		rs.ServingState = servingv1alpha1.RevisionServingStateActive
 	}
-	if rs.ConcurrencyModel == "" {
-		rs.ConcurrencyModel = servingv1alpha1.RevisionRequestConcurrencyModelMulti
+	// When ConcurrencyModel is specified but ContainerConcurrency
+	// is not (0), use the ConcurrencyModel value.
+	if rs.ConcurrencyModel == servingv1alpha1.RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
+		rs.ContainerConcurrency = 1
 	}
 }
