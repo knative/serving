@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 func TestNewStatsReporterErrors(t *testing.T) {
@@ -46,11 +47,19 @@ func TestReporter_Report(t *testing.T) {
 	}
 
 	r, _ = NewStatsReporter("testns", "testconfig", "testrev")
-	wantTags := map[string]string{
+	revisionScopeTags := map[string]string{
 		"configuration_namespace": "testns",
 		"configuration":           "testconfig",
 		"revision":                "testrev",
 	}
+	podScopeTags := map[string]string{
+		"configuration_namespace": "testns",
+		"configuration":           "testconfig",
+		"revision":                "testrev",
+		"pod":                     "testpod",
+	}
+
+	podTagMutator := tag.Insert(podTagKey, "testpod")
 
 	// Send statistics only once and observe the results
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 10) })
@@ -61,38 +70,45 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, func() error { return r.Report(ObservedStableConcurrencyM, 2) })
 	expectSuccess(t, func() error { return r.Report(ObservedPanicConcurrencyM, 3) })
 	expectSuccess(t, func() error { return r.Report(TargetConcurrencyM, 0.9) })
-	checkData(t, "desired_pod_count", wantTags, 10)
-	checkData(t, "requested_pod_count", wantTags, 7)
-	checkData(t, "actual_pod_count", wantTags, 5)
-	checkData(t, "panic_mode", wantTags, 0)
-	checkData(t, "observed_pod_count", wantTags, 1)
-	checkData(t, "observed_stable_concurrency", wantTags, 2)
-	checkData(t, "observed_panic_concurrency", wantTags, 3)
-	checkData(t, "target_concurrency_per_pod", wantTags, 0.9)
+	checkData(t, "desired_pod_count", revisionScopeTags, 10)
+	checkData(t, "requested_pod_count", revisionScopeTags, 7)
+	checkData(t, "actual_pod_count", revisionScopeTags, 5)
+	checkData(t, "panic_mode", revisionScopeTags, 0)
+	checkData(t, "observed_pod_count", revisionScopeTags, 1)
+	checkData(t, "observed_stable_concurrency", revisionScopeTags, 2)
+	checkData(t, "observed_panic_concurrency", revisionScopeTags, 3)
+	checkData(t, "target_concurrency_per_pod", revisionScopeTags, 0.9)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 1) })
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 2) })
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 3) })
-	checkData(t, "desired_pod_count", wantTags, 3)
+	checkData(t, "desired_pod_count", revisionScopeTags, 3)
 
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 4) })
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 5) })
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 6) })
-	checkData(t, "requested_pod_count", wantTags, 6)
+	checkData(t, "requested_pod_count", revisionScopeTags, 6)
 
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 7) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 8) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 9) })
-	checkData(t, "actual_pod_count", wantTags, 9)
+	checkData(t, "actual_pod_count", revisionScopeTags, 9)
 
 	expectSuccess(t, func() error { return r.Report(PanicM, 1) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 1) })
-	checkData(t, "panic_mode", wantTags, 1)
+	checkData(t, "panic_mode", revisionScopeTags, 1)
 
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })
-	checkData(t, "panic_mode", wantTags, 0)
+	checkData(t, "panic_mode", revisionScopeTags, 0)
+
+	// Additional pod scope metrics
+	expectSuccess(t, func() error { return r.Report(PodQpsM, 1, podTagMutator) })
+	checkData(t, "pod_qps", podScopeTags, 1)
+
+	expectSuccess(t, func() error { return r.Report(PodConcurrencyM, 2, podTagMutator) })
+	checkData(t, "pod_concurrency", podScopeTags, 2)
 }
 
 func expectSuccess(t *testing.T, f func() error) {

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"go.opencensus.io/tag"
 
 	. "github.com/knative/pkg/logging/testing"
 	"go.uber.org/zap"
@@ -287,7 +288,7 @@ type linearSeries struct {
 
 type mockReporter struct{}
 
-func (r *mockReporter) Report(m Measurement, v float64) error {
+func (r *mockReporter) Report(m Measurement, v float64, mutators ...tag.Mutator) error {
 	return nil
 }
 

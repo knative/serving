@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
+	"go.opencensus.io/tag"
 )
 
 // Stat defines a single measurement at a point in time
@@ -218,6 +219,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	for _, stat := range lastStat {
 		totalCurrentQPS = totalCurrentQPS + stat.RequestCount
 		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
+
+		// Log pod metrics
+		if !stat.Time.Add(30 * time.Second).After(now) {
+			// Zero out pod metrics after 30 seconds of no activity
+			a.reporter.Report(PodQpsM, 0.0, tag.Insert(podTagKey, stat.PodName))
+			a.reporter.Report(PodConcurrencyM, 0.0, tag.Insert(podTagKey, stat.PodName))
+		} else {
+			a.reporter.Report(PodQpsM, float64(stat.RequestCount), tag.Insert(podTagKey, stat.PodName))
+			a.reporter.Report(PodConcurrencyM, float64(stat.AverageConcurrentRequests), tag.Insert(podTagKey, stat.PodName))
+		}
 	}
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 

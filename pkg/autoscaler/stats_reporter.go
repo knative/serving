@@ -46,6 +46,10 @@ const (
 	TargetConcurrencyM
 	// PanicM is used as a flag to indicate if autoscaler is in panic mode or not
 	PanicM
+	// PodQpsM is the QPS of an individual pod
+	PodQpsM
+	// PodConcurrencyM is the concurrency of an individual pod
+	PodConcurrencyM
 )
 
 var (
@@ -82,10 +86,19 @@ var (
 			"panic_mode",
 			"1 if autoscaler is in panic mode, 0 otherwise",
 			stats.UnitNone),
+		PodQpsM: stats.Float64(
+			"pod_qps",
+			"The QPS of an individual pod",
+			stats.UnitNone),
+		PodConcurrencyM: stats.Float64(
+			"pod_concurrency",
+			"The concurrency of an individual pod",
+			stats.UnitNone),
 	}
 	namespaceTagKey tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
+	podTagKey       tag.Key
 )
 
 func init() {
@@ -104,6 +117,10 @@ func init() {
 		panic(err)
 	}
 	revisionTagKey, err = tag.NewKey("revision")
+	if err != nil {
+		panic(err)
+	}
+	podTagKey, err = tag.NewKey("pod")
 	if err != nil {
 		panic(err)
 	}
@@ -160,6 +177,18 @@ func init() {
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
 		},
+		&view.View{
+			Description: "The QPS of an individual pod",
+			Measure:     measurements[PodQpsM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey, podTagKey},
+		},
+		&view.View{
+			Description: "The concurency of an individual pod",
+			Measure:     measurements[PodConcurrencyM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey, podTagKey},
+		},
 	)
 	if err != nil {
 		panic(err)
@@ -169,7 +198,7 @@ func init() {
 
 // StatsReporter defines the interface for sending autoscaler metrics
 type StatsReporter interface {
-	Report(m Measurement, v float64) error
+	Report(m Measurement, v float64, mutator ...tag.Mutator) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -201,11 +230,21 @@ func NewStatsReporter(podNamespace string, config string, revision string) (*Rep
 }
 
 // Report captures value v for measurement m
-func (r *Reporter) Report(m Measurement, v float64) error {
+func (r *Reporter) Report(m Measurement, v float64, mutator ...tag.Mutator) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	stats.Record(r.ctx, measurements[m].M(v))
+	ctx := r.ctx
+	var err error = nil
+	if len(mutator) != 0 {
+		// Additional tags
+		ctx, err = tag.New(ctx, mutator...)
+		if err != nil {
+			return err
+		}
+	}
+
+	stats.Record(ctx, measurements[m].M(v))
 	return nil
 }
