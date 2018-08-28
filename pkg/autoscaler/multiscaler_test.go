@@ -345,7 +345,7 @@ func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.Mul
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
-	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
+	ms := autoscaler.NewMultiScaler(config, autoscaler.NewDynamicConfig(config, logger),
 		stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, uniscaler
@@ -358,7 +358,7 @@ type fakeUniScaler struct {
 	lastStat autoscaler.Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.Config, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
 }
 

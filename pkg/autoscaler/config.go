@@ -34,8 +34,9 @@ const (
 // +k8s:deepcopy-gen=true
 type Config struct {
 	// Feature flags.
-	EnableScaleToZero bool
-	EnableVPA         bool
+	EnableScaleToZero     bool
+	EnableVPA             bool
+	EnablePodScopeMetrics bool
 
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetPercentage float64
@@ -75,6 +76,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}, {
 		key:   "enable-vertical-pod-autoscaling",
 		field: &lc.EnableVPA,
+	}, {
+		key:   "enable-pod-scope-metrics",
+		field: &lc.EnablePodScopeMetrics,
 	}} {
 		if raw, ok := data[b.key]; !ok {
 			*b.field = false

@@ -98,6 +98,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
 			"enable-vertical-pod-autoscaling":         "true",
+			"enable-pod-scope-metrics":                "true",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
@@ -108,8 +109,9 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
-			EnableScaleToZero: true,
-			EnableVPA:         true,
+			EnableScaleToZero:                    true,
+			EnableVPA:                            true,
+			EnablePodScopeMetrics:                true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,

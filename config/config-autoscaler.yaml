@@ -70,7 +70,10 @@ data:
 
   # Tick interval is the time between autoscaling calculations.
   tick-interval: "2s"
-  
+
+  # Report pod scoped metrics
+  enable-pod-scope-metrics: "false"
+
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the total time between traffic dropping to

@@ -114,6 +114,7 @@ func (agg *perPodAggregation) calculateAverage() float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
+	*Config
 	containerConcurrency         v1alpha1.RevisionContainerConcurrencyType
 	stats                        map[statKey]Stat
 	statsMutex                   sync.Mutex
@@ -126,8 +127,9 @@ type Autoscaler struct {
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
+func New(config *Config, dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
+		Config:                       config,
 		DynamicConfig:                dynamicConfig,
 		containerConcurrency:         containerConcurrency,
 		stats:                        make(map[statKey]Stat),
@@ -213,21 +215,23 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		return 0, false
 	}
 
-	// Log system totals
+	// Log system totals based on last reported stats per pod
 	totalCurrentQPS := int32(0)
 	totalCurrentConcurrency := float64(0)
 	for _, stat := range lastStat {
 		totalCurrentQPS = totalCurrentQPS + stat.RequestCount
 		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
 
-		// Log pod metrics
-		if !stat.Time.Add(30 * time.Second).After(now) {
-			// Zero out pod metrics after 30 seconds of no activity
-			a.reporter.Report(PodQpsM, 0.0, tag.Insert(podTagKey, stat.PodName))
-			a.reporter.Report(PodConcurrencyM, 0.0, tag.Insert(podTagKey, stat.PodName))
-		} else {
-			a.reporter.Report(PodQpsM, float64(stat.RequestCount), tag.Insert(podTagKey, stat.PodName))
-			a.reporter.Report(PodConcurrencyM, float64(stat.AverageConcurrentRequests), tag.Insert(podTagKey, stat.PodName))
+		if a.EnablePodScopeMetrics {
+			// Log pod metrics
+			if !stat.Time.Add(30 * time.Second).After(now) {
+				// Zero out pod metrics after 30 seconds of no activity
+				a.reporter.Report(PodQpsM, 0.0, tag.Insert(podTagKey, stat.PodName))
+				a.reporter.Report(PodConcurrencyM, 0.0, tag.Insert(podTagKey, stat.PodName))
+			} else {
+				a.reporter.Report(PodQpsM, float64(stat.RequestCount), tag.Insert(podTagKey, stat.PodName))
+				a.reporter.Report(PodConcurrencyM, float64(stat.AverageConcurrentRequests), tag.Insert(podTagKey, stat.PodName))
+			}
 		}
 	}
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)

@@ -51,7 +51,7 @@ type UniScaler interface {
 }
 
 // UniScalerFactory creates a UniScaler for a given KPA using the given dynamic configuration.
-type UniScalerFactory func(*kpa.PodAutoscaler, *DynamicConfig) (UniScaler, error)
+type UniScalerFactory func(*kpa.PodAutoscaler, *Config, *DynamicConfig) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -89,6 +89,7 @@ type MultiScaler struct {
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
 
+	config    *Config
 	dynConfig *DynamicConfig
 
 	uniScalerFactory UniScalerFactory
@@ -99,11 +100,12 @@ type MultiScaler struct {
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+func NewMultiScaler(config *Config, dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScalar with configuration %#v", dynConfig)
 	return &MultiScaler{
 		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
+		config:           config,
 		dynConfig:        dynConfig,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
@@ -159,7 +161,7 @@ func (m *MultiScaler) Watch(fn func(string)) {
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(kpa, m.dynConfig)
+	scaler, err := m.uniScalerFactory(kpa, m.config, m.dynConfig)
 	if err != nil {
 		return nil, err
 	}

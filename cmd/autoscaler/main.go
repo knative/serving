@@ -112,14 +112,18 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error reading autoscaler configuration: %v", err)
 	}
+	config, err := autoscaler.NewConfigFromMap(rawConfig)
+	if err != nil {
+		logger.Fatalf("Error parsing autoscaler static configuration: %v", err)
+	}
 	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
 	if err != nil {
-		logger.Fatalf("Error parsing autoscaler configuration: %v", err)
+		logger.Fatalf("Error parsing autoscaler dynamic configuration: %v", err)
 	}
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
+	multiScaler := autoscaler.NewMultiScaler(config, dynConfig, stopCh, uniScalerFactory, logger)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
@@ -218,14 +222,14 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 	return rm
 }
 
-func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func uniScalerFactory(kpa *kpa.PodAutoscaler, config *autoscaler.Config, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	// Create a stats reporter which tags statistics by KPA namespace, configuration name, and KPA name.
 	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, configurationName(kpa), kpa.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return autoscaler.New(dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
+	return autoscaler.New(config, dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
 }
 
 func configurationName(kpa *kpa.PodAutoscaler) string {
