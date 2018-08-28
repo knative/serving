@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -75,7 +76,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -148,7 +153,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"parent-config\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -230,7 +239,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -310,7 +323,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -392,7 +409,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -470,7 +491,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -539,7 +564,11 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "KNATIVE_APPLICATION",
+						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -649,6 +678,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "PORT",
 					Value: "8080",
+				}, {
+					Name:  "KNATIVE_APPLICATION",
+					Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 				}},
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -696,7 +728,8 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
+			ctx := context.TODO()
+			got := makePodSpec(ctx, test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
@@ -994,8 +1027,9 @@ func TestMakeDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			test.want.Spec.Template.Spec = *makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
-			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
+			ctx := context.TODO()
+			test.want.Spec.Template.Spec = *makePodSpec(ctx, test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := MakeDeployment(ctx, test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
 			}

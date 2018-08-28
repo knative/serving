@@ -40,7 +40,7 @@ import (
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
 
-	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+	deployment := resources.MakeDeployment(ctx, rev, c.getLoggingConfig(), c.getNetworkConfig(),
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig())
 
 	// Resolve tag image references to digests.

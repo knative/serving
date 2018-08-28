@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -1705,10 +1706,10 @@ func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateTy
 func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
-
+	ctx := context.TODO()
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
+	return resources.MakeDeployment(ctx, rev, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
 }
 
