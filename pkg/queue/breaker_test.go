@@ -30,10 +30,7 @@ type request struct {
 
 
 func TestBreakerRecover(t *testing.T) {
-	b := NewBreaker(1, 1)                                // Breaker capacity = 2
-
-	locks := b.concurrentRequests(4)
-	unlockAll(locks)
+	NewBreaker(0, 1)                                // Breaker capacity = 2
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
