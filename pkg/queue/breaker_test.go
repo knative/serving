@@ -17,7 +17,6 @@ limitations under the License.
 package queue
 
 import (
-	"reflect"
 	"runtime"
 	"sync"
 	"testing"
@@ -32,7 +31,6 @@ type request struct {
 
 func TestBreakerRecover(t *testing.T) {
 	b := NewBreaker(1, 1)                                // Breaker capacity = 2
-	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
 	locks := b.concurrentRequests(4)
 	unlockAll(locks)
