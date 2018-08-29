@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	knativeEnvVariableKey = "KNATIVE_APPLICATION"
+	knativeEnvVariableKey = "KNATIVE_CONTEXT"
 )
 
 type environmentVar struct {

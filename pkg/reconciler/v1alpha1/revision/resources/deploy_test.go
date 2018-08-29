@@ -78,7 +78,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -155,7 +155,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"parent-config\"}",
 					}},
 			}, {
@@ -241,7 +241,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -325,7 +325,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -411,7 +411,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -493,7 +493,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -566,7 +566,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_APPLICATION",
+						Name:  "KNATIVE_CONTEXT",
 						Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 					}},
 			}, {
@@ -679,7 +679,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "PORT",
 					Value: "8080",
 				}, {
-					Name:  "KNATIVE_APPLICATION",
+					Name:  "KNATIVE_CONTEXT",
 					Value: "{\"revision\":\"bar\",\"service\":\"bar-service\",\"configuration\":\"\"}",
 				}},
 				Resources:    userResources,
