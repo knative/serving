@@ -21,6 +21,7 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -222,11 +223,16 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
-			return len(p.Items) == 0, nil
+			for _, pod := range p.Items {
+				if !strings.Contains(pod.Status.Reason, "Evicted") {
+					return false, nil
+				}
+			}
+			return true, nil
 		},
 		"WaitForAvailablePods")
 	if err != nil {
-		logger.Fatalf(`Waiting for Pod.List to have no items: %v`, err)
+		logger.Fatalf(`Waiting for Pod.List to have no non-Evicted pods: %v`, err)
 	}
 
 	logger.Infof("Scaled down.")
