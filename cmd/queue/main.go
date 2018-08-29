@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	rawwebsocket "github.com/gorilla/websocket"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -70,7 +71,7 @@ var (
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClient            *kubernetes.Clientset
-	statSink              *websocket.Connection
+	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
 	breaker               *queue.Breaker
 
@@ -258,7 +259,13 @@ func main() {
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(func() (websocket.RawConnection, error) {
+		dialer := &rawwebsocket.Dialer{
+			HandshakeTimeout: 3 * time.Second,
+		}
+		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
+		return conn, err
+	})
 	go statReporter()
 
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
