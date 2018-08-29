@@ -36,44 +36,6 @@ func TestBreakerRecover(t *testing.T) {
 
 	locks := b.concurrentRequests(4)
 	unlockAll(locks)
-	// Breaker recovers
-	moreLocks := b.concurrentRequests(2)
-	unlockAll(moreLocks)
-
-	got := accepted(append(locks, moreLocks...))
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
-func TestBreakerLargeCapacityRecover(t *testing.T) {
-	b := NewBreaker(5, 45)    // Breaker capacity = 50
-	want := make([]bool, 150) // Process 150 requests
-	for i := 0; i < 50; i++ {
-		want[i] = true // First 50 will fill the breaker capacity
-	}
-	for i := 50; i < 100; i++ {
-		want[i] = false // The next 50 will be shed
-	}
-	for i := 100; i < 150; i++ {
-		want[i] = true // The next 50 will be processed as capacity opens up
-	}
-
-	// Send 100 requests
-	locks := b.concurrentRequests(100)
-	// Process one request and send one request, 50 times
-	for i := 100; i < 150; i++ {
-		// Open capacity
-		unlock(locks[i-100])
-		// Add another request
-		locks = append(locks, b.concurrentRequest())
-	}
-	unlockAll(locks[50:])
-
-	got := accepted(locks)
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v\n. Got %v\n.", want, got)
-	}
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
