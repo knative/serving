@@ -19,6 +19,8 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 	fakeautoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1/fake"
+	cachingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/caching/v1alpha1"
+	fakecachingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/caching/v1alpha1/fake"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	fakeservingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,6 +80,16 @@ func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha
 // Autoscaling retrieves the AutoscalingV1alpha1Client
 func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
 	return &fakeautoscalingv1alpha1.FakeAutoscalingV1alpha1{Fake: &c.Fake}
+}
+
+// CachingV1alpha1 retrieves the CachingV1alpha1Client
+func (c *Clientset) CachingV1alpha1() cachingv1alpha1.CachingV1alpha1Interface {
+	return &fakecachingv1alpha1.FakeCachingV1alpha1{Fake: &c.Fake}
+}
+
+// Caching retrieves the CachingV1alpha1Client
+func (c *Clientset) Caching() cachingv1alpha1.CachingV1alpha1Interface {
+	return &fakecachingv1alpha1.FakeCachingV1alpha1{Fake: &c.Fake}
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
