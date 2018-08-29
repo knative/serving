@@ -17,23 +17,16 @@ limitations under the License.
 package statserver_test
 
 import (
-	"bytes"
-	"encoding/gob"
 	"net/url"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
 	"github.com/knative/serving/pkg/autoscaler"
 	stats "github.com/knative/serving/pkg/autoscaler/statserver"
-	"go.uber.org/zap"
 )
-
-const testAddress = "127.0.0.1:0"
-
+ 
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
@@ -54,94 +47,6 @@ func TestServerLifecycle(t *testing.T) {
 	wg.Wait()
 }
 
-func TestStatsReceived(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
-
-	defer server.Shutdown(0)
-	go server.ListenAndServe()
-
-	statSink := dialOk(server.ListenAddr(), t)
-
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), statSink, statsCh, t)
-
-	closeSink(statSink, t)
-}
-
-func TestServerShutdown(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
-
-	go server.ListenAndServe()
-
-	listenAddr := server.ListenAddr()
-	statSink := dialOk(listenAddr, t)
-
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
-
-	server.Shutdown(time.Second)
-
-	// Send a statistic to the server
-	send(statSink, newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), t)
-
-	// Check the statistic was not received
-	_, ok := <-statsCh
-	if ok {
-		t.Fatal("Received statistic after shutdown")
-	}
-
-	// Check connection has been closed with a close control message with a "service restart" close code
-	if _, _, err := statSink.NextReader(); err == nil {
-		t.Fatal("Connection not closed")
-	} else {
-		err, ok := err.(*websocket.CloseError)
-		if !ok {
-			t.Fatal("CloseError not received")
-		}
-		if err.Code != 1012 {
-			t.Fatalf("CloseError with unexpected close code %d received", err.Code)
-		}
-	}
-
-	// Check that new connections are refused with some error
-	if _, err := dial(listenAddr, t); err == nil {
-		t.Fatal("Connection not refused")
-	}
-
-	closeSink(statSink, t)
-}
-
-func TestServerDoesNotLeakGoroutines(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
-
-	go server.ListenAndServe()
-
-	originalGoroutines := runtime.NumGoroutine()
-
-	listenAddr := server.ListenAddr()
-	statSink := dialOk(listenAddr, t)
-
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
-
-	closeSink(statSink, t)
-
-	// Check the number of goroutines eventually reduces to the number there were before the connection was created
-	for i := 1000; i >= 0; i-- {
-		currentGoRoutines := runtime.NumGoroutine()
-		if currentGoRoutines <= originalGoroutines {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-		if i == 0 {
-			t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
-		}
-	}
-
-	server.Shutdown(time.Second)
-}
-
 func newStatMessage(revKey string, podName string, averageConcurrentRequests float64, requestCount int32) *autoscaler.StatMessage {
 	now := time.Now()
 	return &autoscaler.StatMessage{
@@ -153,26 +58,6 @@ func newStatMessage(revKey string, podName string, averageConcurrentRequests flo
 			requestCount,
 		},
 	}
-}
-
-func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan *autoscaler.StatMessage, t *testing.T) bool {
-	send(statSink, sm, t)
-	recv, ok := <-statsCh
-	if !ok {
-		t.Fatalf("statistic not received")
-	}
-	if !cmp.Equal(sm, recv) {
-		t.Fatalf("Expected and actual stats messages are not equal: %s", cmp.Diff(sm, recv))
-	}
-	return true
-}
-
-func dialOk(serverURL string, t *testing.T) *websocket.Conn {
-	statSink, err := dial(serverURL, t)
-	if err != nil {
-		t.Fatalf("Dial failed: %v", zap.Error(err))
-	}
-	return statSink
 }
 
 func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
@@ -187,23 +72,4 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 	}
 	statSink, _, err := dialer.Dial(u.String(), nil)
 	return statSink, err
-}
-
-func send(statSink *websocket.Conn, sm *autoscaler.StatMessage, t *testing.T) {
-	var b bytes.Buffer
-	enc := gob.NewEncoder(&b)
-	err := enc.Encode(sm)
-	if err != nil {
-		t.Fatal("Failed to encode data from stats channel", zap.Error(err))
-	}
-	err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
-	if err != nil {
-		t.Fatal("Failed to write to stat sink.", zap.Error(err))
-	}
-}
-
-func closeSink(statSink *websocket.Conn, t *testing.T) {
-	if err := statSink.Close(); err != nil {
-		t.Fatal("Failed to close", err)
-	}
 }
