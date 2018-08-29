@@ -29,37 +29,6 @@ type request struct {
 	accepted chan bool
 }
 
-func TestBreakerOverload(t *testing.T) {
-	b := NewBreaker(1, 1)             // Breaker capacity = 2
-	want := []bool{true, true, false} // Only first two requests will be processed
-
-	locks := b.concurrentRequests(3)
-	unlockAll(locks)
-
-	got := accepted(locks)
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
-func TestBreakerNoOverload(t *testing.T) {
-	b := NewBreaker(1, 1)                  // Breaker capacity = 2
-	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
-
-	locks := make([]request, 4)
-	locks[0] = b.concurrentRequest()
-	locks[1] = b.concurrentRequest()
-	unlock(locks[0])
-	locks[2] = b.concurrentRequest()
-	unlock(locks[1])
-	locks[3] = b.concurrentRequest()
-	unlockAll(locks[2:])
-	got := accepted(locks)
-
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
 
 func TestBreakerRecover(t *testing.T) {
 	b := NewBreaker(1, 1)                                // Breaker capacity = 2
