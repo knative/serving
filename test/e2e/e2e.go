@@ -9,6 +9,7 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
@@ -21,9 +22,9 @@ const (
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(
-		test.Flags.Kubeconfig,
-		test.Flags.Cluster,
-		test.Flags.Namespace)
+		pkgTest.Flags.Kubeconfig,
+		pkgTest.Flags.Cluster,
+		test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

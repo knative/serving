@@ -22,27 +22,33 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
 
-	pkgTest "github.com/knative/pkg/test"
 	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+)
+
+const (
+	interval = 1 * time.Second
+	timeout  = 5 * time.Minute
 )
 
 // WaitForDeploymentState polls the status of the Deployment called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForDeploymentState(client *pkgTest.KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string) error {
-	d := client.Kube.ExtensionsV1beta1().Deployments(ServingNamespace)
+func WaitForDeploymentState(client v1beta1.DeploymentInterface, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string) error {
 	metricName := fmt.Sprintf("WaitForDeploymentState/%s/%s", name, desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		d, err := d.Get(name, metav1.GetOptions{})
+		d, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -54,14 +60,13 @@ func WaitForDeploymentState(client *pkgTest.KubeClient, name string, inState fun
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took to get into the state checked by inState.
-func WaitForPodListState(client *pkgTest.KubeClient, inState func(p *corev1.PodList) (bool, error), desc string) error {
-	p := client.Kube.CoreV1().Pods(ServingNamespace)
+func WaitForPodListState(client v1.PodInterface, inState func(p *corev1.PodList) (bool, error), desc string) error {
 	metricName := fmt.Sprintf("WaitForPodListState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		p, err := p.List(metav1.ListOptions{})
+		p, err := client.List(metav1.ListOptions{})
 		if err != nil {
 			return true, err
 		}

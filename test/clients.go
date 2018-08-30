@@ -21,23 +21,18 @@ package test
 import (
 	buildversioned "github.com/knative/build/pkg/client/clientset/versioned"
 	buildtyped "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
-	KubeClient    *KubeClient
+	KubeClient    *test.KubeClient
 	ServingClient *ServingClients
 	BuildClient   *BuildClient
-}
-
-// KubeClient holds instances of interfaces for making requests to kubernetes client.
-type KubeClient struct {
-	Kube *kubernetes.Clientset
 }
 
 // BuildClient holds instances of interfaces for making requests to build client.
@@ -63,7 +58,7 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.KubeClient, err = newKubeClient(cfg)
+	clients.KubeClient, err = test.NewKubeClient(configPath, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -79,16 +74,6 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	}
 
 	return clients, nil
-}
-
-// NewKubeClient instantiates and returns several clientsets required for making request to the
-// kube client specified by the combination of clusterName and configPath. Clients can make requests within namespace.
-func newKubeClient(cfg *rest.Config) (*KubeClient, error) {
-	k, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &KubeClient{Kube: k}, nil
 }
 
 // NewBuildclient instantiates and returns several clientsets required for making request to the

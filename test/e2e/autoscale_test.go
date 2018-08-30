@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"k8s.io/api/core/v1"
@@ -58,11 +59,12 @@ func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, wan
 	logger.Infof("Performing %d concurrent requests.", want)
 	for i := 0; i < want; i++ {
 		go func() {
-			res, err := test.WaitForEndpointState(clients.KubeClient,
+			res, err := pkgTest.WaitForEndpointState(clients.KubeClient,
 				logger,
 				domain,
-				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
-				"MakingConcurrentRequests")
+				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
+				"MakingConcurrentRequests",
+				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				logger.Errorf("Unsuccessful request: %v", err)
 				if res != nil {
@@ -171,14 +173,15 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	_, err = test.WaitForEndpointState(
+	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
-		"CheckingEndpointAfterUpdating")
+		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
+		"CheckingEndpointAfterUpdating",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,

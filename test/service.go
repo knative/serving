@@ -26,7 +26,7 @@ import (
 // CreateLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by imagePath
 func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
-	service := LatestService(Flags.Namespace, names, imagePath)
+	service := LatestService(ServingNamespace, names, imagePath)
 	LogResourceObject(logger, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err

@@ -23,13 +23,14 @@ import (
 	"net/http"
 	"time"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/test/spoof"
+	"github.com/knative/pkg/test/spoof"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) error {
-	route := Route(Flags.Namespace, names)
+	route := Route(ServingNamespace, names)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
@@ -38,7 +39,7 @@ func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNam
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
-	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
+	route := BlueGreenRoute(ServingNamespace, names, blue, green)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
@@ -50,7 +51,7 @@ func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string)
 	logger.Infof("Starting Route prober for route domain %s.", domain)
 	errorChan := make(chan error, 1)
 	go func() {
-		client, err := spoof.New(clients.KubeClient.Kube, logger, domain, ServingFlags.ResolvableDomain)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, ServingFlags.ResolvableDomain)
 		if err != nil {
 			errorChan <- err
 			close(errorChan)
@@ -68,7 +69,7 @@ func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string)
 		// We keep polling Route if the response status is OK.
 		// If the response status is not OK, we stop the prober and
 		// generate error based on the response.
-		_, err = client.Poll(req, Retrying(disallowsAny, http.StatusOK))
+		_, err = client.Poll(req, pkgTest.Retrying(disallowsAny, http.StatusOK))
 		if err != nil {
 			errorChan <- err
 			close(errorChan)
@@ -90,5 +91,5 @@ func GetRouteProberError(errorChan <-chan error, logger *logging.BaseLogger) err
 }
 
 func disallowsAny(response *spoof.Response) (bool, error) {
-	return true, fmt.Errorf("Get unexpected response %v.", response)
+	return true, fmt.Errorf("Get unexpected response %v", response)
 }
