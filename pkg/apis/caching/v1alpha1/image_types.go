@@ -52,11 +52,19 @@ var _ apis.Defaultable = (*Image)(nil)
 
 // ImageSpec holds the desired state of the Image (from the client).
 type ImageSpec struct {
+
+	// Image is the name of the container image reference to cache across the cluster.
 	Image string `json:"image"`
 
+	// ServiceAccountName is the name of the Kubernetes ServiceAccount as which the Pods
+	// will run this container.  This is potentially used to authenticate the image pull
+	// if the service account has attached pull secrets.  For more information:
+	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
+	// ImagePullSecrets is the name of the Kubernetes Secret containing login information
+	// used by the Pods which will run this container.
 	// +optional
 	ImagePullSecrets *corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
