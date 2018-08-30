@@ -123,22 +123,25 @@ func TestCloseClosesConnection(t *testing.T) {
 	spy := &inspectableConnection{
 		closeCalls: make(chan struct{}, 1),
 	}
-	conn := &ManagedConnection{
-		connection: spy,
-	}
+	conn := newConnection(func() (RawConnection, error) {
+		return spy, nil
+	})
+	conn.connect()
 	conn.Close()
 
-	if len(spy.closeCalls) != 1 || conn.IsClosed != true {
-		t.Fatal("Wanted 'Close' to be called, but it wasn't")
+	if len(spy.closeCalls) != 1 {
+		t.Fatalf("Expected 'Close' to be called once, got %v", len(spy.closeCalls))
 	}
 }
 
 func TestCloseIgnoresNoConnection(t *testing.T) {
-	conn := &ManagedConnection{}
+	conn := &ManagedConnection{
+		closeChan: make(chan struct{}, 1),
+	}
 	got := conn.Close()
 
-	if got != nil || conn.IsClosed != true {
-		t.Fatal("Wanted 'Close' to be called, but it wasn't")
+	if got != nil {
+		t.Fatalf("Expected no error, got %v", got)
 	}
 }
 
@@ -146,7 +149,7 @@ func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 	testConn := &inspectableConnection{
 		nextReaderCalls:   make(chan struct{}, 1),
 		writeMessageCalls: make(chan struct{}, 1),
-		closeCalls:        make(chan struct{}, 1),
+		closeCalls:        make(chan struct{}, 2),
 
 		nextReaderFunc: func() (int, io.Reader, error) {
 			return 1, nil, errors.New("next reader errored")
@@ -168,4 +171,24 @@ func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 	}
 
 	conn.Close()
+
+	// If the close signal raced the reconnect loop, consume
+	// the tokens put on the channels
+
+	if len(connectAttempts) == 1 {
+		<-connectAttempts
+		<-testConn.nextReaderCalls
+		<-testConn.closeCalls
+	}
+
+	// Wait for 2 Close calls (the explicit above and the implicit)
+	<-testConn.closeCalls
+	<-testConn.closeCalls
+
+	if len(connectAttempts) > 1 {
+		t.Fatalf("Expected at most one connection attempts, got %v", len(connectAttempts))
+	}
+	if len(testConn.nextReaderCalls) > 1 {
+		t.Fatalf("Expected at most one calls to 'NextReader', got %v", len(testConn.nextReaderCalls))
+	}
 }

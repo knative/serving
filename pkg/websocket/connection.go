@@ -21,6 +21,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"io"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,9 +47,10 @@ type RawConnection interface {
 type ManagedConnection struct {
 	connFactory    func() (RawConnection, error)
 	connection     RawConnection
+	connectionLock sync.RWMutex
 	messageBuffer  *bytes.Buffer
 	messageEncoder *gob.Encoder
-	IsClosed       bool
+	closeChan      chan struct{}
 }
 
 // NewDurableSendingConnection creates a new websocket connection
@@ -61,15 +63,25 @@ func NewDurableSendingConnection(connFactory func() (RawConnection, error)) *Man
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
 	go func() {
-		for {
-			if conn.IsClosed {
-				return
-			}
-			if err := conn.connect(); err != nil {
-				continue
-			}
-			if _, _, err := conn.connection.NextReader(); err != nil {
+		// If the close signal races the connection attempt, make
+		// sure the connection actually closes.
+		defer func() {
+			conn.connectionLock.RLock()
+			defer conn.connectionLock.RUnlock()
+
+			if conn.connection != nil {
 				conn.connection.Close()
+			}
+		}()
+		for {
+			select {
+			default:
+				if err := conn.connect(); err != nil {
+					continue
+				}
+				conn.keepalive()
+			case <-conn.closeChan:
+				return
 			}
 		}
 	}()
@@ -82,10 +94,9 @@ func newConnection(connFactory func() (RawConnection, error)) *ManagedConnection
 	buffer := &bytes.Buffer{}
 	conn := &ManagedConnection{
 		connFactory:    connFactory,
-		connection:     nil,
 		messageBuffer:  buffer,
 		messageEncoder: gob.NewEncoder(buffer),
-		IsClosed:       false,
+		closeChan:      make(chan struct{}, 1),
 	}
 
 	return conn
@@ -99,18 +110,39 @@ func (c *ManagedConnection) connect() (err error) {
 		Steps:    20,
 		Jitter:   0.5,
 	}, func() (bool, error) {
-		c.connection, err = c.connFactory()
+		conn, err := c.connFactory()
 		if err != nil {
 			return false, nil
 		}
+		c.connectionLock.Lock()
+		defer c.connectionLock.Unlock()
+
+		c.connection = conn
 		return true, nil
 	})
 
 	return err
 }
 
+// keepalive keeps the connection open and reads control messages.
+// All messages are discarded.
+func (c *ManagedConnection) keepalive() (err error) {
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
+	for {
+		if _, _, err := c.connection.NextReader(); err != nil {
+			c.connection.Close()
+			return err
+		}
+	}
+}
+
 // Send sends an encodable message over the websocket connection.
 func (c *ManagedConnection) Send(msg interface{}) error {
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
 	if c.connection == nil {
 		return ErrConnectionNotEstablished
 	}
@@ -124,7 +156,10 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 
 // Close closes the websocket connection.
 func (c *ManagedConnection) Close() error {
-	c.IsClosed = true
+	c.closeChan <- struct{}{}
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
 	if c.connection != nil {
 		return c.connection.Close()
 	}
