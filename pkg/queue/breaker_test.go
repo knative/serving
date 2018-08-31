@@ -19,22 +19,23 @@ package queue
 import (
 	"reflect"
 	"runtime"
+	"sync"
 	"testing"
 )
 
+type request struct {
+	lock     *sync.Mutex
+	accepted chan bool
+}
+
 func TestBreakerOverload(t *testing.T) {
-	t.Skip("Skipping until #1308 is addressed")
 	b := NewBreaker(1, 1)             // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	r3, g3 := b.concurrentRequest() // Will be shed
-	done(r1)
-	done(r2)
-	done(r3)
-	got := []bool{<-g1, <-g2, <-g3}
+	locks := b.concurrentRequests(3)
+	unlockAll(locks)
 
+	got := accepted(locks)
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}
@@ -44,15 +45,15 @@ func TestBreakerNoOverload(t *testing.T) {
 	b := NewBreaker(1, 1)                  // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
 
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	done(r1)
-	r3, g3 := b.concurrentRequest()
-	done(r2)
-	r4, g4 := b.concurrentRequest()
-	done(r3)
-	done(r4)
-	got := []bool{<-g1, <-g2, <-g3, <-g4}
+	locks := make([]request, 4)
+	locks[0] = b.concurrentRequest()
+	locks[1] = b.concurrentRequest()
+	unlock(locks[0])
+	locks[2] = b.concurrentRequest()
+	unlock(locks[1])
+	locks[3] = b.concurrentRequest()
+	unlockAll(locks[2:])
+	got := accepted(locks)
 
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
@@ -63,26 +64,19 @@ func TestBreakerRecover(t *testing.T) {
 	b := NewBreaker(1, 1)                                // Breaker capacity = 2
 	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	_, g3 := b.concurrentRequest() // Will be shed
-	_, g4 := b.concurrentRequest() // Will be shed
-	done(r1)
-	done(r2)
+	locks := b.concurrentRequests(4)
+	unlockAll(locks)
 	// Breaker recovers
-	r5, g5 := b.concurrentRequest()
-	r6, g6 := b.concurrentRequest()
-	done(r5)
-	done(r6)
-	got := []bool{<-g1, <-g2, <-g3, <-g4, <-g5, <-g6}
+	moreLocks := b.concurrentRequests(2)
+	unlockAll(moreLocks)
 
+	got := accepted(append(locks, moreLocks...))
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
-	t.Skip("Re-enable once #1514 is fixed.")
 	b := NewBreaker(5, 45)    // Breaker capacity = 50
 	want := make([]bool, 150) // Process 150 requests
 	for i := 0; i < 50; i++ {
@@ -95,66 +89,77 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 		want[i] = true // The next 50 will be processed as capacity opens up
 	}
 
-	releases := make([]chan struct{}, 0)
-	gots := make([]chan bool, 0)
 	// Send 100 requests
-	for i := 0; i < 100; i++ {
-		r, g := b.concurrentRequest()
-		releases = append(releases, r)
-		gots = append(gots, g)
-	}
+	locks := b.concurrentRequests(100)
 	// Process one request and send one request, 50 times
 	for i := 100; i < 150; i++ {
 		// Open capacity
-		done(releases[0])
-		releases = releases[1:]
+		unlock(locks[i-100])
 		// Add another request
-		r, g := b.concurrentRequest()
-		releases = append(releases, r)
-		gots = append(gots, g)
+		locks = append(locks, b.concurrentRequest())
 	}
-	// Process remaining requests
-	for _, r := range releases {
-		done(r)
-	}
-	// Collect the results
-	got := make([]bool, len(gots))
-	for i, g := range gots {
-		got[i] = <-g
-	}
+	unlockAll(locks[50:])
 
-	// Check the first few succeeded
-	if !reflect.DeepEqual(want[:10], got[:10]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker tripped
-	if !reflect.DeepEqual(want[60:70], got[60:70]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-	// Check the breaker reset
-	if !reflect.DeepEqual(want[len(want)-10:], got[len(got)-10:]) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
+	got := accepted(locks)
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("Wanted %v\n. Got %v\n.", want, got)
 	}
 }
 
-func (b *Breaker) concurrentRequest() (chan struct{}, chan bool) {
-	release := make(chan struct{})
-	thunk := func() {
-		_, _ = <-release
-	}
-	result := make(chan bool)
+// Attempts to perform a concurrent request against the specified breaker.
+func (b *Breaker) concurrentRequest() request {
+
+	// There is a brief window between when capacity is released and
+	// when it becomes available to the next request.  We yield here
+	// to reduce the likelihood that we hit that edge case.  E.g.
+	// without yielding `go test ./pkg/queue/breaker.* -count 10000`
+	// will fail about 3 runs.
+	runtime.Gosched()
+
+	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
+	r.lock.Lock()
+	var start sync.WaitGroup
+	start.Add(1)
 	go func() {
-		result <- b.Maybe(thunk)
+		start.Done()
+		ok := b.Maybe(func() {
+			r.lock.Lock() // Will block on locked mutex.
+			r.lock.Unlock()
+		})
+		r.accepted <- ok
 	}()
-	runtime.Gosched()
-	return release, result
+	start.Wait() // Ensure that the go func has had a chance to execute.
+	return r
 }
 
-func done(release chan struct{}) {
-	close(release)
-	// Allow enough time for the two goroutines involved to shuffle
-	// the request out of active and another request out of the
-	// queue.
-	runtime.Gosched()
-	runtime.Gosched()
+// Perform n requests against the breaker, returning mutexes for each
+// request which succeeded, and a slice of bools for all requests.
+func (b *Breaker) concurrentRequests(n int) []request {
+	requests := make([]request, n)
+	for i := range requests {
+		requests[i] = b.concurrentRequest()
+	}
+	return requests
+}
+
+func accepted(requests []request) []bool {
+	got := make([]bool, len(requests))
+	for i, r := range requests {
+		got[i] = <-r.accepted
+	}
+	return got
+}
+
+func unlock(req request) {
+	req.lock.Unlock()
+	// Verify that function has completed
+	ok := <-req.accepted
+	// Requeue for next usage
+	req.accepted <- ok
+}
+
+func unlockAll(requests []request) {
+	for _, lc := range requests {
+		unlock(lc)
+	}
 }

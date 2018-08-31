@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,6 +21,9 @@ import (
 )
 
 func (s *Service) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(s.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
 	return s.Spec.Validate().ViaField("spec")
 }
 

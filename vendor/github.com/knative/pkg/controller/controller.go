@@ -29,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/logging/logkey"
 )
 
 // Reconciler is the interface that controller implementations are expected
@@ -189,9 +192,14 @@ func (c *Impl) processNextWorkItem() bool {
 			return nil
 		}
 
+		// Embed the key into the logger and attach that to the context we pass
+		// to the Reconciler.
+		logger := c.logger.With(zap.String(logkey.Key, key))
+		ctx := logging.WithLogger(context.TODO(), logger)
+
 		// Run Reconcile, passing it the namespace/name string of the
 		// resource to be synced.
-		if err := c.Reconciler.Reconcile(context.TODO(), key); err != nil {
+		if err := c.Reconciler.Reconcile(ctx, key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not

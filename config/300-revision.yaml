@@ -27,4 +27,6 @@ spec:
     - all
     - knative
     - serving
+    shortNames:
+    - rev
   scope: Namespaced

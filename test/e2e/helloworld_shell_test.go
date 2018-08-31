@@ -27,12 +27,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"go.uber.org/zap"
 )
 
 const (
-	appYaml              = "test_images/helloworld/helloworld.yaml"
+	appYaml              = "../test_images/helloworld/helloworld.yaml"
 	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
 	ingressTimeout       = 5 * time.Minute
 	servingTimeout       = 2 * time.Minute
@@ -47,16 +47,15 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
+func cleanup(yamlFilename string, logger *logging.BaseLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestHelloWorldFromShell")
-
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	logger := logging.GetContextLogger("TestHelloWorldFromShell")
+	imagePath := test.ImagePath("helloworld")
 
 	logger.Infof("Creating manifest")
 

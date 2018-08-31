@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +29,9 @@ import (
 )
 
 func (rt *Revision) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(rt.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
 	return rt.Spec.Validate().ViaField("spec")
 }
 
@@ -44,7 +49,13 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if err := validateContainer(rs.Container); err != nil {
 		return err.ViaField("container")
 	}
-	return rs.ConcurrencyModel.Validate().ViaField("concurrencyModel")
+	if err := rs.ConcurrencyModel.Validate(); err != nil {
+		return err.ViaField("concurrencyModel")
+	}
+	if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ss RevisionServingStateType) Validate() *apis.FieldError {
@@ -68,6 +79,26 @@ func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	default:
 		return apis.ErrInvalidValue(string(cm), apis.CurrentField)
 	}
+}
+
+func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
+	// Validate ContainerConcurrency alone
+	if cc < 0 || cc > RevisionContainerConcurrencyMax {
+		return apis.ErrInvalidValue(strconv.Itoa(int(cc)), "containerConcurrency")
+	}
+
+	// Validate combinations of ConcurrencyModel and ContainerConcurrency
+	if cc == 0 && cm != RevisionRequestConcurrencyModelMulti && cm != RevisionRequestConcurrencyModelType("") {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+	if cc == 1 && cm != RevisionRequestConcurrencyModelSingle && cm != RevisionRequestConcurrencyModelType("") {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+	if cc > 1 && cm != RevisionRequestConcurrencyModelType("") {
+		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
+	}
+
+	return nil
 }
 
 func validateContainer(container corev1.Container) *apis.FieldError {

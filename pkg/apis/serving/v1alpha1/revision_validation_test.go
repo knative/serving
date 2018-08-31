@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/apis"
@@ -196,6 +199,62 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	}
 }
 
+func TestContainerConcurrencyValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		cc   RevisionContainerConcurrencyType
+		cm   RevisionRequestConcurrencyModelType
+		want *apis.FieldError
+	}{{
+		name: "single with only container concurrency",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "single with container currency and concurrency model",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: nil,
+	}, {
+		name: "multi with only container concurrency",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelType(""),
+		want: nil,
+	}, {
+		name: "multi with container concurrency and concurrency model",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: nil,
+	}, {
+		name: "mismatching container concurrency (1) and concurrency model (multi)",
+		cc:   1,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "mismatching container concurrency (0) and concurrency model (single)",
+		cc:   0,
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "invalid container concurrency (too small)",
+		cc:   -1,
+		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+	}, {
+		name: "invalid container concurrency (too large)",
+		cc:   RevisionContainerConcurrencyMax + 1,
+		want: apis.ErrInvalidValue(strconv.Itoa(int(RevisionContainerConcurrencyMax)+1), "containerConcurrency"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ValidateContainerConcurrency(test.cc, test.cm)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
 func TestServingStateValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -363,6 +422,22 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.container.name"),
+	}, {
+		name: "invalid name - dots",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "do.not.use.dots",
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid name - too long",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("a", 65),
+			},
+		},
+		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
 	}}
 
 	for _, test := range tests {

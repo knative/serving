@@ -17,6 +17,8 @@ limitations under the License.
 package statserver
 
 import (
+	"net"
+
 	"github.com/knative/serving/pkg/autoscaler"
 	"go.uber.org/zap"
 )
@@ -45,6 +47,15 @@ func (s *TestServer) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	s.listenAddr <- "http://" + listener.Addr().String()
-	return s.serve(listener)
+	return s.serve(&testListener{listener, s.listenAddr})
+}
+
+type testListener struct {
+	net.Listener
+	listenAddr chan string
+}
+
+func (t *testListener) Accept() (net.Conn, error) {
+	t.listenAddr <- "http://" + t.Listener.Addr().String()
+	return t.Listener.Accept()
 }

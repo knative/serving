@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis/istio/v1alpha3"
 	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -29,7 +29,7 @@ import (
 )
 
 func TestReconcileVirtualService_Insert(t *testing.T) {
-	_, servingClient, c, _, _, _ := newTestReconciler(t)
+	_, sharedClient, _, c, _, _, _, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -44,7 +44,7 @@ func TestReconcileVirtualService_Insert(t *testing.T) {
 	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if created, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+	if created, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else if diff := cmp.Diff(vs, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
@@ -52,7 +52,7 @@ func TestReconcileVirtualService_Insert(t *testing.T) {
 }
 
 func TestReconcileVirtualService_Update(t *testing.T) {
-	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
+	_, sharedClient, _, c, _, sharedInformer, _, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -67,10 +67,10 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if updated, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+	if updated, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else {
-		servingInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(updated)
+		sharedInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(updated)
 	}
 
 	r.Status.Domain = "bar.com"
@@ -79,7 +79,7 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if updated, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+	if updated, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else {
 		if diff := cmp.Diff(vs2, updated); diff != "" {

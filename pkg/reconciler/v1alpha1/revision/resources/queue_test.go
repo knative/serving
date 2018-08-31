@@ -18,7 +18,6 @@ package resources
 
 import (
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -52,7 +51,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 			},
 		},
 		lc: &logging.Config{},
@@ -66,7 +65,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
@@ -104,7 +103,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 			},
 		},
 		lc: &logging.Config{},
@@ -121,7 +120,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
-			Args:  []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Single"},
+			Args:  []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
@@ -166,7 +165,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 			},
 		},
 		lc: &logging.Config{},
@@ -180,7 +179,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "baz", // matches namespace
@@ -218,7 +217,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 0,
 			},
 		},
 		lc: &logging.Config{
@@ -237,7 +236,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "log", // matches namespace
@@ -267,24 +266,20 @@ func TestMakeQueueContainer(t *testing.T) {
 			}},
 		},
 	}, {
-		name: "autoscaler configuration options",
+		name: "container concurrency 10",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "what-does-the",
-				Name:      "autoscaler-do",
-				UID:       "4321",
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ConcurrencyModel: "Multi",
+				ContainerConcurrency: 10,
 			},
 		},
 		lc: &logging.Config{},
-		ac: &autoscaler.Config{
-			ConcurrencyQuantumOfTime: 12 * time.Minute,
-		},
-		cc: &config.Controller{
-			AutoscalerImage: "ubuntu:xenial",
-		},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           queueContainerName,
@@ -293,19 +288,19 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=12m0s", "-concurrencyModel=Multi"},
+			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=10"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
-				Value: "what-does-the", // matches namespace
+				Value: "foo", // matches namespace
 			}, {
 				Name: "SERVING_CONFIGURATION",
-				// No Configuration owner.
+				// No OwnerReference
 			}, {
 				Name:  "SERVING_REVISION",
-				Value: "autoscaler-do", // matches name
+				Value: "bar", // matches name
 			}, {
 				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler-do-autoscaler",
+				Value: "autoscaler", // no autoscaler configured.
 			}, {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
@@ -316,10 +311,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				},
 			}, {
 				Name: "SERVING_LOGGING_CONFIG",
-				// No logging config
+				// No logging configuration
 			}, {
 				Name: "SERVING_LOGGING_LEVEL",
-				// No logging config
+				// No logging level
 			}},
 		},
 	}}

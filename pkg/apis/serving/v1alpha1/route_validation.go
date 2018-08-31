@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,8 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-func (rt *Route) Validate() *apis.FieldError {
-	return rt.Spec.Validate().ViaField("spec")
+func (r *Route) Validate() *apis.FieldError {
+	if err := validateObjectMetadata(r.GetObjectMeta()); err != nil {
+		return err.ViaField("metadata")
+	}
+	return r.Spec.Validate().ViaField("spec")
 }
 
 func (rs *RouteSpec) Validate() *apis.FieldError {

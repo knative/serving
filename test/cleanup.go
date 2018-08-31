@@ -20,13 +20,14 @@ limitations under the License.
 package test
 
 import (
-	"go.uber.org/zap"
 	"os"
 	"os/signal"
+
+	"github.com/knative/pkg/test/logging"
 )
 
 // CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
-func CleanupOnInterrupt(cleanup func(), logger *zap.SugaredLogger ) {
+func CleanupOnInterrupt(cleanup func(), logger *logging.BaseLogger) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {

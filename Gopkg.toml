@@ -3,12 +3,12 @@
 
 required = [
   "k8s.io/apimachinery/pkg/util/sets/types",
-  "k8s.io/apimachinery/pkg/apimachinery/registered",
   "k8s.io/code-generator/cmd/deepcopy-gen",
   "k8s.io/code-generator/cmd/defaulter-gen",
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
+  "github.com/knative/test-infra",
 ]
 
 
@@ -31,34 +31,40 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-06-29
-  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
+  # HEAD as of 2018-08-08
+  revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[constraint]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-08-02
-  revision = "51828370417a6cce0cf7b271a5ee49bf3b01734c"
+  # HEAD as of 2018-08-24
+  revision = "6eff182b8784a136e0ce20e47c5efbfe40ae6059"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2018-07-19
-  revision = "0eeba96f66fdd1873f2ec7f3764ee3b58c5a050c"
+  # HEAD as of 2018-08-06
+  revision = "5f7b0e4895413d785ff15b84d218d73e8a47866a"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.11.0"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.11.0"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.11.0"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.10.0"
+  version = "kubernetes-1.11.0"
+
+[[override]]
+  name = "github.com/json-iterator/go"
+  # This is the commit at which k8s depends on this in 1.11
+  # It seems to be broken at HEAD.
+  revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [prune]
   go-tests = true
@@ -67,5 +73,10 @@ required = [
 
 [[prune.project]]
   name = "k8s.io/code-generator"
+  unused-packages = false
+  non-go = false
+
+[[prune.project]]
+  name = "github.com/knative/test-infra"
   unused-packages = false
   non-go = false

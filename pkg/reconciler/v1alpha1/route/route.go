@@ -28,16 +28,14 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
+	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/pkg/controller"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	istioinformers "github.com/knative/serving/pkg/client/informers/externalversions/istio/v1alpha3"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -107,14 +105,20 @@ func NewController(
 		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute(impl)),
 	})
 
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
 	})
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -136,9 +140,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-
-	logger := loggerWithRouteInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
+	logger := logging.FromContext(ctx)
 
 	// Get the Route resource with this namespace/name
 	original, err := c.routeLister.Routes(namespace).Get(name)
@@ -247,24 +249,13 @@ func (c *Reconciler) EnqueueReferringRoute(impl *controller.Impl) func(obj inter
 			c.Logger.Infof("Configuration %s does not have a referring route", config.Name)
 			return
 		}
-		// Configuration is referred by a Route.  Update such Route.
-		route, err := c.routeLister.Routes(config.Namespace).Get(routeName)
-		if err != nil {
-			loggerWithRouteInfo(c.Logger, config.Namespace, routeName).Error(
-				"Error fetching route upon configuration becoming ready", zap.Error(err))
-			return
-		}
-		impl.Enqueue(route)
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", config.Namespace, routeName))
 	}
 }
 
 /////////////////////////////////////////
 // Misc helpers.
 /////////////////////////////////////////
-// loggerWithRouteInfo enriches the logs with route name and namespace.
-func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Route, name))
-}
 
 func (c *Reconciler) getDomainConfig() *config.Domain {
 	c.domainConfigMutex.Lock()

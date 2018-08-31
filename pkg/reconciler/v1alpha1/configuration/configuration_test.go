@@ -48,8 +48,6 @@ var (
 	}
 )
 
-const noBuildName = ""
-
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
@@ -64,7 +62,7 @@ func TestReconcile(t *testing.T) {
 			cfg("no-revisions-yet", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234), noBuildName),
+			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("no-revisions-yet", "foo", 1234,
@@ -86,7 +84,7 @@ func TestReconcile(t *testing.T) {
 			setConcurrencyModel(cfg("validation-failure", "foo", 1234), "Bogus"),
 		},
 		WantCreates: []metav1.Object{
-			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234), noBuildName), "Bogus"),
+			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234)), "Bogus"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
@@ -107,8 +105,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
-			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
-				resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)).Name),
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
@@ -127,7 +124,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: unknown)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
-			resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432), noBuildName),
+			resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-not-done", "foo", 5432,
@@ -146,7 +143,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555), noBuildName)),
+			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-done", "foo", 5555,
@@ -176,14 +173,14 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566), noBuildName)),
+			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566))),
 		},
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555),
-			makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555), noBuildName)),
+			makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-failed", "foo", 5555,
@@ -204,7 +201,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: bad)",
 		Objects: []runtime.Object{
 			cfg("bad-condition", "foo", 5555),
-			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555), noBuildName),
+			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555)),
 				v1alpha1.RevisionStatus{
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   v1alpha1.RevisionConditionReady,
@@ -265,7 +262,7 @@ func TestReconcile(t *testing.T) {
 			cfg("create-revision-failure", "foo", 99998),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998), noBuildName),
+			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
@@ -291,7 +288,7 @@ func TestReconcile(t *testing.T) {
 			cfg("update-config-failure", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("update-config-failure", "foo", 1234), noBuildName),
+			resources.MakeRevision(cfg("update-config-failure", "foo", 1234)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("update-config-failure", "foo", 1234,
@@ -321,7 +318,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337), noBuildName)),
+			makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("revision-recovers", "foo", 1337,
@@ -339,13 +336,13 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/revision-recovers",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 		}
-	})
+	}))
 }
 
 func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
@@ -391,6 +388,7 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
+	rev.Status.MarkActive()
 	if !rev.Status.IsReady() {
 		t.Fatalf("Wanted ready revision: %v", rev)
 	}

@@ -25,9 +25,10 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/spoof"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -50,8 +51,8 @@ const (
 
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
-func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string
 		return err
 	}
 	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
+	_, err = client.Poll(req, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
 	return err
 }
 
@@ -93,7 +94,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(logger *logging.BaseLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -143,8 +144,8 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -166,11 +167,11 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.GetContextLogger("TestBlueGreenRoute")
+	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, test.ImagePath(image1))
+	imagePaths = append(imagePaths, test.ImagePath(image2))
 
 	var names, blue, green test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
@@ -209,11 +210,11 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// TODO(#882): Remove these?
 	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q was not marked as Ready: %v", blue.Revision, err)
 	}
 	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q was not marked as Ready: %v", green.Revision, err)
 	}
 
@@ -227,11 +228,11 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}

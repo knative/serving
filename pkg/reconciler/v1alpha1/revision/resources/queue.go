@@ -25,7 +25,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -78,14 +77,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		configName = owner.Name
 	}
 
-	// If AutoscalerImage is empty, connect to the multitenant autoscaler.
-	// Otherwise connect to the single-tenant autoscaler.
-	var autoscalerAddress string
-	if controllerConfig.AutoscalerImage == "" {
-		autoscalerAddress = "autoscaler"
-	} else {
-		autoscalerAddress = names.Autoscaler(rev)
-	}
+	autoscalerAddress := "autoscaler"
 
 	var loggingLevel string
 	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
@@ -101,7 +93,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		ReadinessProbe: queueReadinessProbe,
 		Args: []string{
 			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
-			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+			fmt.Sprintf("-containerConcurrency=%v", rev.Spec.ContainerConcurrency),
 		},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",

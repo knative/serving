@@ -29,9 +29,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
+	"github.com/knative/pkg/apis/istio/v1alpha3"
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -45,9 +48,9 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -154,32 +157,38 @@ func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 
 func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
+	sharedClient *fakesharedclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	reconciler *Reconciler,
 	kubeInformer kubeinformers.SharedInformerFactory,
+	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher) {
-	kubeClient, servingClient, _, reconciler, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	kubeClient, sharedClient, servingClient, _, reconciler, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
 
 func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
+	sharedClient *fakesharedclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
+	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher) {
-	kubeClient, servingClient, controller, _, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	kubeClient, sharedClient, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
+	sharedClient *fakesharedclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *ctrl.Impl,
 	reconciler *Reconciler,
 	kubeInformer kubeinformers.SharedInformerFactory,
+	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher) {
 
@@ -201,16 +210,19 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	}
 
 	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	sharedInformer = sharedinformers.NewSharedInformerFactory(sharedClient, 0)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
 		rclr.Options{
 			KubeClientSet:    kubeClient,
+			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
@@ -219,7 +231,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
-		servingInformer.Networking().V1alpha3().VirtualServices(),
+		sharedInformer.Networking().V1alpha3().VirtualServices(),
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
@@ -229,6 +241,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 func addResourcesToInformers(
 	t *testing.T, kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
+	sharedClient *fakesharedclientset.Clientset, sharedInformer sharedinformers.SharedInformerFactory,
 	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory, route *v1alpha1.Route) {
 	t.Helper()
 
@@ -241,11 +254,11 @@ func addResourcesToInformers(
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	vsName := resourcenames.VirtualService(route)
-	virtualService, err := servingClient.NetworkingV1alpha3().VirtualServices(ns).Get(vsName, metav1.GetOptions{})
+	virtualService, err := sharedClient.NetworkingV1alpha3().VirtualServices(ns).Get(vsName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("VirtualService.Get(%v) = %v", vsName, err)
 	}
-	servingInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(virtualService)
+	sharedInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(virtualService)
 
 	ksName := resourcenames.K8sService(route)
 	service, err := kubeClient.CoreV1().Services(ns).Get(ksName, metav1.GetOptions{})
@@ -257,7 +270,7 @@ func addResourcesToInformers(
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	kubeClient, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -269,9 +282,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -291,7 +303,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	// Look for the route rule with activator as the destination.
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
+	vs, err := sharedClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -329,15 +341,15 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
-				Authority: &v1alpha3.StringMatch{Exact: domain},
+				Authority: &istiov1alpha1.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc.cluster.local"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
@@ -346,6 +358,10 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -358,7 +374,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -392,7 +408,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
+	vs, err := sharedClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -414,15 +430,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
-				Authority: &v1alpha3.StringMatch{Exact: domain},
+				Authority: &istiov1alpha1.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc.cluster.local"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -438,6 +454,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Weight: 10,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -447,13 +467,12 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -487,7 +506,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
+	vs, err := sharedClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -509,15 +528,15 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
-				Authority: &v1alpha3.StringMatch{Exact: domain},
+				Authority: &istiov1alpha1.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc.cluster.local"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -532,6 +551,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -540,7 +563,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -593,7 +616,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
+	vs, err := sharedClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -615,15 +638,15 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
-				Authority: &v1alpha3.StringMatch{Exact: domain},
+				Authority: &istiov1alpha1.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc.cluster.local"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -639,8 +662,12 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
-			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-1." + domain}}},
+			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "test-revision-1." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
 					Host: fmt.Sprintf("%s.%s.svc.cluster.local", "test-rev-service", testNamespace),
@@ -649,8 +676,12 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
-			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-2." + domain}}},
+			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "test-revision-2." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
 					Host: fmt.Sprintf("%s.%s.svc.cluster.local", "test-rev-service", testNamespace),
@@ -659,6 +690,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -668,7 +703,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -706,7 +741,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
+	vs, err := sharedClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
@@ -727,15 +762,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
-				Authority: &v1alpha3.StringMatch{Exact: domain},
+				Authority: &istiov1alpha1.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc.cluster.local"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test.svc"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test"},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+				Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -751,8 +786,12 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
-			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "bar." + domain}}},
+			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "bar." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
 					Host: fmt.Sprintf("%s.%s.svc.cluster.local", "p-deadbeef-service", testNamespace),
@@ -761,8 +800,12 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}, {
-			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "foo." + domain}}},
+			Match: []v1alpha3.HTTPMatchRequest{{Authority: &istiov1alpha1.StringMatch{Exact: "foo." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
 					Host: fmt.Sprintf("%s.%s.svc.cluster.local", "test-rev-service", testNamespace),
@@ -771,6 +814,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
+			Retries: &v1alpha3.HTTPRetry{
+				Attempts:      resources.DefaultRouteRetryAttempts,
+				PerTryTimeout: resources.DefaultRouteTimeout,
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -780,7 +827,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestEnqueueReferringRoute(t *testing.T) {
-	_, servingClient, controller, reconciler, _, servingInformer, _ := newTestSetup(t)
+	_, _, servingClient, controller, reconciler, _, _, servingInformer, _ := newTestSetup(t)
 	routeClient := servingClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
@@ -811,35 +858,8 @@ func TestEnqueueReferringRoute(t *testing.T) {
 	}
 }
 
-func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
-	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
-
-	config := getTestConfiguration()
-	rev := getTestRevisionForConfig(config)
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           100,
-		}},
-	)
-
-	// Update config to have LatestReadyRevisionName and route label.
-	config.Status.LatestReadyRevisionName = rev.Name
-	config.Labels = map[string]string{
-		serving.RouteLabelKey: route.Name,
-	}
-	f := reconciler.EnqueueReferringRoute(controller)
-	f(config)
-	// add this item to avoid being blocked by queue.
-	expected := "queue-has-no-work"
-	controller.WorkQueue.AddRateLimited(expected)
-	if k, _ := controller.WorkQueue.Get(); k != expected {
-		t.Errorf("Expected %v, saw %v", expected, k)
-	}
-}
-
 func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
-	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
+	_, _, _, controller, reconciler, _, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 
 	f := reconciler.EnqueueReferringRoute(controller)
@@ -853,7 +873,7 @@ func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
-	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
+	_, _, _, controller, reconciler, _, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	fmt.Println(rev.Name)
@@ -873,7 +893,7 @@ func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
-	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
+	_, _, _, controller, reconciler, _, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 
@@ -891,7 +911,7 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, servingClient, controller, kubeInformer, servingInformer, _ := newTestReconciler(t)
+	kubeClient, sharedClient, servingClient, controller, kubeInformer, sharedInformer, servingInformer, _ := newTestReconciler(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -899,7 +919,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
 	controller.Reconcile(context.TODO(), KeyOrDie(route))
-	addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
+	addResourcesToInformers(t, kubeClient, kubeInformer, sharedClient, sharedInformer, servingClient, servingInformer, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
 
@@ -963,7 +983,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
 		controller.Reconcile(context.TODO(), KeyOrDie(route))
-		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
+		addResourcesToInformers(t, kubeClient, kubeInformer, sharedClient, sharedInformer, servingClient, servingInformer, route)
 
 		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)

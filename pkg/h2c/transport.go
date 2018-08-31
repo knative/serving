@@ -19,3 +19,5 @@ func NewTransport() http.RoundTripper {
 		},
 	}
 }
+
+var DefaultTransport http.RoundTripper = NewTransport()

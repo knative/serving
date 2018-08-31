@@ -22,58 +22,36 @@ package test
 import (
 	"flag"
 	"os"
-	"os/user"
 	"path"
 )
 
-// Flags holds the command line flags or defaults for settings in the user's environment.
-// See EnvironmentFlags for a list of supported fields.
-var Flags = initializeFlags()
+const (
+	// ServingNamespace is the default namespace for serving e2e tests
+	ServingNamespace = "serving-tests"
+)
 
-type EnvironmentFlags struct {
-	Cluster          string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
-	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
-	Kubeconfig       string // Path to kubeconfig (defaults to ./kube/config)
-	Namespace        string // K8s namespace (blank by default, to be overwritten by test suite)
+// ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
+var ServingFlags = initializeServingFlags()
+
+// ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
+type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
-	LogVerbose       bool   // Enable verbose logging
-	EmitMetrics      bool   // Emit metrics
+	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Tag              string // Test images version tag
 }
 
-func initializeFlags() *EnvironmentFlags {
-	var f EnvironmentFlags
-	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
-	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
-		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
-
-	defaultRepo := os.Getenv("DOCKER_REPO_OVERRIDE")
-	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
-		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
-
-	usr, _ := user.Current()
-	defaultKubeconfig := path.Join(usr.HomeDir, ".kube/config")
-
-	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
-		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
-
-	flag.StringVar(&f.Namespace, "namespace", "",
-		"Provide the namespace you would like to use for these tests.")
+func initializeServingFlags() *ServingEnvironmentFlags {
+	var f ServingEnvironmentFlags
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
-	flag.BoolVar(&f.LogVerbose, "logverbose", false,
-		"Set this flag to true if you would like to see verbose logging.")
+	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
+	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
+		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
 
-	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
-		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+	flag.StringVar(&f.Tag, "tag", "latest",
+		"Provide the version tag for the test images.")
 
-	flag.Parse()
-	flag.Set("alsologtostderr", "true")
-	initializeLogger(f.LogVerbose)
-
-	if f.EmitMetrics {
-		initializeMetricExporter()
-	}
 	return &f
 }

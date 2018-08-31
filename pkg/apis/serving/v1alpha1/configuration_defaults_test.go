@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ func TestConfigurationDefaulting(t *testing.T) {
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						// ServingState is not initialized in this context.
-						ConcurrencyModel: "Multi",
 					},
 				},
 			},
@@ -46,7 +45,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ConcurrencyModel: "Single",
+						ContainerConcurrency: 1,
 					},
 				},
 			},
@@ -55,7 +54,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ConcurrencyModel: "Single",
+						ContainerConcurrency: 1,
 					},
 				},
 			},

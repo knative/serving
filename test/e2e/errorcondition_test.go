@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -40,15 +41,17 @@ const (
 // for the container image missing scenario.
 
 func TestContainerErrorMsg(t *testing.T) {
-	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
+	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
+		t.Skip("Skipping for local docker repo")
+	}
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestContainerErrorMsg")
+	logger := logging.GetContextLogger("TestContainerErrorMsg")
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
+	imagePath := test.ImagePath("invalidhelloworld")
 
 	logger.Infof("Creating a new Route and Configuration %s", imagePath)
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)
@@ -62,7 +65,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && cond.Status != corev1.ConditionUnknown {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.Status == corev1.ConditionFalse {
@@ -85,7 +88,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	logger.Infof("When the imagepath is invalid, the revision should have error status.")
-	err = test.WaitForRevisionState(clients.Revisions, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) {
@@ -115,7 +118,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 // Get revision name from configuration.
 func getRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +131,7 @@ func getRevisionFromConfiguration(clients *test.Clients, configName string) (str
 
 // Get LogURL from revision.
 func getLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
-	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
+	revision, err := clients.ServingClient.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

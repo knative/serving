@@ -37,33 +37,28 @@ type Config struct {
 	EnableScaleToZero bool
 	EnableVPA         bool
 
-	// Target concurrency knobs for different concurrency modes.
-	SingleTargetConcurrency   float64
-	MultiTargetConcurrency    float64
-	VPAMultiTargetConcurrency float64
+	// Target concurrency knobs for different container concurrency configurations.
+	ContainerConcurrencyTargetPercentage float64
+	ContainerConcurrencyTargetDefault    float64
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
 	StableWindow             time.Duration
 	PanicWindow              time.Duration
 	TickInterval             time.Duration
-	ScaleToZeroThreshold     time.Duration
 	ConcurrencyQuantumOfTime time.Duration
+
+	ScaleToZeroThreshold   time.Duration
+	ScaleToZeroGracePeriod time.Duration
+	// This is computed by ScaleToZeroThreshold - ScaleToZeroGracePeriod
+	ScaleToZeroIdlePeriod time.Duration
 }
 
-func (c *Config) TargetConcurrency(model v1alpha1.RevisionRequestConcurrencyModelType) float64 {
-	switch model {
-	case v1alpha1.RevisionRequestConcurrencyModelSingle:
-		return c.SingleTargetConcurrency
-	case v1alpha1.RevisionRequestConcurrencyModelMulti:
-		if c.EnableVPA {
-			return c.VPAMultiTargetConcurrency
-		} else {
-			return c.MultiTargetConcurrency
-		}
-	default:
-		return c.MultiTargetConcurrency
+func (c *Config) TargetConcurrency(model v1alpha1.RevisionContainerConcurrencyType) float64 {
+	if model == 0 {
+		return c.ContainerConcurrencyTargetDefault
 	}
+	return float64(model) * c.ContainerConcurrencyTargetPercentage
 }
 
 // NewConfigFromMap creates a Config from the supplied map
@@ -93,22 +88,17 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key      string
 		field    *float64
 		optional bool
-		// specified exactyl when optional
+		// specified exactly when optional
 		defaultValue float64
 	}{{
 		key:   "max-scale-up-rate",
 		field: &lc.MaxScaleUpRate,
 	}, {
-		key:   "single-concurrency-target",
-		field: &lc.SingleTargetConcurrency,
+		key:   "container-concurrency-target-percentage",
+		field: &lc.ContainerConcurrencyTargetPercentage,
 	}, {
-		key:   "multi-concurrency-target",
-		field: &lc.MultiTargetConcurrency,
-	}, {
-		key:          "vpa-multi-concurrency-target",
-		field:        &lc.VPAMultiTargetConcurrency,
-		optional:     true,
-		defaultValue: 10.0,
+		key:   "container-concurrency-target-default",
+		field: &lc.ContainerConcurrencyTargetDefault,
 	}} {
 		if raw, ok := data[f64.key]; !ok {
 			if f64.optional {
@@ -125,8 +115,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	// Process Duration fields
 	for _, dur := range []struct {
-		key   string
-		field *time.Duration
+		key      string
+		field    *time.Duration
+		optional bool
+		// specified exactly when optional
+		defaultValue time.Duration
 	}{{
 		key:   "stable-window",
 		field: &lc.StableWindow,
@@ -137,6 +130,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "scale-to-zero-threshold",
 		field: &lc.ScaleToZeroThreshold,
 	}, {
+		key:          "scale-to-zero-grace-period",
+		field:        &lc.ScaleToZeroGracePeriod,
+		optional:     true,
+		defaultValue: 2 * time.Minute,
+	}, {
 		key:   "concurrency-quantum-of-time",
 		field: &lc.ConcurrencyQuantumOfTime,
 	}, {
@@ -144,12 +142,26 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field: &lc.TickInterval,
 	}} {
 		if raw, ok := data[dur.key]; !ok {
+			if dur.optional {
+				*dur.field = dur.defaultValue
+				continue
+			}
 			return nil, fmt.Errorf("Autoscaling configmap is missing %q", dur.key)
 		} else if val, err := time.ParseDuration(raw); err != nil {
 			return nil, err
 		} else {
 			*dur.field = val
 		}
+	}
+
+	if lc.ScaleToZeroGracePeriod < 30*time.Second {
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	}
+
+	lc.ScaleToZeroIdlePeriod = lc.ScaleToZeroThreshold - lc.ScaleToZeroGracePeriod
+	if lc.ScaleToZeroIdlePeriod < 30*time.Second {
+		return nil, fmt.Errorf("scale-to-zero-threshold minus scale-to-zero-grace-period must be at least 30s, got %v (%v - %v)",
+			lc.ScaleToZeroIdlePeriod, lc.ScaleToZeroThreshold, lc.ScaleToZeroGracePeriod)
 	}
 
 	return lc, nil
