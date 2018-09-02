@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
@@ -50,10 +51,10 @@ func TestBuildAndServe(t *testing.T) {
 		}},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.Flags.Namespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	if _, err := clients.ServingClient.Routes.Create(test.Route(test.Flags.Namespace, names)); err != nil {
+	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
@@ -71,8 +72,8 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	endState := test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-	if _, err := test.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText"); err != nil {
+	endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
+	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
@@ -120,7 +121,7 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	imagePath := test.ImagePath("helloworld")
-	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.Flags.Namespace, names, build, imagePath))
+	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}

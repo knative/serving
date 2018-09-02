@@ -14,23 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+// cleanup allows you to define a cleanup function that will be executed
+// if your test is interrupted.
+
+package test
 
 import (
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"os"
+	"os/signal"
+
+	"go.uber.org/zap"
 )
 
-func (r *PodAutoscaler) SetDefaults() {
-	r.Spec.SetDefaults()
-}
-
-func (rs *PodAutoscalerSpec) SetDefaults() {
-	if rs.ServingState == "" {
-		rs.ServingState = servingv1alpha1.RevisionServingStateActive
-	}
-	// When ConcurrencyModel is specified but ContainerConcurrency
-	// is not (0), use the ConcurrencyModel value.
-	if rs.ConcurrencyModel == servingv1alpha1.RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
-	}
+// CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
+func CleanupOnInterrupt(cleanup func(), logger *zap.SugaredLogger) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			logger.Infof("Test interrupted, cleaning up.")
+			cleanup()
+			os.Exit(1)
+		}
+	}()
 }

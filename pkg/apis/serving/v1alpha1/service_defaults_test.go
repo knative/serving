@@ -44,9 +44,7 @@ func TestServiceDefaulting(t *testing.T) {
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
-							Spec: RevisionSpec{
-								ConcurrencyModel: "Multi",
-							},
+							Spec: RevisionSpec{},
 						},
 					},
 				},
@@ -60,7 +58,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
 							},
 						},
 					},
@@ -73,7 +71,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
 							},
 						},
 					},
@@ -92,9 +90,7 @@ func TestServiceDefaulting(t *testing.T) {
 				Pinned: &PinnedType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
-							Spec: RevisionSpec{
-								ConcurrencyModel: "Multi",
-							},
+							Spec: RevisionSpec{},
 						},
 					},
 				},
@@ -108,7 +104,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
 							},
 						},
 					},
@@ -121,7 +117,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
 							},
 						},
 					},

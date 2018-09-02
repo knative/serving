@@ -27,7 +27,9 @@ func (r *Revision) SetDefaults() {
 }
 
 func (rs *RevisionSpec) SetDefaults() {
-	if rs.ConcurrencyModel == "" {
-		rs.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
+	// When ConcurrencyModel is specified but ContainerConcurrency
+	// is not (0), use the ConcurrencyModel value.
+	if rs.ConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
+		rs.ContainerConcurrency = 1
 	}
 }

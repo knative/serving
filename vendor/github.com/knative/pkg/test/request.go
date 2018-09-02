@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/test/spoof"
+	"github.com/knative/pkg/test/spoof"
 	"go.opencensus.io/trace"
 )
 
@@ -80,12 +80,12 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *KubeClient, logger *logging.BaseLogger, domain string, inState spoof.ResponseChecker, desc string) (*spoof.Response, error) {
+func WaitForEndpointState(kubeClient *KubeClient, logger *logging.BaseLogger, domain string, inState spoof.ResponseChecker, desc string, resolvable bool) (*spoof.Response, error) {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	client, err := spoof.New(kubeClientset.Kube, logger, domain, ServingFlags.ResolvableDomain)
+	client, err := NewSpoofingClient(kubeClient, logger, domain, resolvable)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +95,5 @@ func WaitForEndpointState(kubeClientset *KubeClient, logger *logging.BaseLogger,
 		return nil, err
 	}
 
-	res, err := client.Poll(req, inState)
-	return res, err
+	return client.Poll(req, inState)
 }

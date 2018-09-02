@@ -33,8 +33,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
-			ServiceName:      "foo",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -45,15 +45,15 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
-			ServiceName:      "foo",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
 		},
 		want: apis.ErrMissingField("scaleTargetRef"),
 	}, {
 		name: "has missing scaleTargetRef kind",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
-			ServiceName:      "foo",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Name:       "bar",
@@ -63,8 +63,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef apiVersion",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
-			ServiceName:      "foo",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				Kind: "Deployment",
 				Name: "bar",
@@ -74,8 +74,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef name",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
-			ServiceName:      "foo",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -85,7 +85,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing serviceName",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "Multi",
+			ContainerConcurrency: 0,
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -117,6 +117,31 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrInvalidValue("bogus", "concurrencyModel"),
+	}, {
+		name: "bad container concurrency",
+		rs: &PodAutoscalerSpec{
+			ContainerConcurrency: -1,
+			ServiceName:          "foo",
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "bar",
+			},
+		},
+		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+	}, {
+		name: "bad concurrency model and container concurrency combination",
+		rs: &PodAutoscalerSpec{
+			ConcurrencyModel:     "Single",
+			ContainerConcurrency: 0,
+			ServiceName:          "foo",
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "bar",
+			},
+		},
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
 	}}
 
 	for _, test := range tests {
@@ -292,6 +317,40 @@ func TestImmutableFields(t *testing.T) {
 			Details: `{v1alpha1.PodAutoscalerSpec}.ConcurrencyModel:
 	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
 	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+`,
+		},
+	}, {
+		name: "bad (container concurrency change)",
+		new: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ServingState:         "Active",
+				ContainerConcurrency: 0,
+				ServiceName:          "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		old: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ServingState:         "Active",
+				ContainerConcurrency: 1,
+				ServiceName:          "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
+	-: v1alpha1.RevisionContainerConcurrencyType(1)
+	+: v1alpha1.RevisionContainerConcurrencyType(0)
 `,
 		},
 	}, {

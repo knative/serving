@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strconv"
+
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -65,6 +67,12 @@ var (
 		ContainerPort: int32(userPort),
 	}}
 
+	// Expose containerPort as env PORT.
+	userEnv = corev1.EnvVar{
+		Name:  userPortEnvName,
+		Value: strconv.Itoa(userPort),
+	}
+
 	userResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: userContainerCPU,
@@ -110,6 +118,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
+	userContainer.Env = append(userContainer.Env, userEnv)
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)

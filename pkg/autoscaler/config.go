@@ -37,10 +37,9 @@ type Config struct {
 	EnableScaleToZero bool
 	EnableVPA         bool
 
-	// Target concurrency knobs for different concurrency modes.
-	SingleTargetConcurrency   float64
-	MultiTargetConcurrency    float64
-	VPAMultiTargetConcurrency float64
+	// Target concurrency knobs for different container concurrency configurations.
+	ContainerConcurrencyTargetPercentage float64
+	ContainerConcurrencyTargetDefault    float64
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
@@ -55,19 +54,11 @@ type Config struct {
 	ScaleToZeroIdlePeriod time.Duration
 }
 
-func (c *Config) TargetConcurrency(model v1alpha1.RevisionRequestConcurrencyModelType) float64 {
-	switch model {
-	case v1alpha1.RevisionRequestConcurrencyModelSingle:
-		return c.SingleTargetConcurrency
-	case v1alpha1.RevisionRequestConcurrencyModelMulti:
-		if c.EnableVPA {
-			return c.VPAMultiTargetConcurrency
-		} else {
-			return c.MultiTargetConcurrency
-		}
-	default:
-		return c.MultiTargetConcurrency
+func (c *Config) TargetConcurrency(model v1alpha1.RevisionContainerConcurrencyType) float64 {
+	if model == 0 {
+		return c.ContainerConcurrencyTargetDefault
 	}
+	return float64(model) * c.ContainerConcurrencyTargetPercentage
 }
 
 // NewConfigFromMap creates a Config from the supplied map
@@ -103,16 +94,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "max-scale-up-rate",
 		field: &lc.MaxScaleUpRate,
 	}, {
-		key:   "single-concurrency-target",
-		field: &lc.SingleTargetConcurrency,
+		key:   "container-concurrency-target-percentage",
+		field: &lc.ContainerConcurrencyTargetPercentage,
 	}, {
-		key:   "multi-concurrency-target",
-		field: &lc.MultiTargetConcurrency,
-	}, {
-		key:          "vpa-multi-concurrency-target",
-		field:        &lc.VPAMultiTargetConcurrency,
-		optional:     true,
-		defaultValue: 10.0,
+		key:   "container-concurrency-target-default",
+		field: &lc.ContainerConcurrencyTargetDefault,
 	}} {
 		if raw, ok := data[f64.key]; !ok {
 			if f64.optional {
