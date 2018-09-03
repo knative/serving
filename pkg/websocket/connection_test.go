@@ -22,6 +22,10 @@ import (
 	"testing"
 )
 
+const (
+	target = "test"
+)
+
 type inspectableConnection struct {
 	nextReaderCalls   chan struct{}
 	writeMessageCalls chan struct{}
@@ -52,13 +56,15 @@ func TestRetriesWhileConnect(t *testing.T) {
 	spy := &inspectableConnection{
 		closeCalls: make(chan struct{}, 1),
 	}
-	conn := newConnection(func() (RawConnection, error) {
+
+	connFactory = func(_ string) (rawConnection, error) {
 		got++
 		if got == want {
 			return spy, nil
 		}
 		return nil, errors.New("not yet")
-	})
+	}
+	conn := newConnection(target)
 
 	conn.connect()
 	conn.Close()
@@ -86,9 +92,11 @@ func TestSendErrorOnEncode(t *testing.T) {
 	spy := &inspectableConnection{
 		writeMessageCalls: make(chan struct{}, 1),
 	}
-	conn := newConnection(func() (RawConnection, error) {
+
+	connFactory = func(_ string) (rawConnection, error) {
 		return spy, nil
-	})
+	}
+	conn := newConnection(target)
 	conn.connect()
 	// gob cannot encode nil values
 	got := conn.Send(nil)
@@ -105,9 +113,10 @@ func TestSendMessage(t *testing.T) {
 	spy := &inspectableConnection{
 		writeMessageCalls: make(chan struct{}, 1),
 	}
-	conn := newConnection(func() (RawConnection, error) {
+	connFactory = func(_ string) (rawConnection, error) {
 		return spy, nil
-	})
+	}
+	conn := newConnection(target)
 	conn.connect()
 	got := conn.Send("test")
 
@@ -123,9 +132,10 @@ func TestCloseClosesConnection(t *testing.T) {
 	spy := &inspectableConnection{
 		closeCalls: make(chan struct{}, 1),
 	}
-	conn := newConnection(func() (RawConnection, error) {
+	connFactory = func(_ string) (rawConnection, error) {
 		return spy, nil
-	})
+	}
+	conn := newConnection(target)
 	conn.connect()
 	conn.Close()
 
@@ -156,10 +166,11 @@ func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 		},
 	}
 	connectAttempts := make(chan struct{}, 1)
-	conn := NewDurableSendingConnection(func() (RawConnection, error) {
+	connFactory = func(_ string) (rawConnection, error) {
 		connectAttempts <- struct{}{}
 		return testConn, nil
-	})
+	}
+	conn := NewDurableSendingConnection(target)
 
 	// the connection is constantly created, tried to read from
 	// and closed because NextReader (which holds the connection

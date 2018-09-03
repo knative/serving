@@ -33,11 +33,19 @@ var (
 	// ErrConnectionNotEstablished is returned by methods that need a connection
 	// but no connection is already created.
 	ErrConnectionNotEstablished = errors.New("connection has not yet been established")
+
+	connFactory = func(target string) (rawConnection, error) {
+		dialer := &websocket.Dialer{
+			HandshakeTimeout: 3 * time.Second,
+		}
+		conn, _, err := dialer.Dial(target, nil)
+		return conn, err
+	}
 )
 
 // RawConnection is an interface defining the methods needed
 // from a websocket connection
-type RawConnection interface {
+type rawConnection interface {
 	WriteMessage(messageType int, data []byte) error
 	NextReader() (int, io.Reader, error)
 	Close() error
@@ -45,8 +53,8 @@ type RawConnection interface {
 
 // ManagedConnection represents a websocket connection.
 type ManagedConnection struct {
-	connFactory    func() (RawConnection, error)
-	connection     RawConnection
+	target         string
+	connection     rawConnection
 	connectionLock sync.RWMutex
 	messageBuffer  *bytes.Buffer
 	messageEncoder *gob.Encoder
@@ -57,8 +65,8 @@ type ManagedConnection struct {
 // that can only send messages to the endpoint it connects to.
 // The connection will continuously be kept alive and reconnected
 // in case of a loss of connectivity.
-func NewDurableSendingConnection(connFactory func() (RawConnection, error)) *ManagedConnection {
-	conn := newConnection(connFactory)
+func NewDurableSendingConnection(target string) *ManagedConnection {
+	conn := newConnection(target)
 
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
@@ -90,10 +98,10 @@ func NewDurableSendingConnection(connFactory func() (RawConnection, error)) *Man
 }
 
 // newConnection creates a new connection primitive.
-func newConnection(connFactory func() (RawConnection, error)) *ManagedConnection {
+func newConnection(target string) *ManagedConnection {
 	buffer := &bytes.Buffer{}
 	conn := &ManagedConnection{
-		connFactory:    connFactory,
+		target:         target,
 		messageBuffer:  buffer,
 		messageEncoder: gob.NewEncoder(buffer),
 		closeChan:      make(chan struct{}, 1),
@@ -110,7 +118,7 @@ func (c *ManagedConnection) connect() (err error) {
 		Steps:    20,
 		Jitter:   0.5,
 	}, func() (bool, error) {
-		conn, err := c.connFactory()
+		conn, err := connFactory(c.target)
 		if err != nil {
 			return false, nil
 		}
