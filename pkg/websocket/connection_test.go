@@ -157,15 +157,15 @@ func TestCloseIgnoresNoConnection(t *testing.T) {
 
 func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 	testConn := &inspectableConnection{
-		nextReaderCalls:   make(chan struct{}, 1),
-		writeMessageCalls: make(chan struct{}, 1),
-		closeCalls:        make(chan struct{}, 2),
+		nextReaderCalls:   make(chan struct{}),
+		writeMessageCalls: make(chan struct{}),
+		closeCalls:        make(chan struct{}),
 
 		nextReaderFunc: func() (int, io.Reader, error) {
 			return 1, nil, errors.New("next reader errored")
 		},
 	}
-	connectAttempts := make(chan struct{}, 1)
+	connectAttempts := make(chan struct{})
 	connFactory = func(_ string) (rawConnection, error) {
 		connectAttempts <- struct{}{}
 		return testConn, nil
@@ -181,19 +181,19 @@ func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 		<-testConn.closeCalls
 	}
 
-	conn.Close()
+	// Enter the reconnect loop
+	<-connectAttempts
 
-	// If the close signal raced the reconnect loop, consume
-	// the tokens put on the channels
-
-	if len(connectAttempts) == 1 {
-		<-connectAttempts
-		<-testConn.nextReaderCalls
-		<-testConn.closeCalls
-	}
-
-	// Wait for 2 Close calls (the explicit above and the implicit)
+	// Call 'Close' asynchronously and wait for it to reach
+	// the channel.
+	go conn.Close()
 	<-testConn.closeCalls
+
+	// Advance the reconnect loop until 'Close' is called.
+	<-testConn.nextReaderCalls
+	<-testConn.closeCalls
+
+	// Wait for the final call to 'Close' (when the loop is aborted)
 	<-testConn.closeCalls
 
 	if len(connectAttempts) > 1 {

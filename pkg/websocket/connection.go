@@ -55,10 +55,18 @@ type rawConnection interface {
 type ManagedConnection struct {
 	target         string
 	connection     rawConnection
-	connectionLock sync.RWMutex
 	messageBuffer  *bytes.Buffer
 	messageEncoder *gob.Encoder
 	closeChan      chan struct{}
+
+	// This mutex controls access to the connection reference
+	// itself.
+	connectionLock sync.RWMutex
+
+	// Gorilla's documentation states, that one reader and
+	// one writer are allowed concurrently.
+	readerLock sync.Mutex
+	writerLock sync.Mutex
 }
 
 // NewDurableSendingConnection creates a new websocket connection
@@ -135,12 +143,20 @@ func (c *ManagedConnection) connect() (err error) {
 // keepalive keeps the connection open and reads control messages.
 // All messages are discarded.
 func (c *ManagedConnection) keepalive() (err error) {
-	c.connectionLock.RLock()
-	defer c.connectionLock.RUnlock()
+	c.readerLock.Lock()
+	defer c.readerLock.Unlock()
 
 	for {
-		if _, _, err := c.connection.NextReader(); err != nil {
-			c.connection.Close()
+		func() {
+			c.connectionLock.RLock()
+			defer c.connectionLock.RUnlock()
+
+			if _, _, err = c.connection.NextReader(); err != nil {
+				c.connection.Close()
+			}
+		}()
+
+		if err != nil {
 			return err
 		}
 	}
@@ -150,6 +166,9 @@ func (c *ManagedConnection) keepalive() (err error) {
 func (c *ManagedConnection) Send(msg interface{}) error {
 	c.connectionLock.RLock()
 	defer c.connectionLock.RUnlock()
+
+	c.writerLock.Lock()
+	defer c.writerLock.Unlock()
 
 	if c.connection == nil {
 		return ErrConnectionNotEstablished
