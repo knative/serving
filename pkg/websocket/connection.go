@@ -53,11 +53,9 @@ type rawConnection interface {
 
 // ManagedConnection represents a websocket connection.
 type ManagedConnection struct {
-	target         string
-	connection     rawConnection
-	messageBuffer  *bytes.Buffer
-	messageEncoder *gob.Encoder
-	closeChan      chan struct{}
+	target     string
+	connection rawConnection
+	closeChan  chan struct{}
 
 	// This mutex controls access to the connection reference
 	// itself.
@@ -107,12 +105,9 @@ func NewDurableSendingConnection(target string) *ManagedConnection {
 
 // newConnection creates a new connection primitive.
 func newConnection(target string) *ManagedConnection {
-	buffer := &bytes.Buffer{}
 	conn := &ManagedConnection{
-		target:         target,
-		messageBuffer:  buffer,
-		messageEncoder: gob.NewEncoder(buffer),
-		closeChan:      make(chan struct{}, 1),
+		target:    target,
+		closeChan: make(chan struct{}, 1),
 	}
 
 	return conn
@@ -174,11 +169,13 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 		return ErrConnectionNotEstablished
 	}
 
-	if err := c.messageEncoder.Encode(msg); err != nil {
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(msg); err != nil {
 		return err
 	}
 
-	return c.connection.WriteMessage(websocket.BinaryMessage, c.messageBuffer.Bytes())
+	return c.connection.WriteMessage(websocket.BinaryMessage, b.Bytes())
 }
 
 // Close closes the websocket connection.
