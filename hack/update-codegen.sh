@@ -18,8 +18,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
+
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -28,13 +29,13 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-g
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
   "serving:v1alpha1 autoscaling:v1alpha1" \
-  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen --input-dirs \
   github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config,github.com/knative/serving/pkg/autoscaler,github.com/knative/serving/pkg/logging \
   -O zz_generated.deepcopy \
-  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date
-${SERVING_ROOT}/hack/update-deps.sh
+${REPO_ROOT_DIR}/hack/update-deps.sh
