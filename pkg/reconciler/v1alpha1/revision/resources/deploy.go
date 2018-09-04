@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/knative/pkg/logging"
@@ -110,7 +109,7 @@ func rewriteUserProbe(p *corev1.Probe) {
 	}
 }
 
-func makePodSpec(ctx context.Context, rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
@@ -120,7 +119,7 @@ func makePodSpec(ctx context.Context, rev *v1alpha1.Revision, loggingConfig *log
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 	userContainer.Env = append(userContainer.Env, userEnv)
-	userContainer.Env = append(userContainer.Env, GetKnativeEnvVar(ctx, rev))
+	userContainer.Env = append(userContainer.Env, GetKnativeEnvVar(rev)...)
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)
@@ -144,7 +143,7 @@ func makePodSpec(ctx context.Context, rev *v1alpha1.Revision, loggingConfig *log
 	return podSpec
 }
 
-func MakeDeployment(ctx context.Context, rev *v1alpha1.Revision,
+func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
@@ -183,7 +182,7 @@ func MakeDeployment(ctx context.Context, rev *v1alpha1.Revision,
 					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *makePodSpec(ctx, rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
+				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
 			},
 		},
 	}
