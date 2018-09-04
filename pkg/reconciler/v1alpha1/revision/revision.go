@@ -211,8 +211,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
-	ctx = commonlogging.WithLogger(ctx, logger)
+	logger := commonlogging.FromContext(ctx)
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name
