@@ -224,15 +224,10 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 }
 
 func TestRetryRoundTripperNilBody(t *testing.T) {
-	retry := RetryerFunc(func(action ActionFunc) int {
-		action()
-		return 1
-	})
-
 	rt := NewRetryRoundTripper(
 		http.DefaultTransport,
 		TestLogger(t),
-		retry,
+		wait.Backoff{Steps: 1},
 		RetryStatus(http.StatusInternalServerError),
 	)
 
