@@ -26,10 +26,6 @@ required = [
   version = "v2.2.1"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/golang/glog"
-
-[[constraint]]
   name = "github.com/knative/build"
   # HEAD as of 2018-08-08
   revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
