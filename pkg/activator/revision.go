@@ -144,7 +144,7 @@ func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (en
 		}
 	}
 	if port == -1 {
-		return internalError("Revision needs external port. Found %v", len(svc.Spec.Ports))
+		return end, fmt.Errorf("Revision needs external. Found %v", len(svc.Spec.Ports))
 	}
 
 	return Endpoint{
