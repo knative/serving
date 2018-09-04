@@ -23,11 +23,6 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +32,13 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (

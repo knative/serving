@@ -23,14 +23,15 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 )
 
 func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traffic.TrafficConfig) error {

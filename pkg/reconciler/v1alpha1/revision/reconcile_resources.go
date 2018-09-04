@@ -22,20 +22,20 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-
 	"go.uber.org/zap"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 )
 
 const (

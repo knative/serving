@@ -22,20 +22,19 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/knative/pkg/logging"
 	commonlogging "github.com/knative/pkg/logging"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-
 	"go.uber.org/zap"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
+
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {

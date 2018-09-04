@@ -22,11 +22,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
+
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 )
 
 const (
