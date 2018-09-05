@@ -21,14 +21,15 @@ import (
 	"reflect"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 )
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route,
