@@ -45,7 +45,7 @@ EMIT_METRICS=0
 function exit_if_presubmit_not_required() {
   if [[ -n "${PULL_PULL_SHA}" ]]; then
     # On a presubmit job
-    local changes="$(git diff --name-only ${PULL_PULL_SHA} ${PULL_BASE_SHA})"
+    local changes="$(/workspace/githubhelper -list-changed-files)"
     local no_presubmit_pattern="${NO_PRESUBMIT_FILES[*]}"
     local no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
     echo -e "Changed files in commit ${PULL_PULL_SHA}:\n${changes}"

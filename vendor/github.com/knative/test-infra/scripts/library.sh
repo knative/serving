@@ -29,7 +29,7 @@ readonly KNATIVE_BUILD_RELEASE=https://storage.googleapis.com/knative-releases/b
 readonly KNATIVE_EVENTING_RELEASE=https://storage.googleapis.com/knative-releases/eventing/latest/release.yaml
 
 # Useful environment variables
-[[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
+[[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
