@@ -40,6 +40,7 @@ var (
 )
 
 func TestMakePodSpec(t *testing.T) {
+	labels := map[string]string{serving.ConfigurationLabelKey: "cfg", serving.ServiceLabelKey: "svc"}
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -55,6 +56,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
@@ -81,10 +83,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -131,6 +133,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -164,10 +167,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -214,6 +217,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -256,10 +260,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -306,6 +310,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -346,10 +351,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -396,6 +401,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -438,10 +444,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -488,6 +494,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -526,10 +533,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
@@ -576,6 +583,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
@@ -605,10 +613,10 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "bar",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_CONFIGURATION_NAME",
-						Value: "",
+						Value: "cfg",
 					}, corev1.EnvVar{
 						Name:  "KNATIVE_SERVICE_NAME",
-						Value: "",
+						Value: "svc",
 					}},
 			}, {
 				Name:           queueContainerName,
