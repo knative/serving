@@ -79,13 +79,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -163,13 +163,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -256,13 +256,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -347,13 +347,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -440,13 +440,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -529,13 +529,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -609,13 +609,13 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					corev1.EnvVar{
-						Name:  "KNATIVE_REVISION_NAME",
+						Name:  "K_REVISION",
 						Value: "bar",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_CONFIGURATION_NAME",
+						Name:  "K_CONFIGURATION",
 						Value: "cfg",
 					}, corev1.EnvVar{
-						Name:  "KNATIVE_SERVICE_NAME",
+						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
 			}, {
@@ -728,13 +728,13 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "PORT",
 					Value: "8080",
 				}, {
-					Name:  "KNATIVE_REVISION_NAME",
+					Name:  "K_REVISION",
 					Value: "bar",
 				}, {
-					Name:  "KNATIVE_CONFIGURATION_NAME",
+					Name:  "K_CONFIGURATION",
 					Value: "",
 				}, {
-					Name:  "KNATIVE_SERVICE_NAME",
+					Name:  "K_SERVICE",
 					Value: "",
 				}},
 				Resources:    userResources,

@@ -23,32 +23,24 @@ import (
 )
 
 const (
-	knativeRevisionEnvVariableKey      = "KNATIVE_REVISION_NAME"
-	knativeConfigurationEnvVariableKey = "KNATIVE_CONFIGURATION_NAME"
-	knativeServiceEnvVariableKey       = "KNATIVE_SERVICE_NAME"
+	knativeRevisionEnvVariableKey      = "K_REVISION"
+	knativeConfigurationEnvVariableKey = "K_CONFIGURATION"
+	knativeServiceEnvVariableKey       = "K_SERVICE"
 )
 
-// GetKnativeEnvVar create an EnvVar object containing revison, service and configuraiton names
-func GetKnativeEnvVar(rev *v1alpha1.Revision) []corev1.EnvVar {
-
-	revLabels := rev.Labels
-
-	revNameEnvVar := corev1.EnvVar{
-		Name:  knativeRevisionEnvVariableKey,
-		Value: rev.Name,
+func getKnativeEnvVar(rev *v1alpha1.Revision) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  knativeRevisionEnvVariableKey,
+			Value: rev.Name,
+		},
+		{
+			Name:  knativeConfigurationEnvVariableKey,
+			Value: rev.Labels[serving.ConfigurationLabelKey],
+		},
+		{
+			Name:  knativeServiceEnvVariableKey,
+			Value: rev.Labels[serving.ServiceLabelKey],
+		},
 	}
-
-	configNameEnvVar := corev1.EnvVar{
-		Name:  knativeConfigurationEnvVariableKey,
-		Value: revLabels[serving.ConfigurationLabelKey],
-	}
-
-	serviceNameEnvVar := corev1.EnvVar{
-		Name:  knativeServiceEnvVariableKey,
-		Value: revLabels[serving.ServiceLabelKey],
-	}
-
-	envVars := []corev1.EnvVar{revNameEnvVar, configNameEnvVar, serviceNameEnvVar}
-
-	return envVars
 }

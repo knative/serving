@@ -1705,6 +1705,7 @@ func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateTy
 func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
+
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
 	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
