@@ -207,8 +207,8 @@ Once the codegen and dependency information is correct, redeploying the controll
 ko apply -f config/controller.yaml
 ```
 
-Or you can [clean it up completely](./README.md#clean-up) and [completely
-redeploy `Knative Serving`](./README.md#start-knative).
+Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and [completely
+redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
 
 ## Clean up
 
