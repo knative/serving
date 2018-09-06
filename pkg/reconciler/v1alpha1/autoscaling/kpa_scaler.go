@@ -18,6 +18,8 @@ package autoscaling
 
 import (
 	"context"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -84,6 +86,46 @@ func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
 	return ks.autoscalerConfig.DeepCopy()
 }
 
+func scaleBoundInt32(ctx context.Context, kpa *kpa.PodAutoscaler, key string) int32 {
+	logger := logging.FromContext(ctx)
+	if s, ok := kpa.Annotations[key]; ok {
+		i, err := strconv.ParseInt(s, 10, 32)
+		if err != nil || i < 0 {
+			logger.Debugf("value of %s must be positive integer", key)
+			return 0
+		}
+		return int32(i)
+	}
+	return 0
+}
+
+func getScaleBounds(ctx context.Context, kpa *kpa.PodAutoscaler) (int32, int32) {
+	logger := logging.FromContext(ctx)
+
+	min := scaleBoundInt32(ctx, kpa, autoscaling.MinScaleAnnotationKey)
+	max := scaleBoundInt32(ctx, kpa, autoscaling.MaxScaleAnnotationKey)
+
+	if max != 0 && min > max {
+		logger.Debugf("%s must be less than or equal %s, adjusting min = max", autoscaling.MinScaleAnnotationKey, autoscaling.MaxScaleAnnotationKey)
+		min = max
+	}
+
+	return min, max
+}
+
+// pre: 0 <= min <= max && 0 <= x
+func applyBounds(min, max int32) func(int32) int32 {
+	return func(x int32) int32 {
+		if min > 0 && x < min {
+			return min
+		}
+		if max > 0 && x > max {
+			return max
+		}
+		return x
+	}
+}
+
 // Scale attempts to scale the given KPA's target reference to the desired scale.
 func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	logger := logging.FromContext(ctx)
@@ -130,6 +172,11 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return err
 	}
 
+	if newScale := applyBounds(getScaleBounds(ctx, kpa))(desiredScale); newScale != desiredScale {
+		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
+		desiredScale = newScale
+	}
+
 	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		logger.Debug("Setting revision ServingState to Reserve.")
@@ -143,13 +190,12 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	// When ServingState=Reserve (see above) propagates to us, then actually scale
 	// things to zero.
-	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
+	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		// Delay the scale to zero until the LTT of "Active=False" is some time in the past.
 		if !kpa.Status.CanScaleToZero(rs.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
 			return nil
 		}
-		desiredScale = 0
 	}
 
 	currentScale := scl.Spec.Replicas

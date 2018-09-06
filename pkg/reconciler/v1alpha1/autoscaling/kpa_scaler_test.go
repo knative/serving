@@ -105,12 +105,12 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  10,
 		wantScaling:   true,
 	}, {
-		label:         "scales up inactive revision",
+		label:         "scale up inactive revision",
 		startState:    v1alpha1.RevisionServingStateReserve,
 		startReplicas: 1,
 		scaleTo:       10,
 		wantState:     v1alpha1.RevisionServingStateReserve,
-		wantReplicas:  0,
+		wantReplicas:  10,
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
