@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -107,26 +108,28 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 // Delete will delete all Routes and Configs with the names routes and configs, if clients
 // has been successfully initialized.
 func (clients *ServingClients) Delete(routes []string, configs []string, services []string) error {
-
-	if clients.Routes != nil {
-		for _, route := range routes {
-			if err := clients.Routes.Delete(route, nil); err != nil {
-				return err
-			}
+	deletions := []struct {
+		client interface {
+			Delete(name string, options *v1.DeleteOptions) error
 		}
+		items []string
+	}{
+		{clients.Routes, routes},
+		{clients.Configs, configs},
+		{clients.Services, services},
 	}
 
-	if clients.Configs != nil {
-		for _, config := range configs {
-			if err := clients.Configs.Delete(config, nil); err != nil {
-				return err
-			}
+	for _, deletion := range deletions {
+		if deletion.client == nil {
+			continue
 		}
-	}
 
-	if clients.Services != nil {
-		for _, s := range services {
-			if err := clients.Services.Delete(s, nil); err != nil {
+		for _, item := range deletion.items {
+			if item == "" {
+				continue
+			}
+
+			if err := deletion.client.Delete(item, nil); err != nil {
 				return err
 			}
 		}
