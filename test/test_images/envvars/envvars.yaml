@@ -13,32 +13,15 @@
 # limitations under the License.
 
 apiVersion: serving.knative.dev/v1alpha1
-kind: Configuration
+kind: Service
 metadata:
-  name: configuration-example
-  namespace: default
+  name: service-example
 spec:
-  revisionTemplate:
-    metadata:
-      labels:
-        knative.dev/type: app
-    spec:
-      container:
-        # This is the Go import path for the binary to containerize
-        # and substitute here.
-        image: github.com/knative/serving/test_images/envvars
-        readinessProbe:
-          httpGet:
-            path: /
-          initialDelaySeconds: 3
-          periodSeconds: 3
----
-apiVersion: serving.knative.dev/v1alpha1
-kind: Route
-metadata:
-  name: route-example
-  namespace: default
-spec:
-  traffic:
-  - configurationName: configuration-example
-    percent: 100
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            # This is the Go import path for the binary to containerize
+            # and substitute here.
+            image: github.com/knative/serving/test_images/envvars
