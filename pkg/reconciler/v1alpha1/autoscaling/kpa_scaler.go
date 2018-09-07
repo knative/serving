@@ -90,8 +90,8 @@ func scaleBoundInt32(ctx context.Context, kpa *kpa.PodAutoscaler, key string) in
 	logger := logging.FromContext(ctx)
 	if s, ok := kpa.Annotations[key]; ok {
 		i, err := strconv.ParseInt(s, 10, 32)
-		if err != nil || i < 0 {
-			logger.Debugf("value of %s must be positive integer", key)
+		if err != nil || i < 1 {
+			logger.Debugf("value of %s must be an integer greater than 0", key)
 			return 0
 		}
 		return int32(i)
@@ -116,10 +116,10 @@ func getScaleBounds(ctx context.Context, kpa *kpa.PodAutoscaler) (int32, int32) 
 // pre: 0 <= min <= max && 0 <= x
 func applyBounds(min, max int32) func(int32) int32 {
 	return func(x int32) int32 {
-		if min > 0 && x < min {
+		if x < min {
 			return min
 		}
-		if max > 0 && x > max {
+		if max != 0 && x > max {
 			return max
 		}
 		return x
