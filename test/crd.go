@@ -102,6 +102,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 					Container: corev1.Container{
 						Image: imagePath,
 					},
+					ContainerConcurrency: 10,
 				},
 			},
 		},
