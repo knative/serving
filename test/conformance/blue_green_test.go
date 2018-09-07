@@ -245,6 +245,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// It doesn't matter which domain we probe, we just need to choose one.
+	logger.Infof("Probing domain %s", tealDomain)
 	if err := probeDomain(logger, clients, tealDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
 	}
