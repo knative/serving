@@ -34,8 +34,8 @@ import (
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap.AtomicLevel) {
-	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride)
+func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
+	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride, opts)
 	if err == nil {
 		return logger.Sugar(), atomicLevel
 	}
@@ -47,7 +47,7 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 		}
 	}
 
-	logger, err2 := loggingCfg.Build()
+	logger, err2 := loggingCfg.Build(opts...)
 	if err2 != nil {
 		panic(err2)
 	}
@@ -55,12 +55,12 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
-func NewLoggerFromConfig(config *Config, name string) (*zap.SugaredLogger, zap.AtomicLevel) {
-	logger, level := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String())
+func NewLoggerFromConfig(config *Config, name string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
+	logger, level := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String(), opts...)
 	return logger.Named(name), level
 }
 
-func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, zap.AtomicLevel, error) {
+func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Option) (*zap.Logger, zap.AtomicLevel, error) {
 	if len(configJSON) == 0 {
 		return nil, zap.AtomicLevel{}, errors.New("empty logging configuration")
 	}
@@ -76,7 +76,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 		}
 	}
 
-	logger, err := loggingCfg.Build()
+	logger, err := loggingCfg.Build(opts...)
 	if err != nil {
 		return nil, zap.AtomicLevel{}, err
 	}
