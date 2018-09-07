@@ -159,6 +159,11 @@ spec:
     metadata: ...
       labels:
         knative.dev/type: "function"  # One of "function" or "app"
+      annotations:
+        # +optional. When not specified, the revision can scale down to 0 pods
+        autoscaling.knative.dev/minReplicaCount: "2"  
+        # +optional. When not specified, there's no upper scale bound
+        autoscaling.knative.dev/maxReplicaCount: "10"  
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. if rolling back, the client may set this to the
@@ -228,6 +233,12 @@ metadata:
     knative.dev/revisionUID: ... # generated revision UID
   annotations:
     knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
+    # +optional. Can be changed by the Operator
+    # When not specified, the revision can scale down to 0 pods
+    autoscaling.knative.dev/minReplicaCount: "2"  
+    # +optional. Can be changed by the Operator
+    # When not specified, there's no upper scale bound
+    autoscaling.knative.dev/maxReplicaCount: "10"  
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
