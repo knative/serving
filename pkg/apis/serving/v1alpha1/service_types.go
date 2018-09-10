@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 )
@@ -192,6 +193,10 @@ func (s *Service) SetGeneration(generation int64) {
 
 func (s *Service) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(s.Spec)
+}
+
+func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Service")
 }
 
 func (ss *ServiceStatus) IsReady() bool {

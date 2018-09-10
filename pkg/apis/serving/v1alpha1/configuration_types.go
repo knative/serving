@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 )
@@ -154,6 +155,10 @@ func (r *Configuration) SetGeneration(generation int64) {
 
 func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
+}
+
+func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Configuration")
 }
 
 // IsReady looks at the conditions on the ConfigurationStatus.

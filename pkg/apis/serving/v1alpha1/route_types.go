@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 )
@@ -182,6 +183,10 @@ func (r *Route) SetGeneration(generation int64) {
 
 func (r *Route) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
+}
+
+func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Route")
 }
 
 func (rs *RouteStatus) IsReady() bool {

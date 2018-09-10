@@ -17,30 +17,16 @@ limitations under the License.
 package reconciler
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func kind(obj metav1.Object) schema.GroupVersionKind {
-	switch obj.(type) {
-	case *v1alpha1.Service:
-		return v1alpha1.SchemeGroupVersion.WithKind("Service")
-	case *v1alpha1.Route:
-		return v1alpha1.SchemeGroupVersion.WithKind("Route")
-	case *v1alpha1.Configuration:
-		return v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-	case *v1alpha1.Revision:
-		return v1alpha1.SchemeGroupVersion.WithKind("Revision")
-	default:
-		panic(fmt.Sprintf("Unsupported object type %T", obj))
-	}
+type NewControllerRefable interface {
+	metav1.ObjectMetaAccessor
+	GetGroupVersionKind() schema.GroupVersionKind
 }
 
 // NewControllerRef creates an OwnerReference pointing to the given Resource.
-func NewControllerRef(obj metav1.Object) *metav1.OwnerReference {
-	return metav1.NewControllerRef(obj, kind(obj))
+func NewControllerRef(obj NewControllerRefable) *metav1.OwnerReference {
+	return metav1.NewControllerRef(obj.GetObjectMeta(), obj.GetGroupVersionKind())
 }

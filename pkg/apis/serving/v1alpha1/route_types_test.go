@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestRouteGeneration(t *testing.T) {
@@ -266,5 +267,17 @@ func checkConditionRoute(rs RouteStatus, rct RouteConditionType, cs corev1.Condi
 	}
 	if r.Status != cs {
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
+	}
+}
+
+func TestRouteGetGroupVersionKind(t *testing.T) {
+	r := &Route{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Route",
+	}
+	if got := r.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

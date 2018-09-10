@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
@@ -594,4 +595,16 @@ func checkConditionRevision(rs RevisionStatus, rct RevisionConditionType, cs cor
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
 	}
 	return r
+}
+
+func TestRevisionGetGroupVersionKind(t *testing.T) {
+	r := &Revision{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Revision",
+	}
+	if got := r.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
 }
