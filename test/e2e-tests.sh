@@ -38,7 +38,7 @@ function create_istio() {
 }
 
 function create_monitoring() {
-  echo ">> Bringing up monitoring"
+  echo ">> Bringing up Monitoring"
   kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
@@ -69,12 +69,12 @@ function create_everything() {
 
 function delete_istio() {
   echo ">> Bringing down Istio"
-  kubectl delete -f ${ISTIO_YAML}
+  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
 function delete_monitoring() {
-  echo ">> Bringing down monitoring"
+  echo ">> Bringing down Monitoring"
   kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
