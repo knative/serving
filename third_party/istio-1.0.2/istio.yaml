@@ -271,6 +271,10 @@ data:
       # for more details
       proxyAdminPort: 15000
       #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: 0
+      #
       # Zipkin trace collector
       zipkinAddress: zipkin.istio-system:9411
       #
@@ -282,6 +286,166 @@ data:
       #
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-system:15007
+
+---
+# Source: istio/templates/sidecar-injector-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+  labels:
+    app: istio
+    chart: istio-1.0.1
+    release: RELEASE-NAME
+    heritage: Tiller
+    istio: sidecar-injector
+data:
+  config: |-
+    policy: disabled
+    template: |-
+      initContainers:
+      - name: istio-init
+        image: "docker.io/istio/proxy_init:1.0.2"
+        args:
+        - "-p"
+        - [[ .MeshConfig.ProxyListenPort ]]
+        - "-u"
+        - 1337
+        - "-m"
+        - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+        - "-i"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"  ]]"
+        [[ else -]]
+        - "*"
+        [[ end -]]
+        - "-x"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges"  ]]"
+        [[ else -]]
+        - ""
+        [[ end -]]
+        - "-b"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts"  ]]"
+        [[ else -]]
+        - [[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]
+        - "-d"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
+        [[ else -]]
+        - ""
+        [[ end -]]
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          restartPolicy: Always
+      
+      containers:
+      - name: istio-proxy
+        image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
+        "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
+        [[ else -]]
+        docker.io/istio/proxyv2:1.0.2
+        [[ end -]]
+        args:
+        - proxy
+        - sidecar
+        - --configPath
+        - [[ .ProxyConfig.ConfigPath ]]
+        - --binaryPath
+        - [[ .ProxyConfig.BinaryPath ]]
+        - --serviceCluster
+        [[ if ne "" (index .ObjectMeta.Labels "app") -]]
+        - [[ index .ObjectMeta.Labels "app" ]]
+        [[ else -]]
+        - "istio-proxy"
+        [[ end -]]
+        - --drainDuration
+        - [[ formatDuration .ProxyConfig.DrainDuration ]]
+        - --parentShutdownDuration
+        - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
+        - --discoveryAddress
+        - [[ .ProxyConfig.DiscoveryAddress ]]
+        - --discoveryRefreshDelay
+        - [[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]
+        - --zipkinAddress
+        - [[ .ProxyConfig.ZipkinAddress ]]
+        - --connectTimeout
+        - [[ formatDuration .ProxyConfig.ConnectTimeout ]]
+        - --statsdUdpAddress
+        - [[ .ProxyConfig.StatsdUdpAddress ]]
+        - --proxyAdminPort
+        - [[ .ProxyConfig.ProxyAdminPort ]]
+        [[ if gt .ProxyConfig.Concurrency 0 -]]
+        - --concurrency
+        - [[ .ProxyConfig.Concurrency ]]
+        [[ end -]]
+        - --controlPlaneAuthPolicy
+        - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/controlPlaneAuthPolicy") .ProxyConfig.ControlPlaneAuthPolicy ]]
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: true
+          [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsGroup: 1337
+          [[ else -]]
+          runAsUser: 1337
+          [[ end -]]
+        restartPolicy: Always
+        resources:
+          [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyCPU") -]]
+          requests:
+            cpu: "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyCPU" ]]"
+            memory: "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyMemory" ]]"
+        [[ else -]]
+          requests:
+            cpu: 10m
+          
+        [[ end -]]
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          [[ if eq .Spec.ServiceAccountName "" -]]
+          secretName: istio.default
+          [[ else -]]
+          secretName: [[ printf "istio.%s" .Spec.ServiceAccountName ]]
+          [[ end -]]
 
 ---
 # Source: istio/charts/galley/templates/serviceaccount.yaml
@@ -461,6 +625,19 @@ metadata:
   labels:
     app: security
     chart: security-1.0.1
+    heritage: Tiller
+    release: RELEASE-NAME
+
+---
+# Source: istio/charts/sidecarInjectorWebhook/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-sidecar-injector-service-account
+  namespace: istio-system
+  labels:
+    app: istio-sidecar-injector
+    chart: sidecarInjectorWebhook-1.0.1
     heritage: Tiller
     release: RELEASE-NAME
 
@@ -1697,6 +1874,25 @@ rules:
   verbs: ["get", "watch", "list"]
 
 ---
+# Source: istio/charts/sidecarInjectorWebhook/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio-sidecar-injector-istio-system
+  labels:
+    app: istio-sidecar-injector
+    chart: sidecarInjectorWebhook-1.0.1
+    heritage: Tiller
+    release: RELEASE-NAME
+rules:
+- apiGroups: ["*"]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations"]
+  verbs: ["get", "list", "watch", "patch"]
+
+---
 # Source: istio/charts/galley/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -1804,6 +2000,26 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-citadel-service-account
+    namespace: istio-system
+
+---
+# Source: istio/charts/sidecarInjectorWebhook/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-sidecar-injector-admin-role-binding-istio-system
+  labels:
+    app: istio-sidecar-injector
+    chart: sidecarInjectorWebhook-1.0.1
+    heritage: Tiller
+    release: RELEASE-NAME
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-sidecar-injector-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-sidecar-injector-service-account
     namespace: istio-system
 
 ---
@@ -2066,6 +2282,21 @@ spec:
     istio: citadel
 
 ---
+# Source: istio/charts/sidecarInjectorWebhook/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+  labels:
+    istio: sidecar-injector
+spec:
+  ports:
+  - port: 443
+  selector:
+    istio: sidecar-injector
+
+---
 # Source: istio/charts/galley/templates/deployment.yaml
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -2095,7 +2326,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: validator
-          image: "docker.io/istio/galley:1.0.1"
+          image: "docker.io/istio/galley:1.0.2"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -2209,7 +2440,7 @@ spec:
       serviceAccountName: istio-egressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.1"
+          image: "docker.io/istio/proxyv2:1.0.2"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -2345,7 +2576,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.1"
+          image: "docker.io/istio/proxyv2:1.0.2"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -2530,7 +2761,7 @@ spec:
                 - s390x
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.0.1"
+        image: "docker.io/istio/mixer:1.0.2"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9093
@@ -2555,7 +2786,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/istio/proxyv2:1.0.1"
+        image: "docker.io/istio/proxyv2:1.0.2"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2627,7 +2858,7 @@ spec:
         emptyDir: {}
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.0.1"
+        image: "docker.io/istio/mixer:1.0.2"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9093
@@ -2652,7 +2883,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/istio/proxyv2:1.0.1"
+        image: "docker.io/istio/proxyv2:1.0.2"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2724,7 +2955,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.0.1"
+          image: "docker.io/istio/pilot:1.0.2"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -2769,7 +3000,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.1"
+          image: "docker.io/istio/proxyv2:1.0.2"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 15003
@@ -2877,19 +3108,134 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.0.1"
+          image: "docker.io/istio/citadel:1.0.2"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
             - --grpc-port=8060
             - --grpc-hostname=citadel
             - --citadel-storage-namespace=istio-system
-            - --custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system,istio-ingressgateway-service-account.istio-system:istio-ingress.istio-system
+            - --custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system,istio-ingressgateway-service-account.istio-system:istio-ingressgateway.istio-system
             - --self-signed-ca=true
           resources:
             requests:
               cpu: 10m
             
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+
+---
+# Source: istio/charts/sidecarInjectorWebhook/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+  labels:
+    app: sidecarInjectorWebhook
+    chart: sidecarInjectorWebhook-1.0.1
+    release: RELEASE-NAME
+    heritage: Tiller
+    istio: sidecar-injector
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: sidecar-injector
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-sidecar-injector-service-account
+      containers:
+        - name: sidecar-injector-webhook
+          image: "docker.io/istio/sidecar_injector:1.0.2"
+          imagePullPolicy: IfNotPresent
+          args:
+            - --caCertFile=/etc/istio/certs/root-cert.pem
+            - --tlsCertFile=/etc/istio/certs/cert-chain.pem
+            - --tlsKeyFile=/etc/istio/certs/key.pem
+            - --injectConfig=/etc/istio/inject/config
+            - --meshConfig=/etc/istio/config/mesh
+            - --healthCheckInterval=2s
+            - --healthCheckFile=/health
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+            readOnly: true
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+          - name: inject-config
+            mountPath: /etc/istio/inject
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=4s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=4s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          resources:
+            requests:
+              cpu: 10m
+            
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: certs
+        secret:
+          secretName: istio.istio-sidecar-injector-service-account
+      - name: inject-config
+        configMap:
+          name: istio-sidecar-injector
+          items:
+          - key: config
+            path: config
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -3046,6 +3392,40 @@ spec:
 ---
 
 ---
+# Source: istio/charts/sidecarInjectorWebhook/templates/mutatingwebhook.yaml
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+  labels:
+    app: istio-sidecar-injector
+    chart: sidecarInjectorWebhook-1.0.1
+    release: RELEASE-NAME
+    heritage: Tiller
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istio-sidecar-injector
+        namespace: istio-system
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+
+
+---
 # Source: istio/charts/galley/templates/validatingwehookconfiguration.yaml.tpl
 
 
@@ -3073,10 +3453,6 @@ spec:
 
 ---
 # Source: istio/templates/install-custom-resources.sh.tpl
-
-
----
-# Source: istio/templates/sidecar-injector-configmap.yaml
 
 
 ---
