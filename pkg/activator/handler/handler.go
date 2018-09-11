@@ -20,7 +20,6 @@ import (
 	"net/url"
 
 	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 )
 
@@ -33,9 +32,9 @@ type ActivationHandler struct {
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
-	name := r.Header.Get(reconciler.GetRevisionHeaderName())
-	config := r.Header.Get(reconciler.GetConfigurationHeader())
+	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
+	name := r.Header.Get(activator.RevisionHeaderName)
+	config := r.Header.Get(activator.ConfigurationHeader)
 
 	endpoint, status, err := a.Activator.ActiveEndpoint(namespace, config, name)
 
