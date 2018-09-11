@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -43,48 +45,28 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
-	loggingConfig := &logging.Config{}
-	observabilityConfig := &config.Observability{
-		LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
-	}
-	autoscalerConfig := &autoscaler.Config{}
-	controllerConfig := getTestControllerConfig()
-
 	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
 	rev := func(namespace, name, servingState, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image, ReconcilerTestConfig())
 	}
 	image := func(namespace, name, servingState, image string) *caching.Image {
-		i, err := getImage(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		i, err := getImage(namespace, name, v1alpha1.RevisionServingStateType(servingState), image, ReconcilerTestConfig())
 		if err != nil {
 			t.Fatalf("Error building image: %v", err)
 		}
 		return i
 	}
 	kpa := func(namespace, name, servingState, image string) *kpav1alpha1.PodAutoscaler {
-		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 	svc := func(namespace, name, servingState, image string) *corev1.Service {
-		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 	endpoints := func(namespace, name, servingState, image string) *corev1.Endpoints {
-		return getEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 
 	table := TableTest{{
@@ -1369,65 +1351,45 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:      listers.GetRevisionLister(),
-			kpaLister:           listers.GetKPALister(),
-			buildLister:         listers.GetBuildLister(),
-			imageLister:         listers.GetImageLister(),
-			deploymentLister:    listers.GetDeploymentLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			endpointsLister:     listers.GetEndpointsLister(),
-			configMapLister:     listers.GetConfigMapLister(),
-			controllerConfig:    controllerConfig,
-			networkConfig:       networkConfig,
-			loggingConfig:       loggingConfig,
-			observabilityConfig: observabilityConfig,
-			autoscalerConfig:    autoscalerConfig,
-			resolver:            &nopResolver{},
-			buildtracker:        &buildTracker{builds: map[key]set{}},
+			Base:             reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:   listers.GetRevisionLister(),
+			kpaLister:        listers.GetKPALister(),
+			buildLister:      listers.GetBuildLister(),
+			imageLister:      listers.GetImageLister(),
+			deploymentLister: listers.GetDeploymentLister(),
+			serviceLister:    listers.GetK8sServiceLister(),
+			endpointsLister:  listers.GetEndpointsLister(),
+			configMapLister:  listers.GetConfigMapLister(),
+			resolver:         &nopResolver{},
+			buildtracker:     &buildTracker{builds: map[key]set{}},
+			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
 		}
 	}))
 }
 
 func TestReconcileWithVarLogEnabled(t *testing.T) {
-	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
-	loggingConfig := &logging.Config{}
-	observabilityConfig := &config.Observability{
-		LoggingURLTemplate:     "http://logger.io/${REVISION_UID}",
-		EnableVarLogCollection: true,
-	}
-	autoscalerConfig := &autoscaler.Config{}
-	controllerConfig := getTestControllerConfig()
+	config := ReconcilerTestConfig()
+	config.Observability.EnableVarLogCollection = true
 
 	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
 	rev := func(namespace, name, servingState, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image, config)
 	}
 	image := func(namespace, name, servingState, image string) *caching.Image {
-		i, err := getImage(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		i, err := getImage(namespace, name, v1alpha1.RevisionServingStateType(servingState), image, config)
 		if err != nil {
 			t.Fatalf("Error building image: %v", err)
 		}
 		return i
 	}
 	kpa := func(namespace, name, servingState, image string) *kpav1alpha1.PodAutoscaler {
-		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getKPA(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 	svc := func(namespace, name, servingState, image string) *corev1.Service {
-		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
+		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image)
 	}
 
 	table := TableTest{{
@@ -1444,7 +1406,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			kpa("foo", "first-reconcile-var-log", "Active", "busybox"),
 			deploy("foo", "first-reconcile-var-log", "Active", "busybox"),
 			svc("foo", "first-reconcile-var-log", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "Active", "busybox"), observabilityConfig),
+			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "Active", "busybox"), config.Observability),
 			image("foo", "first-reconcile-var-log", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1488,7 +1450,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			// The first reconciliation of a Revision creates the following resources.
 			deploy("foo", "create-configmap-failure", "Active", "busybox"),
 			svc("foo", "create-configmap-failure", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "create-configmap-failure", "Active", "busybox"), observabilityConfig),
+			resources.MakeFluentdConfigMap(rev("foo", "create-configmap-failure", "Active", "busybox"), config.Observability),
 			image("foo", "create-configmap-failure", "Active", "busybox"),
 			// We don't create the autoscaler resources if we fail to create the fluentd configmap
 		},
@@ -1548,7 +1510,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			kpa("foo", "steady-state", "Active", "busybox"),
 			deploy("foo", "steady-state", "Active", "busybox"),
 			svc("foo", "steady-state", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "steady-state", "Active", "busybox"), observabilityConfig),
+			resources.MakeFluentdConfigMap(rev("foo", "steady-state", "Active", "busybox"), config.Observability),
 			image("foo", "steady-state", "Active", "busybox"),
 		},
 		Key: "foo/steady-state",
@@ -1586,7 +1548,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// Use the ObjectMeta, but discard the rest.
 				ObjectMeta: resources.MakeFluentdConfigMap(
 					rev("foo", "update-fluentd-config", "Active", "busybox"),
-					observabilityConfig,
+					config.Observability,
 				).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
@@ -1598,7 +1560,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			// We should see a single update to the configmap we expect.
 			Object: resources.MakeFluentdConfigMap(
 				rev("foo", "update-fluentd-config", "Active", "busybox"),
-				observabilityConfig,
+				config.Observability,
 			),
 		}},
 		Key: "foo/update-fluentd-config",
@@ -1637,7 +1599,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			svc("foo", "update-configmap-failure", "Active", "busybox"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig).ObjectMeta,
+				ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), config.Observability).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
@@ -1646,29 +1608,25 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig),
+			Object: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), config.Observability),
 		}},
 		Key: "foo/update-configmap-failure",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:      listers.GetRevisionLister(),
-			kpaLister:           listers.GetKPALister(),
-			buildLister:         listers.GetBuildLister(),
-			imageLister:         listers.GetImageLister(),
-			deploymentLister:    listers.GetDeploymentLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			endpointsLister:     listers.GetEndpointsLister(),
-			configMapLister:     listers.GetConfigMapLister(),
-			controllerConfig:    controllerConfig,
-			networkConfig:       networkConfig,
-			loggingConfig:       loggingConfig,
-			observabilityConfig: observabilityConfig,
-			autoscalerConfig:    autoscalerConfig,
-			resolver:            &nopResolver{},
-			buildtracker:        &buildTracker{builds: map[key]set{}},
+			Base:             reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:   listers.GetRevisionLister(),
+			kpaLister:        listers.GetKPALister(),
+			buildLister:      listers.GetBuildLister(),
+			imageLister:      listers.GetImageLister(),
+			deploymentLister: listers.GetDeploymentLister(),
+			serviceLister:    listers.GetK8sServiceLister(),
+			endpointsLister:  listers.GetEndpointsLister(),
+			configMapLister:  listers.GetConfigMapLister(),
+			resolver:         &nopResolver{},
+			buildtracker:     &buildTracker{builds: map[key]set{}},
+			configStore:      &testConfigStore{config: config},
 		}
 	}))
 }
@@ -1733,10 +1691,7 @@ func build(namespace, name string, conds ...buildv1alpha1.BuildCondition) *build
 	}
 }
 
-// The input signatures of these functions should be kept in sync for readability.
-func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *v1alpha1.Revision {
+func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: om(namespace, name),
 		Spec: v1alpha1.RevisionSpec{
@@ -1746,54 +1701,60 @@ func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateTy
 	}
 }
 
-func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
+func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string, config *config.Config) *appsv1.Deployment {
 
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
+	rev := getRev(namespace, name, servingState, image)
+	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
+		config.Autoscaler, config.Controller)
 }
 
-func getImage(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) (*caching.Image, error) {
-
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	deploy := resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
+func getImage(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string, config *config.Config) (*caching.Image, error) {
+	rev := getRev(namespace, name, servingState, image)
+	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
+		config.Autoscaler, config.Controller)
 	return resources.MakeImageCache(rev, deploy)
 }
 
-func getKPA(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *kpav1alpha1.PodAutoscaler {
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
+func getKPA(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *kpav1alpha1.PodAutoscaler {
+	rev := getRev(namespace, name, servingState, image)
 	return resources.MakeKPA(rev)
 }
 
-func getService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Service {
-
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
+func getService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *corev1.Service {
+	rev := getRev(namespace, name, servingState, image)
 	return resources.MakeK8sService(rev)
 }
 
-func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Endpoints {
-
-	service := getService(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
+func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *corev1.Endpoints {
+	service := getService(namespace, name, servingState, image)
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: service.Namespace,
 			Name:      service.Name,
 		},
+	}
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.WithConfig(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		Controller: getTestControllerConfig(),
+		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Observability: &config.Observability{
+			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
+		},
+		Logging:    &logging.Config{},
+		Autoscaler: &autoscaler.Config{},
 	}
 }

@@ -21,15 +21,23 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"sync"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -43,17 +51,6 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 )
 
 const (
@@ -75,7 +72,12 @@ const (
 )
 
 type resolver interface {
-	Resolve(*appsv1.Deployment) error
+	Resolve(*appsv1.Deployment, map[string]struct{}) error
+}
+
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -96,34 +98,8 @@ type Reconciler struct {
 	configMapLister  corev1listers.ConfigMapLister
 
 	buildtracker *buildTracker
-
-	resolver      resolver
-	resolverMutex sync.Mutex
-
-	// controllerConfig could change over time and access to it
-	// must go through controllerConfigMutex
-	controllerConfig      *config.Controller
-	controllerConfigMutex sync.Mutex
-
-	// networkConfig could change over time and access to it
-	// must go through networkConfigMutex
-	networkConfig      *config.Network
-	networkConfigMutex sync.Mutex
-
-	// loggingConfig could change over time and access to it
-	// must go through loggingConfigMutex
-	loggingConfig      *commonlogging.Config
-	loggingConfigMutex sync.Mutex
-
-	// observabilityConfig could change over time and access to it
-	// must go through observabilityConfigMutex
-	observabilityConfig      *config.Observability
-	observabilityConfigMutex sync.Mutex
-
-	// autoscalerConfig could change over time and access to it
-	// must go through autoscalerConfigMutex
-	autoscalerConfig      *autoscaler.Config
-	autoscalerConfigMutex sync.Mutex
+	resolver     resolver
+	configStore  configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -148,6 +124,8 @@ func NewController(
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 ) *controller.Impl {
 
+	configStore := &config.Store{}
+
 	c := &Reconciler{
 		Base:             reconciler.NewBase(opt, controllerAgentName),
 		vpaClient:        vpaClient,
@@ -160,7 +138,15 @@ func NewController(
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
+		configStore:      configStore,
+		resolver: &digestResolver{
+			client:    opt.KubeClientSet,
+			transport: http.DefaultTransport,
+		},
 	}
+
+	configStore.Logger = c.Logger.Named("config-store")
+
 	impl := controller.NewImpl(c, c.Logger, "Revisions")
 
 	// Set up an event handler for when the resource types of interest change
@@ -201,11 +187,10 @@ func NewController(
 		},
 	})
 
-	opt.ConfigMapWatcher.Watch(config.NetworkConfigName, c.receiveNetworkConfig)
-	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
-	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
-	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
-	opt.ConfigMapWatcher.Watch(config.ControllerConfigName, c.receiveControllerConfig)
+	// TODO(mattmoor): When we support reconciling Deployment differences,
+	// we should consider triggering a global reconciliation here to the
+	// logging configuration changes are rolled out to active revisions.
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
 }
@@ -222,6 +207,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	logger := commonlogging.FromContext(ctx)
 	logger.Info("Running reconcile Revision")
+
+	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Revision resource with this namespace/name
 	original, err := c.revisionLister.Revisions(namespace).Get(name)
@@ -257,7 +244,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeConditions()
-	c.updateRevisionLoggingURL(rev)
+	c.updateRevisionLoggingURL(ctx, rev)
 
 	if rev.Spec.BuildName != "" {
 		rev.Status.InitializeBuildCondition()
@@ -323,11 +310,21 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	return nil
 }
 
-func (c *Reconciler) updateRevisionLoggingURL(rev *v1alpha1.Revision) {
-	logURLTmpl := c.getObservabilityConfig().LoggingURLTemplate
-	if logURLTmpl != "" {
-		rev.Status.LogURL = strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
+func (c *Reconciler) updateRevisionLoggingURL(
+	ctx context.Context,
+	rev *v1alpha1.Revision,
+) {
+
+	config := config.FromContext(ctx)
+	if config.Observability.LoggingURLTemplate == "" {
+		return
 	}
+
+	uid := string(rev.UID)
+
+	rev.Status.LogURL = strings.Replace(
+		config.Observability.LoggingURLTemplate,
+		"${REVISION_UID}", uid, -1)
 }
 
 func (c *Reconciler) EnqueueBuildTrackers(impl *controller.Impl) func(obj interface{}) {
@@ -370,101 +367,4 @@ func (c *Reconciler) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 		//	return prClient.UpdateStatus(newRev)
 	}
 	return rev, nil
-}
-
-func (c *Reconciler) receiveNetworkConfig(configMap *corev1.ConfigMap) {
-	newNetworkConfig, err := config.NewNetworkFromConfigMap(configMap)
-	c.networkConfigMutex.Lock()
-	defer c.networkConfigMutex.Unlock()
-	if err != nil {
-		if c.networkConfig != nil {
-			c.Logger.Errorf("Error updating Network ConfigMap: %v", err)
-		} else {
-			c.Logger.Fatalf("Error initializing Network ConfigMap: %v", err)
-		}
-		return
-	}
-	c.Logger.Infof("Network config map is added or updated: %v", configMap)
-	c.networkConfig = newNetworkConfig
-}
-
-func (c *Reconciler) receiveLoggingConfig(configMap *corev1.ConfigMap) {
-	newLoggingConfig, err := logging.NewConfigFromConfigMap(configMap)
-	c.loggingConfigMutex.Lock()
-	defer c.loggingConfigMutex.Unlock()
-	if err != nil {
-		if c.loggingConfig != nil {
-			c.Logger.Error("Error updating Logging ConfigMap.", zap.Error(err))
-		} else {
-			c.Logger.Fatalf("Error initializing Logging ConfigMap: %v", err)
-		}
-		return
-	}
-
-	// TODO(mattmoor): When we support reconciling Deployment differences,
-	// we should consider triggering a global reconciliation here to the
-	// logging configuration changes are rolled out to active revisions.
-	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
-	c.loggingConfig = newLoggingConfig
-}
-
-func (c *Reconciler) receiveControllerConfig(configMap *corev1.ConfigMap) {
-	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
-
-	c.controllerConfigMutex.Lock()
-	defer c.controllerConfigMutex.Unlock()
-
-	c.resolverMutex.Lock()
-	defer c.resolverMutex.Unlock()
-
-	if err != nil {
-		if c.controllerConfig != nil {
-			c.Logger.Errorf("Error updating Controller ConfigMap: %v", err)
-		} else {
-			c.Logger.Fatalf("Error initializing Controller ConfigMap: %v", err)
-		}
-		return
-	}
-
-	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
-
-	c.controllerConfig = controllerConfig
-	c.resolver = &digestResolver{
-		client:           c.KubeClientSet,
-		transport:        http.DefaultTransport,
-		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
-	}
-
-}
-
-func (c *Reconciler) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
-	newObservabilityConfig, err := config.NewObservabilityFromConfigMap(configMap)
-	c.observabilityConfigMutex.Lock()
-	defer c.observabilityConfigMutex.Unlock()
-	if err != nil {
-		if c.observabilityConfig != nil {
-			c.Logger.Errorf("Error updating Observability ConfigMap: %v", err)
-		} else {
-			c.Logger.Fatalf("Error initializing Observability ConfigMap: %v", err)
-		}
-		return
-	}
-	c.Logger.Infof("Observability config map is added or updated: %v", configMap)
-	c.observabilityConfig = newObservabilityConfig
-}
-
-func (c *Reconciler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
-	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	if err != nil {
-		if c.autoscalerConfig != nil {
-			c.Logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
-		} else {
-			c.Logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
-		}
-		return
-	}
-	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
-	c.autoscalerConfig = newAutoscalerConfig
 }
