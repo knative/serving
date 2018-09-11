@@ -23,34 +23,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/system"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (

@@ -22,18 +22,15 @@ import (
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	clientgotesting "k8s.io/client-go/testing"
-
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
 func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ExtractActions) {
+	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList) {
 		ls := NewListers(r.Objects)
 
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
@@ -61,43 +58,6 @@ func MakeFactory(ctor Ctor) Factory {
 		client.PrependReactor("create", "*", ValidateCreates)
 		client.PrependReactor("update", "*", ValidateUpdates)
 
-		return c, func() ([]clientgotesting.CreateAction, []clientgotesting.UpdateAction,
-			[]clientgotesting.DeleteAction, []clientgotesting.PatchAction) {
-			return extractActions(t, sharedClient, buildClient, client, kubeClient)
-		}
+		return c, ActionRecorderList{sharedClient, buildClient, client, kubeClient}
 	}
-}
-
-type hasActions interface {
-	Actions() []clientgotesting.Action
-}
-
-func extractActions(t *testing.T, clients ...hasActions) (
-	createActions []clientgotesting.CreateAction,
-	updateActions []clientgotesting.UpdateAction,
-	deleteActions []clientgotesting.DeleteAction,
-	patchActions []clientgotesting.PatchAction,
-) {
-
-	for _, c := range clients {
-		for _, action := range c.Actions() {
-			switch action.GetVerb() {
-			case "create":
-				createActions = append(createActions,
-					action.(clientgotesting.CreateAction))
-			case "update":
-				updateActions = append(updateActions,
-					action.(clientgotesting.UpdateAction))
-			case "delete":
-				deleteActions = append(deleteActions,
-					action.(clientgotesting.DeleteAction))
-			case "patch":
-				patchActions = append(patchActions,
-					action.(clientgotesting.PatchAction))
-			default:
-				t.Errorf("Unexpected verb %v: %+v", action.GetVerb(), action)
-			}
-		}
-	}
-	return
 }
