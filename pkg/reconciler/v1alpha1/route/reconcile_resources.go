@@ -18,7 +18,10 @@ package route
 
 import (
 	"context"
+	"encoding/json"
+	"golang.org/x/sync/errgroup"
 	"reflect"
+	"time"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/logging"
@@ -26,11 +29,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 )
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route,
@@ -130,4 +137,59 @@ func (c *Reconciler) updateStatus(ctx context.Context, route *v1alpha1.Route) (*
 
 	c.Recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
 	return updated, nil
+}
+
+// Update the lastPinned annotation on revisions we target so they don't get GC'd.
+func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.TrafficConfig, route *v1alpha1.Route) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, target := range t.Targets {
+		for _, rt := range target {
+			tt := rt.TrafficTarget
+			eg.Go(func() error {
+				rev, err := c.revisionLister.Revisions(route.Namespace).Get(tt.RevisionName)
+				if apierrs.IsNotFound(err) {
+					c.Logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
+					return nil
+				} else if err != nil {
+					return err
+				}
+
+				newRev := rev.DeepCopy()
+				lastPin, err := newRev.GetLastPinned()
+				if err != nil {
+					// Missing is an expected error case for a not yet pinned revision
+					if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+						return err
+					}
+				} else {
+					// Enforce a delay before performing an update on lastPinned to avoid excess churn
+					if lastPin.Add(1 * time.Minute).After(c.clock.Now()) {
+						// Skip updating if were not to the decay limit
+						return nil
+					}
+				}
+
+				if newRev.Annotations == nil {
+					newRev.Annotations = make(map[string]string)
+				}
+
+				newRev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = v1alpha1.RevisionLastPinnedString(c.clock.Now())
+				patch, err := duck.CreatePatch(rev, newRev)
+				if err != nil {
+					return err
+				}
+				patchJSON, err := json.Marshal(patch)
+				if err != nil {
+					return err
+				}
+
+				if _, err := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patchJSON); err != nil {
+					c.Logger.Errorf("Unable to set revision annotation: %v", err)
+					return err
+				}
+				return nil
+			})
+		}
+	}
+	return eg.Wait()
 }

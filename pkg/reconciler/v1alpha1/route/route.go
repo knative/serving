@@ -42,6 +42,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (
@@ -65,6 +66,8 @@ type Reconciler struct {
 	virtualServiceLister istiolisters.VirtualServiceLister
 	configStore          configStore
 	tracker              tracker.Interface
+
+	clock system.Clock
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -83,6 +86,19 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
 ) *controller.Impl {
+	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
+		serviceInformer, virtualServiceInformer, system.RealClock{})
+}
+
+func NewControllerWithClock(
+	opt reconciler.Options,
+	routeInformer servinginformers.RouteInformer,
+	configInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
+	serviceInformer corev1informers.ServiceInformer,
+	virtualServiceInformer istioinformers.VirtualServiceInformer,
+	clock system.Clock,
+) *controller.Impl {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
@@ -93,6 +109,7 @@ func NewController(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
+		clock:                clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes")
 
@@ -248,8 +265,14 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// Traffic targets aren't ready, no need to configure Route.
 		return r, nil
 	}
+	logger.Info("All referred targets are routable.")
 
-	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
+	logger.Info("Updating targeted revisions.")
+	if err := c.reconcileTargetRevisions(ctx, t, r); err != nil {
+		logger.Errorf("Failed to update target revisions: %v", err)
+	}
+
+	logger.Info("Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
 		return r, err
 	}

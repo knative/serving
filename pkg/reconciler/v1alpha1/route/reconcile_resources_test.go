@@ -91,6 +91,56 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 	}
 }
 
+func TestReconcileTargetRevisions(t *testing.T) {
+	_, _, _, c, _, _, _, _ := newTestReconciler(t)
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				"route": "test-route",
+			},
+		},
+	}
+
+	cases := []struct {
+		name      string
+		tc        traffic.TrafficConfig
+		expectErr error
+	}{{
+		name: "Valid target revision",
+		tc: traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
+			"": {{
+				TrafficTarget: v1alpha1.TrafficTarget{
+					RevisionName: "revision",
+					Percent:      100,
+				},
+				Active: true,
+			}}}},
+	}, {
+		name: "invalid target revision",
+		tc: traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
+			"": {{
+				TrafficTarget: v1alpha1.TrafficTarget{
+					RevisionName: "inal-revision",
+					Percent:      100,
+				},
+				Active: true,
+			}}}},
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := c.reconcileTargetRevisions(TestContextWithLogger(t), &tc.tc, r)
+			if err != tc.expectErr {
+				t.Fatalf("Expected err %v got %v", tc.expectErr, err)
+			}
+		})
+
+		// TODO(greghaynes): Assert annotations correctly added
+	}
+}
+
 func newTestVirtualService(r *v1alpha1.Route) *v1alpha3.VirtualService {
 	tc := &traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
 		"": {{

@@ -17,6 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strconv"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +28,7 @@ import (
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // +genclient
@@ -364,4 +369,95 @@ func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
 // conditions by implementing the duckv1alpha1.Conditions interface.
 func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
+}
+
+const (
+	AnnotationParseErrorTypeMissing = "Missing"
+	AnnotationParseErrorTypeInvalid = "Invalid"
+)
+
+// +k8s:deepcopy-gen=false
+type AnnotationParseError struct {
+	Type  string
+	Value string
+	Err   error
+}
+
+// +k8s:deepcopy-gen=false
+type LastPinnedParseError AnnotationParseError
+
+func (e LastPinnedParseError) Error() string {
+	return fmt.Sprintf("%v lastPinned value: %q", e.Type, e.Value)
+}
+
+// +k8s:deepcopy-gen=false
+type configurationGenerationParseError AnnotationParseError
+
+func (e configurationGenerationParseError) Error() string {
+	return fmt.Sprintf("%v configurationGeneration value: %q", e.Type, e.Value)
+}
+
+func RevisionLastPinnedString(t time.Time) string {
+	return fmt.Sprintf("%d", t.Unix())
+}
+
+func (r *Revision) SetLastPinned(t time.Time) {
+	if r.ObjectMeta.Annotations == nil {
+		r.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
+}
+
+func (r *Revision) GetLastPinned() (time.Time, error) {
+	if r.Annotations == nil {
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	if !ok {
+		// If a revision is past the create delay without an annotation it is stale
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	secs, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return time.Time{}, LastPinnedParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: str,
+			Err:   err,
+		}
+	}
+
+	return time.Unix(secs, 0), nil
+}
+
+func (r *Revision) GetConfigurationGeneration() (int64, error) {
+	if r.Annotations == nil {
+		return 0, configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	str, ok := r.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey]
+	if !ok {
+		return 0, configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	gen, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0, configurationGenerationParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: str,
+			Err:   err,
+		}
+	}
+
+	return gen, nil
 }
