@@ -101,3 +101,7 @@ func extractActions(t *testing.T, clients ...hasActions) (
 	}
 	return
 }
+
+func BuildRow(f func() TableRow) TableRow {
+	return f()
+}
