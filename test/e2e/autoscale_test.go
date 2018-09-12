@@ -141,7 +141,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
-		ContainerConcurrency: 20,
+		ContainerConcurrency: 10,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
