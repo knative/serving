@@ -619,43 +619,6 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Remove once we have table testing with the autoscaler configured so that it doesn't use single-tenant autoscaling.
-func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
-	kubeClient, _, servingClient, cachingClient, _, controller, kubeInformer, _, servingInformer, cachingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-	config := getTestConfiguration()
-	rev.OwnerReferences = append(
-		rev.OwnerReferences,
-		*kmeta.NewControllerRef(config),
-	)
-	// Update controller config with no autoscaler image
-	controller.Reconciler.(*Reconciler).receiveControllerConfig(
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "config-controller",
-				Namespace: system.Namespace,
-			},
-			Data: map[string]string{
-				"queueSidecarImage": testQueueImage,
-			},
-		})
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
-
-	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-
-	// Look for the autoscaler deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
-	}
-
-	// Look for the autoscaler service.
-	_, err = kubeClient.CoreV1().Services(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
-	}
-}
-
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	kubeClient, _, servingClient, cachingClient, _, controller, kubeInformer, _, servingInformer, cachingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
