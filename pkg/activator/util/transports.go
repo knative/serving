@@ -17,6 +17,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/knative/serving/pkg/activator"
 
 	h2cutil "github.com/knative/serving/pkg/h2c"
@@ -54,19 +56,19 @@ func RetryStatus(status int) RetryCond {
 }
 
 type retryRoundTripper struct {
-	logger     *zap.SugaredLogger
-	transport  http.RoundTripper
-	retryer    Retryer
-	retryConds []RetryCond
+	logger          *zap.SugaredLogger
+	transport       http.RoundTripper
+	backoffSettings wait.Backoff
+	retryConditions []RetryCond
 }
 
 // RetryRoundTripper retries a request on error or retry condition, using the given `retry` strategy
-func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r Retryer, sr ...RetryCond) http.RoundTripper {
+func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, b wait.Backoff, conditions ...RetryCond) http.RoundTripper {
 	return &retryRoundTripper{
-		logger:     l,
-		transport:  rt,
-		retryer:    r,
-		retryConds: sr,
+		logger:          l,
+		transport:       rt,
+		backoffSettings: b,
+		retryConditions: conditions,
 	}
 }
 
@@ -79,27 +81,26 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 		r.Body = NewRewinder(r.Body)
 	}
 
-	attempt := 0
-	attempts := rrt.retryer.Retry(func() bool {
+	attempts := 0
+	wait.ExponentialBackoff(rrt.backoffSettings, func() (bool, error) {
 		rrt.logger.Debugf("Retrying")
 
-		attempt++
-		r.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(attempt))
+		attempts++
+		r.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(attempts))
 		resp, err = rrt.transport.RoundTrip(r)
 
 		if err != nil {
 			rrt.logger.Errorf("Error making a request: %s", err)
-			return true
+			return false, nil
 		}
 
-		for _, retryCond := range rrt.retryConds {
+		for _, retryCond := range rrt.retryConditions {
 			if retryCond(resp) {
 				resp.Body.Close()
-				return true
+				return false, nil
 			}
 		}
-
-		return false
+		return true, nil
 	})
 
 	if err == nil {

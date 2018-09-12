@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
@@ -97,9 +99,12 @@ func main() {
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
 	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
-	retryer := activatorutil.NewRetryer(activatorutil.NewExponentialIntervalFunc(minRetryInterval, exponentialBackoffBase), maxRetries)
-
-	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
+	backoffSettings := wait.Backoff{
+		Duration: minRetryInterval,
+		Factor:   exponentialBackoffBase,
+		Steps:    maxRetries,
+	}
+	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: &activatorhandler.ReportingHTTPHandler{
