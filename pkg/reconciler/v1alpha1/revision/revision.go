@@ -26,6 +26,8 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
+	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
+	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
 	"go.uber.org/zap"
@@ -87,6 +89,7 @@ type Reconciler struct {
 	revisionLister   listers.RevisionLister
 	kpaLister        kpalisters.PodAutoscalerLister
 	buildLister      buildlisters.BuildLister
+	imageLister      cachinglisters.ImageLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
 	endpointsLister  corev1listers.EndpointsLister
@@ -137,6 +140,7 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	kpaInformer kpainformers.PodAutoscalerInformer,
 	buildInformer buildinformers.BuildInformer,
+	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
@@ -150,6 +154,7 @@ func NewController(
 		revisionLister:   revisionInformer.Lister(),
 		kpaLister:        kpaInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
+		imageLister:      imageInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
@@ -183,6 +188,10 @@ func NewController(
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
 	})
+
+	// We don't watch for changes to Image because we don't incorporate any of its
+	// properties into our own status and should work completely in the absence of
+	// a functioning Image controller.
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),

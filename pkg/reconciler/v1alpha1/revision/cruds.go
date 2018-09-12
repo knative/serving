@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 
+	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -51,6 +52,15 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	}
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+}
+
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
+	image, err := resources.MakeImageCache(rev, deploy)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
 
 func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpa.PodAutoscaler, error) {

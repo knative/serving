@@ -40,6 +40,8 @@ import (
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
+	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/signals"
@@ -101,6 +103,12 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
+
+	cachingClient, err := cachingclientset.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building caching clientset: %v", err)
+	}
+
 	vpaClient, err := vpa.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building VPA clientset: %v", err)
@@ -110,6 +118,7 @@ func main() {
 	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
+	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
 		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
@@ -120,6 +129,7 @@ func main() {
 		KubeClientSet:    kubeClient,
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
+		CachingClientSet: cachingClient,
 		BuildClientSet:   buildClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
@@ -136,6 +146,7 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
+	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -152,6 +163,7 @@ func main() {
 			revisionInformer,
 			kpaInformer,
 			buildInformer,
+			imageInformer,
 			deploymentInformer,
 			coreServiceInformer,
 			endpointsInformer,
@@ -182,6 +194,7 @@ func main() {
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
+	cachingInformerFactory.Start(stopCh)
 	servingSystemInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
@@ -197,6 +210,7 @@ func main() {
 		revisionInformer.Informer().HasSynced,
 		kpaInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
+		imageInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,

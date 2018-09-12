@@ -22,6 +22,8 @@ import (
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
+	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -134,11 +136,13 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
+	cachingClient *fakecachingclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
+	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 
@@ -146,6 +150,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
 	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
@@ -194,12 +199,14 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
+	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
 		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
+			CachingClientSet: cachingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
 		},
@@ -207,6 +214,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		buildInformer.Build().V1alpha1().Builds(),
+		cachingInformer.Caching().V1alpha1().Images(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
@@ -225,8 +233,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, controller, kubeInformer, buildInformer,
-		servingInformer, servingSystemInformer, vpaInformer :=
+	kubeClient, _, _, _, _, controller, kubeInformer, buildInformer,
+		servingInformer, _, servingSystemInformer, vpaInformer :=
 		newTestController(t, rev)
 
 	h := NewHooks()
