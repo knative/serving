@@ -33,17 +33,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
-	h2cutil "github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/third_party/h2c"
 	"go.uber.org/zap"
-
-	"github.com/gorilla/websocket"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -278,7 +276,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2cutil.DefaultTransport
+	h2cProxy.Transport = h2c.DefaultTransport
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if *containerConcurrency > 0 {
@@ -317,10 +315,10 @@ func main() {
 		Handler: nil,
 	}
 
-	h2cServer := h2c.Server{Server: &http.Server{
-		Addr:    fmt.Sprintf(":%d", queue.RequestQueuePort),
-		Handler: http.HandlerFunc(handler),
-	}}
+	server := h2c.NewServer(
+		fmt.Sprintf(":%d", queue.RequestQueuePort),
+		http.HandlerFunc(handler),
+	)
 
 	// Add a SIGTERM handler to gracefully shutdown the servers during
 	// pod termination.
@@ -331,11 +329,11 @@ func main() {
 		// Calling server.Shutdown() allows pending requests to
 		// complete, while no new work is accepted.
 
-		h2cServer.Shutdown(context.Background())
+		server.Shutdown(context.Background())
 		adminServer.Shutdown(context.Background())
 		os.Exit(0)
 	}()
 
-	go h2cServer.ListenAndServe()
+	go server.ListenAndServe()
 	setupAdminHandlers(adminServer)
 }

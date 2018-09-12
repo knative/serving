@@ -30,10 +30,9 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-
+	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/third_party/h2c"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
