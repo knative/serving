@@ -91,7 +91,7 @@ func main() {
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewDefaultWatcher(kubeClientSet, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 
 	// This is based on how Kubernetes sets up its scale client based on discovery:

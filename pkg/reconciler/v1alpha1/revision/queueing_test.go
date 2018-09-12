@@ -148,7 +148,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
-	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+	configMapWatcher = configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace,
 			Name:      config.NetworkConfigName,

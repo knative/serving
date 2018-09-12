@@ -205,7 +205,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	configMapWatcher = configmap.NewStaticWatcher(cms...)
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 

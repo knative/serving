@@ -64,7 +64,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	// Create fake clients
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
 			Namespace: system.Namespace,

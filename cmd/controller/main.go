@@ -114,7 +114,7 @@ func main() {
 		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
-	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
