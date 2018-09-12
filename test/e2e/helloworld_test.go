@@ -41,7 +41,7 @@ func TestHelloWorld(t *testing.T) {
 	var imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

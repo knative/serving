@@ -54,7 +54,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	imagePath := test.ImagePath("invalidhelloworld")
 
 	logger.Infof("Creating a new Route and Configuration %s", imagePath)
-	names, err := CreateRouteAndConfig(clients, logger, imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
