@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmeta"
 	sapis "github.com/knative/serving/pkg/apis"
+	p1 "github.com/knative/serving/pkg/apis/pkg/v1alpha1"
 )
 
 // +genclient
@@ -101,25 +102,29 @@ type PinnedType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
-// sapis.ConditionType represents an Service condition value
+// ConditionType represents an Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady sapis.ConditionType = "Ready"
+	ServiceConditionReady p1.ConditionType = "Ready"
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady p1.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady p1.ConditionType = "ConfigurationsReady"
 )
 
-var _ sapis.Conditional = (*ServiceStatus)(nil)
-var conditioner = sapis.NewConditioner(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var condSet *sapis.ConditionSet
+
+func init() {
+	condSet = sapis.NewConditionSet(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+}
 
 type ServiceStatus struct {
 	// +optional
-	Conditions []sapis.Condition `json:"conditions,omitempty"`
+	p1.Conditions
+	//Conditions []p1.Condition `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -187,19 +192,19 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	return conditioner.IsReady(ss)
+	return condSet.Using(ss).IsReady()
 }
 
-func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return conditioner.GetCondition(t, ss)
+func (ss *ServiceStatus) GetCondition(t p1.ConditionType) *p1.Condition {
+	return condSet.Using(ss).GetCondition(t)
 }
 
-func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
-	conditioner.SetCondition(new, ss)
+func (ss *ServiceStatus) setCondition(new *p1.Condition) {
+	condSet.Using(ss).SetCondition(new)
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	conditioner.InitializeConditions(ss)
+	condSet.Using(ss).InitializeConditions()
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
@@ -212,11 +217,11 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	}
 	switch {
 	case cc.Status == corev1.ConditionUnknown:
-		ss.markUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		condSet.Using(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == corev1.ConditionTrue:
-		ss.markTrue(ServiceConditionConfigurationsReady)
+		condSet.Using(ss).MarkTrue(ServiceConditionConfigurationsReady)
 	case cc.Status == corev1.ConditionFalse:
-		ss.markFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		condSet.Using(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -231,69 +236,10 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 	switch {
 	case rc.Status == corev1.ConditionUnknown:
-		ss.markUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		condSet.Using(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		ss.markTrue(ServiceConditionRoutesReady)
+		condSet.Using(ss).MarkTrue(ServiceConditionRoutesReady)
 	case rc.Status == corev1.ConditionFalse:
-		ss.markFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	}
-}
-
-func (ss *ServiceStatus) markTrue(t ServiceConditionType) {
-	ss.setCondition(&ServiceCondition{
-		Type:   t,
-		Status: corev1.ConditionTrue,
-	})
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	ss.setCondition(&ServiceCondition{
-		Type:   ServiceConditionReady,
-		Status: corev1.ConditionTrue,
-	})
-}
-
-func (ss *ServiceStatus) markUnknown(t ServiceConditionType, reason, message string) {
-	ss.setCondition(&ServiceCondition{
-		Type:    t,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status == corev1.ConditionFalse {
-			// Failed conditions trump unknown conditions
-			return
-		}
-	}
-	ss.setCondition(&ServiceCondition{
-		Type:    ServiceConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-}
-
-func (ss *ServiceStatus) markFalse(t ServiceConditionType, reason, message string) {
-	for _, cond := range []ServiceConditionType{
-		t,
-		ServiceConditionReady,
-	} {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
+		condSet.Using(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
