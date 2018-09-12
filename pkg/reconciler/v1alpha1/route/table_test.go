@@ -17,11 +17,13 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -1440,13 +1442,8 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
-			domainConfig: &config.Domain{
-				Domains: map[string]*config.LabelSelector{
-					"example.com": {},
-					"another-example.com": {
-						Selector: map[string]string{"app": "prod"},
-					},
-				},
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
 			},
 		}
 	}))
@@ -1662,4 +1659,29 @@ func or(kind, name string) []metav1.OwnerReference {
 		Controller:         &boolTrue,
 		BlockOwnerDeletion: &boolTrue,
 	}}
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.WithConfig(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		Domain: &config.Domain{
+			Domains: map[string]*config.LabelSelector{
+				"example.com": {},
+				"another-example.com": {
+					Selector: map[string]string{"app": "prod"},
+				},
+			},
+		},
+	}
 }
