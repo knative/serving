@@ -21,6 +21,7 @@ package conformance
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ import (
 )
 
 const (
-	concurrentRequests = 100
+	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1
@@ -180,7 +181,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a Configuration")
-	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{}); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
@@ -260,15 +261,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
-		min := int(concurrentRequests * minSplitPercentage)
+		min := int(math.Floor(concurrentRequests * minSplitPercentage))
 		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {

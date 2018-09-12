@@ -147,7 +147,11 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	podTemplateAnnotations := makeAnnotations(rev)
+	// TODO(nghia): Remove the need for this
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
+	// out via annotation) we should explicitly disable that here to avoid redundant Image
+	// resources.
 
 	// Inject the IP ranges for istio sidecar configuration.
 	// We will inject this value only if all of the following are true:

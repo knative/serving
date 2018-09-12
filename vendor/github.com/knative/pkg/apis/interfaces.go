@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,4 +20,18 @@ package apis
 // uninitialized fields of this instance.
 type Defaultable interface {
 	SetDefaults()
+}
+
+// Validatable indicates that a particular type may have its fields validated.
+type Validatable interface {
+	// Validate checks the validity of this types fields.
+	Validate() *FieldError
+}
+
+// Immutable indicates that a particular type has fields that should
+// not change after creation.
+type Immutable interface {
+	// CheckImmutableFields checks that the current instance's immutable
+	// fields haven't changed from the provided original.
+	CheckImmutableFields(original Immutable) *FieldError
 }

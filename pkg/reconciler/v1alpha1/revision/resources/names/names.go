@@ -24,6 +24,10 @@ func Deployment(rev *v1alpha1.Revision) string {
 	return rev.Name + "-deployment"
 }
 
+func ImageCache(rev *v1alpha1.Revision) string {
+	return rev.Name + "-cache"
+}
+
 func VPA(rev *v1alpha1.Revision) string {
 	return rev.Name + "-vpa"
 }

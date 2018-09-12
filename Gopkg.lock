@@ -325,7 +325,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:cd0c9c979a3d5ee14df7065fad4328ed325448bc9d252f2ba1c8255cbe192e24"
+  digest = "1:c66ac8b6d6f89ac293db6948a2518029e16e303c2a0b7713b6fe1ca0b015883e"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -361,7 +361,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "6eff182b8784a136e0ce20e47c5efbfe40ae6059"
+  revision = "8fc80deb200e7853795e6baf4029f406ca9534b8"
 
 [[projects]]
   branch = "master"
@@ -541,18 +541,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dd68d1a2c578b5a578bb36851bf3a2edb0ffe5d130f898c65b994e41fc0848b5"
+  digest = "1:8a40385c0245fa401d71b719925b3cc0514b95587223a6368b0d913d06825a47"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
     "http/httpguts",
     "http2",
+    "http2/h2c",
     "http2/hpack",
     "idna",
   ]
   pruneopts = "NUT"
-  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
+  revision = "aaf60122140d3fcf75376d319f0554393160eb50"
 
 [[projects]]
   branch = "master"
@@ -1073,9 +1074,8 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
-    "golang.org/x/net/http/httpguts",
     "golang.org/x/net/http2",
-    "golang.org/x/net/http2/hpack",
+    "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
     "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",

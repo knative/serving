@@ -91,7 +91,7 @@ func newLogger(logLevel string) *BaseLogger {
 	  }
 	}`
 	configJSON := fmt.Sprintf(configJSONTemplate, logLevel)
-	l, _ := logging.NewLogger(string(configJSON), logLevel)
+	l, _ := logging.NewLogger(string(configJSON), logLevel, zap.AddCallerSkip(1))
 	return &BaseLogger{Logger: l}
 }
 

@@ -41,7 +41,7 @@ func NewSpoofingClient(client *KubeClient, logger *logging.BaseLogger, domain st
 // NewKubeClient instantiates and returns several clientsets required for making request to the
 // kube client specified by the combination of clusterName and configPath. Clients can make requests within namespace.
 func NewKubeClient(configPath string, clusterName string) (*KubeClient, error) {
-	cfg, err := buildClientConfig(configPath, clusterName)
+	cfg, err := BuildClientConfig(configPath, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func NewKubeClient(configPath string, clusterName string) (*KubeClient, error) {
 }
 
 // BuildClientConfig builds the client config specified by the config path and the cluster name
-func buildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
 	overrides := clientcmd.ConfigOverrides{}
 	// Override the cluster name if provided.
 	if clusterName != "" {

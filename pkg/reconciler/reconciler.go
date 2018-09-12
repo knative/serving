@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
@@ -40,6 +41,8 @@ type Options struct {
 	SharedClientSet  sharedclientset.Interface
 	ServingClientSet clientset.Interface
 	BuildClientSet   buildclientset.Interface
+	CachingClientSet cachingclientset.Interface
+
 	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
 }
@@ -57,6 +60,9 @@ type Base struct {
 
 	// BuildClientSet allows us to configure Build objects
 	BuildClientSet buildclientset.Interface
+
+	// CachingClientSet allows us to instantiate Image objects
+	CachingClientSet cachingclientset.Interface
 
 	// ConfigMapWatcher allows us to watch for ConfigMap changes.
 	ConfigMapWatcher configmap.Watcher
@@ -92,6 +98,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		SharedClientSet:  opt.SharedClientSet,
 		ServingClientSet: opt.ServingClientSet,
 		BuildClientSet:   opt.BuildClientSet,
+		CachingClientSet: opt.CachingClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,
 		Recorder:         recorder,
 		Logger:           logger,

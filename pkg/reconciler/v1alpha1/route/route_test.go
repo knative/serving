@@ -205,7 +205,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	configMapWatcher = configmap.NewStaticWatcher(cms...)
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -349,9 +349,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				rclr.GetRevisionHeaderName():      "test-rev",
-				rclr.GetConfigurationHeader():     "test-config",
-				rclr.GetRevisionHeaderNamespace(): testNamespace,
+				activator.RevisionHeaderName:      "test-rev",
+				activator.ConfigurationHeader:     "test-config",
+				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 			Retries: &v1alpha3.HTTPRetry{
@@ -542,9 +542,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				rclr.GetRevisionHeaderName():      "test-rev",
-				rclr.GetConfigurationHeader():     "test-config",
-				rclr.GetRevisionHeaderNamespace(): testNamespace,
+				activator.RevisionHeaderName:      "test-rev",
+				activator.ConfigurationHeader:     "test-config",
+				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 			Retries: &v1alpha3.HTTPRetry{
