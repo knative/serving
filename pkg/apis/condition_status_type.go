@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -42,9 +43,6 @@ const (
 	ConditionUnknown = corev1.ConditionUnknown
 )
 
-// Conditions communicates the observed state of the Knative resource (from the controller).
-type Conditions []Condition
-
 // Conditions defines a readiness condition for a Knative resource.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type Condition struct {
@@ -60,7 +58,7 @@ type Condition struct {
 	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
 	// differences (all other things held constant).
 	// +optional
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// The reason for the condition's last transition.
 	// +optional
@@ -71,15 +69,37 @@ type Condition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
+type Conditional interface {
+	GetConditions() []Condition
+	SetConditions([]Condition)
+}
+
 func (c *Condition) IsTrue() bool {
 	return c.Status == ConditionTrue
 }
 
+func NewConditioner(l ConditionType, d ...ConditionType) *Conditioner {
+	c := &Conditioner{
+		lead:       l,
+		dependents: d,
+	}
+	return c
+}
+
+type Conditioner struct {
+	lead       ConditionType
+	dependents []ConditionType
+}
+
+type Conditions struct {
+	Conditions []Condition
+}
+
 // IsReady looks at all conditions in the required array.
 // Returns true if all condition[requires..].Status are true.
-func (cs Conditions) IsReady(requires []ConditionType) bool {
-	for _, t := range requires {
-		if c := cs.GetCondition(t); c == nil || !c.IsTrue() {
+func (r *Conditioner) IsReady(conditional Conditional) bool {
+	for _, t := range r.dependents {
+		if c := r.GetCondition(t, conditional); c == nil || !c.IsTrue() {
 			return false
 		}
 	}
@@ -87,8 +107,8 @@ func (cs Conditions) IsReady(requires []ConditionType) bool {
 }
 
 // GetCondition finds and returns the Condition that matches the ConditionType previously set on Conditions.
-func (cs Conditions) GetCondition(t ConditionType) *Condition {
-	for _, c := range cs {
+func (r *Conditioner) GetCondition(t ConditionType, conditional Conditional) *Condition {
+	for _, c := range conditional.GetConditions() {
 		if c.Type == t {
 			return &c
 		}
@@ -98,90 +118,104 @@ func (cs Conditions) GetCondition(t ConditionType) *Condition {
 
 // SetCondition sets or updates the Condition on Conditions for Condition.Type.
 // returns the mutated list of Conditions.
-func (cs Conditions) SetCondition(new *Condition) Conditions {
+func (r *Conditioner) SetCondition(new *Condition, conditional Conditional) {
 	if new == nil {
-		return cs
+		return
 	}
 	t := new.Type
 	var conditions []Condition
-	for _, c := range cs {
+	for _, c := range conditional.GetConditions() {
 		if c.Type != t {
 			conditions = append(conditions, c)
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = c.LastTransitionTime
 			if reflect.DeepEqual(new, &c) {
-				return cs
+				return
 			}
 		}
 	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
+	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	return conditions
+	conditional.SetConditions(conditions)
 }
 
 // MarkTrue sets the status of t to true.
 // returns the mutated list of Conditions.
-func (cs Conditions) MarkTrue(t ConditionType, top ConditionType, trumps []ConditionType) Conditions {
-	for _, cond := range trumps {
-		c := cs.GetCondition(cond)
-		// Failed or Unknown conditions trump true conditions
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return cs
-		}
-	} // TODO: this needs to flip and add TOP
-	return cs.SetCondition(&Condition{
+func (r *Conditioner) MarkTrue(t ConditionType, conditional Conditional) {
+	// set the specified condition
+	r.SetCondition(&Condition{
 		Type:   t,
-		Status: corev1.ConditionTrue,
-	})
+		Status: ConditionTrue,
+	}, conditional)
+
+	// check the dependents.
+	for _, cond := range r.dependents {
+		c := r.GetCondition(cond, conditional)
+		// Failed or Unknown conditions trump true conditions
+		if c == nil || c.Status != ConditionTrue {
+			return
+		}
+	}
+
+	// set the lead condition
+	r.SetCondition(&Condition{
+		Type:   r.lead,
+		Status: ConditionTrue,
+	}, conditional)
 }
 
 // MarkUnknown sets the status of t to true.
 // returns the mutated list of Conditions.
-func (cs Conditions) MarkUnknown(t ConditionType, reason, message string, top ConditionType, trumps []ConditionType) Conditions {
-	for _, c := range trumps {
-		c := cs.GetCondition(c)
-		if c == nil || c.Status == corev1.ConditionFalse {
-			// Failed conditions trump unknown conditions
-			return cs
+func (r *Conditioner) MarkUnknown(t ConditionType, reason, message string, conditional Conditional) {
+	// set the specified condition
+	r.SetCondition(&Condition{
+		Type:   t,
+		Status: ConditionUnknown,
+	}, conditional)
+
+	// check the dependents.
+	for _, cond := range r.dependents {
+		c := r.GetCondition(cond, conditional)
+		// Failed conditions trump unknown conditions
+		if c == nil || c.Status == ConditionFalse {
+			return
 		}
-	} // TODO: this needs to flip and add TOP
-	return cs.SetCondition(&Condition{
-		Type:    t,
-		Status:  corev1.ConditionUnknown,
+	}
+
+	// set the lead condition
+	r.SetCondition(&Condition{
+		Type:    r.lead,
+		Status:  ConditionUnknown,
 		Reason:  reason,
 		Message: message,
-	})
+	}, conditional)
 }
 
 // MarkFalse sets the status of t to true.
 // returns the mutated list of Conditions.
-func (cs Conditions) MarkFalse(t ConditionType, reason, message string, top ConditionType) Conditions {
+func (r *Conditioner) MarkFalse(t ConditionType, reason, message string, conditional Conditional) {
 	for _, t := range []ConditionType{
 		t,
-		top,
+		r.lead,
 	} {
-		cs = cs.SetCondition(&Condition{
+		r.SetCondition(&Condition{
 			Type:    t,
-			Status:  corev1.ConditionFalse,
+			Status:  ConditionFalse,
 			Reason:  reason,
 			Message: message,
-		})
+		}, conditional)
 	}
-	return cs
 }
 
 // InitializeConditions updates the Ready Condition to unknown if not set.
 // returns the mutated list of Conditions.
-func (cs Conditions) InitializeConditions(ts []ConditionType) Conditions {
-	for _, t := range ts {
-		if c := cs.GetCondition(t); c == nil {
-			cs = cs.SetCondition(&Condition{
-				Type:   t,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+func (r *Conditioner) InitializeConditions(conditional Conditional) {
+	if c := r.GetCondition(r.lead, conditional); c == nil {
+		r.SetCondition(&Condition{
+			Type:   r.lead,
+			Status: ConditionUnknown,
+		}, conditional)
 	}
-	return cs
 }

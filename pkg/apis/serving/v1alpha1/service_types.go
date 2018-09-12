@@ -18,9 +18,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"reflect"
-	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +25,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmeta"
+	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -103,40 +101,25 @@ type PinnedType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
-type ServiceCondition struct {
-	Type ServiceConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
-
-// ServiceConditionType represents an Service condition value
-type ServiceConditionType string
-
+// sapis.ConditionType represents an Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady ServiceConditionType = "Ready"
+	ServiceConditionReady sapis.ConditionType = "Ready"
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
+
+var _ sapis.Conditional = (*ServiceStatus)(nil)
+var conditioner = sapis.NewConditioner(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions []ServiceCondition `json:"conditions,omitempty"`
+	Conditions []sapis.Condition `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -204,58 +187,19 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	if c := ss.GetCondition(ServiceConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return conditioner.IsReady(ss)
 }
 
-func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition {
-	for _, cond := range ss.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+	return conditioner.GetCondition(t, ss)
 }
 
-func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
-	if new == nil {
-		return
-	}
-
-	t := new.Type
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	ss.Conditions = conditions
+func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
+	conditioner.SetCondition(new, ss)
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionReady,
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		if rc := ss.GetCondition(cond); rc == nil {
-			ss.setCondition(&ServiceCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	conditioner.InitializeConditions(ss)
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
