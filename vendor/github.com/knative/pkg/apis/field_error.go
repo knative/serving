@@ -39,20 +39,6 @@ type FieldError struct {
 // FieldError implements error
 var _ error = (*FieldError)(nil)
 
-// Validatable indicates that a particular type may have its fields validated.
-type Validatable interface {
-	// Validate checks the validity of this types fields.
-	Validate() *FieldError
-}
-
-// Immutable indicates that a particular type has fields that should
-// not change after creation.
-type Immutable interface {
-	// CheckImmutableFields checks that the current instance's immutable
-	// fields haven't changed from the provided original.
-	CheckImmutableFields(original Immutable) *FieldError
-}
-
 // ViaField is used to propagate a validation error along a field access.
 // For example, if a type recursively validates its "spec" via:
 //   if err := foo.Spec.Validate(); err != nil {
