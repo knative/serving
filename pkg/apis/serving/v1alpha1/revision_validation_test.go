@@ -17,11 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -430,6 +432,21 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid metadata.annotations - scale bounds",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "scale-bounds",
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "2",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf("%s=%v is less than %s=%v", autoscaling.MaxScaleAnnotationKey, 2, autoscaling.MinScaleAnnotationKey, 5),
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "invalid name - too long",
 		r: &Revision{
