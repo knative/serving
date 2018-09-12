@@ -20,6 +20,9 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
+	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
+	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -43,6 +46,7 @@ var clientSetSchemes = []func(*runtime.Scheme){
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakebuildclientset.AddToScheme,
+	fakecachingclientset.AddToScheme,
 }
 
 type Listers struct {
@@ -75,6 +79,10 @@ func (l *Listers) GetKubeObjects() []runtime.Object {
 
 func (l *Listers) GetBuildObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakebuildclientset.AddToScheme)
+}
+
+func (l *Listers) GetCachingObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakecachingclientset.AddToScheme)
 }
 
 func (l *Listers) GetServingObjects() []runtime.Object {
@@ -111,6 +119,10 @@ func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 
 func (l *Listers) GetBuildLister() buildlisters.BuildLister {
 	return buildlisters.NewBuildLister(l.indexerFor(&buildv1alpha1.Build{}))
+}
+
+func (l *Listers) GetImageLister() cachinglisters.ImageLister {
+	return cachinglisters.NewImageLister(l.indexerFor(&cachingv1alpha1.Image{}))
 }
 
 func (l *Listers) GetDeploymentLister() appsv1listers.DeploymentLister {
