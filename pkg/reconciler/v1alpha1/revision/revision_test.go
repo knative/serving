@@ -186,7 +186,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	configMapWatcher = configmap.NewStaticWatcher(cms...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
