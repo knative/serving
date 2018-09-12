@@ -180,7 +180,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a Configuration")
-	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{}); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 

@@ -41,7 +41,7 @@ const (
 )
 
 func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	err := test.CreateConfiguration(logger, clients, names, imagePaths[0])
+	err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{})
 	if err != nil {
 		return err
 	}
