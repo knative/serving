@@ -119,6 +119,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 	userContainer.Env = append(userContainer.Env, userEnv)
+	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)
