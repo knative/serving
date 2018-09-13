@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	p1 "github.com/knative/serving/pkg/apis/pkg/v1alpha1"
+	sapis "github.com/knative/serving/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -48,73 +48,70 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
-			}}},
+			}},
 		},
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionFalse,
-			}}},
+			}},
 		},
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionUnknown,
-			}}},
+			}},
 		},
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type: ServiceConditionReady,
 			}},
-			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionTrue,
-			},
 			}},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionTrue,
-			},
-			}}},
+			}},
+		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ServiceStatus{
-			Conditions: p1.Conditions{Conditions: []p1.Condition{{
+			Conditions: []sapis.Condition{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionFalse,
-			},
-			}}},
-
+			}},
+		},
 		isReady: false,
 	}}
 
@@ -127,11 +124,11 @@ func TestServiceIsReady(t *testing.T) {
 
 func TestServiceConditions(t *testing.T) {
 	svc := &Service{}
-	foo := &p1.Condition{
+	foo := &sapis.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &p1.Condition{
+	bar := &sapis.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
@@ -500,22 +497,22 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 }
 
-func checkConditionSucceededService(rs ServiceStatus, rct p1.ConditionType, t *testing.T) *p1.Condition {
+func checkConditionSucceededService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedService(rs ServiceStatus, rct p1.ConditionType, t *testing.T) *p1.Condition {
+func checkConditionFailedService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingService(rs ServiceStatus, rct p1.ConditionType, t *testing.T) *p1.Condition {
+func checkConditionOngoingService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionService(rs ServiceStatus, rct p1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *p1.Condition {
+func checkConditionService(rs ServiceStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *sapis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

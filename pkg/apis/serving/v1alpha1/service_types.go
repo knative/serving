@@ -24,7 +24,6 @@ import (
 
 	"github.com/knative/pkg/apis"
 	sapis "github.com/knative/serving/pkg/apis"
-	p1 "github.com/knative/serving/pkg/apis/pkg/v1alpha1"
 )
 
 // +genclient
@@ -101,25 +100,20 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady p1.ConditionType = "Ready"
+	ServiceConditionReady sapis.ConditionType = sapis.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady p1.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady p1.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
 
-var condSet *sapis.ConditionSet
-
-func init() {
-	condSet = sapis.NewConditionSet(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
-}
+var condSet = sapis.NewConditionSet(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	p1.Conditions
-	//Conditions []p1.Condition `json:"conditions,omitempty"`
+	Conditions []sapis.Condition `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -186,11 +180,11 @@ func (ss *ServiceStatus) IsReady() bool {
 	return condSet.Using(ss).IsReady()
 }
 
-func (ss *ServiceStatus) GetCondition(t p1.ConditionType) *p1.Condition {
+func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
 	return condSet.Using(ss).GetCondition(t)
 }
 
-func (ss *ServiceStatus) setCondition(new *p1.Condition) {
+func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
 	condSet.Using(ss).SetCondition(new)
 }
 
@@ -233,4 +227,16 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	case rc.Status == corev1.ConditionFalse:
 		condSet.Using(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
+}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (ss *ServiceStatus) GetConditions() []sapis.Condition {
+	return ss.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions []sapis.Condition) {
+	ss.Conditions = conditions
 }
