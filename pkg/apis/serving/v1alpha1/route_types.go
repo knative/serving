@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 )
 
 // +genclient
@@ -56,6 +57,9 @@ type Route struct {
 // Check that Route may be validated and defaulted.
 var _ apis.Validatable = (*Route)(nil)
 var _ apis.Defaultable = (*Route)(nil)
+
+// Check that we can create OwnerReferences to a Route.
+var _ kmeta.OwnerRefable = (*Route)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {

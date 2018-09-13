@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 )
 
 // +genclient
@@ -58,6 +59,9 @@ type Configuration struct {
 // Check that Configuration may be validated and defaulted.
 var _ apis.Validatable = (*Configuration)(nil)
 var _ apis.Defaultable = (*Configuration)(nil)
+
+// Check that we can create OwnerReferences to a Configuration.
+var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {

@@ -17,11 +17,11 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +49,7 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			Namespace:       rev.Namespace,
 			Labels:          labels,
 			Annotations:     makeAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: servicePorts,

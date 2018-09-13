@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 )
 
 // +genclient
@@ -57,6 +58,9 @@ type Service struct {
 // Check that Service may be validated and defaulted.
 var _ apis.Validatable = (*Service)(nil)
 var _ apis.Defaultable = (*Service)(nil)
+
+// Check that we can create OwnerReferences to a Service.
+var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either

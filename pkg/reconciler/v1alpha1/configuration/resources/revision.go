@@ -19,9 +19,9 @@ package resources
 import (
 	"fmt"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
@@ -51,7 +51,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate OwnerReferences so that deletes cascade.
-	rev.OwnerReferences = append(rev.OwnerReferences, *reconciler.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
 	// Fill in the build name, if specified.
 	rev.Spec.BuildName = names.Build(config)

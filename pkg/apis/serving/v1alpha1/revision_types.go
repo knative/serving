@@ -28,6 +28,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 )
 
 // +genclient
@@ -57,6 +58,9 @@ type Revision struct {
 var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
+
+// Check that we can create OwnerReferences to a Revision.
+var _ kmeta.OwnerRefable = (*Revision)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190

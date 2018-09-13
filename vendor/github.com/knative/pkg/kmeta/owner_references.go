@@ -14,19 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reconciler
+package kmeta
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type NewControllerRefable interface {
+// OwnerRefable indicates that a particular type has sufficient
+// information to produce a metav1.OwnerReference to an object.
+type OwnerRefable interface {
 	metav1.ObjectMetaAccessor
+
+	// GetGroupVersionKind returns a GroupVersionKind. The name is chosen
+	// to avoid collision with TypeMeta's GroupVersionKind() method.
+	// See: https://issues.k8s.io/3030
 	GetGroupVersionKind() schema.GroupVersionKind
 }
 
-// NewControllerRef creates an OwnerReference pointing to the given Resource.
-func NewControllerRef(obj NewControllerRefable) *metav1.OwnerReference {
+// NewControllerRef creates an OwnerReference pointing to the given controller.
+func NewControllerRef(obj OwnerRefable) *metav1.OwnerReference {
 	return metav1.NewControllerRef(obj.GetObjectMeta(), obj.GetGroupVersionKind())
 }
