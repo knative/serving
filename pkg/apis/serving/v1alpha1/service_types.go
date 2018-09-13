@@ -109,7 +109,7 @@ const (
 	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
 
-var condSet = sapis.NewConditionSet(ServiceConditionReady, ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var condSet = sapis.NewOngoingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
@@ -177,15 +177,16 @@ func (s *Service) GetSpecJSON() ([]byte, error) {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	return condSet.Using(ss).IsReady()
+	return condSet.Using(ss).IsHappy()
 }
 
 func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
 	return condSet.Using(ss).GetCondition(t)
 }
 
+// This is kept for unit test integration.
 func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
-	condSet.Using(ss).SetCondition(new)
+	condSet.Using(ss).SetCondition(*new)
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
