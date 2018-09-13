@@ -17,9 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"flag"
 	"fmt"
 	"io"
@@ -33,7 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -41,7 +38,9 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/websocket"
 	"go.uber.org/zap"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -71,7 +70,7 @@ var (
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClient            *kubernetes.Clientset
-	statSink              *websocket.Conn
+	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
 	breaker               *queue.Breaker
 
@@ -94,59 +93,20 @@ func initEnv() {
 	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
 }
 
-func connectStatSink() {
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		servingAutoscaler, system.Namespace, servingAutoscalerPort)
-	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
-	for {
-		// TODO: use exponential backoff here
-		time.Sleep(time.Second)
-
-		dialer := &websocket.Dialer{
-			HandshakeTimeout: 3 * time.Second,
-		}
-		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
-		if err != nil {
-			logger.Error("Retrying connection to autoscaler.", zap.Error(err))
-		} else {
-			logger.Info("Connected to stat sink.")
-			statSink = conn
-			waitForClose(conn)
-		}
-	}
-}
-
-func waitForClose(c *websocket.Conn) {
-	for {
-		if _, _, err := c.NextReader(); err != nil {
-			logger.Error("Error reading from websocket", zap.Error(err))
-			c.Close()
-			return
-		}
-	}
-}
-
 func statReporter() {
 	for {
 		s := <-statChan
 		if statSink == nil {
-			logger.Error("Stat sink not connected.")
+			logger.Warn("Stat sink not (yet) connected.")
 			continue
 		}
 		sm := autoscaler.StatMessage{
 			Stat: *s,
 			Key:  servingRevisionKey,
 		}
-		var b bytes.Buffer
-		enc := gob.NewEncoder(&b)
-		err := enc.Encode(sm)
+		err := statSink.Send(sm)
 		if err != nil {
-			logger.Error("Failed to encode data from stats channel", zap.Error(err))
-			continue
-		}
-		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
-		if err != nil {
-			logger.Error("Failed to write to stat sink.", zap.Error(err))
+			logger.Error("Error while sending stat", zap.Error(err))
 		}
 	}
 }
@@ -294,8 +254,13 @@ func main() {
 		logger.Fatal("Error creating new config", zap.Error(err))
 	}
 	kubeClient = kc
-	go connectStatSink()
+
+	// Open a websocket connection to the autoscaler
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
+	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
+
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
