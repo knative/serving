@@ -34,6 +34,13 @@ type Conditions interface {
 	SetConditions([]Condition)
 }
 
+// ConditionSet holds the expected ConditionTypes to be checked.
+// +k8s:deepcopy-gen=false
+type ConditionSet struct {
+	lead       ConditionType
+	dependents []ConditionType
+}
+
 // NewConditionSet returns a ConditionSet to hold the conditions that are
 // important for the caller. The first ConditionType is the overarching status
 // for that will be used to signal the resources' status is Ready or Succeeded.
@@ -45,11 +52,22 @@ func NewConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
 	return c
 }
 
-// ConditionSet holds the expected ConditionTypes to be checked.
-// +k8s:deepcopy-gen=false
-type ConditionSet struct {
-	lead       ConditionType
-	dependents []ConditionType
+// NewOngoingConditionSet returns a ConditionSet to hold the conditions for the
+// ongoing resource. ConditionReady is used as the lead.
+func NewOngoingConditionSet(d ...ConditionType) ConditionSet {
+	return ConditionSet{
+		lead:       ConditionReady,
+		dependents: d,
+	}
+}
+
+// NewOngoingConditionSet returns a ConditionSet to hold the conditions for the
+// run once resource. ConditionSucceeded is used as the lead.
+func NewRunOnceConditionSet(d ...ConditionType) ConditionSet {
+	return ConditionSet{
+		lead:       ConditionSucceeded,
+		dependents: d,
+	}
 }
 
 // ConditionsImpl implements the helper methods for evaluating Conditions.
@@ -71,9 +89,9 @@ func (r ConditionSet) Using(Conditions Conditions) ConditionsImpl {
 	}
 }
 
-// IsReady looks at the lead condition and returns true if that condition is
+// IsHappy looks at the lead condition and returns true if that condition is
 // set to true.
-func (r ConditionsImpl) IsReady() bool {
+func (r ConditionsImpl) IsHappy() bool {
 	if c := r.GetCondition(r.lead); c == nil || !c.IsTrue() {
 		return false
 	}
@@ -96,11 +114,8 @@ func (r ConditionsImpl) GetCondition(t ConditionType) *Condition {
 
 // SetCondition sets or updates the Condition on Conditions for Condition.Type.
 // If there is an update, Conditions are stored back sorted.
-func (r ConditionsImpl) SetCondition(new *Condition) {
+func (r ConditionsImpl) SetCondition(new Condition) {
 	if r.conditions == nil {
-		return
-	}
-	if new == nil {
 		return
 	}
 	t := new.Type
@@ -117,7 +132,7 @@ func (r ConditionsImpl) SetCondition(new *Condition) {
 		}
 	}
 	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, new)
 	// Sorted for convince of the consumer, i.e.: kubectl.
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	r.conditions.SetConditions(conditions)
@@ -127,7 +142,7 @@ func (r ConditionsImpl) SetCondition(new *Condition) {
 // true if all other dependents are also true.
 func (r ConditionsImpl) MarkTrue(t ConditionType) {
 	// set the specified condition
-	r.SetCondition(&Condition{
+	r.SetCondition(Condition{
 		Type:   t,
 		Status: corev1.ConditionTrue,
 	})
@@ -142,7 +157,7 @@ func (r ConditionsImpl) MarkTrue(t ConditionType) {
 	}
 
 	// set the lead condition
-	r.SetCondition(&Condition{
+	r.SetCondition(Condition{
 		Type:   r.lead,
 		Status: corev1.ConditionTrue,
 	})
@@ -152,7 +167,7 @@ func (r ConditionsImpl) MarkTrue(t ConditionType) {
 // to Unknown if no other dependent condition is in an error state.
 func (r ConditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 	// set the specified condition
-	r.SetCondition(&Condition{
+	r.SetCondition(Condition{
 		Type:   t,
 		Status: corev1.ConditionUnknown,
 	})
@@ -167,7 +182,7 @@ func (r ConditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 	}
 
 	// set the lead condition
-	r.SetCondition(&Condition{
+	r.SetCondition(Condition{
 		Type:    r.lead,
 		Status:  corev1.ConditionUnknown,
 		Reason:  reason,
@@ -181,7 +196,7 @@ func (r ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 		t,
 		r.lead,
 	} {
-		r.SetCondition(&Condition{
+		r.SetCondition(Condition{
 			Type:    t,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
@@ -195,7 +210,7 @@ func (r ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 func (r ConditionsImpl) InitializeConditions() {
 	for _, t := range append(r.dependents, r.lead) {
 		if c := r.GetCondition(t); c == nil {
-			r.SetCondition(&Condition{
+			r.SetCondition(Condition{
 				Type:   t,
 				Status: corev1.ConditionUnknown,
 			})
