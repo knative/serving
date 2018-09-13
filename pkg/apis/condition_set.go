@@ -26,12 +26,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Conditions is the interface for a Resource that implements the getter and
+// setter for accessing a Condition collection.
 // +k8s:deepcopy-gen=true
 type Conditions interface {
 	GetConditions() []Condition
 	SetConditions([]Condition)
 }
 
+// NewConditionSet returns a ConditionSet to hold the conditions that are
+// important for the caller. The first ConditionType is the overarching status
+// for that will be used to signal the resources' status is Ready or Succeeded.
 func NewConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
 	c := ConditionSet{
 		lead:       l,
@@ -90,6 +95,7 @@ func (r ConditionsImpl) GetCondition(t ConditionType) *Condition {
 }
 
 // SetCondition sets or updates the Condition on Conditions for Condition.Type.
+// If there is an update, Conditions are stored back sorted.
 func (r ConditionsImpl) SetCondition(new *Condition) {
 	if r.conditions == nil {
 		return
@@ -112,6 +118,7 @@ func (r ConditionsImpl) SetCondition(new *Condition) {
 	}
 	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
+	// Sorted for convince of the consumer, i.e.: kubectl.
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	r.conditions.SetConditions(conditions)
 }
@@ -187,9 +194,11 @@ func (r ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 // if not set.
 func (r ConditionsImpl) InitializeConditions() {
 	for _, t := range append(r.dependents, r.lead) {
-		r.SetCondition(&Condition{
-			Type:   t,
-			Status: corev1.ConditionUnknown,
-		})
+		if c := r.GetCondition(t); c == nil {
+			r.SetCondition(&Condition{
+				Type:   t,
+				Status: corev1.ConditionUnknown,
+			})
+		}
 	}
 }
