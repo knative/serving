@@ -32,8 +32,8 @@ type Conditions interface {
 	SetConditions([]Condition)
 }
 
-func NewConditionSet(l ConditionType, d ...ConditionType) *ConditionSet {
-	c := &ConditionSet{
+func NewConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
+	c := ConditionSet{
 		lead:       l,
 		dependents: d,
 	}
@@ -56,8 +56,8 @@ type ConditionsImpl struct {
 
 // Using creates a ConditionsImpl from an object that implements Conditions and
 // the original ConditionSet.
-func (r *ConditionSet) Using(Conditions Conditions) *ConditionsImpl {
-	return &ConditionsImpl{
+func (r ConditionSet) Using(Conditions Conditions) ConditionsImpl {
+	return ConditionsImpl{
 		conditions: Conditions,
 		ConditionSet: ConditionSet{
 			lead:       r.lead,
@@ -68,7 +68,7 @@ func (r *ConditionSet) Using(Conditions Conditions) *ConditionsImpl {
 
 // IsReady looks at the lead condition and returns true if that condition is
 // set to true.
-func (r *ConditionsImpl) IsReady() bool {
+func (r ConditionsImpl) IsReady() bool {
 	if c := r.GetCondition(r.lead); c == nil || !c.IsTrue() {
 		return false
 	}
@@ -77,7 +77,7 @@ func (r *ConditionsImpl) IsReady() bool {
 
 // GetCondition finds and returns the Condition that matches the ConditionType
 // previously set on Conditions.
-func (r *ConditionsImpl) GetCondition(t ConditionType) *Condition {
+func (r ConditionsImpl) GetCondition(t ConditionType) *Condition {
 	if r.conditions == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (r *ConditionsImpl) GetCondition(t ConditionType) *Condition {
 }
 
 // SetCondition sets or updates the Condition on Conditions for Condition.Type.
-func (r *ConditionsImpl) SetCondition(new *Condition) {
+func (r ConditionsImpl) SetCondition(new *Condition) {
 	if r.conditions == nil {
 		return
 	}
@@ -118,7 +118,7 @@ func (r *ConditionsImpl) SetCondition(new *Condition) {
 
 // MarkTrue sets the status of t to true, and then marks the lead condition to
 // true if all other dependents are also true.
-func (r *ConditionsImpl) MarkTrue(t ConditionType) {
+func (r ConditionsImpl) MarkTrue(t ConditionType) {
 	// set the specified condition
 	r.SetCondition(&Condition{
 		Type:   t,
@@ -143,7 +143,7 @@ func (r *ConditionsImpl) MarkTrue(t ConditionType) {
 
 // MarkUnknown sets the status of t to Unknown and also sets the lead condition
 // to Unknown if no other dependent condition is in an error state.
-func (r *ConditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
+func (r ConditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 	// set the specified condition
 	r.SetCondition(&Condition{
 		Type:   t,
@@ -169,7 +169,7 @@ func (r *ConditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 }
 
 // MarkFalse sets the status of t and the lead condition to False.
-func (r *ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
+func (r ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 	for _, t := range []ConditionType{
 		t,
 		r.lead,
@@ -185,7 +185,7 @@ func (r *ConditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 
 // InitializeConditions updates all Conditions in the ConditionSet to Unknown
 // if not set.
-func (r *ConditionsImpl) InitializeConditions() {
+func (r ConditionsImpl) InitializeConditions() {
 	for _, t := range append(r.dependents, r.lead) {
 		r.SetCondition(&Condition{
 			Type:   t,
