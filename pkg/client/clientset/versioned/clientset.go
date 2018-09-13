@@ -17,7 +17,6 @@ package versioned
 
 import (
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
-	pkgv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/pkg/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -29,9 +28,6 @@ type Interface interface {
 	AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface
-	PkgV1alpha1() pkgv1alpha1.PkgV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Pkg() pkgv1alpha1.PkgV1alpha1Interface
 	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Serving() servingv1alpha1.ServingV1alpha1Interface
@@ -42,7 +38,6 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	autoscalingV1alpha1 *autoscalingv1alpha1.AutoscalingV1alpha1Client
-	pkgV1alpha1         *pkgv1alpha1.PkgV1alpha1Client
 	servingV1alpha1     *servingv1alpha1.ServingV1alpha1Client
 }
 
@@ -55,17 +50,6 @@ func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha
 // Please explicitly pick a version.
 func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
 	return c.autoscalingV1alpha1
-}
-
-// PkgV1alpha1 retrieves the PkgV1alpha1Client
-func (c *Clientset) PkgV1alpha1() pkgv1alpha1.PkgV1alpha1Interface {
-	return c.pkgV1alpha1
-}
-
-// Deprecated: Pkg retrieves the default version of PkgClient.
-// Please explicitly pick a version.
-func (c *Clientset) Pkg() pkgv1alpha1.PkgV1alpha1Interface {
-	return c.pkgV1alpha1
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
@@ -99,10 +83,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.pkgV1alpha1, err = pkgv1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	cs.servingV1alpha1, err = servingv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -120,7 +100,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.autoscalingV1alpha1 = autoscalingv1alpha1.NewForConfigOrDie(c)
-	cs.pkgV1alpha1 = pkgv1alpha1.NewForConfigOrDie(c)
 	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -131,7 +110,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.autoscalingV1alpha1 = autoscalingv1alpha1.New(c)
-	cs.pkgV1alpha1 = pkgv1alpha1.New(c)
 	cs.servingV1alpha1 = servingv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package apis
 
 import (
 	"github.com/knative/pkg/apis"
@@ -32,14 +32,9 @@ const (
 	ConditionSucceeded ConditionType = "Succeeded"
 )
 
-const (
-	ConditionTrue    = corev1.ConditionTrue
-	ConditionFalse   = corev1.ConditionFalse
-	ConditionUnknown = corev1.ConditionUnknown
-)
-
 // Conditions defines a readiness condition for a Knative resource.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
+// +k8s:deepcopy-gen=true
 type Condition struct {
 	// Type of condition.
 	// +required
@@ -65,16 +60,5 @@ type Condition struct {
 }
 
 func (c *Condition) IsTrue() bool {
-	return c.Status == ConditionTrue
-}
-
-type Conditions struct {
-	Conditions []Condition `json:"conditions,omitempty" description:"todo"`
-}
-
-func (c *Conditions) GetConditions() []Condition {
-	return c.Conditions
-}
-func (c *Conditions) SetConditions(conditions []Condition) {
-	c.Conditions = conditions
+	return c.Status == corev1.ConditionTrue
 }

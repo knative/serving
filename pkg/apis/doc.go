@@ -13,5 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-// This package has the automatically generated typed clients.
-package v1alpha1
+
+// Api versions allow the api contract for a resource to be changed while keeping
+// backward compatibility by support multiple concurrent versions
+// of the same resource
+
+// +k8s:deepcopy-gen=package
+package apis
+
+// Updated with deepcopy-gen --input-dirs github.com/knative/serving/pkg/apis -O zz_generated.deepcopy --go-header-file ./hack/boilerplate/boilerplate.go.txt
