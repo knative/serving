@@ -22,38 +22,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	"go.uber.org/zap/zapcore"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
-func TestStoreWatchConfigs(t *testing.T) {
-	watcher := &mockWatcher{}
-
-	store := Store{Logger: TestLogger(t)}
-	store.WatchConfigs(watcher)
-
-	want := []string{
-		ControllerConfigName,
-		NetworkConfigName,
-		ObservabilityConfigName,
-		logging.ConfigName,
-		autoscaler.ConfigName,
-	}
-
-	got := watcher.watches
-
-	if diff := cmp.Diff(want, got, sortStrings); diff != "" {
-		t.Errorf("Unexpected configmap watches (-want, +got): %v", diff)
-	}
-}
-
 func TestStoreLoadWithContext(t *testing.T) {
-	store := Store{Logger: TestLogger(t)}
+	store := NewStore(TestLogger(t))
 
 	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName)
 	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
@@ -61,11 +37,11 @@ func TestStoreLoadWithContext(t *testing.T) {
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
-	store.setController(controllerConfig)
-	store.setNetwork(networkConfig)
-	store.setObservability(observabilityConfig)
-	store.setLogging(loggingConfig)
-	store.setAutoscaler(autoscalerConfig)
+	store.OnConfigChanged(controllerConfig)
+	store.OnConfigChanged(networkConfig)
+	store.OnConfigChanged(observabilityConfig)
+	store.OnConfigChanged(loggingConfig)
+	store.OnConfigChanged(autoscalerConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -106,13 +82,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	store := Store{Logger: TestLogger(t)}
+	store := NewStore(TestLogger(t))
 
-	store.setController(ConfigMapFromTestFile(t, ControllerConfigName))
-	store.setNetwork(ConfigMapFromTestFile(t, NetworkConfigName))
-	store.setObservability(ConfigMapFromTestFile(t, ObservabilityConfigName))
-	store.setLogging(ConfigMapFromTestFile(t, logging.ConfigName))
-	store.setAutoscaler(ConfigMapFromTestFile(t, autoscaler.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, NetworkConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, ObservabilityConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
 
 	config := store.Load()
 
@@ -134,52 +110,9 @@ func TestStoreImmutableConfig(t *testing.T) {
 		t.Error("Observability config is not immutable")
 	}
 	if newConfig.Logging.LoggingConfig == "mutated" {
-		t.Error("Logging config is not immutabled")
+		t.Error("Logging config is not immutable")
 	}
 	if newConfig.Autoscaler.MaxScaleUpRate == config.Autoscaler.MaxScaleUpRate {
-		t.Error("Autoscaler config is not immutabled")
+		t.Error("Autoscaler config is not immutable")
 	}
 }
-
-func TestStoreFailedUpdate(t *testing.T) {
-	store := Store{Logger: TestLogger(t)}
-
-	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName)
-	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
-	observabilityConfig := ConfigMapFromTestFile(t, ObservabilityConfigName)
-	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigName)
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
-
-	loggingConfig.Data["loglevel.controller"] = "debug"
-
-	store.setController(controllerConfig)
-	store.setNetwork(networkConfig)
-	store.setObservability(observabilityConfig)
-	store.setLogging(loggingConfig)
-	store.setAutoscaler(autoscalerConfig)
-
-	// Set a bad level which causes the update to fail
-	loggingConfig.Data["loglevel.controller"] = "unknown"
-	store.setLogging(loggingConfig)
-
-	config := store.Load()
-	if got, want := config.Logging.LoggingLevel["controller"], zapcore.DebugLevel; got != want {
-		t.Errorf("Expected the update to fail - logging level want: %v, got: %v", want, got)
-	}
-}
-
-type mockWatcher struct {
-	watches []string
-}
-
-func (w *mockWatcher) Watch(config string, o configmap.Observer) {
-	w.watches = append(w.watches, config)
-}
-
-func (*mockWatcher) Start(<-chan struct{}) error { return nil }
-
-var _ configmap.Watcher = (*mockWatcher)(nil)
-
-var sortStrings = cmpopts.SortSlices(func(x, y string) bool {
-	return x < y
-})

@@ -429,7 +429,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
-	if !controller.Reconciler.(*Reconciler).configStore.(*config.Store).Load().Autoscaler.EnableVPA {
+	if !controller.Reconciler.(*Reconciler).configStore.Load().Autoscaler.EnableVPA {
 		t.Fatal("EnableVPA = false, want true")
 	}
 

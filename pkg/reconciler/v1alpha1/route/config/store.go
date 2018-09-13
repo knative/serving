@@ -18,62 +18,48 @@ package config
 
 import (
 	"context"
-	"sync/atomic"
 
-	"github.com/knative/pkg/configmap"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/knative/serving/pkg/reconciler/config"
 )
 
-type configsKey struct{}
+type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Domain *Domain
 }
 
+func FromContext(ctx context.Context) *Config {
+	return ctx.Value(cfgKey{}).(*Config)
+}
+
+func ToContext(ctx context.Context, c *Config) context.Context {
+	return context.WithValue(ctx, cfgKey{}, c)
+}
+
 // +k8s:deepcopy-gen=false
 type Store struct {
-	Logger *zap.SugaredLogger
-	domain atomic.Value
+	*config.UntypedStore
 }
 
-func FromContext(ctx context.Context) *Config {
-	return ctx.Value(configsKey{}).(*Config)
-}
+func NewStore(logger config.Logger) *Store {
+	store := &Store{
+		UntypedStore: config.NewUntypedStore(
+			"route",
+			logger,
+			DomainConfigName, NewDomainFromConfigMap,
+		),
+	}
 
-func WithConfig(ctx context.Context, c *Config) context.Context {
-	return context.WithValue(ctx, configsKey{}, c)
+	return store
 }
 
 func (s *Store) ToContext(ctx context.Context) context.Context {
-	return WithConfig(ctx, s.Load())
-}
-
-func (s *Store) WatchConfigs(w configmap.Watcher) {
-	w.Watch(DomainConfigName, s.setDomain)
+	return ToContext(ctx, s.Load())
 }
 
 func (s *Store) Load() *Config {
 	return &Config{
-		Domain: s.domain.Load().(*Domain).DeepCopy(),
+		Domain: s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
 	}
-}
-
-func (s *Store) setDomain(c *corev1.ConfigMap) {
-	val, err := NewDomainFromConfigMap(c)
-	s.save("domain", &s.domain, val, err)
-}
-
-func (s *Store) save(desc string, v *atomic.Value, value interface{}, err error) {
-	if err != nil {
-		if v.Load() != nil {
-			s.Logger.Errorf("Error updating route %s config: %v", desc, err)
-		} else {
-			s.Logger.Fatalf("Error initializing route %s config: %v", desc, err)
-		}
-		return
-	}
-	s.Logger.Infof("Route %s config was added or updated: %v", desc, value)
-	v.Store(value)
 }

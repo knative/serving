@@ -78,6 +78,7 @@ type resolver interface {
 type configStore interface {
 	ToContext(ctx context.Context) context.Context
 	WatchConfigs(w configmap.Watcher)
+	Load() *config.Config
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -124,8 +125,6 @@ func NewController(
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 ) *controller.Impl {
 
-	configStore := &config.Store{}
-
 	c := &Reconciler{
 		Base:             reconciler.NewBase(opt, controllerAgentName),
 		vpaClient:        vpaClient,
@@ -138,14 +137,11 @@ func NewController(
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		configStore:      configStore,
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
 			transport: http.DefaultTransport,
 		},
 	}
-
-	configStore.Logger = c.Logger.Named("config-store")
 
 	impl := controller.NewImpl(c, c.Logger, "Revisions")
 
@@ -190,6 +186,7 @@ func NewController(
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
 	// logging configuration changes are rolled out to active revisions.
+	c.configStore = config.NewStore(c.Logger.Named("config-store"))
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl

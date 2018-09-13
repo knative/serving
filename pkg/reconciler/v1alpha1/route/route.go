@@ -82,8 +82,6 @@ func NewController(
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
 ) *controller.Impl {
 
-	configStore := &config.Store{}
-
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Reconciler{
@@ -93,10 +91,8 @@ func NewController(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
-		configStore:          configStore,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes")
-	configStore.Logger = c.Logger.Named("config-store")
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -127,7 +123,8 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"))
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
 

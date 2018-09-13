@@ -18,17 +18,14 @@ package config
 
 import (
 	"context"
-	"sync/atomic"
 
-	"github.com/knative/pkg/configmap"
 	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/knative/serving/pkg/reconciler/config"
 )
 
-type configsKey struct{}
+type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
@@ -39,82 +36,45 @@ type Config struct {
 	Autoscaler    *autoscaler.Config
 }
 
+func FromContext(ctx context.Context) *Config {
+	return ctx.Value(cfgKey{}).(*Config)
+}
+
+func ToContext(ctx context.Context, c *Config) context.Context {
+	return context.WithValue(ctx, cfgKey{}, c)
+}
+
 // +k8s:deepcopy-gen=false
 type Store struct {
-	Logger *zap.SugaredLogger
-
-	controller    atomic.Value
-	network       atomic.Value
-	observability atomic.Value
-	logging       atomic.Value
-	autoscaler    atomic.Value
+	*config.UntypedStore
 }
 
-func FromContext(ctx context.Context) *Config {
-	return ctx.Value(configsKey{}).(*Config)
-}
+func NewStore(logger config.Logger) *Store {
+	store := &Store{
+		UntypedStore: config.NewUntypedStore(
+			"revision",
+			logger,
+			ControllerConfigName, NewControllerConfigFromConfigMap,
+			NetworkConfigName, NewNetworkFromConfigMap,
+			ObservabilityConfigName, NewObservabilityFromConfigMap,
+			autoscaler.ConfigName, autoscaler.NewConfigFromConfigMap,
+			logging.ConfigName, logging.NewConfigFromConfigMap,
+		),
+	}
 
-func WithConfig(ctx context.Context, c *Config) context.Context {
-	return context.WithValue(ctx, configsKey{}, c)
+	return store
 }
 
 func (s *Store) ToContext(ctx context.Context) context.Context {
-	return WithConfig(ctx, s.Load())
-}
-
-func (s *Store) WatchConfigs(w configmap.Watcher) {
-	w.Watch(NetworkConfigName, s.setNetwork)
-	w.Watch(ObservabilityConfigName, s.setObservability)
-	w.Watch(ControllerConfigName, s.setController)
-
-	w.Watch(autoscaler.ConfigName, s.setAutoscaler)
-	w.Watch(logging.ConfigName, s.setLogging)
+	return ToContext(ctx, s.Load())
 }
 
 func (s *Store) Load() *Config {
 	return &Config{
-		Controller:    s.controller.Load().(*Controller).DeepCopy(),
-		Network:       s.network.Load().(*Network).DeepCopy(),
-		Observability: s.observability.Load().(*Observability).DeepCopy(),
-		Logging:       s.logging.Load().(*pkglogging.Config).DeepCopy(),
-		Autoscaler:    s.autoscaler.Load().(*autoscaler.Config).DeepCopy(),
+		Controller:    s.UntypedLoad(ControllerConfigName).(*Controller).DeepCopy(),
+		Network:       s.UntypedLoad(NetworkConfigName).(*Network).DeepCopy(),
+		Observability: s.UntypedLoad(ObservabilityConfigName).(*Observability).DeepCopy(),
+		Logging:       s.UntypedLoad(logging.ConfigName).(*pkglogging.Config).DeepCopy(),
+		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
-}
-
-func (s *Store) setController(c *corev1.ConfigMap) {
-	val, err := NewControllerConfigFromConfigMap(c)
-	s.save("controller", &s.controller, val, err)
-}
-
-func (s *Store) setNetwork(c *corev1.ConfigMap) {
-	val, err := NewNetworkFromConfigMap(c)
-	s.save("network", &s.network, val, err)
-}
-
-func (s *Store) setObservability(c *corev1.ConfigMap) {
-	val, err := NewObservabilityFromConfigMap(c)
-	s.save("observability", &s.observability, val, err)
-}
-
-func (s *Store) setLogging(c *corev1.ConfigMap) {
-	val, err := logging.NewConfigFromConfigMap(c)
-	s.save("logging", &s.logging, val, err)
-}
-
-func (s *Store) setAutoscaler(c *corev1.ConfigMap) {
-	val, err := autoscaler.NewConfigFromConfigMap(c)
-	s.save("autoscaler", &s.autoscaler, val, err)
-}
-
-func (s *Store) save(desc string, v *atomic.Value, value interface{}, err error) {
-	if err != nil {
-		if v.Load() != nil {
-			s.Logger.Errorf("Error updating revision %s config: %v", desc, err)
-		} else {
-			s.Logger.Fatalf("Error initializing revision %s config: %v", desc, err)
-		}
-		return
-	}
-	s.Logger.Infof("Revision %s config was added or updated: %v", desc, value)
-	v.Store(value)
 }

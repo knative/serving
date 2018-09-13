@@ -1666,7 +1666,7 @@ type testConfigStore struct {
 }
 
 func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
-	return config.WithConfig(ctx, t.config)
+	return config.ToContext(ctx, t.config)
 }
 
 func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
