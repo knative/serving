@@ -101,7 +101,7 @@ func TestKPAScaler(t *testing.T) {
 			}}
 		},
 	}, {
-		label:         "scale down to minScale",
+		label:         "scale down to minScale after grace period",
 		startState:    v1alpha1.RevisionServingStateReserve,
 		startReplicas: 10,
 		scaleTo:       0,
@@ -109,6 +109,14 @@ func TestKPAScaler(t *testing.T) {
 		wantState:     v1alpha1.RevisionServingStateReserve,
 		wantReplicas:  2,
 		wantScaling:   true,
+		kpaMutation: func(k *kpa.PodAutoscaler) {
+			ltt := time.Now().Add(-gracePeriod)
+			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
+				Type:               "Active",
+				Status:             "False",
+				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
+			}}
+		},
 	}, {
 		label:         "scales up",
 		startState:    v1alpha1.RevisionServingStateActive,
@@ -132,7 +140,7 @@ func TestKPAScaler(t *testing.T) {
 		startReplicas: 1,
 		scaleTo:       10,
 		wantState:     v1alpha1.RevisionServingStateReserve,
-		wantReplicas:  10,
+		wantReplicas:  0,
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			k.Status.Conditions = []kpa.PodAutoscalerCondition{{

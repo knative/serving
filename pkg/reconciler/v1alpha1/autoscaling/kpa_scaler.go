@@ -172,11 +172,6 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return err
 	}
 
-	if newScale := applyBounds(getScaleBounds(ctx, kpa))(desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
-		desiredScale = newScale
-	}
-
 	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		logger.Debug("Setting revision ServingState to Reserve.")
@@ -190,12 +185,18 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	// When ServingState=Reserve (see above) propagates to us, then actually scale
 	// things to zero.
-	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive && desiredScale == 0 {
+	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
 		// Delay the scale to zero until the LTT of "Active=False" is some time in the past.
 		if !kpa.Status.CanScaleToZero(rs.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
 			return nil
 		}
+		desiredScale = 0
+	}
+
+	if newScale := applyBounds(getScaleBounds(ctx, kpa))(desiredScale); newScale != desiredScale {
+		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
+		desiredScale = newScale
 	}
 
 	currentScale := scl.Spec.Replicas
