@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestConfigurationGeneration(t *testing.T) {
@@ -327,4 +328,16 @@ func checkConditionConfiguration(rs ConfigurationStatus, rct ConfigurationCondit
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
 	}
 	return r
+}
+
+func TestConfigurationGetGroupVersionKind(t *testing.T) {
+	c := &Configuration{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Configuration",
+	}
+	if got := c.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestServiceGeneration(t *testing.T) {
@@ -521,4 +522,16 @@ func checkConditionService(rs ServiceStatus, rct ServiceConditionType, cs corev1
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
 	}
 	return r
+}
+
+func TestServiceGetGroupVersionKind(t *testing.T) {
+	s := &Service{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Service",
+	}
+	if got := s.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
 }
