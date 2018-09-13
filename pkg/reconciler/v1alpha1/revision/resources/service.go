@@ -31,7 +31,7 @@ import (
 
 var (
 	servicePorts = []corev1.ServicePort{{
-		Name:       "http",
+		Name:       ServicePortName,
 		Protocol:   corev1.ProtocolTCP,
 		Port:       ServicePort,
 		TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
