@@ -19,16 +19,13 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"sort"
-	"time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -58,6 +55,9 @@ type Configuration struct {
 var _ apis.Validatable = (*Configuration)(nil)
 var _ apis.Defaultable = (*Configuration)(nil)
 
+// Check that ConfigurationStatus may have it's conditions managed.
+var _ sapis.Conditions = (*ConfigurationStatus)(nil)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -80,34 +80,13 @@ type ConfigurationSpec struct {
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
-// ConfigurationConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type ConfigurationConditionType string
-
 const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
-	ConfigurationConditionReady ConfigurationConditionType = "Ready"
+	ConfigurationConditionReady = sapis.ConditionReady
 )
 
-// ConfigurationCondition defines a readiness condition for a Configuration.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type ConfigurationCondition struct {
-	Type ConfigurationConditionType `json:"type" description:"type of Configuration condition"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
+var confCondSet = sapis.NewOngoingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
@@ -115,7 +94,7 @@ type ConfigurationStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
+	Conditions []sapis.Condition `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -156,13 +135,9 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// IsReady looks at the conditions on the ConfigurationStatus.
-// ConfigurationConditionReady returns true if ConditionStatus is True
+// IsReady looks at the conditions to see if they are happy.
 func (cs *ConfigurationStatus) IsReady() bool {
-	if c := cs.GetCondition(ConfigurationConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return confCondSet.Using(cs).IsHappy()
 }
 
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
@@ -173,89 +148,65 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
-func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
-	for _, cond := range config.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+func (cs *ConfigurationStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+	return confCondSet.Using(cs).GetCondition(t)
 }
 
-func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
-	if new == nil {
-		return
+// This is kept for unit test integration.
+func (cs *ConfigurationStatus) setCondition(new *sapis.Condition) {
+	if new != nil {
+		confCondSet.Using(cs).SetCondition(*new)
 	}
-	t := new.Type
-	var conditions []ConfigurationCondition
-	for _, cond := range cs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	cs.Conditions = conditions
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
-	if rc := cs.GetCondition(ConfigurationConditionReady); rc == nil {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionReady,
-			Status: corev1.ConditionUnknown,
-		})
-	}
+	confCondSet.Using(cs).InitializeConditions()
 }
 
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionReady,
-			Status: corev1.ConditionUnknown,
-		})
+		confCondSet.Using(cs).MarkUnknown(
+			ConfigurationConditionReady,
+			"LatestReadyRevisionNameMismatch",
+			fmt.Sprintf("%q != %q", cs.LatestReadyRevisionName, name))
 	}
 }
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	cs.setCondition(&ConfigurationCondition{
-		Type:   ConfigurationConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	confCondSet.Using(cs).MarkTrue(ConfigurationConditionReady)
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cs.setCondition(&ConfigurationCondition{
-		Type:    ConfigurationConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionFailed",
-		Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
-	})
+	confCondSet.Using(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionFailed",
+		fmt.Sprintf("Revision %q failed with message: %q.", name, message))
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
-	cs.setCondition(&ConfigurationCondition{
-		Type:    ConfigurationConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionFailed",
-		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
-	})
+	confCondSet.Using(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionFailed",
+		fmt.Sprintf("Revision creation failed with message: %q.", message))
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	cs.setCondition(&ConfigurationCondition{
-		Type:    ConfigurationConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionDeleted",
-		Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
-	})
-	cs.LatestReadyRevisionName = ""
+	confCondSet.Using(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionDeleted",
+		fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName))
+}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (cs *ConfigurationStatus) GetConditions() []sapis.Condition {
+	return cs.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (cs *ConfigurationStatus) SetConditions(conditions []sapis.Condition) {
+	cs.Conditions = conditions
 }
