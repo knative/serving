@@ -256,7 +256,7 @@ func main() {
 	kubeClient = kc
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
