@@ -55,6 +55,9 @@ type Service struct {
 var _ apis.Validatable = (*Service)(nil)
 var _ apis.Defaultable = (*Service)(nil)
 
+// Check that ServiceStatus may have it's conditions managed.
+var _ sapis.Conditions = (*ServiceStatus)(nil)
+
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
 // track the latest ready revision of a configuration or be pinned to a specific
@@ -96,7 +99,7 @@ type PinnedType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
-// ConditionType represents an Service condition value
+// ConditionType represents a Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
