@@ -195,7 +195,9 @@ func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
 
 // This is kept for unit test integration.
 func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
-	condSet.Using(ss).SetCondition(*new)
+	if new != nil {
+		condSet.Using(ss).SetCondition(*new)
+	}
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
