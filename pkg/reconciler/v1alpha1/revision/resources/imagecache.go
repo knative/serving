@@ -23,8 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 )
 
@@ -41,7 +41,7 @@ func MakeImageCache(rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching
 				Namespace:       rev.Namespace,
 				Labels:          makeLabels(rev),
 				Annotations:     makeAnnotations(rev),
-				OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(rev)},
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 			},
 			Spec: caching.ImageSpec{
 				// Key off of the Deployment for the resolved image digest.

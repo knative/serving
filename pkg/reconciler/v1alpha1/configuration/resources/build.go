@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
@@ -33,7 +33,7 @@ func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       config.Namespace,
 			Name:            names.Build(config),
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(config)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(config)},
 		},
 		Spec: *config.Spec.Build,
 	}

@@ -37,6 +37,7 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -362,7 +363,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
-	rev.OwnerReferences = append(rev.OwnerReferences, *rclr.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
@@ -625,7 +626,7 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
+		*kmeta.NewControllerRef(config),
 	)
 	// Update controller config with no autoscaler image
 	controller.Reconciler.(*Reconciler).receiveControllerConfig(
@@ -661,7 +662,7 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
+		*kmeta.NewControllerRef(config),
 	)
 	// Update controller config with no side car image
 	controller.Reconciler.(*Reconciler).receiveControllerConfig(
@@ -785,7 +786,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
+		*kmeta.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)

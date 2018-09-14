@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +62,7 @@ func TestMakeK8sService_ValidMeta(t *testing.T) {
 		Namespace: "test-ns",
 		OwnerReferences: []metav1.OwnerReference{
 			// This service is owned by the Route.
-			*reconciler.NewControllerRef(r),
+			*kmeta.NewControllerRef(r),
 		},
 	}
 	meta := MakeK8sService(r).ObjectMeta

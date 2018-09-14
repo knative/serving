@@ -338,7 +338,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:c66ac8b6d6f89ac293db6948a2518029e16e303c2a0b7713b6fe1ca0b015883e"
+  digest = "1:ccffe02c2e3ec58bf6d4fc6d23abfabcc47ece702fba23cd08bddea268115b81"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -364,6 +364,7 @@
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
+    "kmeta",
     "logging",
     "logging/logkey",
     "logging/testing",
@@ -374,7 +375,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "8fc80deb200e7853795e6baf4029f406ca9534b8"
+  revision = "2a7e950c4e2d635d6e32ba3d050dd32ba7be5be3"
 
 [[projects]]
   branch = "master"
@@ -1074,6 +1075,7 @@
     "github.com/knative/pkg/client/listers/istio/v1alpha3",
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/controller",
+    "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/logging",
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",

@@ -22,6 +22,7 @@ import (
 
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -48,7 +49,7 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 			Name:            names.VirtualService(u),
 			Namespace:       u.Namespace,
 			Labels:          map[string]string{"route": u.Name},
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(u)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(u)},
 		},
 		Spec: makeVirtualServiceSpec(u, tc.Targets),
 	}
