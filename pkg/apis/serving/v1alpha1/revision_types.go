@@ -18,15 +18,13 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"reflect"
-	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -56,6 +54,9 @@ type Revision struct {
 var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
+
+// Check that RevisionStatus may have it's conditions managed.
+var _ sapis.Conditions = (*RevisionStatus)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
@@ -166,43 +167,42 @@ type RevisionSpec struct {
 	Container corev1.Container `json:"container,omitempty"`
 }
 
-// RevisionConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RevisionConditionType string
-
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady RevisionConditionType = "Ready"
+	RevisionConditionReady = sapis.ConditionReady
 	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded sapis.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable sapis.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy sapis.ConditionType = "ContainerHealthy"
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive RevisionConditionType = "Active"
+	RevisionConditionActive sapis.ConditionType = "Active"
 )
 
-// RevisionCondition defines a readiness condition for a Revision.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type RevisionCondition struct {
-	Type RevisionConditionType `json:"type" description:"type of Revision condition"`
+var revCondSet = sapis.NewOngoingConditionSet(
+	RevisionConditionBuildSucceeded, // also tricky, does not get initialized.
+	RevisionConditionResourcesAvailable,
+	RevisionConditionContainerHealthy,
+	RevisionConditionActive) // <-- this one will be tricky. it is a state, not a condition on overall readiness.
 
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+func init() {
+	revCondSet.SetInits(
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive)
 
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	revCondSet.SetOverallTrueRequires(
+		RevisionConditionContainerHealthy,
+		RevisionConditionResourcesAvailable)
 
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+	revCondSet.SetOverallUnknownRequires(
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive)
 }
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
@@ -218,7 +218,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []RevisionCondition `json:"conditions,omitempty"`
+	Conditions []sapis.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -257,81 +257,37 @@ func (r *Revision) GetSpecJSON() ([]byte, error) {
 // IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return revCondSet.Using(rs).IsHappy()
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := rs.GetCondition(RevisionConditionActive); c != nil {
-		return c.Status != corev1.ConditionTrue
-	}
-	return false
+	return !(revCondSet.Using(rs).GetCondition(RevisionConditionActive).IsTrue())
 }
 
 func (rs *RevisionStatus) IsRoutable() bool {
 	return rs.IsReady() || rs.IsActivationRequired()
 }
 
-func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
-	for _, cond := range rs.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+func (rs *RevisionStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+	return revCondSet.Using(rs).GetCondition(t)
 }
 
-func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
-	if new == nil {
-		return
+// This is kept for unit test integration.
+func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
+	if new != nil {
+		revCondSet.Using(rs).SetCondition(*new)
 	}
-
-	t := new.Type
-	var conditions []RevisionCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	rs.Conditions = conditions
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
-	// We don't include BuildSucceeded here because it could confuse users if
+	revCondSet.Using(rs).InitializeConditions()
+
+	// TODO: We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionActive,
-		RevisionConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&RevisionCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
 }
 
 func (rs *RevisionStatus) InitializeBuildCondition() {
-	if rc := rs.GetCondition(RevisionConditionBuildSucceeded); rc == nil {
-		rs.setCondition(&RevisionCondition{
-			Type:   RevisionConditionBuildSucceeded,
-			Status: corev1.ConditionUnknown,
-		})
-	}
+	revCondSet.Using(rs).InitializeCondition(RevisionConditionBuildSucceeded)
 }
 
 func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
@@ -341,108 +297,121 @@ func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
 	}
 	switch {
 	case bc.Status == corev1.ConditionUnknown:
-		rs.markUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
+		revCondSet.Using(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
 	case bc.Status == corev1.ConditionTrue:
-		rs.markTrue(RevisionConditionBuildSucceeded)
+		revCondSet.Using(rs).MarkTrue(RevisionConditionBuildSucceeded)
 	case bc.Status == corev1.ConditionFalse:
-		rs.markFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
+		revCondSet.Using(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
 	}
 }
 
 func (rs *RevisionStatus) MarkDeploying(reason string) {
-	rs.markUnknown(RevisionConditionResourcesAvailable, reason, "")
-	rs.markUnknown(RevisionConditionContainerHealthy, reason, "")
+	revCondSet.Using(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
+	revCondSet.Using(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {
-	rs.markFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
+	revCondSet.Using(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
 		"Timed out waiting for a service endpoint to become ready")
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	rs.markFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
+	revCondSet.Using(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
 }
 
 func (rs *RevisionStatus) MarkContainerHealthy() {
-	rs.markTrue(RevisionConditionContainerHealthy)
+	revCondSet.Using(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
-	rs.markTrue(RevisionConditionResourcesAvailable)
+	revCondSet.Using(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
 
 func (rs *RevisionStatus) MarkActive() {
-	rs.markTrue(RevisionConditionActive)
+	revCondSet.Using(rs).MarkTrue(RevisionConditionActive)
 }
 
 func (rs *RevisionStatus) MarkActivating(reason, message string) {
-	rs.markUnknown(RevisionConditionActive, reason, message)
+	revCondSet.Using(rs).MarkUnknown(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkInactive(reason, message string) {
-	rs.markFalse(RevisionConditionActive, reason, message)
+	revCondSet.Using(rs).MarkFalse(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	rs.markFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
+	revCondSet.Using(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
 }
 
-func (rs *RevisionStatus) markTrue(t RevisionConditionType) {
-	rs.setCondition(&RevisionCondition{
-		Type:   t,
-		Status: corev1.ConditionTrue,
-	})
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionResourcesAvailable,
-	} {
-		c := rs.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+//
+//func (rs *RevisionStatus) markTrue(t sapis.ConditionType) {
+//	rs.setCondition(&sapis.Condition{
+//		Type:   t,
+//		Status: corev1.ConditionTrue,
+//	})
+//	for _, cond := range []sapis.ConditionType{
+//		RevisionConditionContainerHealthy,
+//		RevisionConditionResourcesAvailable,
+//	} {
+//		c := rs.GetCondition(cond)
+//		if c == nil || c.Status != corev1.ConditionTrue {
+//			return
+//		}
+//	}
+//	rs.setCondition(&sapis.Condition{
+//		Type:   RevisionConditionReady,
+//		Status: corev1.ConditionTrue,
+//	})
+//}
+//
+//func (rs *RevisionStatus) markUnknown(t sapis.ConditionType, reason, message string) {
+//	rs.setCondition(&sapis.Condition{
+//		Type:    t,
+//		Status:  corev1.ConditionUnknown,
+//		Reason:  reason,
+//		Message: message,
+//	})
+//	for _, cond := range []sapis.ConditionType{
+//		RevisionConditionContainerHealthy,
+//		RevisionConditionActive,
+//		RevisionConditionResourcesAvailable,
+//	} {
+//		c := rs.GetCondition(cond)
+//		if c == nil || c.Status == corev1.ConditionFalse {
+//			// Failed conditions trump unknown conditions
+//			return
+//		}
+//	}
+//	rs.setCondition(&sapis.Condition{
+//		Type:    RevisionConditionReady,
+//		Status:  corev1.ConditionUnknown,
+//		Reason:  reason,
+//		Message: message,
+//	})
+//}
+//
+//func (rs *RevisionStatus) markFalse(t sapis.ConditionType, reason, message string) {
+//	for _, cond := range []sapis.ConditionType{
+//		t,
+//		RevisionConditionReady,
+//	} {
+//		rs.setCondition(&sapis.Condition{
+//			Type:    cond,
+//			Status:  corev1.ConditionFalse,
+//			Reason:  reason,
+//			Message: message,
+//		})
+//	}
+//}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (rs *RevisionStatus) GetConditions() []sapis.Condition {
+	return rs.Conditions
 }
 
-func (rs *RevisionStatus) markUnknown(t RevisionConditionType, reason, message string) {
-	rs.setCondition(&RevisionCondition{
-		Type:    t,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionActive,
-		RevisionConditionResourcesAvailable,
-	} {
-		c := rs.GetCondition(cond)
-		if c == nil || c.Status == corev1.ConditionFalse {
-			// Failed conditions trump unknown conditions
-			return
-		}
-	}
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-}
-
-func (rs *RevisionStatus) markFalse(t RevisionConditionType, reason, message string) {
-	for _, cond := range []RevisionConditionType{
-		t,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
-	}
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (rs *RevisionStatus) SetConditions(conditions []sapis.Condition) {
+	rs.Conditions = conditions
 }

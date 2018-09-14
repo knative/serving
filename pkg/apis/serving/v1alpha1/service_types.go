@@ -103,7 +103,7 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady sapis.ConditionType = sapis.ConditionReady
+	ServiceConditionReady = sapis.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
 	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"

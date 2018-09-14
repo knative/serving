@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	sapis "github.com/knative/serving/pkg/apis"
 )
 
 func TestGeneration(t *testing.T) {
@@ -49,7 +50,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -58,7 +59,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}},
@@ -67,7 +68,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 				Reason: "Updating",
@@ -81,7 +82,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -90,7 +91,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -119,7 +120,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready status should be routable",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -128,7 +129,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Inactive status should be routable",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}, {
@@ -140,7 +141,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -149,7 +150,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -178,7 +179,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}},
@@ -187,7 +188,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -196,7 +197,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -205,7 +206,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type: RevisionConditionReady,
 			}},
 		},
@@ -213,7 +214,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -222,7 +223,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -234,7 +235,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: []sapis.Condition{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -260,7 +261,7 @@ func TestGetSetCondition(t *testing.T) {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 
-	rc := &RevisionCondition{
+	rc := &sapis.Condition{
 		Type:   RevisionConditionBuildSucceeded,
 		Status: corev1.ConditionTrue,
 	}
@@ -276,11 +277,11 @@ func TestGetSetCondition(t *testing.T) {
 
 func TestRevisionConditions(t *testing.T) {
 	rev := &Revision{}
-	foo := &RevisionCondition{
+	foo := &sapis.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &RevisionCondition{
+	bar := &sapis.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
@@ -569,22 +570,22 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
-func checkConditionSucceededRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func checkConditionSucceededRevision(rs RevisionStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func checkConditionFailedRevision(rs RevisionStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func checkConditionOngoingRevision(rs RevisionStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRevision(rs RevisionStatus, rct RevisionConditionType, cs corev1.ConditionStatus, t *testing.T) *RevisionCondition {
+func checkConditionRevision(rs RevisionStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *sapis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

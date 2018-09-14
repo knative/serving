@@ -61,15 +61,24 @@ type Condition struct {
 
 // IsTrue is true if the condition is True
 func (c *Condition) IsTrue() bool {
+	if c == nil {
+		return false
+	}
 	return c.Status == corev1.ConditionTrue
 }
 
 // IsFalse is true if the condition is False
 func (c *Condition) IsFalse() bool {
+	if c == nil {
+		return false
+	}
 	return c.Status == corev1.ConditionFalse
 }
 
 // IsUnknown is true if the condition is Unknown
 func (c *Condition) IsUnknown() bool {
+	if c == nil {
+		return false
+	}
 	return c.Status == corev1.ConditionUnknown
 }
