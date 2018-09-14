@@ -41,8 +41,8 @@ local threads = {}
 
 function setup(thread)
   table.insert(threads, thread)
-  if os.getenv('concurrency') == nil then
-    print('"concurrency" environment variable must be defined. Set it to the number of connections configured for wrk')
+  if tonumber(os.getenv('concurrency')) == nil then
+    print('"concurrency" environment variable must be defined and be a number. Set it to the number of connections configured for wrk.')
     os.exit()
   end
 end
