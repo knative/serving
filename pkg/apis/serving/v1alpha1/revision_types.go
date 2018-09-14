@@ -194,21 +194,21 @@ var revCondSet = sapis.NewOngoingConditionSet(
 	RevisionConditionContainerHealthy,
 	RevisionConditionActive) // <-- this one will be tricky. it is a state, not a condition on overall readiness.
 
-func init() {
-	revCondSet.SetInits(
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionActive)
-
-	revCondSet.SetOverallTrueRequires(
-		RevisionConditionContainerHealthy,
-		RevisionConditionResourcesAvailable)
-
-	revCondSet.SetOverallUnknownRequires(
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionActive)
-}
+//func init() {
+//	revCondSet.SetInits(
+//		RevisionConditionResourcesAvailable,
+//		RevisionConditionContainerHealthy,
+//		RevisionConditionActive)
+//
+//	revCondSet.SetOverallTrueRequires(
+//		RevisionConditionContainerHealthy,
+//		RevisionConditionResourcesAvailable)
+//
+//	revCondSet.SetOverallUnknownRequires(
+//		RevisionConditionResourcesAvailable,
+//		RevisionConditionContainerHealthy,
+//		RevisionConditionActive)
+//}
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
