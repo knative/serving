@@ -174,7 +174,7 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -215,7 +215,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Config failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -237,7 +237,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -267,7 +267,7 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 
 	// Failure causes us to become unready immediately
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -297,7 +297,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -308,7 +308,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Fixed the glitch.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -327,7 +327,7 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -344,7 +344,7 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration flipping back to Unknown causes us to become ongoing immediately
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -400,7 +400,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -441,7 +441,7 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: []sapis.Condition{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},

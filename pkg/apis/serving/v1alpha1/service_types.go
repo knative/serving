@@ -117,7 +117,7 @@ const (
 	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
 
-var condSet = sapis.NewOngoingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var serviceCondSet = sapis.NewOngoingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
@@ -189,22 +189,22 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	return condSet.Using(ss).IsHappy()
+	return serviceCondSet.Using(ss).IsHappy()
 }
 
 func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return condSet.Using(ss).GetCondition(t)
+	return serviceCondSet.Using(ss).GetCondition(t)
 }
 
 // This is kept for unit test integration.
 func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
 	if new != nil {
-		condSet.Using(ss).SetCondition(*new)
+		serviceCondSet.Using(ss).SetCondition(*new)
 	}
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	condSet.Using(ss).InitializeConditions()
+	serviceCondSet.Using(ss).InitializeConditions()
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
@@ -217,11 +217,11 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	}
 	switch {
 	case cc.Status == corev1.ConditionUnknown:
-		condSet.Using(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Using(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == corev1.ConditionTrue:
-		condSet.Using(ss).MarkTrue(ServiceConditionConfigurationsReady)
+		serviceCondSet.Using(ss).MarkTrue(ServiceConditionConfigurationsReady)
 	case cc.Status == corev1.ConditionFalse:
-		condSet.Using(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Using(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -236,11 +236,11 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 	switch {
 	case rc.Status == corev1.ConditionUnknown:
-		condSet.Using(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Using(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		condSet.Using(ss).MarkTrue(ServiceConditionRoutesReady)
+		serviceCondSet.Using(ss).MarkTrue(ServiceConditionRoutesReady)
 	case rc.Status == corev1.ConditionFalse:
-		condSet.Using(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Using(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 
