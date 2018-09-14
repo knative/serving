@@ -59,7 +59,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
@@ -93,7 +93,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "permanently-failed", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
@@ -131,7 +131,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
@@ -180,7 +180,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
@@ -220,7 +220,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "label-config-failure", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "label-config-failure", "config", &v1alpha1.RouteStatus{
@@ -301,7 +301,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "vs-create-failure", "config", &v1alpha1.RouteStatus{
@@ -936,8 +936,8 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "change-configs", "oldconfig", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route"),
-			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs"),
+			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route", "v1"),
+			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// Updated to point to "newconfig" things.
@@ -1039,7 +1039,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-indirect", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
@@ -1187,8 +1187,8 @@ func TestReconcile(t *testing.T) {
 				})),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split"),
+			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split", "v1"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: routeWithTraffic("default", "named-traffic-split", &v1alpha1.RouteStatus{
@@ -1271,8 +1271,8 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "switch-configs", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs"),
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route", "v1"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeVirtualService(
@@ -1366,7 +1366,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route", "v1"),
 		},
 		Key: "default/rmlabel-config-failure",
 	}, {
@@ -1422,7 +1422,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "addlabel-config-failure", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure", "v1"),
 		},
 		Key: "default/addlabel-config-failure",
 	}}
@@ -1506,8 +1506,9 @@ func setDomain(route *v1alpha1.Route, domain string) *v1alpha1.Route {
 func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: 1,
@@ -1528,8 +1529,9 @@ func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: 1,
@@ -1547,23 +1549,23 @@ func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
 	return cfg
 }
 
-func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, key)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
-func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+func patchAddLabel(namespace, name, key, value, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, key, value)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
 
 	action.Patch = []byte(patch)
 	return action
