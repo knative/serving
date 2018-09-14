@@ -23,8 +23,10 @@ import (
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 	sapis "github.com/knative/serving/pkg/apis"
 )
 
@@ -54,6 +56,9 @@ type Configuration struct {
 // Check that Configuration may be validated and defaulted.
 var _ apis.Validatable = (*Configuration)(nil)
 var _ apis.Defaultable = (*Configuration)(nil)
+
+// Check that we can create OwnerReferences to a Configuration.
+var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
 // Check that ConfigurationStatus may have it's conditions managed.
 var _ sapis.Conditions = (*ConfigurationStatus)(nil)
@@ -133,6 +138,10 @@ func (r *Configuration) SetGeneration(generation int64) {
 
 func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
+}
+
+func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Configuration")
 }
 
 // IsReady looks at the conditions to see if they are happy.

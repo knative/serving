@@ -21,8 +21,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 	sapis "github.com/knative/serving/pkg/apis"
 )
 
@@ -54,6 +56,9 @@ type Service struct {
 // Check that Service may be validated and defaulted.
 var _ apis.Validatable = (*Service)(nil)
 var _ apis.Defaultable = (*Service)(nil)
+
+// Check that we can create OwnerReferences to a Service.
+var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have it's conditions managed.
 var _ sapis.Conditions = (*ServiceStatus)(nil)
@@ -177,6 +182,10 @@ func (s *Service) SetGeneration(generation int64) {
 
 func (s *Service) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(s.Spec)
+}
+
+func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Service")
 }
 
 func (ss *ServiceStatus) IsReady() bool {

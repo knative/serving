@@ -61,7 +61,7 @@ function create_everything() {
   # when checking non-probe requests to discover other routing issues.
   #
   # We should revisit this when Istio API exposes a Status that we can rely on.
-  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/822 is fixed.
+  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
   create_monitoring

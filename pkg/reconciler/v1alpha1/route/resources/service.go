@@ -17,8 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +35,7 @@ func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.
-				*reconciler.NewControllerRef(route),
+				*kmeta.NewControllerRef(route),
 			},
 		},
 		Spec: corev1.ServiceSpec{

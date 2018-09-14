@@ -17,24 +17,30 @@ limitations under the License.
 package resources
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
-	if config.Spec.Build == nil {
-		return nil
-	}
-	return &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       config.Namespace,
-			Name:            names.Build(config),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(config)},
+const (
+	knativeRevisionEnvVariableKey      = "K_REVISION"
+	knativeConfigurationEnvVariableKey = "K_CONFIGURATION"
+	knativeServiceEnvVariableKey       = "K_SERVICE"
+)
+
+func getKnativeEnvVar(rev *v1alpha1.Revision) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  knativeRevisionEnvVariableKey,
+			Value: rev.Name,
 		},
-		Spec: *config.Spec.Build,
+		{
+			Name:  knativeConfigurationEnvVariableKey,
+			Value: rev.Labels[serving.ConfigurationLabelKey],
+		},
+		{
+			Name:  knativeServiceEnvVariableKey,
+			Value: rev.Labels[serving.ServiceLabelKey],
+		},
 	}
 }

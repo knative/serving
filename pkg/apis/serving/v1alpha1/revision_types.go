@@ -21,9 +21,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmeta"
 	sapis "github.com/knative/serving/pkg/apis"
 )
 
@@ -57,6 +59,9 @@ var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have it's conditions managed.
 var _ sapis.Conditions = (*RevisionStatus)(nil)
+
+// Check that we can create OwnerReferences to a Revision.
+var _ kmeta.OwnerRefable = (*Revision)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
@@ -252,6 +257,10 @@ func (r *Revision) SetGeneration(generation int64) {
 
 func (r *Revision) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
+}
+
+func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Revision")
 }
 
 // IsReady looks at the conditions and if the Status has a condition

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -37,12 +38,14 @@ func MakeFactory(ctor Ctor) Factory {
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 		buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
+		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 
 		// Set up our Controller from the fakes.
 		c := ctor(&ls, reconciler.Options{
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
 			BuildClientSet:   buildClient,
+			CachingClientSet: cachingClient,
 			ServingClientSet: client,
 			Logger:           TestLogger(t),
 		})
@@ -52,12 +55,13 @@ func MakeFactory(ctor Ctor) Factory {
 			sharedClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
 			buildClient.PrependReactor("*", "*", reactor)
+			cachingClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
 		client.PrependReactor("create", "*", ValidateCreates)
 		client.PrependReactor("update", "*", ValidateUpdates)
 
-		return c, ActionRecorderList{sharedClient, buildClient, client, kubeClient}
+		return c, ActionRecorderList{sharedClient, buildClient, client, kubeClient, cachingClient}
 	}
 }

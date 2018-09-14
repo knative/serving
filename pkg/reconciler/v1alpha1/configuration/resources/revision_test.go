@@ -63,6 +63,7 @@ func TestRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "build",
+					serving.ServiceLabelKey:       "",
 				},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "12",
@@ -110,6 +111,7 @@ func TestRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "build",
+					serving.ServiceLabelKey:       "",
 				},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "99",
@@ -159,6 +161,8 @@ func TestRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "labels",
+					serving.ServiceLabelKey:       "",
+
 					"foo": "bar",
 					"baz": "blah",
 				},
@@ -209,6 +213,7 @@ func TestRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "annotations",
+					serving.ServiceLabelKey:       "",
 				},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "99",

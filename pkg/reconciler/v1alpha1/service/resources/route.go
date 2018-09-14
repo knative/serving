@@ -19,8 +19,8 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 )
 
@@ -31,7 +31,7 @@ func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
 			Name:      names.Route(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*reconciler.NewControllerRef(service),
+				*kmeta.NewControllerRef(service),
 			},
 			Labels: makeLabels(service),
 		},

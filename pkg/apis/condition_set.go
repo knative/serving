@@ -63,19 +63,27 @@ type ConditionManager interface {
 	// InitializeConditions updates all Conditions in the ConditionSet to Unknown
 	// if not set.
 	InitializeConditions()
+<<<<<<< HEAD
 
 	// InitializeCondition updates a Condition to Unknown if not set.
 	InitializeCondition(t ConditionType)
+=======
+>>>>>>> conditionals
 }
 
 // ConditionSet holds the expected ConditionTypes to be checked.
 // +k8s:deepcopy-gen=false
 type ConditionSet struct {
+<<<<<<< HEAD
 	lead                 ConditionType
 	dependents           []ConditionType
 	dependentsForInit    []ConditionType
 	dependentsForTrue    []ConditionType
 	dependentsForUnknown []ConditionType
+=======
+	lead       ConditionType
+	dependents []ConditionType
+>>>>>>> conditionals
 }
 
 // NewConditionSet returns a ConditionSet to hold the conditions that are
@@ -83,11 +91,16 @@ type ConditionSet struct {
 // for that will be used to signal the resources' status is Ready or Succeeded.
 func NewConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
 	c := ConditionSet{
+<<<<<<< HEAD
 		lead:                 l,
 		dependents:           d,
 		dependentsForInit:    d,
 		dependentsForTrue:    d,
 		dependentsForUnknown: d,
+=======
+		lead:       l,
+		dependents: d,
+>>>>>>> conditionals
 	}
 	return c
 }
@@ -95,13 +108,27 @@ func NewConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
 // NewOngoingConditionSet returns a ConditionSet to hold the conditions for the
 // ongoing resource. ConditionReady is used as the lead.
 func NewOngoingConditionSet(d ...ConditionType) ConditionSet {
+<<<<<<< HEAD
 	return NewConditionSet(ConditionReady, d...)
+=======
+	return ConditionSet{
+		lead:       ConditionReady,
+		dependents: d,
+	}
+>>>>>>> conditionals
 }
 
 // NewOngoingConditionSet returns a ConditionSet to hold the conditions for the
 // run once resource. ConditionSucceeded is used as the lead.
 func NewRunOnceConditionSet(d ...ConditionType) ConditionSet {
+<<<<<<< HEAD
 	return NewConditionSet(ConditionSucceeded, d...)
+=======
+	return ConditionSet{
+		lead:       ConditionSucceeded,
+		dependents: d,
+	}
+>>>>>>> conditionals
 }
 
 // Check that conditionsImpl implements ConditionManager.
@@ -118,6 +145,7 @@ type conditionsImpl struct {
 // the original ConditionSet.
 func (r ConditionSet) Using(Conditions Conditions) ConditionManager {
 	return conditionsImpl{
+<<<<<<< HEAD
 		conditions:   Conditions,
 		ConditionSet: r,
 	}
@@ -147,6 +175,16 @@ func (r ConditionSet) getMarkUnknownDependents() []ConditionType {
 	return r.dependentsForUnknown
 }
 
+=======
+		conditions: Conditions,
+		ConditionSet: ConditionSet{
+			lead:       r.lead,
+			dependents: r.dependents,
+		},
+	}
+}
+
+>>>>>>> conditionals
 // IsHappy looks at the lead condition and returns true if that condition is
 // set to true.
 func (r conditionsImpl) IsHappy() bool {
@@ -206,7 +244,11 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 	})
 
 	// check the dependents.
+<<<<<<< HEAD
 	for _, cond := range r.getMarkTrueDependents() {
+=======
+	for _, cond := range r.dependents {
+>>>>>>> conditionals
 		c := r.GetCondition(cond)
 		// Failed or Unknown conditions trump true conditions
 		if c == nil || c.Status != corev1.ConditionTrue {
@@ -231,7 +273,11 @@ func (r conditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 	})
 
 	// check the dependents.
+<<<<<<< HEAD
 	for _, cond := range r.getMarkUnknownDependents() {
+=======
+	for _, cond := range r.dependents {
+>>>>>>> conditionals
 		c := r.GetCondition(cond)
 		// Failed conditions trump Unknown conditions
 		if c == nil || c.Status == corev1.ConditionFalse {
@@ -266,6 +312,7 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 // InitializeConditions updates all Conditions in the ConditionSet to Unknown
 // if not set.
 func (r conditionsImpl) InitializeConditions() {
+<<<<<<< HEAD
 	for _, t := range append(r.getInitDependents(), r.lead) {
 		r.InitializeCondition(t)
 	}
@@ -278,5 +325,14 @@ func (r conditionsImpl) InitializeCondition(t ConditionType) {
 			Type:   t,
 			Status: corev1.ConditionUnknown,
 		})
+=======
+	for _, t := range append(r.dependents, r.lead) {
+		if c := r.GetCondition(t); c == nil {
+			r.SetCondition(Condition{
+				Type:   t,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+>>>>>>> conditionals
 	}
 }
