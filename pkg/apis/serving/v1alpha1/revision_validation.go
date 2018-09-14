@@ -49,6 +49,9 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if err := validateContainer(rs.Container); err != nil {
 		return err.ViaField("container")
 	}
+	if err := validateVolumes(rs.Volumes); err != nil {
+		return err.ViaField("volumes")
+	}
 	if err := rs.ConcurrencyModel.Validate(); err != nil {
 		return err.ViaField("concurrencyModel")
 	}
@@ -101,6 +104,16 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 	return nil
 }
 
+func validateVolumes(volumes []corev1.Volume) *apis.FieldError {
+    for _,v := range volumes {
+      if v.VolumeSource.PersistentVolumeClaim == nil { 
+        return &apis.FieldError{Message: "Only PersistentVolumeClaim volumes are allowed"}
+      }
+    }
+
+    return nil;
+}
+
 func validateContainer(container corev1.Container) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -117,9 +130,6 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	}
 	if len(container.Ports) > 0 {
 		ignoredFields = append(ignoredFields, "ports")
-	}
-	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "volumeMounts")
 	}
 	if container.Lifecycle != nil {
 		ignoredFields = append(ignoredFields, "lifecycle")

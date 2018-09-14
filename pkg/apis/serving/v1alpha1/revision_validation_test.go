@@ -71,15 +71,6 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("ports"),
 	}, {
-		name: "has volumeMounts",
-		c: corev1.Container{
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "mount/path",
-				Name:      "name",
-			}},
-		},
-		want: apis.ErrDisallowedFields("volumeMounts"),
-	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
 			Lifecycle: &corev1.Lifecycle{},
@@ -149,7 +140,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "resources", "ports", "lifecycle"),
 	}}
 
 	for _, test := range tests {

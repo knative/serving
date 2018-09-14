@@ -169,6 +169,10 @@ type RevisionSpec struct {
 	// https://github.com/knative/serving/issues/627
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
+
+        // List of volumes that can be mounted by the Container
+        // +optional
+        Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 
 // RevisionConditionType is used to communicate the status of the reconciliation process.
