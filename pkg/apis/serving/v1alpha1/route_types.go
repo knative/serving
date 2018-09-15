@@ -59,7 +59,7 @@ var _ apis.Defaultable = (*Route)(nil)
 var _ kmeta.OwnerRefable = (*Route)(nil)
 
 // Check that RouteStatus may have its conditions managed.
-var _ sapis.Conditions = (*RouteStatus)(nil)
+var _ sapis.ConditionsAccessor = (*RouteStatus)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
@@ -112,7 +112,7 @@ const (
 	RouteConditionAllTrafficAssigned sapis.ConditionType = "AllTrafficAssigned"
 )
 
-var routeCondSet = sapis.NewOngoingConditionSet(RouteConditionAllTrafficAssigned)
+var routeCondSet = sapis.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -138,7 +138,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []sapis.Condition `json:"conditions,omitempty"`
+	Conditions sapis.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -174,70 +174,70 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (rs *RouteStatus) IsReady() bool {
-	return routeCondSet.Using(rs).IsHappy()
+	return routeCondSet.Manage(rs).IsHappy()
 }
 
 func (rs *RouteStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return routeCondSet.Using(rs).GetCondition(t)
+	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
 // This is kept for unit test integration
 func (rs *RouteStatus) setCondition(new *sapis.Condition) {
 	if new != nil {
-		routeCondSet.Using(rs).SetCondition(*new)
+		routeCondSet.Manage(rs).SetCondition(*new)
 	}
 }
 
 func (rs *RouteStatus) InitializeConditions() {
-	routeCondSet.Using(rs).InitializeConditions()
+	routeCondSet.Manage(rs).InitializeConditions()
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {
-	routeCondSet.Using(rs).MarkTrue(RouteConditionAllTrafficAssigned)
+	routeCondSet.Manage(rs).MarkTrue(RouteConditionAllTrafficAssigned)
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	routeCondSet.Using(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
-	routeCondSet.Using(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
-	routeCondSet.Using(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
 }
 
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
-	routeCondSet.Using(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
 }
 
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
-	routeCondSet.Using(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	reason := kind + "Missing"
 	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	routeCondSet.Using(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (rs *RouteStatus) GetConditions() []sapis.Condition {
+func (rs *RouteStatus) GetConditions() sapis.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (rs *RouteStatus) SetConditions(conditions []sapis.Condition) {
+func (rs *RouteStatus) SetConditions(conditions sapis.Conditions) {
 	rs.Conditions = conditions
 }

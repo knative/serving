@@ -58,7 +58,7 @@ var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have its conditions managed.
-var _ sapis.Conditions = (*RevisionStatus)(nil)
+var _ sapis.ConditionsAccessor = (*RevisionStatus)(nil)
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -188,7 +188,7 @@ const (
 	RevisionConditionActive sapis.ConditionType = "Active"
 )
 
-var revCondSet = sapis.NewOngoingConditionSet(
+var revCondSet = sapis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy)
 
@@ -205,7 +205,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []sapis.Condition `json:"conditions,omitempty"`
+	Conditions sapis.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -248,11 +248,11 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 // IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
-	return revCondSet.Using(rs).IsHappy()
+	return revCondSet.Manage(rs).IsHappy()
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := revCondSet.Using(rs).GetCondition(RevisionConditionActive); c != nil {
+	if c := revCondSet.Manage(rs).GetCondition(RevisionConditionActive); c != nil {
 		return c.Status != corev1.ConditionTrue
 	}
 	return false
@@ -263,27 +263,27 @@ func (rs *RevisionStatus) IsRoutable() bool {
 }
 
 func (rs *RevisionStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return revCondSet.Using(rs).GetCondition(t)
+	return revCondSet.Manage(rs).GetCondition(t)
 }
 
 // This is kept for unit test integration.
 func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
 	if new != nil {
-		revCondSet.Using(rs).SetCondition(*new)
+		revCondSet.Manage(rs).SetCondition(*new)
 	}
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
-	revCondSet.Using(rs).InitializeConditions()
+	revCondSet.Manage(rs).InitializeConditions()
 	// Active is not part of the dependents of the condition set.
-	revCondSet.Using(rs).InitializeCondition(RevisionConditionActive)
+	revCondSet.Manage(rs).InitializeCondition(RevisionConditionActive)
 
 	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
 }
 
 func (rs *RevisionStatus) InitializeBuildCondition() {
-	revCondSet.Using(rs).InitializeCondition(RevisionConditionBuildSucceeded)
+	revCondSet.Manage(rs).InitializeCondition(RevisionConditionBuildSucceeded)
 }
 
 func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
@@ -293,60 +293,60 @@ func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
 	}
 	switch {
 	case bc.Status == corev1.ConditionUnknown:
-		revCondSet.Using(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
+		revCondSet.Manage(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
 	case bc.Status == corev1.ConditionTrue:
-		revCondSet.Using(rs).MarkTrue(RevisionConditionBuildSucceeded)
+		revCondSet.Manage(rs).MarkTrue(RevisionConditionBuildSucceeded)
 	case bc.Status == corev1.ConditionFalse:
-		revCondSet.Using(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
+		revCondSet.Manage(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
 	}
 }
 
 func (rs *RevisionStatus) MarkDeploying(reason string) {
-	revCondSet.Using(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
-	revCondSet.Using(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {
-	revCondSet.Using(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
 		"Timed out waiting for a service endpoint to become ready")
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	revCondSet.Using(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
 }
 
 func (rs *RevisionStatus) MarkContainerHealthy() {
-	revCondSet.Using(rs).MarkTrue(RevisionConditionContainerHealthy)
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
-	revCondSet.Using(rs).MarkTrue(RevisionConditionResourcesAvailable)
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
 
 func (rs *RevisionStatus) MarkActive() {
-	revCondSet.Using(rs).MarkTrue(RevisionConditionActive)
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionActive)
 }
 
 func (rs *RevisionStatus) MarkActivating(reason, message string) {
-	revCondSet.Using(rs).MarkUnknown(RevisionConditionActive, reason, message)
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkInactive(reason, message string) {
-	revCondSet.Using(rs).MarkFalse(RevisionConditionActive, reason, message)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	revCondSet.Using(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) GetConditions() []sapis.Condition {
+func (rs *RevisionStatus) GetConditions() sapis.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions []sapis.Condition) {
+func (rs *RevisionStatus) SetConditions(conditions sapis.Conditions) {
 	rs.Conditions = conditions
 }

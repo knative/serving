@@ -47,7 +47,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}},
@@ -56,7 +56,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -65,7 +65,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -74,7 +74,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type: RouteConditionReady,
 			}},
 		},
@@ -82,7 +82,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -91,7 +91,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -103,7 +103,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {

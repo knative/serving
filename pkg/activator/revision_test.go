@@ -245,7 +245,7 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []sapis.Condition{
+				Conditions: sapis.Conditions{
 					{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: corev1.ConditionTrue,

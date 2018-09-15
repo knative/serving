@@ -48,7 +48,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}},
@@ -57,7 +57,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -66,7 +66,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -75,7 +75,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type: ConfigurationConditionReady,
 			}},
 		},
@@ -83,7 +83,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -92,7 +92,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -104,7 +104,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -163,7 +163,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}{{
 		name: "Not ready status should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -172,7 +172,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Missing LatestReadyRevisionName should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -182,7 +182,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Different revision names should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -193,7 +193,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Same revision names and ready status should be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},

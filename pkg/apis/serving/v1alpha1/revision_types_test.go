@@ -52,7 +52,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -61,7 +61,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}},
@@ -70,7 +70,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 				Reason: "Updating",
@@ -84,7 +84,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -93,7 +93,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -122,7 +122,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready status should be routable",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -131,7 +131,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Inactive status should be routable",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}, {
@@ -143,7 +143,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -152,7 +152,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -181,7 +181,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}},
@@ -190,7 +190,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -199,7 +199,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -208,7 +208,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type: RevisionConditionReady,
 			}},
 		},
@@ -216,7 +216,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -225,7 +225,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -237,7 +237,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Conditions: []sapis.Condition{{
+			Conditions: sapis.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {

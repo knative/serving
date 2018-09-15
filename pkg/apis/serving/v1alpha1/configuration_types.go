@@ -61,7 +61,7 @@ var _ apis.Defaultable = (*Configuration)(nil)
 var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
-var _ sapis.Conditions = (*ConfigurationStatus)(nil)
+var _ sapis.ConditionsAccessor = (*ConfigurationStatus)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
@@ -91,7 +91,7 @@ const (
 	ConfigurationConditionReady = sapis.ConditionReady
 )
 
-var confCondSet = sapis.NewOngoingConditionSet()
+var confCondSet = sapis.NewLivingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
@@ -99,7 +99,7 @@ type ConfigurationStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []sapis.Condition `json:"conditions,omitempty"`
+	Conditions sapis.Conditions `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -146,7 +146,7 @@ func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 
 // IsReady looks at the conditions to see if they are happy.
 func (cs *ConfigurationStatus) IsReady() bool {
-	return confCondSet.Using(cs).IsHappy()
+	return confCondSet.Manage(cs).IsHappy()
 }
 
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
@@ -158,24 +158,24 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 }
 
 func (cs *ConfigurationStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return confCondSet.Using(cs).GetCondition(t)
+	return confCondSet.Manage(cs).GetCondition(t)
 }
 
 // This is kept for unit test integration.
 func (cs *ConfigurationStatus) setCondition(new *sapis.Condition) {
 	if new != nil {
-		confCondSet.Using(cs).SetCondition(*new)
+		confCondSet.Manage(cs).SetCondition(*new)
 	}
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
-	confCondSet.Using(cs).InitializeConditions()
+	confCondSet.Manage(cs).InitializeConditions()
 }
 
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
-		confCondSet.Using(cs).MarkUnknown(
+		confCondSet.Manage(cs).MarkUnknown(
 			ConfigurationConditionReady,
 			"",
 			"")
@@ -184,25 +184,25 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	confCondSet.Using(cs).MarkTrue(ConfigurationConditionReady)
+	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	confCondSet.Using(cs).MarkFalse(
+	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
 		fmt.Sprintf("Revision %q failed with message: %q.", name, message))
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
-	confCondSet.Using(cs).MarkFalse(
+	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
 		fmt.Sprintf("Revision creation failed with message: %q.", message))
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	confCondSet.Using(cs).MarkFalse(
+	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionDeleted",
 		fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName))
@@ -210,12 +210,12 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (cs *ConfigurationStatus) GetConditions() []sapis.Condition {
+func (cs *ConfigurationStatus) GetConditions() sapis.Conditions {
 	return cs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (cs *ConfigurationStatus) SetConditions(conditions []sapis.Condition) {
+func (cs *ConfigurationStatus) SetConditions(conditions sapis.Conditions) {
 	cs.Conditions = conditions
 }

@@ -49,7 +49,7 @@ var (
 		},
 	}
 
-	initialConditions = []sapis.Condition{{
+	initialConditions = sapis.Conditions{{
 		Type:   v1alpha1.ServiceConditionConfigurationsReady,
 		Status: corev1.ConditionUnknown,
 	}, {
@@ -235,14 +235,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("all-ready", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -250,7 +250,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/all-ready",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("all-ready", "foo", []sapis.Condition{{
+			Object: svcRL("all-ready", "foo", sapis.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -268,14 +268,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("config-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -284,7 +284,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/config-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("config-fails", "foo", []sapis.Condition{{
+			Object: svcRL("config-fails", "foo", sapis.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Propagate me, please",
@@ -304,7 +304,7 @@ func TestReconcile(t *testing.T) {
 			svcRL("route-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -312,7 +312,7 @@ func TestReconcile(t *testing.T) {
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []sapis.Condition{{
+					Conditions: sapis.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -320,7 +320,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/route-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("route-fails", "foo", []sapis.Condition{{
+			Object: svcRL("route-fails", "foo", sapis.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionTrue,
 			}, {

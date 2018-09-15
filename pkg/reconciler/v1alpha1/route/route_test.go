@@ -94,7 +94,7 @@ func getTestRevisionWithCondition(name string, cond sapis.Condition) *v1alpha1.R
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  []sapis.Condition{cond},
+			Conditions:  sapis.Conditions{cond},
 		},
 	}
 }

@@ -153,7 +153,7 @@ func TestGetRevisionLastTransitionTime(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []sapis.Condition{{
+				Conditions: sapis.Conditions{{
 					Type:               v1alpha1.RevisionConditionReady,
 					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{metav1.NewTime(expectedTime)},

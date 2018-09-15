@@ -61,7 +61,7 @@ var _ apis.Defaultable = (*Service)(nil)
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have its conditions managed.
-var _ sapis.Conditions = (*ServiceStatus)(nil)
+var _ sapis.ConditionsAccessor = (*ServiceStatus)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -117,11 +117,11 @@ const (
 	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
 
-var serviceCondSet = sapis.NewOngoingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var serviceCondSet = sapis.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions []sapis.Condition `json:"conditions,omitempty"`
+	Conditions sapis.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -189,22 +189,22 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	return serviceCondSet.Using(ss).IsHappy()
+	return serviceCondSet.Manage(ss).IsHappy()
 }
 
 func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	return serviceCondSet.Using(ss).GetCondition(t)
+	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 
 // This is kept for unit test integration.
 func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
 	if new != nil {
-		serviceCondSet.Using(ss).SetCondition(*new)
+		serviceCondSet.Manage(ss).SetCondition(*new)
 	}
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	serviceCondSet.Using(ss).InitializeConditions()
+	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
@@ -217,11 +217,11 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	}
 	switch {
 	case cc.Status == corev1.ConditionUnknown:
-		serviceCondSet.Using(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == corev1.ConditionTrue:
-		serviceCondSet.Using(ss).MarkTrue(ServiceConditionConfigurationsReady)
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionConfigurationsReady)
 	case cc.Status == corev1.ConditionFalse:
-		serviceCondSet.Using(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -236,22 +236,22 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 	switch {
 	case rc.Status == corev1.ConditionUnknown:
-		serviceCondSet.Using(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		serviceCondSet.Using(ss).MarkTrue(ServiceConditionRoutesReady)
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
 	case rc.Status == corev1.ConditionFalse:
-		serviceCondSet.Using(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) GetConditions() []sapis.Condition {
+func (ss *ServiceStatus) GetConditions() sapis.Conditions {
 	return ss.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions []sapis.Condition) {
+func (ss *ServiceStatus) SetConditions(conditions sapis.Conditions) {
 	ss.Conditions = conditions
 }

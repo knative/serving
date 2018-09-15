@@ -78,7 +78,7 @@ func (c *Condition) IsFalse() bool {
 // IsUnknown is true if the condition is Unknown
 func (c *Condition) IsUnknown() bool {
 	if c == nil {
-		return false
+		return true
 	}
 	return c.Status == corev1.ConditionUnknown
 }
