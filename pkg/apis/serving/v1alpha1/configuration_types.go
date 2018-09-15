@@ -177,8 +177,8 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	if cs.LatestReadyRevisionName != name {
 		confCondSet.Using(cs).MarkUnknown(
 			ConfigurationConditionReady,
-			"LatestReadyRevisionNameMismatch",
-			fmt.Sprintf("%q != %q", cs.LatestReadyRevisionName, name))
+			"",
+			"")
 	}
 }
 
