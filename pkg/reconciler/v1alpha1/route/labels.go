@@ -83,7 +83,7 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 			continue
 		}
 
-		if err := setRouteLabelForConfiguration(configClient, config.Name, &route.Name); err != nil {
+		if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, &route.Name); err != nil {
 			logger.Errorf("Failed to add route label to configuration %q: %s", config.Name, err)
 			return err
 		}
@@ -120,7 +120,7 @@ func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 			delete(config.Labels, serving.RouteLabelKey)
 
 			configClient := c.ServingClientSet.ServingV1alpha1().Configurations(config.Namespace)
-			if err := setRouteLabelForConfiguration(configClient, config.Name, nil); err != nil {
+			if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, nil); err != nil {
 				logger.Errorf("Failed to remove route label to configuration %q: %s", config.Name, err)
 				return err
 			}
@@ -133,6 +133,7 @@ func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 func setRouteLabelForConfiguration(
 	configClient servingv1alpha1.ConfigurationInterface,
 	configName string,
+	configVersion string,
 	routeName *string, // a nil route name will cause the route label to be deleted
 ) error {
 
@@ -141,6 +142,7 @@ func setRouteLabelForConfiguration(
 			"labels": map[string]interface{}{
 				serving.RouteLabelKey: routeName,
 			},
+			"resourceVersion": configVersion,
 		},
 	}
 
