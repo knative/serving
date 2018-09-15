@@ -58,7 +58,7 @@ var _ apis.Defaultable = (*Route)(nil)
 // Check that we can create OwnerReferences to a Route.
 var _ kmeta.OwnerRefable = (*Route)(nil)
 
-// Check that RouteStatus may have it's conditions managed.
+// Check that RouteStatus may have its conditions managed.
 var _ sapis.Conditions = (*RouteStatus)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.

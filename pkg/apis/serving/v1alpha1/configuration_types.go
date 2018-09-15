@@ -60,7 +60,7 @@ var _ apis.Defaultable = (*Configuration)(nil)
 // Check that we can create OwnerReferences to a Configuration.
 var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
-// Check that ConfigurationStatus may have it's conditions managed.
+// Check that ConfigurationStatus may have its conditions managed.
 var _ sapis.Conditions = (*ConfigurationStatus)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).

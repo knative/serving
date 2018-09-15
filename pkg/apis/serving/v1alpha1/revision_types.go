@@ -57,7 +57,7 @@ var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
-// Check that RevisionStatus may have it's conditions managed.
+// Check that RevisionStatus may have its conditions managed.
 var _ sapis.Conditions = (*RevisionStatus)(nil)
 
 // Check that we can create OwnerReferences to a Revision.

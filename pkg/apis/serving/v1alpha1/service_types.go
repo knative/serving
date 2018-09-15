@@ -60,7 +60,7 @@ var _ apis.Defaultable = (*Service)(nil)
 // Check that we can create OwnerReferences to a Service.
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
-// Check that ServiceStatus may have it's conditions managed.
+// Check that ServiceStatus may have its conditions managed.
 var _ sapis.Conditions = (*ServiceStatus)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one

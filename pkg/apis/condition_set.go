@@ -34,7 +34,7 @@ type Conditions interface {
 	SetConditions([]Condition)
 }
 
-// ConditionManager allows a resource to operate on it's Conditions using higher
+// ConditionManager allows a resource to operate on its Conditions using higher
 // order operations.
 type ConditionManager interface {
 	// IsHappy looks at the lead condition and returns true if that condition is
