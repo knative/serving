@@ -16,12 +16,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	sapis "github.com/knative/serving/pkg/apis"
 )
@@ -162,7 +163,7 @@ func TestIsRoutable(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("IsRoutable() = %v want: %v", got, want)
+				t.Errorf("%s: IsRoutable() = %v want: %v", tc.name, got, want)
 			}
 		})
 	}
@@ -268,8 +269,9 @@ func TestGetSetCondition(t *testing.T) {
 	}
 	// Set Condition and make sure it's the only thing returned
 	rs.setCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !reflect.DeepEqual(e, a) {
-		t.Errorf("GetCondition expected %v got: %v", e, a)
+
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(sapis.Condition{}, "LastTransitionTime")); diff != "" {
+		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)

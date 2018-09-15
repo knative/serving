@@ -189,26 +189,9 @@ const (
 )
 
 var revCondSet = sapis.NewOngoingConditionSet(
-	RevisionConditionBuildSucceeded, // also tricky, does not get initialized.
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionActive) // <-- this one will be tricky. it is a state, not a condition on overall readiness.
-
-//func init() {
-//	revCondSet.SetInits(
-//		RevisionConditionResourcesAvailable,
-//		RevisionConditionContainerHealthy,
-//		RevisionConditionActive)
-//
-//	revCondSet.SetOverallTrueRequires(
-//		RevisionConditionContainerHealthy,
-//		RevisionConditionResourcesAvailable)
-//
-//	revCondSet.SetOverallUnknownRequires(
-//		RevisionConditionResourcesAvailable,
-//		RevisionConditionContainerHealthy,
-//		RevisionConditionActive)
-//}
+	RevisionConditionActive)
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -270,7 +253,10 @@ func (rs *RevisionStatus) IsReady() bool {
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	return !(revCondSet.Using(rs).GetCondition(RevisionConditionActive).IsTrue())
+	if c := revCondSet.Using(rs).GetCondition(RevisionConditionActive); c != nil {
+		return c.Status != corev1.ConditionTrue
+	}
+	return false
 }
 
 func (rs *RevisionStatus) IsRoutable() bool {
@@ -351,67 +337,6 @@ func (rs *RevisionStatus) MarkInactive(reason, message string) {
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	revCondSet.Using(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
 }
-
-//
-//func (rs *RevisionStatus) markTrue(t sapis.ConditionType) {
-//	rs.setCondition(&sapis.Condition{
-//		Type:   t,
-//		Status: corev1.ConditionTrue,
-//	})
-//	for _, cond := range []sapis.ConditionType{
-//		RevisionConditionContainerHealthy,
-//		RevisionConditionResourcesAvailable,
-//	} {
-//		c := rs.GetCondition(cond)
-//		if c == nil || c.Status != corev1.ConditionTrue {
-//			return
-//		}
-//	}
-//	rs.setCondition(&sapis.Condition{
-//		Type:   RevisionConditionReady,
-//		Status: corev1.ConditionTrue,
-//	})
-//}
-//
-//func (rs *RevisionStatus) markUnknown(t sapis.ConditionType, reason, message string) {
-//	rs.setCondition(&sapis.Condition{
-//		Type:    t,
-//		Status:  corev1.ConditionUnknown,
-//		Reason:  reason,
-//		Message: message,
-//	})
-//	for _, cond := range []sapis.ConditionType{
-//		RevisionConditionContainerHealthy,
-//		RevisionConditionActive,
-//		RevisionConditionResourcesAvailable,
-//	} {
-//		c := rs.GetCondition(cond)
-//		if c == nil || c.Status == corev1.ConditionFalse {
-//			// Failed conditions trump unknown conditions
-//			return
-//		}
-//	}
-//	rs.setCondition(&sapis.Condition{
-//		Type:    RevisionConditionReady,
-//		Status:  corev1.ConditionUnknown,
-//		Reason:  reason,
-//		Message: message,
-//	})
-//}
-//
-//func (rs *RevisionStatus) markFalse(t sapis.ConditionType, reason, message string) {
-//	for _, cond := range []sapis.ConditionType{
-//		t,
-//		RevisionConditionReady,
-//	} {
-//		rs.setCondition(&sapis.Condition{
-//			Type:    cond,
-//			Status:  corev1.ConditionFalse,
-//			Reason:  reason,
-//			Message: message,
-//		})
-//	}
-//}
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the sapis.Conditions interface.

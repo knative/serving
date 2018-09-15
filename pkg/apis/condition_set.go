@@ -73,9 +73,6 @@ type ConditionManager interface {
 type ConditionSet struct {
 	lead       ConditionType
 	dependents []ConditionType
-	//	dependentsForInit    []ConditionType
-	//	dependentsForTrue    []ConditionType
-	//	dependentsForUnknown []ConditionType
 }
 
 // NewConditionSet returns a ConditionSet to hold the conditions that are
@@ -120,33 +117,6 @@ func (r ConditionSet) Using(Conditions Conditions) ConditionManager {
 	}
 }
 
-//
-//func (r ConditionSet) SetInits(t ...ConditionType) {
-//	r.dependentsForInit = t
-//}
-//
-//func (r ConditionSet) SetOverallTrueRequires(t ...ConditionType) {
-//	r.dependentsForTrue = t
-//}
-//
-//func (r ConditionSet) SetOverallUnknownRequires(t ...ConditionType) {
-//	r.dependentsForUnknown = t
-//}
-//
-//func (r ConditionSet) getInitDependents() []ConditionType {
-//	return r.dependentsForInit
-//}
-//
-//func (r ConditionSet) getMarkTrueDependents() []ConditionType {
-//	return r.dependentsForTrue
-//}
-//
-//func (r ConditionSet) getMarkUnknownDependents() []ConditionType {
-//	return r.dependentsForUnknown
-//}
-//
-//=======
-
 // IsHappy looks at the lead condition and returns true if that condition is
 // set to true.
 func (r conditionsImpl) IsHappy() bool {
@@ -189,7 +159,7 @@ func (r conditionsImpl) SetCondition(new Condition) {
 			}
 		}
 	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
+	new.LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(time.Now())}
 	conditions = append(conditions, new)
 	// Sorted for convince of the consumer, i.e.: kubectl.
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
@@ -206,7 +176,6 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 	})
 
 	// check the dependents.
-	//for _, cond := range r.getMarkTrueDependents() {  // TODO
 	for _, cond := range r.dependents {
 		c := r.GetCondition(cond)
 		// Failed or Unknown conditions trump true conditions
@@ -227,12 +196,13 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 func (r conditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 	// set the specified condition
 	r.SetCondition(Condition{
-		Type:   t,
-		Status: corev1.ConditionUnknown,
+		Type:    t,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: message,
 	})
 
 	// check the dependents.
-	//	for _, cond := range r.getMarkUnknownDependents() { // TODO
 	for _, cond := range r.dependents {
 		c := r.GetCondition(cond)
 		// Failed conditions trump Unknown conditions
@@ -269,7 +239,6 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 // if not set.
 func (r conditionsImpl) InitializeConditions() {
 	for _, t := range append(r.dependents, r.lead) {
-		//for _, t := range append(r.getInitDependents(), r.lead) { // TODO
 		r.InitializeCondition(t)
 	}
 }
