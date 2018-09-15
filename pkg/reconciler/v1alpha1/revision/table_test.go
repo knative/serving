@@ -731,7 +731,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "endpoint-ready", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "True",
 					}, {
@@ -795,7 +795,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "kpa-not-ready", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "Unknown",
 						Reason:  "Something",
@@ -866,7 +866,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "kpa-inactive", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "False",
 						Reason:  "NoTraffic",
