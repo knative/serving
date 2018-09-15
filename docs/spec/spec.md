@@ -182,9 +182,13 @@ spec:
         - name: HELLO
           value: world
         - ...
+        volumeMounts: ...  # Optional
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
+      # +optional list of volumes that can be mounted by the container. 
+      # Only volumes of type PersistentVolumeClaim are allowed. 
+      volumes: ...
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
       concurrencyModel: ...
@@ -243,7 +247,7 @@ spec:
 
   container:  # corev1.Container
     # We disallow the following fields from corev1.Container:
-    #  name, resources, ports, and volumeMounts
+    #  name, resources and ports
     image: gcr.io/...
     command: ['run']
     args: []
@@ -253,8 +257,13 @@ spec:
     - name: HELLO
       value: world
     - ...
+    volumeMounts: ...  # Optional
     livenessProbe: ...  # Optional
     readinessProbe: ...  # Optional
+
+  # The list of volumes that can be mounted by the container. 
+  # Only volumes of type PersistentVolumeClaim are allowed. 
+  volumes: ...
 
   # Name of the service account the code should run as.
   serviceAccountName: ...
@@ -350,8 +359,11 @@ spec:  # One of "runLatest" or "pinned"
         - name: HELLO
           value: world
         - ...
+        volumeMounts: ...  # Optional
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+
+      volumes: ... # Optional
       containerConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
@@ -372,8 +384,11 @@ spec:  # One of "runLatest" or "pinned"
         - name: HELLO
           value: world
         - ...
+        volumeMounts: ...  # Optional
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+
+      volumes: ... # Optional
       containerConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
