@@ -285,8 +285,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			logger.Errorf("Tracking revision: %v", rev.Name)
 			c.buildtracker.Track(rev)
 		}
-	} else {
-		rev.Status.ClearBuildCondition()
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)

@@ -235,14 +235,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("all-ready", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []v1alpha1.RouteCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -268,14 +268,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("config-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []v1alpha1.RouteCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -304,7 +304,7 @@ func TestReconcile(t *testing.T) {
 			svcRL("route-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: []v1alpha1.RouteCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -312,7 +312,7 @@ func TestReconcile(t *testing.T) {
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},

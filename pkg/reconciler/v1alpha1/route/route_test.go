@@ -32,6 +32,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/activator"
+	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -72,14 +73,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
-	return getTestRevisionWithCondition(name, v1alpha1.RevisionCondition{
+	return getTestRevisionWithCondition(name, sapis.Condition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) *v1alpha1.Revision {
+func getTestRevisionWithCondition(name string, cond sapis.Condition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
@@ -93,7 +94,7 @@ func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) 
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  []v1alpha1.RevisionCondition{cond},
+			Conditions:  []sapis.Condition{cond},
 		},
 	}
 }
@@ -277,7 +278,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		v1alpha1.RevisionCondition{
+		sapis.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -466,7 +467,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		v1alpha1.RevisionCondition{
+		sapis.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})

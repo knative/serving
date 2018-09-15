@@ -20,11 +20,12 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/knative/pkg/logging/testing"
+	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	. "github.com/knative/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -244,8 +245,8 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{
-					v1alpha1.RevisionCondition{
+				Conditions: []sapis.Condition{
+					{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: corev1.ConditionTrue,
 					},

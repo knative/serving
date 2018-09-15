@@ -21,6 +21,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/controller"
+	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
@@ -69,7 +70,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "no-revisions-yet-01234",
 					ObservedGeneration:        1234,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
@@ -89,7 +90,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
@@ -112,7 +113,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "need-rev-and-build-99998",
 					ObservedGeneration:        99998,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
@@ -131,7 +132,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "matching-revision-not-done-05432",
 					ObservedGeneration:        5432,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
@@ -151,7 +152,7 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "matching-revision-done-05555",
 					LatestReadyRevisionName:   "matching-revision-done-05555",
 					ObservedGeneration:        5555,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -167,7 +168,7 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
 					LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
 					ObservedGeneration:        5566,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -187,7 +188,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "matching-revision-failed-05555",
 					ObservedGeneration:        5555,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
@@ -203,7 +204,7 @@ func TestReconcile(t *testing.T) {
 			cfg("bad-condition", "foo", 5555),
 			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555)),
 				v1alpha1.RevisionStatus{
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: "Bad",
 					}},
@@ -216,7 +217,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "bad-condition-05555",
 					ObservedGeneration:        5555,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
@@ -241,7 +242,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithBuildAndStatus("create-build-failure", "foo", 99998, &buildSpec,
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
@@ -267,7 +268,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
 				v1alpha1.ConfigurationStatus{
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
@@ -295,7 +296,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "update-config-failure-01234",
 					ObservedGeneration:        1234,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
@@ -310,7 +311,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "revision-recovers-01337",
 					LatestReadyRevisionName:   "revision-recovers-01337",
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
@@ -326,7 +327,7 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "revision-recovers-01337",
 					LatestReadyRevisionName:   "revision-recovers-01337",
 					ObservedGeneration:        1337,
-					Conditions: []v1alpha1.ConfigurationCondition{{
+					Conditions: []sapis.Condition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
