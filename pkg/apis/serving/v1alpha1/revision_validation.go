@@ -105,13 +105,12 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 }
 
 func validateVolumes(volumes []corev1.Volume) *apis.FieldError {
-    for _,v := range volumes {
-      if v.VolumeSource.PersistentVolumeClaim == nil { 
-        return &apis.FieldError{Message: "Only PersistentVolumeClaim volumes are allowed"}
-      }
-    }
-
-    return nil;
+	for _,v := range volumes {
+		if v.VolumeSource.PersistentVolumeClaim == nil {
+			return &apis.FieldError{Message: "Only PersistentVolumeClaim volumes are allowed"}
+		}
+	}
+	return nil;
 }
 
 func validateContainer(container corev1.Container) *apis.FieldError {
