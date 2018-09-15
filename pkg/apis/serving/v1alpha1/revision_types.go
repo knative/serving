@@ -190,8 +190,7 @@ const (
 
 var revCondSet = sapis.NewOngoingConditionSet(
 	RevisionConditionResourcesAvailable,
-	RevisionConditionContainerHealthy,
-	RevisionConditionActive)
+	RevisionConditionContainerHealthy)
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -276,8 +275,10 @@ func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
 
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Using(rs).InitializeConditions()
+	// Active is not part of the dependents of the condition set.
+	revCondSet.Using(rs).InitializeCondition(RevisionConditionActive)
 
-	// TODO: We don't include BuildSucceeded here because it could confuse users if
+	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
 }
 
