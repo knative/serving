@@ -154,7 +154,7 @@ func (r conditionsImpl) SetCondition(new Condition) {
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = c.LastTransitionTime
-			if reflect.DeepEqual(new, &c) {
+			if reflect.DeepEqual(&new, &c) {
 				return
 			}
 		}
