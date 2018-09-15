@@ -201,14 +201,12 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 // MarkUnknown sets the status of t to Unknown and also sets the happy condition
 // to Unknown if no other dependent condition is in an error state.
 func (r conditionsImpl) MarkUnknown(t ConditionType, reason, messageFormat string, messageA ...interface{}) {
-	message := fmt.Sprintf(messageFormat, messageA)
-
 	// set the specified condition
 	r.SetCondition(Condition{
 		Type:    t,
 		Status:  corev1.ConditionUnknown,
 		Reason:  reason,
-		Message: message,
+		Message: fmt.Sprintf(messageFormat, messageA...),
 	})
 
 	// check the dependents.
@@ -225,7 +223,7 @@ func (r conditionsImpl) MarkUnknown(t ConditionType, reason, messageFormat strin
 		Type:    r.happy,
 		Status:  corev1.ConditionUnknown,
 		Reason:  reason,
-		Message: message,
+		Message: fmt.Sprintf(messageFormat, messageA...),
 	})
 }
 
@@ -239,7 +237,7 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, messageFormat string,
 			Type:    t,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
-			Message: fmt.Sprintf(messageFormat, messageA),
+			Message: fmt.Sprintf(messageFormat, messageA...),
 		})
 	}
 }
