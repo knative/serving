@@ -21,6 +21,8 @@ import (
 	"sort"
 	"time"
 
+	"fmt"
+
 	"github.com/knative/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,10 +69,10 @@ type ConditionManager interface {
 
 	// MarkUnknown sets the status of t to Unknown and also sets the happy condition
 	// to Unknown if no other dependent condition is in an error state.
-	MarkUnknown(t ConditionType, reason, message string)
+	MarkUnknown(t ConditionType, reason, messageFormat string, messageA ...interface{})
 
 	// MarkFalse sets the status of t and the happy condition to False.
-	MarkFalse(t ConditionType, reason, message string)
+	MarkFalse(t ConditionType, reason, messageFormat string, messageA ...interface{})
 
 	// InitializeConditions updates all Conditions in the ConditionSet to Unknown
 	// if not set.
@@ -198,7 +200,9 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 
 // MarkUnknown sets the status of t to Unknown and also sets the happy condition
 // to Unknown if no other dependent condition is in an error state.
-func (r conditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
+func (r conditionsImpl) MarkUnknown(t ConditionType, reason, messageFormat string, messageA ...interface{}) {
+	message := fmt.Sprintf(messageFormat, messageA)
+
 	// set the specified condition
 	r.SetCondition(Condition{
 		Type:    t,
@@ -226,7 +230,7 @@ func (r conditionsImpl) MarkUnknown(t ConditionType, reason, message string) {
 }
 
 // MarkFalse sets the status of t and the happy condition to False.
-func (r conditionsImpl) MarkFalse(t ConditionType, reason, message string) {
+func (r conditionsImpl) MarkFalse(t ConditionType, reason, messageFormat string, messageA ...interface{}) {
 	for _, t := range []ConditionType{
 		t,
 		r.happy,
@@ -235,7 +239,7 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, message string) {
 			Type:    t,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
-			Message: message,
+			Message: fmt.Sprintf(messageFormat, messageA),
 		})
 	}
 }

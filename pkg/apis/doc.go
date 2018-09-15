@@ -20,5 +20,3 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 package apis
-
-// Updated with deepcopy-gen --input-dirs github.com/knative/serving/pkg/apis -O zz_generated.deepcopy --go-header-file ./hack/boilerplate/boilerplate.go.txt

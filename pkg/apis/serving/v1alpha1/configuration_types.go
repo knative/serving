@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
@@ -191,21 +190,21 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		fmt.Sprintf("Revision %q failed with message: %q.", name, message))
+		"Revision %q failed with message: %q.", name, message)
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		fmt.Sprintf("Revision creation failed with message: %q.", message))
+		"Revision creation failed with message: %q.", message)
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionDeleted",
-		fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName))
+		"Revision %q was deleted.", cs.LatestReadyRevisionName)
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

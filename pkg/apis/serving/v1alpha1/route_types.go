@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -201,33 +200,33 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 }
 
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Configuration %q is waiting for a Revision to become ready.", name)
 }
 
 func (rs *RouteStatus) MarkConfigurationFailed(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Configuration %q does not have any ready Revision.", name)
 }
 
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Revision %q is not yet ready.", name)
 }
 
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Revision %q failed to become ready.", name)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
-	reason := kind + "Missing"
-	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		kind+"Missing",
+		"%s %q referenced in traffic not found.", kind, name)
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
