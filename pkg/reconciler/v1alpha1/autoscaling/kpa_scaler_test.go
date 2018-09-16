@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
+	sapis "github.com/knative/serving/pkg/apis"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -74,7 +75,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   false,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod).Add(1 * time.Second)
-			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
+			k.Status.Conditions = sapis.Conditions{{
 				Type:               "Active",
 				Status:             "False",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
@@ -90,7 +91,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
-			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
+			k.Status.Conditions = sapis.Conditions{{
 				Type:               "Active",
 				Status:             "False",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
@@ -113,7 +114,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
-			k.Status.Conditions = []kpa.PodAutoscalerCondition{{
+			k.Status.Conditions = sapis.Conditions{{
 				Type:   "Active",
 				Status: "False",
 				// No LTT == a long long time ago

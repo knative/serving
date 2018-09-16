@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	sapis "github.com/knative/serving/pkg/apis"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -116,7 +117,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "first-reconcile", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -161,7 +162,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-status-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -207,7 +208,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL:      "http://logger.io/test-uid",
 					ServiceName: svc("foo", "create-kpa-failure", "Active", "busybox").Name,
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -249,7 +250,7 @@ func TestReconcile(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -294,7 +295,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-user-service-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -325,7 +326,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-reconcile", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -365,7 +366,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deactivate", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -408,7 +409,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-kpa-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -449,7 +450,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-deactivation", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -489,7 +490,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "activate-revision", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -523,7 +524,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "activate-revision", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -565,7 +566,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -602,7 +603,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -642,7 +643,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -674,7 +675,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -709,7 +710,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -730,7 +731,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "endpoint-ready", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "True",
 					}, {
@@ -749,7 +750,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "True",
 					}, {
@@ -775,7 +776,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "kpa-not-ready", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -794,7 +795,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "kpa-not-ready", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "Unknown",
 						Reason:  "Something",
@@ -817,7 +818,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "kpa-not-ready", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "Unknown",
 						Reason:  "Something",
@@ -846,7 +847,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "kpa-inactive", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -865,7 +866,7 @@ func TestReconcile(t *testing.T) {
 			addKPAStatus(
 				kpa("foo", "kpa-inactive", "Active", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
-					Conditions: []kpav1alpha1.PodAutoscalerCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "False",
 						Reason:  "NoTraffic",
@@ -888,7 +889,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "kpa-inactive", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:    "Active",
 						Status:  "False",
 						Reason:  "NoTraffic",
@@ -921,7 +922,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -950,7 +951,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -985,7 +986,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1027,7 +1028,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1055,7 +1056,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1093,7 +1094,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1132,7 +1133,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1165,7 +1166,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "BuildSucceeded",
 						Status: "Unknown",
 					}, {
@@ -1197,7 +1198,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "done-build", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1232,7 +1233,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1275,7 +1276,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "BuildSucceeded",
 						Status: "Unknown",
 					}, {
@@ -1301,7 +1302,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1335,7 +1336,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "failed-build-stable", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1453,7 +1454,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1498,7 +1499,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-configmap-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 					}, {
@@ -1526,7 +1527,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "steady-state", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1560,7 +1561,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-fluentd-config", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1614,7 +1615,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-configmap-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
+					Conditions: sapis.Conditions{{
 						Type:   "Active",
 						Status: "Unknown",
 						Reason: "Deploying",

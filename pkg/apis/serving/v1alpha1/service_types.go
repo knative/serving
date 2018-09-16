@@ -18,9 +18,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"reflect"
-	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +25,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmeta"
+	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -61,6 +59,9 @@ var _ apis.Defaultable = (*Service)(nil)
 
 // Check that we can create OwnerReferences to a Service.
 var _ kmeta.OwnerRefable = (*Service)(nil)
+
+// Check that ServiceStatus may have its conditions managed.
+var _ sapis.ConditionsAccessor = (*ServiceStatus)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -103,40 +104,24 @@ type PinnedType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
-type ServiceCondition struct {
-	Type ServiceConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
-
-// ServiceConditionType represents an Service condition value
-type ServiceConditionType string
-
+// ConditionType represents a Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady ServiceConditionType = "Ready"
+	ServiceConditionReady = sapis.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
 )
+
+var serviceCondSet = sapis.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions []ServiceCondition `json:"conditions,omitempty"`
+	Conditions sapis.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -204,58 +189,22 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	if c := ss.GetCondition(ServiceConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return serviceCondSet.Manage(ss).IsHappy()
 }
 
-func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition {
-	for _, cond := range ss.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 
-func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
-	if new == nil {
-		return
+// This is kept for unit test integration.
+func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
+	if new != nil {
+		serviceCondSet.Manage(ss).SetCondition(*new)
 	}
-
-	t := new.Type
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	ss.Conditions = conditions
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionReady,
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		if rc := ss.GetCondition(cond); rc == nil {
-			ss.setCondition(&ServiceCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
@@ -268,11 +217,11 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	}
 	switch {
 	case cc.Status == corev1.ConditionUnknown:
-		ss.markUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == corev1.ConditionTrue:
-		ss.markTrue(ServiceConditionConfigurationsReady)
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionConfigurationsReady)
 	case cc.Status == corev1.ConditionFalse:
-		ss.markFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -287,69 +236,22 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 	switch {
 	case rc.Status == corev1.ConditionUnknown:
-		ss.markUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		ss.markTrue(ServiceConditionRoutesReady)
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
 	case rc.Status == corev1.ConditionFalse:
-		ss.markFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 
-func (ss *ServiceStatus) markTrue(t ServiceConditionType) {
-	ss.setCondition(&ServiceCondition{
-		Type:   t,
-		Status: corev1.ConditionTrue,
-	})
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	ss.setCondition(&ServiceCondition{
-		Type:   ServiceConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (ss *ServiceStatus) GetConditions() sapis.Conditions {
+	return ss.Conditions
 }
 
-func (ss *ServiceStatus) markUnknown(t ServiceConditionType, reason, message string) {
-	ss.setCondition(&ServiceCondition{
-		Type:    t,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status == corev1.ConditionFalse {
-			// Failed conditions trump unknown conditions
-			return
-		}
-	}
-	ss.setCondition(&ServiceCondition{
-		Type:    ServiceConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: message,
-	})
-}
-
-func (ss *ServiceStatus) markFalse(t ServiceConditionType, reason, message string) {
-	for _, cond := range []ServiceConditionType{
-		t,
-		ServiceConditionReady,
-	} {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
-	}
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the sapis.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions sapis.Conditions) {
+	ss.Conditions = conditions
 }

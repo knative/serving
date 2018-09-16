@@ -44,5 +44,10 @@ ${GOPATH}/bin/deepcopy-gen \
   -i github.com/knative/serving/pkg/autoscaler \
   -i github.com/knative/serving/pkg/logging
 
+# for deepcopy for Conditionals in pkg/serving/apis until it is moved to knative/pkg
+${GOPATH}/bin/deepcopy-gen --input-dirs github.com/knative/serving/pkg/apis \
+    -O zz_generated.deepcopy \
+    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh

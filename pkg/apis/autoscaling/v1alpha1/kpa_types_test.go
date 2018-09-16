@@ -16,9 +16,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	sapis "github.com/knative/serving/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -47,7 +49,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -56,7 +58,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -65,7 +67,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -74,7 +76,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type: PodAutoscalerConditionReady,
 			}},
 		},
@@ -82,7 +84,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -91,7 +93,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -103,7 +105,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: []PodAutoscalerCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -127,15 +129,18 @@ func TestGetCondition(t *testing.T) {
 		t.Errorf("empty PodAutoscalerStatus returned %v when expected nil", a)
 	}
 
-	rc := &PodAutoscalerCondition{
+	rc := &sapis.Condition{
 		Type:   PodAutoscalerConditionActive,
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
 	rs.setCondition(rc)
-	if e, a := rc, rs.GetCondition(PodAutoscalerConditionActive); !reflect.DeepEqual(e, a) {
-		t.Errorf("GetCondition expected %v got: %v", e, a)
+
+	ignoreFields := cmpopts.IgnoreFields(sapis.Condition{}, "LastTransitionTime")
+	if diff := cmp.Diff(rc, rs.GetCondition(PodAutoscalerConditionActive), ignoreFields); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
+
 	if a := rs.GetCondition(PodAutoscalerConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
 	}
@@ -143,11 +148,11 @@ func TestGetCondition(t *testing.T) {
 
 func TestPodAutoscalerConditions(t *testing.T) {
 	rev := &PodAutoscaler{}
-	foo := &PodAutoscalerCondition{
+	foo := &sapis.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &PodAutoscalerCondition{
+	bar := &sapis.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
@@ -215,22 +220,22 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
 }
 
-func checkConditionSucceededPodAutoscaler(rs PodAutoscalerStatus, rct PodAutoscalerConditionType, t *testing.T) *PodAutoscalerCondition {
+func checkConditionSucceededPodAutoscaler(rs PodAutoscalerStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedPodAutoscaler(rs PodAutoscalerStatus, rct PodAutoscalerConditionType, t *testing.T) *PodAutoscalerCondition {
+func checkConditionFailedPodAutoscaler(rs PodAutoscalerStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingPodAutoscaler(rs PodAutoscalerStatus, rct PodAutoscalerConditionType, t *testing.T) *PodAutoscalerCondition {
+func checkConditionOngoingPodAutoscaler(rs PodAutoscalerStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionPodAutoscaler(rs PodAutoscalerStatus, rct PodAutoscalerConditionType, cs corev1.ConditionStatus, t *testing.T) *PodAutoscalerCondition {
+func checkConditionPodAutoscaler(rs PodAutoscalerStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *sapis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
