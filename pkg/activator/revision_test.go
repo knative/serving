@@ -245,12 +245,10 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: sapis.Conditions{
-					{
-						Type:   v1alpha1.RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
+				Conditions: sapis.Conditions{{
+					Type:   v1alpha1.RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
 			},
 		},
 	}
@@ -293,16 +291,13 @@ func newServiceBuilder() *serviceBuilder {
 				Namespace: testNamespace,
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: revisionresources.ServicePortName,
-						Port: 8080,
-					},
-					{
-						Name: "anotherport",
-						Port: 9090,
-					},
-				},
+				Ports: []corev1.ServicePort{{
+					Name: revisionresources.ServicePortName,
+					Port: 8080,
+				}, {
+					Name: "anotherport",
+					Port: 9090,
+				}},
 			},
 		},
 	}
