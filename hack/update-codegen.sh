@@ -18,9 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [ -z "${GOPATH:-}" ]; then
+  export GOPATH=$(go env GOPATH)
+fi
+
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
