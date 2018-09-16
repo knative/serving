@@ -17,29 +17,22 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/system"
-	yaml "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 var noSidecarImage = ""
 
 func TestControllerConfigurationFromFile(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ControllerConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
-	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	if _, err := NewControllerConfigFromConfigMap(&cm); err != nil {
+	cm := ConfigMapFromTestFile(t, ControllerConfigName)
+
+	if _, err := NewControllerConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
 	}
 }
