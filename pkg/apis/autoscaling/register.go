@@ -27,8 +27,8 @@ const (
 	// This uses a different domain because unlike the resource, it is user-facing.
 	ClassAnnotationKey = GroupName + "/class"
 
-	MinScaleAnnotationKey = GroupName + "/minReplicaCount"
-	MaxScaleAnnotationKey = GroupName + "/maxReplicaCount"
+	MinScaleAnnotationKey = GroupName + "/minScale"
+	MaxScaleAnnotationKey = GroupName + "/maxScale"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
