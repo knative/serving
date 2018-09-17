@@ -13,3 +13,9 @@ aliases:
   autoscaling-reviewers:
   - josephburnett
   - mdemirhan
+  monitoring-approvers:
+  - mdemirhan
+  - yanweiguo
+  monitoring-reviewers:
+  - mdemirhan
+  - yanweiguo
