@@ -122,39 +122,6 @@ func TestConfigurationIsReady(t *testing.T) {
 	}
 }
 
-func TestConfigurationConditions(t *testing.T) {
-	config := &Configuration{}
-	foo := &sapis.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &sapis.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	config.Status.setCondition(foo)
-
-	if got, want := len(config.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	config.Status.setCondition(bar)
-
-	if got, want := len(config.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	config.Status.setCondition(nil)
-
-	if got, want := len(config.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-}
-
 func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	cases := []struct {
 		name           string

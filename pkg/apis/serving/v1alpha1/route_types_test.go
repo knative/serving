@@ -123,46 +123,6 @@ func TestRouteIsReady(t *testing.T) {
 	}
 }
 
-func TestRouteConditions(t *testing.T) {
-	svc := &Route{}
-	foo := &sapis.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &sapis.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	svc.Status.setCondition(foo)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	svc.Status.setCondition(bar)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-}
-
 func TestTypicalRouteFlow(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()

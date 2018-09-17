@@ -18,8 +18,6 @@ package v1alpha1
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	sapis "github.com/knative/serving/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -120,69 +118,6 @@ func TestIsReady(t *testing.T) {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
-	}
-}
-
-func TestGetCondition(t *testing.T) {
-	rs := PodAutoscalerStatus{}
-	if a := rs.GetCondition(PodAutoscalerConditionReady); a != nil {
-		t.Errorf("empty PodAutoscalerStatus returned %v when expected nil", a)
-	}
-
-	rc := &sapis.Condition{
-		Type:   PodAutoscalerConditionActive,
-		Status: corev1.ConditionTrue,
-	}
-	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
-
-	ignoreFields := cmpopts.IgnoreFields(sapis.Condition{}, "LastTransitionTime")
-	if diff := cmp.Diff(rc, rs.GetCondition(PodAutoscalerConditionActive), ignoreFields); diff != "" {
-		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-	}
-
-	if a := rs.GetCondition(PodAutoscalerConditionReady); a != nil {
-		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-}
-
-func TestPodAutoscalerConditions(t *testing.T) {
-	rev := &PodAutoscaler{}
-	foo := &sapis.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &sapis.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
 

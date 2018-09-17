@@ -267,54 +267,19 @@ func TestGetSetCondition(t *testing.T) {
 		Type:   RevisionConditionBuildSucceeded,
 		Status: corev1.ConditionTrue,
 	}
-	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
+
+	rs.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 
 	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(sapis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-}
-
-func TestRevisionConditions(t *testing.T) {
-	rev := &Revision{}
-	foo := &sapis.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &sapis.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
 

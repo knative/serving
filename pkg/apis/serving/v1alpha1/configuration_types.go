@@ -160,13 +160,6 @@ func (cs *ConfigurationStatus) GetCondition(t sapis.ConditionType) *sapis.Condit
 	return confCondSet.Manage(cs).GetCondition(t)
 }
 
-// This is kept for unit test integration.
-func (cs *ConfigurationStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		confCondSet.Manage(cs).SetCondition(*new)
-	}
-}
-
 func (cs *ConfigurationStatus) InitializeConditions() {
 	confCondSet.Manage(cs).InitializeConditions()
 }

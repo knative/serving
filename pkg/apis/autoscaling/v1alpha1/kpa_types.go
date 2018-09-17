@@ -144,19 +144,7 @@ func (rs *PodAutoscalerStatus) IsReady() bool {
 }
 
 func (rs *PodAutoscalerStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
-	for _, cond := range rs.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
-}
-
-// This is kept for unit test integration.
-func (rs *PodAutoscalerStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		podCondSet.Manage(rs).SetCondition(*new)
-	}
+	return podCondSet.Manage(rs).GetCondition(t)
 }
 
 func (rs *PodAutoscalerStatus) InitializeConditions() {

@@ -123,36 +123,6 @@ func TestServiceIsReady(t *testing.T) {
 	}
 }
 
-func TestServiceConditions(t *testing.T) {
-	svc := &Service{}
-	foo := &sapis.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &sapis.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a single condition.
-	svc.Status.setCondition(foo)
-	if got, want := len(svc.Status.GetConditions()), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second Condition.
-	svc.Status.setCondition(bar)
-	if got, want := len(svc.Status.GetConditions()), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Test Add nil condition.
-	svc.Status.setCondition(nil)
-	if got, want := len(svc.Status.GetConditions()), 2; got != want {
-		t.Fatal("Error, nil condition was allowed to be added.")
-	}
-}
-
 func TestServiceHappyPath(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()

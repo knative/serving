@@ -180,13 +180,6 @@ func (rs *RouteStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
 	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
-// This is kept for unit test integration
-func (rs *RouteStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		routeCondSet.Manage(rs).SetCondition(*new)
-	}
-}
-
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
 }

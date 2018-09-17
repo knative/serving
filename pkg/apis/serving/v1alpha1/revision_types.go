@@ -268,13 +268,6 @@ func (rs *RevisionStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
 }
 
-// This is kept for unit test integration.
-func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		revCondSet.Manage(rs).SetCondition(*new)
-	}
-}
-
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
 
