@@ -526,42 +526,48 @@ status:
 $ knative rollout --service my-service strategy release
 
 $ knative revisions list --service my-service
-Route         Traffic  Id   Date                Deployer      Git SHA
-current       100%     v2   2018-01-18 20:34    user1         a6f92d1
-                       v1   2018-01-17 10:32    user1         33643fc
+Route           Traffic  Id   Date                Deployer      Git SHA
+current,latest  100%     v2   2018-01-18 20:34    user1         a6f92d1
+                         v1   2018-01-17 10:32    user1         33643fc
 
 $ knative deploy --service my-service --env HELLO="blurg"
 [...]
 Deployed revision v3 to https://latest.my-service.default.mydomain.com
 You can begin rolling out this revision with [knative rollout begin v3]
 
-$ knative rollout begin v3
+$ knative revisions list --service my-service
+Route           Traffic  Id   Date                Deployer     Git SHA
+latest          0%       v3   2018-01-19 12:16    user1        a6f92d1
+current         100%     v2   2018-01-18 20:34    user1        a6f92d1
+                         v1   2018-01-17 10:32    user1        33643fc
+
+$ knative release begin v3
 
 $ knative revisions list --service my-service
-Route    Traffic  Id   Date                Deployer     Git SHA
-next     0%       v3   2018-01-19 12:16    user1        a6f92d1
-current  100%     v2   2018-01-18 20:34    user1        a6f92d1
-                  v1   2018-01-17 10:32    user1        33643fc
+Route           Traffic  Id   Date                Deployer     Git SHA
+next,latest     0%       v3   2018-01-19 12:16    user1        a6f92d1
+current         100%     v2   2018-01-18 20:34    user1        a6f92d1
+                         v1   2018-01-17 10:32    user1        33643fc
 
-$ knative rollout percent 5
+$ knative release percent 5
 [...]
 
 $ knative revisions list --service my-service
-Route    Traffic  Id   Date                Deployer     Git SHA
-next     5%       v3   2018-01-19 12:16    user1        a6f92d1
-current  100%     v2   2018-01-18 20:34    user1        a6f92d1
-                  v1   2018-01-17 10:32    user1        33643fc
+Route           Traffic  Id   Date                Deployer     Git SHA
+next,latest     5%       v3   2018-01-19 12:16    user1        a6f92d1
+current         100%     v2   2018-01-18 20:34    user1        a6f92d1
+                         v1   2018-01-17 10:32    user1        33643fc
 
-$ knative rollout percent 50
+$ knative release percent 50
 [...]
-$ knative rollout finish
+$ knative release finish
 [...]
 
 $ knative revisions list --service my-service
-Route         Traffic  Id   Date                Deployer      Git SHA
-current       100%     v3   2018-01-19 12:16    user1         a6f92d1
-                       v2   2018-01-18 20:34    user1         a6f92d1
-                       v1   2018-01-17 10:32    user1         33643fc
+Route           Traffic  Id   Date                Deployer      Git SHA
+current,latest  100%     v3   2018-01-19 12:16    user1         a6f92d1
+                         v2   2018-01-18 20:34    user1         a6f92d1
+                         v1   2018-01-17 10:32    user1         33643fc
 ```
 
 **Steps**:
@@ -569,7 +575,7 @@ current       100%     v3   2018-01-19 12:16    user1         a6f92d1
 * Update the Service to switch from a `runLatest` strategy to a `release`
   strategy.
 
-* Update the Service with the new configuration (env var). 
+* Update the Service with the new configuration (env var).
 
 * Update the Service include the new revision in its revision list, which makes
   it address the new Revision as `next`.
@@ -723,6 +729,10 @@ list of revisions can contain one or two items. If two, the first is `current`
 and the latter is `next`) The new revision will still not receive any traffic,
 but can be accessed for testing, verification, etc under the
 `next.my-service...` name.
+
+An admission hook prevents changing `revisions` without also setting
+`rolloutPercent`, if `rolloutPercent` is nonzero. This prevents you from
+accidentally changing what you're releasing out mid-release.
 
 To put traffic on `ghi`, the user can adjust `rolloutPercent`:
 
