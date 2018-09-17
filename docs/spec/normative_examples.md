@@ -831,7 +831,7 @@ spec:
     - revisionName: ghi
       name: current
       percent: 100
-    - revisionName: ghi 
+    - configurationName: my-service  # LatestReadyRevision of my-service
       name: latest
       percent: 0
 status:
@@ -840,8 +840,8 @@ status:
   - revisionName: ghi
     name: current  # addressable as current.my-service.default.mydomain.com
     percent: 100
-  - revisionName: ghi
-    name: next # addressable as next.my-service.default.mydomain.com
+  - configurationName: my-service
+    name: latest # addressable as latest.my-service.default.mydomain.com
     percent: 0
   conditions:
   - type: Ready
