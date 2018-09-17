@@ -516,17 +516,17 @@ status:
 ```
 
 
-## 3) Managed rollout of a new Revision - config change only
+## 3) Managed release of a new Revision - config change only
 
 **_Scenario_**: User updates configuration with new runtime arguments (env var
   change) to an existing service, tests the revision, then proceeds with a
-  human-controlled rollout to 100%
+  human-controlled rollout to 100%.
 
 ```
 $ knative rollout --service my-service strategy release
 
 $ knative revisions list --service my-service
-Name          Traffic  Id   Date                Deployer      Git SHA
+Route         Traffic  Id   Date                Deployer      Git SHA
 current       100%     v2   2018-01-18 20:34    user1         a6f92d1
                        v1   2018-01-17 10:32    user1         33643fc
 
@@ -538,20 +538,27 @@ You can begin rolling out this revision with [knative rollout begin v3]
 $ knative rollout begin v3
 
 $ knative revisions list --service my-service
-Name     Traffic  Id   Date                Deployer     Git SHA
+Route    Traffic  Id   Date                Deployer     Git SHA
 next     0%       v3   2018-01-19 12:16    user1        a6f92d1
 current  100%     v2   2018-01-18 20:34    user1        a6f92d1
                   v1   2018-01-17 10:32    user1        33643fc
 
 $ knative rollout percent 5
 [...]
+
+$ knative revisions list --service my-service
+Route    Traffic  Id   Date                Deployer     Git SHA
+next     5%       v3   2018-01-19 12:16    user1        a6f92d1
+current  100%     v2   2018-01-18 20:34    user1        a6f92d1
+                  v1   2018-01-17 10:32    user1        33643fc
+
 $ knative rollout percent 50
 [...]
 $ knative rollout finish
 [...]
 
 $ knative revisions list --service my-service
-Name          Traffic  Id   Date                Deployer      Git SHA
+Route         Traffic  Id   Date                Deployer      Git SHA
 current       100%     v3   2018-01-19 12:16    user1         a6f92d1
                        v2   2018-01-18 20:34    user1         a6f92d1
                        v1   2018-01-17 10:32    user1         33643fc
@@ -562,7 +569,7 @@ current       100%     v3   2018-01-19 12:16    user1         a6f92d1
 * Update the Service to switch from a `runLatest` strategy to a `release`
   strategy.
 
-* Update the Service with the new configuration (env var).
+* Update the Service with the new configuration (env var). 
 
 * Update the Service include the new revision in its revision list, which makes
   it address the new Revision as `next`.
@@ -573,11 +580,11 @@ current       100%     v3   2018-01-19 12:16    user1         a6f92d1
 
 **Results:**
 
-* The system creates the new revision from the configuration,
-  addressable at next.my-service... (by convention), but traffic is
-  not routed to it until the percentage is manually ramped up. Upon
-  completing the rollout, the next revision is now the current
-  revision.
+* The system creates the new revision from the configuration, addressable at
+  `latest.my-service...` (by convention), but traffic is not routed to it until
+  the rollout to that revision is begun (which markes it as
+  `next.my-service...`) and the percentage is manually ramped up. Upon
+  completing the rollout, the next revision is now the current revision.
 
 ![Rollout mode](images/manual_rollout.png)
 
@@ -691,7 +698,9 @@ status:
 ```
 
 Even when ready, the new revision does not automatically start serving
-traffic, as the route was pinned to revision `def`.
+production traffic, as the route was pinned to revision `def`. It will, however,
+be optionally accessible under the name `latest.my-service...` for initial
+manual testing.
 
 The user can then begin the rollout of revision ghi:
 
@@ -712,7 +721,8 @@ spec:
 This makes the route update the `next` name to point to the revision `ghi`. (The
 list of revisions can contain one or two items. If two, the first is `current`
 and the latter is `next`) The new revision will still not receive any traffic,
-but can be accessed for testing, verification, etc.
+but can be accessed for testing, verification, etc under the
+`next.my-service...` name.
 
 To put traffic on `ghi`, the user can adjust `rolloutPercent`:
 
@@ -743,10 +753,13 @@ spec:
     traffic:
     - revisionName: def
       name: current  # addressable as current.my-service.default.mydomain.com
-      percent: 100
+      percent: 95
+    - revisionName: ghi
+      name: next # addressable as next.my-service.default.mydomain.com
+      percent: 5
     - configurationName: my-service  # LatestReadyRevision of my-service
-      name: next  # addressable as next.my-service.default.mydomain.com
-      percent: 0 # no traffic yet
+      name: latest  # addressable as latest.my-service.default.mydomain.com
+      percent: 0 # no direct traffic ever.
 status:
   domain: my-service.default.mydomain.com
   traffic:
@@ -765,7 +778,8 @@ status:
 ```
 
 After testing the new revision at `next.my-service.default.mydomain.com`, it can
-be promoted to live by updating the service to pin `ghi` as the new revision.
+be promoted to a fully-rolled-out `current` revision by updating the service to
+list only `ghi` in the revision list.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -786,6 +800,11 @@ This causes the service to update the route to assign 100% of traffic to ghi.
 Once the update has been completed, if the latest ready revision is the same as
 the pinned revision, the names `current` and `latest` will point to the same
 revision. The name `next` is inactive until you're rolling out a revision again.
+
+Note that throughout this whole process, `latest` remains pointing to the latest
+ready revision of the service. This allows your team to continue to pre-check
+and validate new release candidates even while a rollout is in progress between
+a validated release candidate and the previous release.
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
