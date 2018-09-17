@@ -1,8 +1,22 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
 approvers:
-- evankanderson
-- mattmoor
-- mdemirhan
-- tcnghia
-- vaikas-google
+# Istio
+- networking-approvers
+# Monitoring Configs
+- monitoring-approvers
+# knative/build
+- build-approvers
+# VPA
+- autoscaling-approvers
+
+
+reviewers:
+# Istio
+- networking-reviewers
+# Monitoring Configs
+- monitoring-reviewers
+# knative/build
+- build-reviewers
+# VPA
+- autoscaling-reviewers
