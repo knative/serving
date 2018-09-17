@@ -526,37 +526,37 @@ status:
 $ knative rollout --service my-service strategy release
 
 $ knative revisions list --service my-service
-Route           Traffic  Id   Date                Deployer      Git SHA
-current,latest  100%     v2   2018-01-18 20:34    user1         a6f92d1
-                         v1   2018-01-17 10:32    user1         33643fc
+Route           Traffic  Id    Date                Deployer      Git SHA
+current,latest  100%     def   2018-01-18 20:34    user1         a6f92d1
+                         abc   2018-01-17 10:32    user1         33643fc
 
 $ knative deploy --service my-service --env HELLO="blurg"
 [...]
-Deployed revision v3 to https://latest.my-service.default.mydomain.com
-You can begin rolling out this revision with [knative rollout begin v3]
+Deployed revision ghi to https://latest.my-service.default.mydomain.com
+You can begin rolling out this revision with [knative rollout begin ghi]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id   Date                Deployer     Git SHA
-latest          0%       v3   2018-01-19 12:16    user1        a6f92d1
-current         100%     v2   2018-01-18 20:34    user1        a6f92d1
-                         v1   2018-01-17 10:32    user1        33643fc
+Route           Traffic  Id    Date                Deployer     Git SHA
+latest          0%       ghi   2018-01-19 12:16    user1        a6f92d1
+current         100%     def   2018-01-18 20:34    user1        a6f92d1
+                         abc   2018-01-17 10:32    user1        33643fc
 
-$ knative release begin v3
+$ knative release begin ghi
 
 $ knative revisions list --service my-service
-Route           Traffic  Id   Date                Deployer     Git SHA
-next,latest     0%       v3   2018-01-19 12:16    user1        a6f92d1
-current         100%     v2   2018-01-18 20:34    user1        a6f92d1
-                         v1   2018-01-17 10:32    user1        33643fc
+Route           Traffic  Id    Date                Deployer     Git SHA
+next,latest     0%       ghi   2018-01-19 12:16    user1        a6f92d1
+current         100%     def   2018-01-18 20:34    user1        a6f92d1
+                         abc   2018-01-17 10:32    user1        33643fc
 
 $ knative release percent 5
 [...]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id   Date                Deployer     Git SHA
-next,latest     5%       v3   2018-01-19 12:16    user1        a6f92d1
-current         100%     v2   2018-01-18 20:34    user1        a6f92d1
-                         v1   2018-01-17 10:32    user1        33643fc
+Route           Traffic  Id    Date                Deployer     Git SHA
+next,latest     5%       ghi   2018-01-19 12:16    user1        a6f92d1
+current         100%     def   2018-01-18 20:34    user1        a6f92d1
+                         abc   2018-01-17 10:32    user1        33643fc
 
 $ knative release percent 50
 [...]
@@ -564,10 +564,10 @@ $ knative release finish
 [...]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id   Date                Deployer      Git SHA
-current,latest  100%     v3   2018-01-19 12:16    user1         a6f92d1
-                         v2   2018-01-18 20:34    user1         a6f92d1
-                         v1   2018-01-17 10:32    user1         33643fc
+Route           Traffic  Id    Date                Deployer      Git SHA
+current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
+                         def   2018-01-18 20:34    user1         a6f92d1
+                         abc   2018-01-17 10:32    user1         33643fc
 ```
 
 **Steps**:
