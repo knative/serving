@@ -25,9 +25,9 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
-	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -49,7 +49,7 @@ var (
 		},
 	}
 
-	initialConditions = sapis.Conditions{{
+	initialConditions = duck.Conditions{{
 		Type:   v1alpha1.ServiceConditionConfigurationsReady,
 		Status: corev1.ConditionUnknown,
 	}, {
@@ -235,14 +235,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("all-ready", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -250,7 +250,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/all-ready",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("all-ready", "foo", sapis.Conditions{{
+			Object: svcRL("all-ready", "foo", duck.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -268,14 +268,14 @@ func TestReconcile(t *testing.T) {
 			svcRL("config-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -284,7 +284,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/config-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("config-fails", "foo", sapis.Conditions{{
+			Object: svcRL("config-fails", "foo", duck.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Propagate me, please",
@@ -304,7 +304,7 @@ func TestReconcile(t *testing.T) {
 			svcRL("route-fails", "foo", initialConditions...),
 			routeWithStatus(resources.MakeRoute(svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
 						Status: corev1.ConditionFalse,
 						Reason: "Propagate me, please",
@@ -312,7 +312,7 @@ func TestReconcile(t *testing.T) {
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
-					Conditions: sapis.Conditions{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					}},
@@ -320,7 +320,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/route-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("route-fails", "foo", sapis.Conditions{{
+			Object: svcRL("route-fails", "foo", duck.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -367,7 +367,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func svc(name, namespace string, spec v1alpha1.ServiceSpec, conditions ...sapis.Condition) *v1alpha1.Service {
+func svc(name, namespace string, spec v1alpha1.ServiceSpec, conditions ...duck.Condition) *v1alpha1.Service {
 	return &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -380,13 +380,13 @@ func svc(name, namespace string, spec v1alpha1.ServiceSpec, conditions ...sapis.
 	}
 }
 
-func svcRL(name, namespace string, conditions ...sapis.Condition) *v1alpha1.Service {
+func svcRL(name, namespace string, conditions ...duck.Condition) *v1alpha1.Service {
 	return svc(name, namespace, v1alpha1.ServiceSpec{
 		RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
 	}, conditions...)
 }
 
-func svcPin(name, namespace string, conditions ...sapis.Condition) *v1alpha1.Service {
+func svcPin(name, namespace string, conditions ...duck.Condition) *v1alpha1.Service {
 	return svc(name, namespace, v1alpha1.ServiceSpec{
 		Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
 	}, conditions...)

@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	sapis "github.com/knative/serving/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -37,12 +37,12 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []sapis.ConditionType{
+	for _, condType := range []duck.ConditionType{
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
 		got := r.Status.GetCondition(condType)
-		want := &sapis.Condition{
+		want := &duck.Condition{
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
@@ -68,12 +68,12 @@ func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []sapis.ConditionType{
+	for _, condType := range []duck.ConditionType{
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
 		got := r.Status.GetCondition(condType)
-		want := &sapis.Condition{
+		want := &duck.Condition{
 			Type:               condType,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",
@@ -99,12 +99,12 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []sapis.ConditionType{
+	for _, condType := range []duck.ConditionType{
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
 		got := r.Status.GetCondition(condType)
-		want := &sapis.Condition{
+		want := &duck.Condition{
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
@@ -122,12 +122,12 @@ func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []sapis.ConditionType{
+	for _, condType := range []duck.ConditionType{
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
 		got := r.Status.GetCondition(condType)
-		want := &sapis.Condition{
+		want := &duck.Condition{
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
@@ -153,12 +153,12 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []sapis.ConditionType{
+	for _, condType := range []duck.ConditionType{
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
 		got := r.Status.GetCondition(condType)
-		want := &sapis.Condition{
+		want := &duck.Condition{
 			Type:               condType,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",

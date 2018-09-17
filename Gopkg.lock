@@ -338,10 +338,12 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:ccffe02c2e3ec58bf6d4fc6d23abfabcc47ece702fba23cd08bddea268115b81"
+  digest = "1:cb609d20a0267fedf56171202e62c73b04b80658fa399e8b55cb0f23002b6446"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
+    "apis/duck",
+    "apis/duck/v1alpha1",
     "apis/istio",
     "apis/istio/authentication",
     "apis/istio/authentication/v1alpha1",
@@ -352,15 +354,20 @@
     "client/clientset/versioned/scheme",
     "client/clientset/versioned/typed/authentication/v1alpha1",
     "client/clientset/versioned/typed/authentication/v1alpha1/fake",
+    "client/clientset/versioned/typed/duck/v1alpha1",
+    "client/clientset/versioned/typed/duck/v1alpha1/fake",
     "client/clientset/versioned/typed/istio/v1alpha3",
     "client/clientset/versioned/typed/istio/v1alpha3/fake",
     "client/informers/externalversions",
     "client/informers/externalversions/authentication",
     "client/informers/externalversions/authentication/v1alpha1",
+    "client/informers/externalversions/duck",
+    "client/informers/externalversions/duck/v1alpha1",
     "client/informers/externalversions/internalinterfaces",
     "client/informers/externalversions/istio",
     "client/informers/externalversions/istio/v1alpha3",
     "client/listers/authentication/v1alpha1",
+    "client/listers/duck/v1alpha1",
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
@@ -375,7 +382,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "2a7e950c4e2d635d6e32ba3d050dd32ba7be5be3"
+  revision = "67830c7a64431edc38ee19628dc7116b0c6d99b5"
 
 [[projects]]
   branch = "master"
@@ -1066,6 +1073,7 @@
     "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/pkg/apis",
+    "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
     "github.com/knative/pkg/client/clientset/versioned",
@@ -1098,7 +1106,6 @@
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
-    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",

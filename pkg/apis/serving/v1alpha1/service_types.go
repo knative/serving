@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -61,7 +61,7 @@ var _ apis.Defaultable = (*Service)(nil)
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*ServiceStatus)(nil)
+var _ duck.ConditionsAccessor = (*ServiceStatus)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -108,20 +108,20 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady = sapis.ConditionReady
+	ServiceConditionReady = duck.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady duck.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady duck.ConditionType = "ConfigurationsReady"
 )
 
-var serviceCondSet = sapis.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var serviceCondSet = duck.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duck.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -192,12 +192,12 @@ func (ss *ServiceStatus) IsReady() bool {
 	return serviceCondSet.Manage(ss).IsHappy()
 }
 
-func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (ss *ServiceStatus) GetCondition(t duck.ConditionType) *duck.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 
 // This is kept for unit test integration.
-func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
+func (ss *ServiceStatus) setCondition(new *duck.Condition) {
 	if new != nil {
 		serviceCondSet.Manage(ss).SetCondition(*new)
 	}
@@ -245,13 +245,13 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duck.Conditions interface.
+func (ss *ServiceStatus) GetConditions() duck.Conditions {
 	return ss.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duck.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions duck.Conditions) {
 	ss.Conditions = conditions
 }
