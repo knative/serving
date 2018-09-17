@@ -47,7 +47,7 @@ var (
 )
 
 func newConfigWatcher() configmap.Watcher {
-	return configmap.NewFixedWatcher(
+	return configmap.NewStaticWatcher(
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,

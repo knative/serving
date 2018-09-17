@@ -26,7 +26,6 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 type stubActivator struct {
@@ -125,8 +124,8 @@ func TestActivationHandler(t *testing.T) {
 			resp := httptest.NewRecorder()
 
 			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set(reconciler.GetRevisionHeaderNamespace(), e.namespace)
-			req.Header.Set(reconciler.GetRevisionHeaderName(), e.name)
+			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
+			req.Header.Set(activator.RevisionHeaderName, e.name)
 
 			handler.ServeHTTP(resp, req)
 

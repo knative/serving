@@ -65,7 +65,7 @@ The following diagram illustrates the mechanics of the autoscaler:
 
 ## Design Goals
 
-1. **Make if fast**.  Revisions should be able to scale from 0 to 1000 concurrent requests in 30 seconds or less.
+1. **Make it fast**.  Revisions should be able to scale from 0 to 1000 concurrent requests in 30 seconds or less.
 2. **Make it light**.  Wherever possible the system should be able to figure out the right thing to do without the user's intervention or configuration.
 3. **Make everything better**.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscaler should be replaced with the K8s [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) and [Custom Metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#support-for-custom-metrics).
 

@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -152,7 +153,7 @@ func TestGetRevisionLastTransitionTime(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
+				Conditions: duck.Conditions{{
 					Type:               v1alpha1.RevisionConditionReady,
 					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{metav1.NewTime(expectedTime)},

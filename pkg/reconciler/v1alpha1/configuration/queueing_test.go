@@ -23,18 +23,17 @@ import (
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	ctrl "github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
-	hooks "github.com/knative/serving/pkg/reconciler/testing"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 /* TODO tests:
@@ -132,14 +131,14 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// Create() method.
 	_, _, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
 
-	h := hooks.NewHooks()
+	h := NewHooks()
 
 	// Check for revision created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
 		rev := obj.(*v1alpha1.Revision)
 		t.Logf("revision created: %q", rev.Name)
 
-		return hooks.HookComplete
+		return HookComplete
 	})
 
 	stopCh := make(chan struct{})

@@ -24,6 +24,7 @@ import (
 
 	"encoding/json"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -40,7 +41,7 @@ const (
 )
 
 func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	err := test.CreateConfiguration(logger, clients, names, imagePaths[0])
+	err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{})
 	if err != nil {
 		return err
 	}
@@ -73,12 +74,13 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.Bas
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	logger.Infof("Serves the expected data at the endpoint")
 
-	_, err := test.WaitForEndpointState(
+	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
-		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusServiceUnavailable, http.StatusNotFound),
-		"WaitForEndpointToServeText")
+		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(expectedText), http.StatusServiceUnavailable, http.StatusNotFound),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, expectedText, err)
 	}
@@ -142,7 +144,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 }
 
 func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(test.Flags.Kubeconfig, test.Flags.Cluster, test.Flags.Namespace)
+	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

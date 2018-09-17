@@ -34,6 +34,7 @@ import (
 const (
 	appYaml              = "../test_images/helloworld/helloworld.yaml"
 	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
+	namespacePlaceholder = "default"
 	ingressTimeout       = 5 * time.Minute
 	servingTimeout       = 2 * time.Minute
 	checkInterval        = 2 * time.Second
@@ -55,7 +56,6 @@ func cleanup(yamlFilename string, logger *logging.BaseLogger) {
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
-
 	imagePath := test.ImagePath("helloworld")
 
 	logger.Infof("Creating manifest")
@@ -70,12 +70,15 @@ func TestHelloWorldFromShell(t *testing.T) {
 	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
 
 	// Populate manifets file with the real path to the container
-	content, err := ioutil.ReadFile(appYaml)
+	yamlBytes, err := ioutil.ReadFile(appYaml)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", appYaml, err)
 	}
-	realContent := strings.Replace(string(content), yamlImagePlaceholder, imagePath, -1)
-	if _, err = newYaml.WriteString(realContent); err != nil {
+
+	content := strings.Replace(string(yamlBytes), yamlImagePlaceholder, imagePath, -1)
+	content = strings.Replace(string(content), namespacePlaceholder, test.ServingNamespace, -1)
+
+	if _, err = newYaml.WriteString(content); err != nil {
 		t.Fatalf("Failed to write new manifest: %v", err)
 	}
 	if err = newYaml.Close(); err != nil {
@@ -97,7 +100,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	serviceHost := ""
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-		serviceHost = noStderrShell("kubectl", "get", "route", "route-example", "-o", "jsonpath={.status.domain}")
+		serviceHost = noStderrShell("kubectl", "get", "route", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
 		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
 			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)

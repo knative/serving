@@ -35,4 +35,4 @@ echo
 export concurrency=${1:-5}
 duration=${2:-60s}
 
-wrk -t 1 -c "$concurrency" -d "$duration" -s "$DIR/reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"
+wrk -t 1 -c "$concurrency" -d "$duration" -s "reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"

@@ -18,8 +18,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"reflect"
-	"sort"
 	"time"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -27,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -55,6 +54,9 @@ type PodAutoscaler struct {
 var _ apis.Validatable = (*PodAutoscaler)(nil)
 var _ apis.Defaultable = (*PodAutoscaler)(nil)
 var _ apis.Immutable = (*PodAutoscaler)(nil)
+
+// Check that ConfigurationStatus may have its conditions managed.
+var _ duck.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
@@ -94,35 +96,15 @@ type PodAutoscalerSpec struct {
 	ServiceName string `json:"serviceName"`
 }
 
-// PodAutoscalerConditionType is used to communicate the status of the reconciliation process.
-type PodAutoscalerConditionType string
-
 const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	PodAutoscalerConditionReady PodAutoscalerConditionType = "Ready"
+	PodAutoscalerConditionReady = duck.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
-	PodAutoscalerConditionActive PodAutoscalerConditionType = "Active"
+	PodAutoscalerConditionActive duck.ConditionType = "Active"
 )
 
-// PodAutoscalerCondition defines a readiness condition for a PodAutoscaler.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type PodAutoscalerCondition struct {
-	Type PodAutoscalerConditionType `json:"type" description:"type of PodAutoscaler condition"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
+var podCondSet = duck.NewLivingConditionSet(PodAutoscalerConditionActive)
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
@@ -130,7 +112,7 @@ type PodAutoscalerStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []PodAutoscalerCondition `json:"conditions,omitempty"`
+	Conditions duck.Conditions `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -158,13 +140,10 @@ func (r *PodAutoscaler) GetSpecJSON() ([]byte, error) {
 // IsReady looks at the conditions and if the Status has a condition
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (rs *PodAutoscalerStatus) IsReady() bool {
-	if c := rs.GetCondition(PodAutoscalerConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return podCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t PodAutoscalerConditionType) *PodAutoscalerCondition {
+func (rs *PodAutoscalerStatus) GetCondition(t duck.ConditionType) *duck.Condition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
 			return &cond
@@ -173,97 +152,27 @@ func (rs *PodAutoscalerStatus) GetCondition(t PodAutoscalerConditionType) *PodAu
 	return nil
 }
 
-func (rs *PodAutoscalerStatus) setCondition(new *PodAutoscalerCondition) {
-	if new == nil {
-		return
+// This is kept for unit test integration.
+func (rs *PodAutoscalerStatus) setCondition(new *duck.Condition) {
+	if new != nil {
+		podCondSet.Manage(rs).SetCondition(*new)
 	}
-
-	t := new.Type
-	var conditions []PodAutoscalerCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	rs.Conditions = conditions
 }
 
 func (rs *PodAutoscalerStatus) InitializeConditions() {
-	for _, cond := range []PodAutoscalerConditionType{
-		PodAutoscalerConditionActive,
-		PodAutoscalerConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&PodAutoscalerCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	podCondSet.Manage(rs).InitializeConditions()
 }
 
 func (rs *PodAutoscalerStatus) MarkActive() {
-	rs.setCondition(&PodAutoscalerCondition{
-		Type:   PodAutoscalerConditionActive,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	podCondSet.Manage(rs).MarkTrue(PodAutoscalerConditionActive)
 }
 
 func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
-	for _, cond := range []PodAutoscalerConditionType{
-		PodAutoscalerConditionActive,
-		PodAutoscalerConditionReady,
-	} {
-		rs.setCondition(&PodAutoscalerCondition{
-			Type:    cond,
-			Status:  corev1.ConditionUnknown,
-			Reason:  reason,
-			Message: message,
-		})
-	}
+	podCondSet.Manage(rs).MarkUnknown(PodAutoscalerConditionActive, reason, message)
 }
 
 func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
-	for _, cond := range []PodAutoscalerConditionType{
-		PodAutoscalerConditionActive,
-		PodAutoscalerConditionReady,
-	} {
-		rs.setCondition(&PodAutoscalerCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
-	}
-}
-
-func (rs *PodAutoscalerStatus) checkAndMarkReady() {
-	for _, cond := range []PodAutoscalerConditionType{
-		PodAutoscalerConditionActive,
-	} {
-		c := rs.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	rs.markReady()
-}
-
-func (rs *PodAutoscalerStatus) markReady() {
-	rs.setCondition(&PodAutoscalerCondition{
-		Type:   PodAutoscalerConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
@@ -278,4 +187,16 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 		}
 	}
 	return false
+}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duck.Conditions interface.
+func (rs *PodAutoscalerStatus) GetConditions() duck.Conditions {
+	return rs.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duck.Conditions interface.
+func (rs *PodAutoscalerStatus) SetConditions(conditions duck.Conditions) {
+	rs.Conditions = conditions
 }

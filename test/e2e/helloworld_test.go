@@ -22,7 +22,9 @@ import (
 	"net/http"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,11 +39,10 @@ func TestHelloWorld(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorld")
 
-	var imagePath string
-	imagePath = test.ImagePath("helloworld")
+	var imagePath = test.ImagePath("helloworld")
 
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -59,13 +60,47 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	_, err = test.WaitForEndpointState(
+	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
-		test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
-		"HelloWorldServesText")
+		pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+		"HelloWorldServesText",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
+	var revName string
+	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+		if c.Status.LatestCreatedRevisionName != names.Revision {
+			revName = c.Status.LatestCreatedRevisionName
+			return true, nil
+		}
+		return false, nil
+	}, "ConfigurationUpdatedWithRevision")
+
+	if err != nil {
+		t.Fatalf("Error fetching Revision %v", err)
+	}
+
+	revision, err := clients.ServingClient.Revisions.Get(revName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Revision %s: %v", revName, err)
+	}
+
+	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
+		if val != names.Config {
+			t.Fatalf("Expect confguration name in revision label %q but got %q ", names.Config, val)
+		}
+	} else {
+		t.Fatalf("Failed to get configuration name from Revision label")
+	}
+	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
+		if val != names.Service {
+			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
+		}
+	} else {
+		t.Fatalf("Failed to get Service name from Revision label")
 	}
 }

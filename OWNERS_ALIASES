@@ -7,3 +7,43 @@ aliases:
   - mattmoor
   - tcnghia
   - grantr
+
+  autoscaling-approvers:
+  - josephburnett
+  - mdemirhan
+  autoscaling-reviewers:
+  - josephburnett
+  - mdemirhan
+
+  monitoring-approvers:
+  - mdemirhan
+  - yanweiguo
+  monitoring-reviewers:
+  - mdemirhan
+  - yanweiguo
+
+  productivity-approvers:
+  - adrcunha
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+  productivity-reviewers:
+  - adrcunha
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+
+  networking-approvers:
+  - mdemirhan
+  - tcnghia
+  networking-reviewers:
+  - mdemirhan
+  - tcnghia
+
+  build-approvers:
+  - imjasonh
+  - mattmoor
+  build-reviewers:
+  - imjasonh
+  - mattmoor
+

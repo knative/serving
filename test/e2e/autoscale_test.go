@@ -21,8 +21,10 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"k8s.io/api/core/v1"
@@ -57,11 +59,12 @@ func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, wan
 	logger.Infof("Performing %d concurrent requests.", want)
 	for i := 0; i < want; i++ {
 		go func() {
-			res, err := test.WaitForEndpointState(clients.KubeClient,
+			res, err := pkgTest.WaitForEndpointState(clients.KubeClient,
 				logger,
 				domain,
-				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
-				"MakingConcurrentRequests")
+				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
+				"MakingConcurrentRequests",
+				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				logger.Errorf("Unsuccessful request: %v", err)
 				if res != nil {
@@ -137,7 +140,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
+		ContainerConcurrency: 10,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -170,14 +175,15 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	_, err = test.WaitForEndpointState(
+	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
-		"CheckingEndpointAfterUpdating")
+		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
+		"CheckingEndpointAfterUpdating",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
@@ -186,7 +192,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	err = generateTrafficBurst(clients, logger, 500, domain)
+	err = generateTrafficBurst(clients, logger, 20, domain)
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
@@ -222,17 +228,22 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
-			return len(p.Items) == 0, nil
+			for _, pod := range p.Items {
+				if !strings.Contains(pod.Status.Reason, "Evicted") {
+					return false, nil
+				}
+			}
+			return true, nil
 		},
 		"WaitForAvailablePods")
 	if err != nil {
-		logger.Fatalf(`Waiting for Pod.List to have no items: %v`, err)
+		logger.Fatalf(`Waiting for Pod.List to have no non-Evicted pods: %v`, err)
 	}
 
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	err = generateTrafficBurst(clients, logger, 500, domain)
+	err = generateTrafficBurst(clients, logger, 20, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}

@@ -21,6 +21,11 @@ import (
 	"fmt"
 	"sync"
 
+	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
+	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -28,19 +33,14 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"go.uber.org/zap"
 )
 
 const (

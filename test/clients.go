@@ -21,23 +21,19 @@ package test
 import (
 	buildversioned "github.com/knative/build/pkg/client/clientset/versioned"
 	buildtyped "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
-	KubeClient    *KubeClient
+	KubeClient    *test.KubeClient
 	ServingClient *ServingClients
 	BuildClient   *BuildClient
-}
-
-// KubeClient holds instances of interfaces for making requests to kubernetes client.
-type KubeClient struct {
-	Kube *kubernetes.Clientset
 }
 
 // BuildClient holds instances of interfaces for making requests to build client.
@@ -63,7 +59,7 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.KubeClient, err = newKubeClient(cfg)
+	clients.KubeClient, err = test.NewKubeClient(configPath, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -79,16 +75,6 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	}
 
 	return clients, nil
-}
-
-// NewKubeClient instantiates and returns several clientsets required for making request to the
-// kube client specified by the combination of clusterName and configPath. Clients can make requests within namespace.
-func newKubeClient(cfg *rest.Config) (*KubeClient, error) {
-	k, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &KubeClient{Kube: k}, nil
 }
 
 // NewBuildclient instantiates and returns several clientsets required for making request to the
@@ -122,26 +108,28 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 // Delete will delete all Routes and Configs with the names routes and configs, if clients
 // has been successfully initialized.
 func (clients *ServingClients) Delete(routes []string, configs []string, services []string) error {
-
-	if clients.Routes != nil {
-		for _, route := range routes {
-			if err := clients.Routes.Delete(route, nil); err != nil {
-				return err
-			}
+	deletions := []struct {
+		client interface {
+			Delete(name string, options *v1.DeleteOptions) error
 		}
+		items []string
+	}{
+		{clients.Routes, routes},
+		{clients.Configs, configs},
+		{clients.Services, services},
 	}
 
-	if clients.Configs != nil {
-		for _, config := range configs {
-			if err := clients.Configs.Delete(config, nil); err != nil {
-				return err
-			}
+	for _, deletion := range deletions {
+		if deletion.client == nil {
+			continue
 		}
-	}
 
-	if clients.Services != nil {
-		for _, s := range services {
-			if err := clients.Services.Delete(s, nil); err != nil {
+		for _, item := range deletion.items {
+			if item == "" {
+				continue
+			}
+
+			if err := deletion.client.Delete(item, nil); err != nil {
 				return err
 			}
 		}

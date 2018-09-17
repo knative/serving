@@ -18,8 +18,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-readonly SERVING_ROOT_DIR="$(git rev-parse --show-toplevel)"
-readonly TMP_DIFFROOT="$(mktemp -d -p ${SERVING_ROOT_DIR})"
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
+
+readonly TMP_DIFFROOT="$(mktemp -d ${REPO_ROOT_DIR}/tmpdiffroot.XXXXXX)"
 
 cleanup() {
   rm -rf "${TMP_DIFFROOT}"
@@ -31,28 +32,28 @@ cleanup
 
 # Save working tree state
 mkdir -p "${TMP_DIFFROOT}/pkg"
-cp -aR "${SERVING_ROOT_DIR}/Gopkg.lock" "${SERVING_ROOT_DIR}/pkg" "${SERVING_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/Gopkg.lock" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
 
 # We symlink a few testdata files from config, so copy it as well.
 mkdir -p "${TMP_DIFFROOT}/config"
-cp -a "${SERVING_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
+cp -a "${REPO_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
 
 # TODO(mattmoor): We should be able to rm -rf pkg/client/ and vendor/
 
-"${SERVING_ROOT_DIR}/hack/update-codegen.sh"
-echo "Diffing ${SERVING_ROOT_DIR} against freshly generated codegen"
+"${REPO_ROOT_DIR}/hack/update-codegen.sh"
+echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
-diff -Naupr "${SERVING_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1
+diff -Naupr "${REPO_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1
 
 # Restore working tree state
 rm -fr "${TMP_DIFFROOT}/config"
-rm -fr "${SERVING_ROOT_DIR}/Gopkg.lock" "${SERVING_ROOT_DIR}/pkg" "${SERVING_ROOT_DIR}/vendor"
-cp -aR "${TMP_DIFFROOT}"/* "${SERVING_ROOT_DIR}"
+rm -fr "${REPO_ROOT_DIR}/Gopkg.lock" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor"
+cp -aR "${TMP_DIFFROOT}"/* "${REPO_ROOT_DIR}"
 
 if [[ $ret -eq 0 ]]
 then
-  echo "${SERVING_ROOT_DIR} up to date."
+  echo "${REPO_ROOT_DIR} up to date."
 else
-  echo "ERROR: ${SERVING_ROOT_DIR} is out of date. Please run ./hack/update-codegen.sh"
+  echo "ERROR: ${REPO_ROOT_DIR} is out of date. Please run ./hack/update-codegen.sh"
   exit 1
 fi

@@ -22,18 +22,19 @@ import (
 	"reflect"
 
 	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
 const controllerAgentName = "configuration-controller"

@@ -30,7 +30,7 @@ func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
 	}
 }
 
-// Helper function to prefix image name with repo and suffix with tag
+// ImagePath is a helper function to prefix image name with repo and suffix with tag
 func ImagePath(name string) string {
-	return fmt.Sprintf("%s/%s:%s", Flags.DockerRepo, name, Flags.Tag)
+	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
 }

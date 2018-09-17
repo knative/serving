@@ -22,76 +22,25 @@ package test
 import (
 	"flag"
 	"os"
-	"os/user"
 	"path"
 
+	"github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
-	"github.com/golang/glog"
 )
 
-// Flags holds the command line flags or defaults for common knative settings in the user's environment.
-// See EnvironmentFlags for a list of supported fields.
-var Flags = initializeCommonFlags()
+const (
+	// ServingNamespace is the default namespace for serving e2e tests
+	ServingNamespace = "serving-tests"
+)
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
 var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
-}
-
-// EnvironmentFlags holds e2e flags common to knative repos
-type EnvironmentFlags struct {
-	Cluster     string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
-	DockerRepo  string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
-	Tag         string // Test images version tag
-	Kubeconfig  string // Path to kubeconfig (defaults to ./kube/config)
-	Namespace   string // K8s namespace (blank by default, to be overwritten by test suite)
-	LogVerbose  bool   // Enable verbose logging
-	EmitMetrics bool   // Emit metrics
-}
-
-func initializeCommonFlags() *EnvironmentFlags {
-	var f EnvironmentFlags
-	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
-	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
-		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
-
-	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
-	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
-		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
-
-	defaultKubeconfig := "kubeconfig"
-	if usr, err := user.Current(); err != nil {
-		glog.Infof("Error getting current user, using %s as fallback: %v", defaultKubeconfig, err)
-	} else {
-		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
-	}
-
-	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
-		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
-
-	flag.StringVar(&f.Namespace, "namespace", "serving-tests",
-		"Provide the namespace you would like to use for these tests.")
-
-	flag.StringVar(&f.Tag, "tag", "latest",
-		"Provide the version tag for the test images.")
-
-	flag.BoolVar(&f.LogVerbose, "logverbose", false,
-		"Set this flag to true if you would like to see verbose logging.")
-
-	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
-		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
-
-	flag.Parse()
-	flag.Set("alsologtostderr", "true")
-	logging.InitializeLogger(f.LogVerbose)
-
-	if f.EmitMetrics {
-		logging.InitializeMetricExporter()
-	}
-	return &f
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Tag              string // Test images version tag
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -99,6 +48,21 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+
+	defaultRepo := path.Join(os.Getenv("DOCKER_REPO_OVERRIDE"), "github.com/knative/serving/test/test_images")
+	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
+		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
+
+	flag.StringVar(&f.Tag, "tag", "latest",
+		"Provide the version tag for the test images.")
+
+	flag.Parse()
+	flag.Set("alsologtostderr", "true")
+	logging.InitializeLogger(test.Flags.LogVerbose)
+
+	if test.Flags.EmitMetrics {
+		logging.InitializeMetricExporter()
+	}
 
 	return &f
 }

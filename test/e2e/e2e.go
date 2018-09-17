@@ -3,12 +3,12 @@ package e2e
 import (
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
@@ -21,9 +21,9 @@ const (
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(
-		test.Flags.Kubeconfig,
-		test.Flags.Cluster,
-		test.Flags.Namespace)
+		pkgTest.Flags.Kubeconfig,
+		pkgTest.Flags.Cluster,
+		test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}
@@ -39,18 +39,12 @@ func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
-func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, imagePath string) (test.ResourceNames, error) {
-	return CreateRouteAndConfigWithEnv(clients, logger, imagePath, nil)
-}
-
-// CreateRouteAndConfigWithEnv will create Route and Config objects using clients.
-// The Config object will serve requests to a container started from the image at imagePath and configured with given environment variables.
-func CreateRouteAndConfigWithEnv(clients *test.Clients, logger *logging.BaseLogger, imagePath string, envVars []corev1.EnvVar) (test.ResourceNames, error) {
+func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, imagePath string, options *test.Options) (test.ResourceNames, error) {
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString(configName, logger)
 	names.Route = test.AppendRandomString(routeName, logger)
 
-	if err := test.CreateConfigurationWithEnv(logger, clients, names, imagePath, envVars); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePath, options); err != nil {
 		return test.ResourceNames{}, err
 	}
 	err := test.CreateRoute(logger, clients, names)
