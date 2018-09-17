@@ -9,8 +9,8 @@ Examples in this section illustrate:
 * [Automatic rollout of a new Revision to an existing Service with a
   pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
 * [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
-* [Configuration changes and manual rollout
-  options](#3-manual-rollout-of-a-new-revision---config-change-only)
+* [Configuration changes and managed rollout
+  options](#3-managed-rollout-of-a-new-revision---config-change-only)
 * [Creating a revision from source](#4-deploy-a-revision-from-source)
 * [Creating a function from source](#5-deploy-a-function)
 
@@ -24,7 +24,9 @@ represent final CLI design.
 ## 1) Automatic rollout of a new Revision to existing Service - pre-built container
 
 **_Scenario_**: User deploys a new revision to an existing service
-with a new container image, rolling out automatically to 100%
+with a new container image, rolling out automatically to 100%.
+
+This corresponds to the service in `runLatest` mode.
 
 ```console
 $ knative deploy --service my-service
@@ -32,7 +34,7 @@ $ knative deploy --service my-service
 ✓ Starting
 ✓ Promoting
   Done.
-  Deployed to https://my-service.default.mydomain.com
+  Deployed revision v3 to https://my-service.default.mydomain.com
 ```
 
 **Steps**:
@@ -303,7 +305,7 @@ illustrates. This is the most straightforward scenario that many
 Knative Serving customers are expected to use, and is consistent with the
 experience of deploying code that is rolled out immediately.  A Route
 may also directly reference a Revision, which is shown in
-[example 3](#3-manual-rollout-of-a-new-revision---config-change-only).
+[example 3](#3-managed-rollout-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by
 several GET calls to illustrate each step in the reconciliation
@@ -514,17 +516,26 @@ status:
 ```
 
 
-## 3) Manual rollout of a new Revision - config change only
+## 3) Managed rollout of a new Revision - config change only
 
-**_Scenario_**: User updates configuration with new runtime arguments
-  (env var change) to an existing service, tests the revision, then
-  proceeds with a manually controlled rollout to 100%
+**_Scenario_**: User updates configuration with new runtime arguments (env var
+  change) to an existing service, tests the revision, then proceeds with a
+  human-controlled rollout to 100%
 
-```console
-$ knative rollout --service my-service strategy manual
+```
+$ knative rollout --service my-service strategy release
+
+$ knative revisions list --service my-service
+Name          Traffic  Id   Date                Deployer      Git SHA
+current       100%     v2   2018-01-18 20:34    user1         a6f92d1
+                       v1   2018-01-17 10:32    user1         33643fc
 
 $ knative deploy --service my-service --env HELLO="blurg"
 [...]
+Deployed revision v3 to https://latest.my-service.default.mydomain.com
+You can begin rolling out this revision with [knative rollout begin v3]
+
+$ knative rollout begin v3
 
 $ knative revisions list --service my-service
 Name     Traffic  Id   Date                Deployer     Git SHA
@@ -532,27 +543,33 @@ next     0%       v3   2018-01-19 12:16    user1        a6f92d1
 current  100%     v2   2018-01-18 20:34    user1        a6f92d1
                   v1   2018-01-17 10:32    user1        33643fc
 
-$ knative rollout next percent 5
+$ knative rollout percent 5
 [...]
-$ knative rollout next percent 50
+$ knative rollout percent 50
 [...]
 $ knative rollout finish
 [...]
 
 $ knative revisions list --service my-service
 Name          Traffic  Id   Date                Deployer      Git SHA
-current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
+current       100%     v3   2018-01-19 12:16    user1         a6f92d1
                        v2   2018-01-18 20:34    user1         a6f92d1
                        v1   2018-01-17 10:32    user1         33643fc
 ```
 
 **Steps**:
 
-* Update the Service to switch from `runLatest` to `pinned` strategy.
+* Update the Service to switch from a `runLatest` strategy to a `release`
+  strategy.
 
 * Update the Service with the new configuration (env var).
 
-* Update the Service to address the new Revision.
+* Update the Service include the new revision in its revision list, which makes
+  it address the new Revision as `next`.
+
+* Adjust the `percentRollout` controlling the traffic on `next`.
+
+* Complete the rollout so the new revision is `current`.
 
 **Results:**
 
@@ -562,20 +579,20 @@ current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
   completing the rollout, the next revision is now the current
   revision.
 
-![Manual rollout](images/manual_rollout.png)
+![Rollout mode](images/manual_rollout.png)
 
 
-In the previous examples, the Service automatically made changes to
-the configuration (newly created Revision) routable when they became
-ready. While this pattern is useful for many scenarios such as
-functions-as-a-service and simple development flows, the Service can
-also reference Revisions directly in `pinned` mode to route traffic to
-a specific Revision, which is suitable for rolling back a service to a known-good state. manually controlling
-rollouts, i.e. testing a new revision prior to serving traffic. (Note:
-see [Appendix B](complex_examples.md) for a semi-automatic variation
-of manual rollouts).
+In the previous examples, the Service automatically made changes to the
+configuration (newly created Revision) routable when they became ready. While
+this pattern is useful for many scenarios such as functions-as-a-service and
+simple development flows, the Service can also reference Revisions directly in
+`release` mode to route traffic to two specific revisions: the revision that's
+been running, and the new revision the user would like test, or canary a portion
+of traffic to, prior to rolling out entirely. This mode is also useful to roll
+back to a known-good previous revision. (Note: see [Appendix
+B](complex_examples.md) for a semi-automatic variation of managed rollouts).
 
-The client updates the service to pin the current revision:
+The client updates the service to switch to release mode.
 
 ```http
 PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -587,13 +604,13 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  pinned:
-    revisionName: def
+  relase:
+    revisions: [def]
     configuration:  # Copied from spec.runLatest.configuration
-      revisionTemplate:  # template for building Revision
+      revisionTemplate:
         spec:
           container:
-            image: gcr.io/...  # new image
+            image: gcr.io/...
 ```
 
 This causes the Route to be updated to pin traffic the specified
@@ -610,14 +627,13 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  rollout:
-    traffic:
-    - revisionName: def
-      name: current  # addressable as current.my-service.default.mydomain.com
-      percent: 100
-    - configurationName: my-service  # LatestReadyRevision of my-service
-      name: next  # addressable as next.my-service.default.mydomain.com
-      percent: 0 # no traffic yet
+  release:
+    revisions: [def]
+    configuration:  # Copied from spec.runLatest.configuration
+      revisionTemplate:
+        spec:
+          container:
+            image: gcr.io/...
 ```
 
 Next, the service is updated with the new variables, which causes the
@@ -634,39 +650,20 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  pinned:
-    configuration:  # Copied from spec.runLatest.configuration
-      revisionTemplate:  # template for building Revision
+  release:
+    configuration:
+      revisionTemplate:
         spec:
           container:
             env:  # k8s-style strategic merge patch, updating a single list value
+            # Image etc. do not change
             - name: HELLO
               value: blurg  # changed value
 ```
 
-As in the previous example, the configuration is updated to trigger
-the creation of a new revision:
-
-```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
-```
-
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: Configuration
-metadata:
-  name: my-service
-spec:
-  revisionTemplate:
-    spec:
-      container:
-        env: # k8s-style strategic merge patch, updating a single list value
-        - name: HELLO
-          value: blurg # changed value
-```
-
-A new revision `ghi` is created that has the same code as the previous
-revision `def`, but different config:
+As in the previous example, the configuration is updated to trigger the creation
+of a new revision, and a new revision `ghi` is created that has the same code as
+the previous revision `def`, but different config:
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/ghi
@@ -696,10 +693,41 @@ status:
 Even when ready, the new revision does not automatically start serving
 traffic, as the route was pinned to revision `def`.
 
-Once the new revision is ready, the route will update the `next` name
-to point to the revision `ghi`. The new revision will still not
-receive any traffic by default, but can be accessed for testing,
-verification, etc.
+The user can then begin the rollout of revision ghi:
+
+```http
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  release:
+    revisions: [def, ghi]
+    rolloutPercent: 0
+```
+
+This makes the route update the `next` name to point to the revision `ghi`. (The
+list of revisions can contain one or two items. If two, the first is `current`
+and the latter is `next`) The new revision will still not receive any traffic,
+but can be accessed for testing, verification, etc.
+
+To put traffic on `ghi`, the user can adjust `rolloutPercent`:
+
+```http
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  release:
+    rolloutPercent: 5
+```
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
@@ -724,18 +752,20 @@ status:
   traffic:
   - revisionName: def
     name: current  # addressable as current.my-service.default.mydomain.com
-    percent: 100
+    percent: 95
   - revisionName: ghi
     name: next # addressable as next.my-service.default.mydomain.com
+    percent: 5
+  - configurationName: my-service  # LatestReadyRevision of my-service
+    name: latest
     percent: 0
   conditions:
   - type: Ready
     status: True
 ```
 
-After testing the new revision at
-`next.my-service.default.mydomain.com`, it can be promoted to live by
-updating the service to pin `ghi` as the new revision.
+After testing the new revision at `next.my-service.default.mydomain.com`, it can
+be promoted to live by updating the service to pin `ghi` as the new revision.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -747,36 +777,15 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  pinned:
-    revisionname: ghi
+  release:
+    revisions: [ghi]
 ```
 
-This causes the service to update the route to assign.
+This causes the service to update the route to assign 100% of traffic to ghi.
 
-```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
-```
-
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: route
-metadata:
-  name: my-service
-spec:
-  rollout:
-    traffic:
-    - revisionName: ghi
-      name: current
-      percent: 100
-    - configurationName: my-service  # LatestReadyRevision of my-service
-      name: next
-      percent: 0
-```
-
-Once the update has been completed, if the latest ready revision is
-the same as the pinned revision, the names `current` and `next` will
-point to the same revision. Both names are left in place so that
-`next.my-service.default.mydomain.com` is always addressable.
+Once the update has been completed, if the latest ready revision is the same as
+the pinned revision, the names `current` and `latest` will point to the same
+revision. The name `next` is inactive until you're rolling out a revision again.
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
@@ -790,11 +799,11 @@ metadata:
 spec:
   rollout:
     traffic:
-    - revisionName: ghi # update for the next rollout, current = next
+    - revisionName: ghi
       name: current
       percent: 100
-    - revisionName: ghi # optional: leave next as also referring to ghi
-      name: next
+    - revisionName: ghi 
+      name: latest
       percent: 0
 status:
   domain: my-service.default.mydomain.com
