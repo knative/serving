@@ -7,3 +7,9 @@ aliases:
   - mattmoor
   - tcnghia
   - grantr
+  autoscaling-approvers:
+  - josephburnett
+  - mdemirhan
+  autoscaling-reviewers:
+  - josephburnett
+  - mdemirhan
