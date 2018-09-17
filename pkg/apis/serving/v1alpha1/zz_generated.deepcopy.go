@@ -22,7 +22,7 @@ package v1alpha1
 
 import (
 	build_v1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	apis "github.com/knative/serving/pkg/apis"
+	duck_v1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -120,7 +120,7 @@ func (in *ConfigurationStatus) DeepCopyInto(out *ConfigurationStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(apis.Conditions, len(*in))
+		*out = make(duck_v1alpha1.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -240,7 +240,7 @@ func (in *RevisionStatus) DeepCopyInto(out *RevisionStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(apis.Conditions, len(*in))
+		*out = make(duck_v1alpha1.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -370,7 +370,7 @@ func (in *RouteStatus) DeepCopyInto(out *RouteStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(apis.Conditions, len(*in))
+		*out = make(duck_v1alpha1.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -507,7 +507,7 @@ func (in *ServiceStatus) DeepCopyInto(out *ServiceStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(apis.Conditions, len(*in))
+		*out = make(duck_v1alpha1.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

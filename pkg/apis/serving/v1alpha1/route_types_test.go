@@ -18,7 +18,7 @@ package v1alpha1
 import (
 	"testing"
 
-	sapis "github.com/knative/serving/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -47,7 +47,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}},
@@ -56,7 +56,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -65,7 +65,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -74,7 +74,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type: RouteConditionReady,
 			}},
 		},
@@ -82,7 +82,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -91,7 +91,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -103,7 +103,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -125,11 +125,11 @@ func TestRouteIsReady(t *testing.T) {
 
 func TestRouteConditions(t *testing.T) {
 	svc := &Route{}
-	foo := &sapis.Condition{
+	foo := &duck.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &sapis.Condition{
+	bar := &duck.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
@@ -245,22 +245,22 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
-func checkConditionSucceededRoute(rs RouteStatus, rct sapis.ConditionType, t *testing.T) {
+func checkConditionSucceededRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRoute(rs RouteStatus, rct sapis.ConditionType, t *testing.T) {
+func checkConditionFailedRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRoute(rs RouteStatus, rct sapis.ConditionType, t *testing.T) {
+func checkConditionOngoingRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRoute(rs RouteStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
+func checkConditionRoute(rs RouteStatus, rct duck.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

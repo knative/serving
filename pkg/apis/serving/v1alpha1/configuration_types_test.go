@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	sapis "github.com/knative/serving/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -48,7 +48,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}},
@@ -57,7 +57,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -66,7 +66,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -75,7 +75,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type: ConfigurationConditionReady,
 			}},
 		},
@@ -83,7 +83,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -92,7 +92,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -104,7 +104,7 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -124,11 +124,11 @@ func TestConfigurationIsReady(t *testing.T) {
 
 func TestConfigurationConditions(t *testing.T) {
 	config := &Configuration{}
-	foo := &sapis.Condition{
+	foo := &duck.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &sapis.Condition{
+	bar := &duck.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
@@ -163,7 +163,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}{{
 		name: "Not ready status should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -172,7 +172,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Missing LatestReadyRevisionName should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -182,7 +182,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Different revision names should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -193,7 +193,7 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Same revision names and ready status should be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: sapis.Conditions{{
+			Conditions: duck.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -304,22 +304,22 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
-func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
+func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedConfiguration(rs ConfigurationStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
+func checkConditionFailedConfiguration(rs ConfigurationStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
+func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionConfiguration(rs ConfigurationStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *sapis.Condition {
+func checkConditionConfiguration(rs ConfigurationStatus, rct duck.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duck.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
