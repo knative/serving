@@ -20,10 +20,12 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/knative/pkg/logging/testing"
+	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	. "github.com/knative/pkg/logging/testing"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -243,12 +245,10 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{
-					v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
+				Conditions: sapis.Conditions{{
+					Type:   v1alpha1.RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
 			},
 		},
 	}
@@ -291,12 +291,13 @@ func newServiceBuilder() *serviceBuilder {
 				Namespace: testNamespace,
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: "http",
-						Port: 8080,
-					},
-				},
+				Ports: []corev1.ServicePort{{
+					Name: revisionresources.ServicePortName,
+					Port: 8080,
+				}, {
+					Name: "anotherport",
+					Port: 9090,
+				}},
 			},
 		},
 	}

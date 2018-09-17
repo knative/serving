@@ -19,11 +19,11 @@ package resources
 import (
 	"strconv"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
@@ -119,6 +119,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 	userContainer.Env = append(userContainer.Env, userEnv)
+	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)
@@ -147,7 +148,11 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	podTemplateAnnotations := makeAnnotations(rev)
+	// TODO(nghia): Remove the need for this
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
+	// out via annotation) we should explicitly disable that here to avoid redundant Image
+	// resources.
 
 	// Inject the IP ranges for istio sidecar configuration.
 	// We will inject this value only if all of the following are true:
@@ -170,7 +175,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &one,

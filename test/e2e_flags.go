@@ -23,6 +23,9 @@ import (
 	"flag"
 	"os"
 	"path"
+
+	"github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
 )
 
 const (
@@ -52,6 +55,14 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest",
 		"Provide the version tag for the test images.")
+
+	flag.Parse()
+	flag.Set("alsologtostderr", "true")
+	logging.InitializeLogger(test.Flags.LogVerbose)
+
+	if test.Flags.EmitMetrics {
+		logging.InitializeMetricExporter()
+	}
 
 	return &f
 }

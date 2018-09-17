@@ -23,34 +23,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/system"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/activator"
+	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (
@@ -76,14 +73,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
-	return getTestRevisionWithCondition(name, v1alpha1.RevisionCondition{
+	return getTestRevisionWithCondition(name, sapis.Condition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) *v1alpha1.Revision {
+func getTestRevisionWithCondition(name string, cond sapis.Condition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
@@ -97,7 +94,7 @@ func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) 
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  []v1alpha1.RevisionCondition{cond},
+			Conditions:  sapis.Conditions{cond},
 		},
 	}
 }
@@ -209,7 +206,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	configMapWatcher = configmap.NewStaticWatcher(cms...)
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -281,7 +278,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		v1alpha1.RevisionCondition{
+		sapis.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -353,9 +350,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				rclr.GetRevisionHeaderName():      "test-rev",
-				rclr.GetConfigurationHeader():     "test-config",
-				rclr.GetRevisionHeaderNamespace(): testNamespace,
+				activator.RevisionHeaderName:      "test-rev",
+				activator.ConfigurationHeader:     "test-config",
+				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 			Retries: &v1alpha3.HTTPRetry{
@@ -470,7 +467,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		v1alpha1.RevisionCondition{
+		sapis.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -546,9 +543,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				rclr.GetRevisionHeaderName():      "test-rev",
-				rclr.GetConfigurationHeader():     "test-config",
-				rclr.GetRevisionHeaderNamespace(): testNamespace,
+				activator.RevisionHeaderName:      "test-rev",
+				activator.ConfigurationHeader:     "test-config",
+				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 			Retries: &v1alpha3.HTTPRetry{

@@ -19,7 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	sapis "github.com/knative/serving/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestServiceGeneration(t *testing.T) {
@@ -47,7 +49,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}},
@@ -56,7 +58,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -65,7 +67,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -74,7 +76,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type: ServiceConditionReady,
 			}},
 		},
@@ -82,7 +84,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   ServiceConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -91,7 +93,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -103,7 +105,7 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ServiceStatus{
-			Conditions: []ServiceCondition{{
+			Conditions: sapis.Conditions{{
 				Type:   "Foo",
 				Status: corev1.ConditionTrue,
 			}, {
@@ -123,30 +125,30 @@ func TestServiceIsReady(t *testing.T) {
 
 func TestServiceConditions(t *testing.T) {
 	svc := &Service{}
-	foo := &ServiceCondition{
+	foo := &sapis.Condition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &ServiceCondition{
+	bar := &sapis.Condition{
 		Type:   "Bar",
 		Status: "True",
 	}
 
 	// Add a single condition.
 	svc.Status.setCondition(foo)
-	if got, want := len(svc.Status.Conditions), 1; got != want {
+	if got, want := len(svc.Status.GetConditions()), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second Condition.
 	svc.Status.setCondition(bar)
-	if got, want := len(svc.Status.Conditions), 2; got != want {
+	if got, want := len(svc.Status.GetConditions()), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Test Add nil condition.
 	svc.Status.setCondition(nil)
-	if got, want := len(svc.Status.Conditions), 2; got != want {
+	if got, want := len(svc.Status.GetConditions()), 2; got != want {
 		t.Fatal("Error, nil condition was allowed to be added.")
 	}
 }
@@ -172,7 +174,7 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -183,7 +185,7 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Done from Route moves our RoutesReady condition, which triggers us to be Ready.
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -194,7 +196,7 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Check idempotency
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -213,7 +215,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Config failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -224,7 +226,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Route failure causes route to become failed (config and service still failed).
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -235,7 +237,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -246,7 +248,7 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Fix route, should make everything ready.
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -265,7 +267,7 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 
 	// Failure causes us to become unready immediately
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -284,7 +286,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Done from Route moves our RoutesReady condition
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -295,7 +297,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -306,7 +308,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Fixed the glitch.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -325,13 +327,13 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
 	})
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -342,7 +344,7 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration flipping back to Unknown causes us to become ongoing immediately
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -379,7 +381,7 @@ func TestRouteFailurePropagation(t *testing.T) {
 
 	// Failure causes us to become unready immediately
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -398,7 +400,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -409,7 +411,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Failure causes us to become unready immediately (config still ok).
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
 		}},
@@ -420,7 +422,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Fixed the glitch.
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -439,13 +441,13 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
-		Conditions: []ConfigurationCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
 	})
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
@@ -456,7 +458,7 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 	// Route flipping back to Unknown causes us to become ongoing immediately
 	svc.Status.PropagateRouteStatus(RouteStatus{
-		Conditions: []RouteCondition{{
+		Conditions: sapis.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -496,22 +498,22 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 }
 
-func checkConditionSucceededService(rs ServiceStatus, rct ServiceConditionType, t *testing.T) *ServiceCondition {
+func checkConditionSucceededService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedService(rs ServiceStatus, rct ServiceConditionType, t *testing.T) *ServiceCondition {
+func checkConditionFailedService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingService(rs ServiceStatus, rct ServiceConditionType, t *testing.T) *ServiceCondition {
+func checkConditionOngoingService(rs ServiceStatus, rct sapis.ConditionType, t *testing.T) *sapis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionService(rs ServiceStatus, rct ServiceConditionType, cs corev1.ConditionStatus, t *testing.T) *ServiceCondition {
+func checkConditionService(rs ServiceStatus, rct sapis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *sapis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
@@ -521,4 +523,16 @@ func checkConditionService(rs ServiceStatus, rct ServiceConditionType, cs corev1
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
 	}
 	return r
+}
+
+func TestServiceGetGroupVersionKind(t *testing.T) {
+	s := &Service{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Service",
+	}
+	if got := s.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
 }

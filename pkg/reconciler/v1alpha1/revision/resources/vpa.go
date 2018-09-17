@@ -17,8 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: vpa.VerticalPodAutoscalerSpec{
 			Selector:       makeSelector(rev),

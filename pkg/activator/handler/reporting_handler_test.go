@@ -25,7 +25,6 @@ import (
 
 	"github.com/knative/serving/pkg/activator"
 
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 func TestReporterHandlerResponseReceived(t *testing.T) {
@@ -40,9 +39,9 @@ func TestReporterHandlerResponseReceived(t *testing.T) {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "http://example.com", nil)
 
-	req.Header.Add(reconciler.GetRevisionHeaderNamespace(), "revision-namespace")
-	req.Header.Add(reconciler.GetRevisionHeaderName(), "revision-name")
-	req.Header.Add(reconciler.GetConfigurationHeader(), "configuration-name")
+	req.Header.Add(activator.RevisionHeaderNamespace, "revision-namespace")
+	req.Header.Add(activator.RevisionHeaderName, "revision-name")
+	req.Header.Add(activator.ConfigurationHeader, "configuration-name")
 
 	handler.ServeHTTP(resp, req)
 
@@ -87,9 +86,9 @@ func TestReporterHandlerCountHeaderMissing(t *testing.T) {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "http://example.com", nil)
 
-	req.Header.Add(reconciler.GetRevisionHeaderNamespace(), "revision-namespace")
-	req.Header.Add(reconciler.GetRevisionHeaderName(), "revision-name")
-	req.Header.Add(reconciler.GetConfigurationHeader(), "configuration-name")
+	req.Header.Add(activator.RevisionHeaderNamespace, "revision-namespace")
+	req.Header.Add(activator.RevisionHeaderName, "revision-name")
+	req.Header.Add(activator.ConfigurationHeader, "configuration-name")
 
 	handler.ServeHTTP(resp, req)
 

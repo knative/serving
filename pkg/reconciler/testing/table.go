@@ -63,13 +63,10 @@ type TableRow struct {
 	WithReactors []clientgotesting.ReactionFunc
 }
 
-type ExtractActions func() ([]clientgotesting.CreateAction, []clientgotesting.UpdateAction,
-	[]clientgotesting.DeleteAction, []clientgotesting.PatchAction)
-
-type Factory func(*testing.T, *TableRow) (controller.Reconciler, ExtractActions)
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList)
 
 func (r *TableRow) Test(t *testing.T, factory Factory) {
-	c, actions := factory(t, r)
+	c, recorderList := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
@@ -78,14 +75,18 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
-	createActions, updateActions, deleteActions, patchActions := actions()
+	actions, err := recorderList.ActionsByVerb()
+
+	if err != nil {
+		t.Errorf("Error capturing actions by verb: %q", err)
+	}
 
 	for i, want := range r.WantCreates {
-		if i >= len(createActions) {
+		if i >= len(actions.Creates) {
 			t.Errorf("Missing create: %v", want)
 			continue
 		}
-		got := createActions[i]
+		got := actions.Creates[i]
 		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
@@ -94,55 +95,55 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("unexpected create (-want +got): %s", diff)
 		}
 	}
-	if got, want := len(createActions), len(r.WantCreates); got > want {
-		for _, extra := range createActions[want:] {
+	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
+		for _, extra := range actions.Creates[want:] {
 			t.Errorf("Extra create: %v", extra)
 		}
 	}
 
 	for i, want := range r.WantUpdates {
-		if i >= len(updateActions) {
+		if i >= len(actions.Updates) {
 			t.Errorf("Missing update: %v", want.GetObject())
 			continue
 		}
-		got := updateActions[i]
+		got := actions.Updates[i]
 		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("unexpected update (-want +got): %s", diff)
 		}
 	}
-	if got, want := len(updateActions), len(r.WantUpdates); got > want {
-		for _, extra := range updateActions[want:] {
+	if got, want := len(actions.Updates), len(r.WantUpdates); got > want {
+		for _, extra := range actions.Updates[want:] {
 			t.Errorf("Extra update: %v", extra)
 		}
 	}
 
 	for i, want := range r.WantDeletes {
-		if i >= len(deleteActions) {
+		if i >= len(actions.Deletes) {
 			t.Errorf("Missing delete: %v", want)
 			continue
 		}
-		got := deleteActions[i]
-		if got.GetName() != want.Name {
+		got := actions.Deletes[i]
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}
-	if got, want := len(deleteActions), len(r.WantDeletes); got > want {
-		for _, extra := range deleteActions[want:] {
+	if got, want := len(actions.Deletes), len(r.WantDeletes); got > want {
+		for _, extra := range actions.Deletes[want:] {
 			t.Errorf("Extra delete: %v", extra)
 		}
 	}
 
 	for i, want := range r.WantPatches {
-		if i >= len(patchActions) {
+		if i >= len(actions.Patches) {
 			t.Errorf("Missing patch: %v", want)
 			continue
 		}
 
-		got := patchActions[i]
-		if got.GetName() != want.Name {
+		got := actions.Patches[i]
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace {
@@ -152,8 +153,8 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("unexpected patch(-want +got): %s", diff)
 		}
 	}
-	if got, want := len(patchActions), len(r.WantPatches); got > want {
-		for _, extra := range patchActions[want:] {
+	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
+		for _, extra := range actions.Patches[want:] {
 			t.Errorf("Extra patch: %v", extra)
 		}
 	}

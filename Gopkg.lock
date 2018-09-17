@@ -318,7 +318,27 @@
   revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[projects]]
-  digest = "1:cd0c9c979a3d5ee14df7065fad4328ed325448bc9d252f2ba1c8255cbe192e24"
+  digest = "1:826576a2dbea52eb350ed5c0fd3e53f1f24cd6bdcfaf89ff89239b8cd426cd0d"
+  name = "github.com/knative/caching"
+  packages = [
+    "pkg/apis/caching",
+    "pkg/apis/caching/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/caching/v1alpha1",
+    "pkg/client/clientset/versioned/typed/caching/v1alpha1/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/caching",
+    "pkg/client/informers/externalversions/caching/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/caching/v1alpha1",
+  ]
+  pruneopts = "T"
+  revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
+
+[[projects]]
+  digest = "1:ccffe02c2e3ec58bf6d4fc6d23abfabcc47ece702fba23cd08bddea268115b81"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -344,6 +364,7 @@
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
+    "kmeta",
     "logging",
     "logging/logkey",
     "logging/testing",
@@ -354,7 +375,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "6eff182b8784a136e0ce20e47c5efbfe40ae6059"
+  revision = "2a7e950c4e2d635d6e32ba3d050dd32ba7be5be3"
 
 [[projects]]
   branch = "master"
@@ -534,18 +555,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dd68d1a2c578b5a578bb36851bf3a2edb0ffe5d130f898c65b994e41fc0848b5"
+  digest = "1:8a40385c0245fa401d71b719925b3cc0514b95587223a6368b0d913d06825a47"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
     "http/httpguts",
     "http2",
+    "http2/h2c",
     "http2/hpack",
     "idna",
   ]
   pruneopts = "NUT"
-  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
+  revision = "aaf60122140d3fcf75376d319f0554393160eb50"
 
 [[projects]]
   branch = "master"
@@ -1036,6 +1058,13 @@
     "github.com/knative/build/pkg/client/informers/externalversions",
     "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1",
     "github.com/knative/build/pkg/client/listers/build/v1alpha1",
+    "github.com/knative/caching/pkg/apis/caching",
+    "github.com/knative/caching/pkg/apis/caching/v1alpha1",
+    "github.com/knative/caching/pkg/client/clientset/versioned",
+    "github.com/knative/caching/pkg/client/clientset/versioned/fake",
+    "github.com/knative/caching/pkg/client/informers/externalversions",
+    "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1",
+    "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
@@ -1046,6 +1075,7 @@
     "github.com/knative/pkg/client/listers/istio/v1alpha3",
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/controller",
+    "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/logging",
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
@@ -1065,9 +1095,8 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
-    "golang.org/x/net/http/httpguts",
     "golang.org/x/net/http2",
-    "golang.org/x/net/http2/hpack",
+    "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
     "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",

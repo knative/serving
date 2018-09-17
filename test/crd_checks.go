@@ -26,6 +26,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,7 +35,7 @@ import (
 
 const (
 	interval = 1 * time.Second
-	timeout  = 5 * time.Minute
+	timeout  = 6 * time.Minute
 )
 
 // WaitForRouteState polls the status of the Route called name from client every
@@ -114,13 +115,24 @@ func WaitForRevisionState(client *ServingClients, name string, inState func(r *v
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		r, err := client.Revisions.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(r)
 	})
+	// Attempt to add revision Status to error message.
+	if waitErr != nil {
+		r, err := client.Revisions.Get(name, metav1.GetOptions{})
+		if err != nil {
+			// Cant' look for Revision, don't append Status to error message.
+			return waitErr
+		}
+		// Wrap error with information about Status.
+		return errors.Wrapf(waitErr, "Status=%#v", r.Status)
+	}
+	return nil
 }
 
 // CheckRevisionState verifies the status of the Revision called name from client
