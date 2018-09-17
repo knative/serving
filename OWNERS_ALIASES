@@ -19,3 +19,14 @@ aliases:
   monitoring-reviewers:
   - mdemirhan
   - yanweiguo
+  productivity-approvers:
+  - adrcunha
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+  productivity-reviewers:
+  - adrcunha
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+
