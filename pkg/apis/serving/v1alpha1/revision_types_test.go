@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 )
 
 func TestGeneration(t *testing.T) {
@@ -52,7 +52,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -61,7 +61,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}},
@@ -70,7 +70,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 				Reason: "Updating",
@@ -84,7 +84,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -93,7 +93,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -122,7 +122,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready status should be routable",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -131,7 +131,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Inactive status should be routable",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
 			}, {
@@ -143,7 +143,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -152,7 +152,7 @@ func TestIsRoutable(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be routable",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -181,7 +181,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}},
@@ -190,7 +190,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -199,7 +199,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -208,7 +208,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type: RevisionConditionReady,
 			}},
 		},
@@ -216,7 +216,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -225,7 +225,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -237,7 +237,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -263,58 +263,23 @@ func TestGetSetCondition(t *testing.T) {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 
-	rc := &duck.Condition{
+	rc := &duckv1alpha1.Condition{
 		Type:   RevisionConditionBuildSucceeded,
 		Status: corev1.ConditionTrue,
 	}
-	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
 
-	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(duck.Condition{}, "LastTransitionTime")); diff != "" {
+	rs.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(duckv1alpha1.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-}
-
-func TestRevisionConditions(t *testing.T) {
-	rev := &Revision{}
-	foo := &duck.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &duck.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
 
@@ -573,22 +538,22 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
-func checkConditionSucceededRevision(rs RevisionStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRevision(rs RevisionStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionFailedRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRevision(rs RevisionStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionOngoingRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRevision(rs RevisionStatus, rct duck.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duck.Condition {
+func checkConditionRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

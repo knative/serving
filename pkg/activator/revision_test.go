@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -246,7 +246,7 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: duck.Conditions{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RevisionConditionReady,
 					Status: corev1.ConditionTrue,
 				}},

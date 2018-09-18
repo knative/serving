@@ -25,7 +25,8 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
 
@@ -58,7 +59,10 @@ var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have its conditions managed.
-var _ duck.ConditionsAccessor = (*RevisionStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
+
+// Check that Revision implements the Conditions duck type.
+var _ = duck.VerifyType(&Revision{}, &duckv1alpha1.Conditions{})
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -175,20 +179,20 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = duck.ConditionReady
+	RevisionConditionReady = duckv1alpha1.ConditionReady
 	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded duck.ConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded duckv1alpha1.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable duck.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable duckv1alpha1.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy duck.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy duckv1alpha1.ConditionType = "ContainerHealthy"
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive duck.ConditionType = "Active"
+	RevisionConditionActive duckv1alpha1.ConditionType = "Active"
 )
 
-var revCondSet = duck.NewLivingConditionSet(
+var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 	RevisionConditionActive,
@@ -207,7 +211,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions duck.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -264,15 +268,8 @@ func (rs *RevisionStatus) IsRoutable() bool {
 	return rs.IsReady() || rs.IsActivationRequired()
 }
 
-func (rs *RevisionStatus) GetCondition(t duck.ConditionType) *duck.Condition {
+func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
-}
-
-// This is kept for unit test integration.
-func (rs *RevisionStatus) setCondition(new *duck.Condition) {
-	if new != nil {
-		revCondSet.Manage(rs).SetCondition(*new)
-	}
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
@@ -340,13 +337,13 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *RevisionStatus) GetConditions() duck.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions duck.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }

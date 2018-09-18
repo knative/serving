@@ -24,7 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
 
@@ -61,7 +62,10 @@ var _ apis.Defaultable = (*Service)(nil)
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have its conditions managed.
-var _ duck.ConditionsAccessor = (*ServiceStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
+
+// Check that Service implements the Conditions duck type.
+var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Conditions{})
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -108,20 +112,20 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady = duck.ConditionReady
+	ServiceConditionReady = duckv1alpha1.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady duck.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady duckv1alpha1.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady duck.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady duckv1alpha1.ConditionType = "ConfigurationsReady"
 )
 
-var serviceCondSet = duck.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions duck.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -192,15 +196,8 @@ func (ss *ServiceStatus) IsReady() bool {
 	return serviceCondSet.Manage(ss).IsHappy()
 }
 
-func (ss *ServiceStatus) GetCondition(t duck.ConditionType) *duck.Condition {
+func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
-}
-
-// This is kept for unit test integration.
-func (ss *ServiceStatus) setCondition(new *duck.Condition) {
-	if new != nil {
-		serviceCondSet.Manage(ss).SetCondition(*new)
-	}
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
@@ -245,13 +242,13 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (ss *ServiceStatus) GetConditions() duck.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {
 	return ss.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions duck.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	ss.Conditions = conditions
 }
