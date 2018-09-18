@@ -18,7 +18,6 @@ package autoscaling
 
 import (
 	"context"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
