@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	. "github.com/knative/pkg/logging/testing"
-	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -246,7 +246,7 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: sapis.Conditions{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RevisionConditionReady,
 					Status: corev1.ConditionTrue,
 				}},

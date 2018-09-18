@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	v1alpha1 "github.com/knative/pkg/apis/istio/authentication/v1alpha1"
 	v1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,6 +57,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=authentication.istio.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Authentication().V1alpha1().Policies().Informer()}, nil
+
+		// Group=duck.knative.dev, Version=v1alpha1
+	case duckv1alpha1.SchemeGroupVersion.WithResource("kresources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Duck().V1alpha1().KResources().Informer()}, nil
+	case duckv1alpha1.SchemeGroupVersion.WithResource("targets"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Duck().V1alpha1().Targets().Informer()}, nil
+	case duckv1alpha1.SchemeGroupVersion.WithResource("topics"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Duck().V1alpha1().Topics().Informer()}, nil
 
 		// Group=networking.istio.io, Version=v1alpha3
 	case v1alpha3.SchemeGroupVersion.WithResource("destinationrules"):

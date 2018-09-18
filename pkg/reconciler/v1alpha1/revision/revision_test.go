@@ -35,10 +35,10 @@ import (
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -374,9 +374,9 @@ func TestResolutionFailed(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	for _, ct := range []sapis.ConditionType{"ContainerHealthy", "Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"ContainerHealthy", "Ready"} {
 		got := rev.Status.GetCondition(ct)
-		want := &sapis.Condition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionFalse,
 			Reason:             "ContainerMissing",
@@ -543,9 +543,9 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	completedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 
 	// The next update we receive should tell us that the build completed.
-	for _, ct := range []sapis.ConditionType{"BuildSucceeded"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"BuildSucceeded"} {
 		got := completedRev.Status.GetCondition(ct)
-		want := &sapis.Condition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
@@ -575,9 +575,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// The revision is not marked ready until an endpoint is created.
-	for _, ct := range []sapis.ConditionType{"Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
 		got := deployingRev.Status.GetCondition(ct)
-		want := &sapis.Condition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
@@ -602,9 +602,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 
 	// After reconciling the endpoint, the revision should be ready.
-	for _, ct := range []sapis.ConditionType{"Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
 		got := readyRev.Status.GetCondition(ct)
-		want := &sapis.Condition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,

@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -58,7 +58,7 @@ var _ apis.Defaultable = (*Route)(nil)
 var _ kmeta.OwnerRefable = (*Route)(nil)
 
 // Check that RouteStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*RouteStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
@@ -103,15 +103,15 @@ type RouteSpec struct {
 const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	RouteConditionReady = sapis.ConditionReady
+	RouteConditionReady = duckv1alpha1.ConditionReady
 
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
-	RouteConditionAllTrafficAssigned sapis.ConditionType = "AllTrafficAssigned"
+	RouteConditionAllTrafficAssigned duckv1alpha1.ConditionType = "AllTrafficAssigned"
 )
 
-var routeCondSet = sapis.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
+var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -137,7 +137,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -176,7 +176,7 @@ func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *RouteStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
@@ -223,13 +223,13 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RouteStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RouteStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }

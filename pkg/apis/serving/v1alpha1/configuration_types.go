@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -60,7 +60,7 @@ var _ apis.Defaultable = (*Configuration)(nil)
 var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*ConfigurationStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
@@ -87,10 +87,10 @@ type ConfigurationSpec struct {
 const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
-	ConfigurationConditionReady = sapis.ConditionReady
+	ConfigurationConditionReady = duckv1alpha1.ConditionReady
 )
 
-var confCondSet = sapis.NewLivingConditionSet()
+var confCondSet = duckv1alpha1.NewLivingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
@@ -98,7 +98,7 @@ type ConfigurationStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -156,7 +156,7 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
-func (cs *ConfigurationStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (cs *ConfigurationStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return confCondSet.Manage(cs).GetCondition(t)
 }
 
@@ -201,13 +201,13 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (cs *ConfigurationStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (cs *ConfigurationStatus) GetConditions() duckv1alpha1.Conditions {
 	return cs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (cs *ConfigurationStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (cs *ConfigurationStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	cs.Conditions = conditions
 }

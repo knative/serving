@@ -21,7 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	apis "github.com/knative/serving/pkg/apis"
+	duck_v1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -110,7 +110,7 @@ func (in *PodAutoscalerStatus) DeepCopyInto(out *PodAutoscalerStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(apis.Conditions, len(*in))
+		*out = make(duck_v1alpha1.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
-	sapis "github.com/knative/serving/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -56,7 +56,7 @@ var _ apis.Defaultable = (*PodAutoscaler)(nil)
 var _ apis.Immutable = (*PodAutoscaler)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
@@ -99,12 +99,12 @@ type PodAutoscalerSpec struct {
 const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	PodAutoscalerConditionReady = sapis.ConditionReady
+	PodAutoscalerConditionReady = duckv1alpha1.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
-	PodAutoscalerConditionActive sapis.ConditionType = "Active"
+	PodAutoscalerConditionActive duckv1alpha1.ConditionType = "Active"
 )
 
-var podCondSet = sapis.NewLivingConditionSet(PodAutoscalerConditionActive)
+var podCondSet = duckv1alpha1.NewLivingConditionSet(PodAutoscalerConditionActive)
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
@@ -112,7 +112,7 @@ type PodAutoscalerStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -143,7 +143,7 @@ func (rs *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return podCondSet.Manage(rs).GetCondition(t)
 }
 
@@ -178,13 +178,13 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *PodAutoscalerStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *PodAutoscalerStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *PodAutoscalerStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *PodAutoscalerStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }

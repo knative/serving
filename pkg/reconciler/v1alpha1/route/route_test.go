@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
@@ -32,7 +33,6 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/activator"
-	sapis "github.com/knative/serving/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -73,14 +73,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
-	return getTestRevisionWithCondition(name, sapis.Condition{
+	return getTestRevisionWithCondition(name, duckv1alpha1.Condition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond sapis.Condition) *v1alpha1.Revision {
+func getTestRevisionWithCondition(name string, cond duckv1alpha1.Condition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
@@ -94,7 +94,7 @@ func getTestRevisionWithCondition(name string, cond sapis.Condition) *v1alpha1.R
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  sapis.Conditions{cond},
+			Conditions:  duckv1alpha1.Conditions{cond},
 		},
 	}
 }
@@ -278,7 +278,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		sapis.Condition{
+		duckv1alpha1.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -467,7 +467,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		sapis.Condition{
+		duckv1alpha1.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
