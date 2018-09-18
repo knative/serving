@@ -112,7 +112,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
-			k.Status.Conditions = sapis.Conditions{{
+			k.Status.Conditions = duck.Conditions{{
 				Type:               "Active",
 				Status:             "False",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
