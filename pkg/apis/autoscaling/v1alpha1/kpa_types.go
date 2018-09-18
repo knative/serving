@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -57,6 +58,9 @@ var _ apis.Immutable = (*PodAutoscaler)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
+
+// Check that PodAutoscaler implements the Conditions duck type.
+var _ = duck.VerifyType(&PodAutoscaler{}, &duckv1alpha1.Conditions{})
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {

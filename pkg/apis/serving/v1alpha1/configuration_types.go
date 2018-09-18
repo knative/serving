@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
@@ -61,6 +62,9 @@ var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
+
+// Check that Configuration implements the Conditions duck type.
+var _ = duck.VerifyType(&Configuration{}, &duckv1alpha1.Conditions{})
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {

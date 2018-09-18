@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
@@ -62,6 +63,9 @@ var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
+
+// Check that Service implements the Conditions duck type.
+var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Conditions{})
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either

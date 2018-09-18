@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
@@ -56,6 +57,9 @@ var _ apis.Defaultable = (*Route)(nil)
 
 // Check that we can create OwnerReferences to a Route.
 var _ kmeta.OwnerRefable = (*Route)(nil)
+
+// Check that Route implements the Conditions duck type.
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Conditions{})
 
 // Check that RouteStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
