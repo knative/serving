@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -79,7 +79,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   false,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod).Add(1 * time.Second)
-			k.Status.Conditions = duck.Conditions{{
+			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
 				Status:             "False",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
@@ -95,7 +95,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
-			k.Status.Conditions = duck.Conditions{{
+			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
 				Status:             "False",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
@@ -144,7 +144,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		kpaMutation: func(k *kpa.PodAutoscaler) {
-			k.Status.Conditions = duck.Conditions{{
+			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:   "Active",
 				Status: "False",
 				// No LTT == a long long time ago
