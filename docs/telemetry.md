@@ -27,7 +27,7 @@ Deployment above enables collection of the following logs:
 * stdout & stderr from build-controller
 
 To enable log collection from other containers and destinations, see
-[setting up a logging plugin](setting-up-a-logging-plugin.md).
+[setting up a logging plugin](https://github.com/knative/docs/blob/master/serving/setting-up-a-logging-plugin.md).
 
 ## Metrics troubleshooting
 
@@ -178,7 +178,7 @@ Troubleshooting section above to enable Prometheus UI)
 
 ## Distributed tracing with Zipkin
 
-Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go) 
+Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go)
 as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
 
 ## Delete monitoring components
