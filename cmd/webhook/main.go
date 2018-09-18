@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -87,7 +86,7 @@ func main() {
 	controller := webhook.AdmissionController{
 		Client:  kubeClient,
 		Options: options,
-		Handlers: map[schema.GroupVersionKind]runtime.Object{
+		Handlers: map[schema.GroupVersionKind]webhook.GenericCRD{
 			v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
 			v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
 			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},

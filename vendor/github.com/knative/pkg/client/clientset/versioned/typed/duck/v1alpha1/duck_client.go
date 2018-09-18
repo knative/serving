@@ -27,6 +27,7 @@ import (
 
 type DuckV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	GenerationalsGetter
 	KResourcesGetter
 	TargetsGetter
 	TopicsGetter
@@ -35,6 +36,10 @@ type DuckV1alpha1Interface interface {
 // DuckV1alpha1Client is used to interact with features provided by the duck.knative.dev group.
 type DuckV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *DuckV1alpha1Client) Generationals(namespace string) GenerationalInterface {
+	return newGenerationals(c, namespace)
 }
 
 func (c *DuckV1alpha1Client) KResources(namespace string) KResourceInterface {

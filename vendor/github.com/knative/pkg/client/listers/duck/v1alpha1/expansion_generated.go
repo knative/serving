@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// GenerationalListerExpansion allows custom methods to be added to
+// GenerationalLister.
+type GenerationalListerExpansion interface{}
+
+// GenerationalNamespaceListerExpansion allows custom methods to be added to
+// GenerationalNamespaceLister.
+type GenerationalNamespaceListerExpansion interface{}
+
 // KResourceListerExpansion allows custom methods to be added to
 // KResourceLister.
 type KResourceListerExpansion interface{}

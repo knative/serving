@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -66,6 +64,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
 
 // Check that Service implements the Conditions duck type.
 var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Conditions{})
+
+// Check that Service implements the Generation duck type.
+var emptyGenService duckv1alpha1.Generation
+var _ = duck.VerifyType(&Service{}, &emptyGenService)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -174,18 +176,6 @@ type ServiceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Service `json:"items"`
-}
-
-func (s *Service) GetGeneration() int64 {
-	return s.Spec.Generation
-}
-
-func (s *Service) SetGeneration(generation int64) {
-	s.Spec.Generation = generation
-}
-
-func (s *Service) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(s.Spec)
 }
 
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
