@@ -75,6 +75,7 @@ func TestActivationHandler(t *testing.T) {
 		label     string
 		namespace string
 		name      string
+		config    string
 		wantBody  string
 		wantCode  int
 		wantErr   error
@@ -83,6 +84,7 @@ func TestActivationHandler(t *testing.T) {
 			label:     "active endpoint",
 			namespace: "real-namespace",
 			name:      "real-name",
+			config:    "configuration-name",
 			wantBody:  "everything good!",
 			wantCode:  http.StatusOK,
 			wantErr:   nil,
@@ -91,6 +93,7 @@ func TestActivationHandler(t *testing.T) {
 			label:     "no active endpoint",
 			namespace: "fake-namespace",
 			name:      "fake-name",
+			config:    "configuration-name",
 			wantBody:  errMsg("not found!"),
 			wantCode:  http.StatusNotFound,
 			wantErr:   nil,
@@ -99,6 +102,7 @@ func TestActivationHandler(t *testing.T) {
 			label:     "request error",
 			namespace: "real-namespace",
 			name:      "real-name",
+			config:    "configuration-name",
 			wantBody:  "",
 			wantCode:  http.StatusBadGateway,
 			wantErr:   errors.New("request error!"),
@@ -126,6 +130,7 @@ func TestActivationHandler(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
 			req.Header.Set(activator.RevisionHeaderName, e.name)
+			req.Header.Set(activator.ConfigurationHeader, e.config)
 
 			handler.ServeHTTP(resp, req)
 

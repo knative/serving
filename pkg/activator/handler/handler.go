@@ -20,6 +20,7 @@ import (
 	"net/url"
 
 	"github.com/knative/serving/pkg/activator"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
 )
 
@@ -32,9 +33,9 @@ type ActivationHandler struct {
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
-	name := r.Header.Get(activator.RevisionHeaderName)
-	config := r.Header.Get(activator.ConfigurationHeader)
+	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
+	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
+	config := pkghttp.LastHeaderValue(r.Header, activator.ConfigurationHeader)
 
 	endpoint, status, err := a.Activator.ActiveEndpoint(namespace, config, name)
 
