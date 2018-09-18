@@ -41,8 +41,10 @@ func TestStoreWatchConfigs(t *testing.T) {
 	store := NewUntypedStore(
 		"name",
 		TestLogger(t),
-		"config-name-1", constructor,
-		"config-name-2", constructor,
+		Constructors{
+			"config-name-1": constructor,
+			"config-name-2": constructor,
+		},
 	)
 
 	watcher := &mockWatcher{}
@@ -65,9 +67,13 @@ func TestStoreConfigChange(t *testing.T) {
 		return c.Name, nil
 	}
 
-	store := NewUntypedStore("name", TestLogger(t),
-		"config-name-1", constructor,
-		"config-name-2", constructor,
+	store := NewUntypedStore(
+		"name",
+		TestLogger(t),
+		Constructors{
+			"config-name-1": constructor,
+			"config-name-2": constructor,
+		},
 	)
 
 	store.OnConfigChanged(&corev1.ConfigMap{
@@ -108,7 +114,7 @@ func TestStoreFailedFirstConversionCrashes(t *testing.T) {
 		}
 
 		store := NewUntypedStore("name", TestLogger(t),
-			"config-name-1", constructor,
+			Constructors{"config-name-1": constructor},
 		)
 
 		store.OnConfigChanged(&corev1.ConfigMap{
@@ -140,7 +146,7 @@ func TestStoreFailedUpdate(t *testing.T) {
 	}
 
 	store := NewUntypedStore("name", TestLogger(t),
-		"config-name-1", constructor,
+		Constructors{"config-name-1": constructor},
 	)
 
 	store.OnConfigChanged(&corev1.ConfigMap{

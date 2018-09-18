@@ -47,7 +47,9 @@ func NewStore(logger config.Logger) *Store {
 		UntypedStore: config.NewUntypedStore(
 			"route",
 			logger,
-			DomainConfigName, NewDomainFromConfigMap,
+			config.Constructors{
+				DomainConfigName: NewDomainFromConfigMap,
+			},
 		),
 	}
 

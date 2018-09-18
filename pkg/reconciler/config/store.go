@@ -30,6 +30,8 @@ type Logger interface {
 	Errorf(string, ...interface{})
 }
 
+type Constructors map[string]interface{}
+
 type UntypedStore struct {
 	name   string
 	logger Logger
@@ -41,7 +43,7 @@ type UntypedStore struct {
 func NewUntypedStore(
 	name string,
 	logger Logger,
-	constructors ...interface{}) *UntypedStore {
+	constructors Constructors) *UntypedStore {
 
 	store := &UntypedStore{
 		name:         name,
@@ -50,10 +52,7 @@ func NewUntypedStore(
 		constructors: make(map[string]reflect.Value),
 	}
 
-	// TODO(dprotaso) Check argument validity
-	for i := 0; i < len(constructors); i = i + 2 {
-		configName := constructors[i].(string)
-		constructor := constructors[i+1]
+	for configName, constructor := range constructors {
 		store.registerConfig(configName, constructor)
 	}
 

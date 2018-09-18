@@ -54,11 +54,13 @@ func NewStore(logger config.Logger) *Store {
 		UntypedStore: config.NewUntypedStore(
 			"revision",
 			logger,
-			ControllerConfigName, NewControllerConfigFromConfigMap,
-			NetworkConfigName, NewNetworkFromConfigMap,
-			ObservabilityConfigName, NewObservabilityFromConfigMap,
-			autoscaler.ConfigName, autoscaler.NewConfigFromConfigMap,
-			logging.ConfigName, logging.NewConfigFromConfigMap,
+			config.Constructors{
+				ControllerConfigName:    NewControllerConfigFromConfigMap,
+				NetworkConfigName:       NewNetworkFromConfigMap,
+				ObservabilityConfigName: NewObservabilityFromConfigMap,
+				autoscaler.ConfigName:   autoscaler.NewConfigFromConfigMap,
+				logging.ConfigName:      logging.NewConfigFromConfigMap,
+			},
 		),
 	}
 
