@@ -25,8 +25,8 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -58,7 +58,7 @@ var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*RevisionStatus)(nil)
+var _ duck.ConditionsAccessor = (*RevisionStatus)(nil)
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -175,22 +175,24 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = sapis.ConditionReady
+	RevisionConditionReady = duck.ConditionReady
 	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded sapis.ConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded duck.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable sapis.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable duck.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy sapis.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy duck.ConditionType = "ContainerHealthy"
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive sapis.ConditionType = "Active"
+	RevisionConditionActive duck.ConditionType = "Active"
 )
 
-var revCondSet = sapis.NewLivingConditionSet(
+var revCondSet = duck.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
-	RevisionConditionContainerHealthy)
+	RevisionConditionContainerHealthy,
+	RevisionConditionActive,
+)
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -205,7 +207,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duck.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -262,12 +264,12 @@ func (rs *RevisionStatus) IsRoutable() bool {
 	return rs.IsReady() || rs.IsActivationRequired()
 }
 
-func (rs *RevisionStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (rs *RevisionStatus) GetCondition(t duck.ConditionType) *duck.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
 }
 
 // This is kept for unit test integration.
-func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
+func (rs *RevisionStatus) setCondition(new *duck.Condition) {
 	if new != nil {
 		revCondSet.Manage(rs).SetCondition(*new)
 	}
@@ -275,8 +277,6 @@ func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
 
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
-	// Active is not part of the dependents of the condition set.
-	revCondSet.Manage(rs).InitializeCondition(RevisionConditionActive)
 
 	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
@@ -340,13 +340,13 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duck.Conditions interface.
+func (rs *RevisionStatus) GetConditions() duck.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duck.Conditions interface.
+func (rs *RevisionStatus) SetConditions(conditions duck.Conditions) {
 	rs.Conditions = conditions
 }
