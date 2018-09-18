@@ -33,6 +33,7 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
+	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -237,6 +238,9 @@ func main() {
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
+
+	activatorutil.SetupHeaderPruning(httpProxy)
+	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if *containerConcurrency > 0 {

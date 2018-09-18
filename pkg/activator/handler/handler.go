@@ -20,6 +20,7 @@ import (
 	"net/url"
 
 	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
 )
@@ -54,6 +55,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
+
+	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(w, r)
 }
