@@ -18,7 +18,7 @@ package activator
 const (
 	// The name of the activator service.
 	K8sServiceName          = "activator-service"
-	ResponseCountHTTPHeader = "knative-activator-num-retries"
+	ResponseCountHTTPHeader = "Knative-Activator-Num-Retries"
 	// Knative service header names
 	RevisionHeaderName      string = "knative-serving-revision"
 	ConfigurationHeader     string = "knative-serving-configuration"
