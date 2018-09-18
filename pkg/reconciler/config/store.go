@@ -60,7 +60,22 @@ func NewUntypedStore(
 }
 
 func (s *UntypedStore) registerConfig(name string, constructor interface{}) {
-	// TODO(dprotaso) assert constructor type
+	cType := reflect.TypeOf(constructor)
+
+	if cType.Kind() != reflect.Func {
+		panic("config constructor must be a function")
+	}
+
+	if cType.NumIn() != 1 || cType.In(0) != reflect.TypeOf(&corev1.ConfigMap{}) {
+		panic("config constructor must be of the type func(*k8s.io/api/core/v1/ConfigMap) (..., error)")
+	}
+
+	errorType := reflect.TypeOf((*error)(nil)).Elem()
+
+	if cType.NumOut() != 2 || !cType.Out(1).Implements(errorType) {
+		panic("config constructor must be of the type func(*k8s.io/api/core/v1/ConfigMap) (..., error)")
+	}
+
 	s.storages[name] = &atomic.Value{}
 	s.constructors[name] = reflect.ValueOf(constructor)
 }
@@ -86,7 +101,6 @@ func (s *UntypedStore) OnConfigChanged(c *corev1.ConfigMap) {
 		reflect.ValueOf(c),
 	}
 
-	// Safety here will be addressed by the TODO in registerConfig
 	outputs := constructor.Call(inputs)
 	result := outputs[0].Interface()
 	errVal := outputs[1]

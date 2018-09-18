@@ -33,6 +33,42 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 )
 
+func TestStoreBadConstructors(t *testing.T) {
+	tests := []struct {
+		name        string
+		constructor interface{}
+	}{{
+		name:        "not a function",
+		constructor: "i'm pretending to be a function",
+	}, {
+		name:        "no function arguments",
+		constructor: func() (bool, error) { return true, nil },
+	}, {
+		name:        "single argument is not a configmap",
+		constructor: func(bool) (bool, error) { return true, nil },
+	}, {
+		name:        "single return",
+		constructor: func(*corev1.ConfigMap) error { return nil },
+	}, {
+		name:        "wrong second return",
+		constructor: func(*corev1.ConfigMap) (bool, bool) { return true, true },
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Error("expected NewUntypedStore to panic")
+				}
+			}()
+
+			NewUntypedStore("store", nil, Constructors{
+				"test": test.constructor,
+			})
+		})
+	}
+}
+
 func TestStoreWatchConfigs(t *testing.T) {
 	constructor := func(c *corev1.ConfigMap) (interface{}, error) {
 		return c.Name, nil
