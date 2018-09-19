@@ -667,6 +667,9 @@ spec:
   release:
     configuration:
       revisionTemplate:
+        metadata:
+          labels:
+            revisionNonce: "l01itSaN0nC3"
         spec:
           container:
             env:  # k8s-style strategic merge patch, updating a single list value
@@ -677,10 +680,13 @@ spec:
 
 As in the previous example, the configuration is updated to trigger the creation
 of a new revision, and a new revision `ghi` is created that has the same code as
-the previous revision `def`, but different config:
+the previous revision `def`, but different config. Note that we included a nonce
+label in the revision metadata, so that we can easily programatically fetch the
+appropriate revision using a label selector to release it later. This nonce is
+not required, but is recommended.
 
 ```http
-GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/ghi
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions?labelSelector=revisionNonce%3Dl01itSaN0nC3
 ```
 
 ```yaml
