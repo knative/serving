@@ -588,10 +588,10 @@ current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
 **Results:**
 
 * The system creates the new revision from the configuration, addressable at
-  `latest.my-service...` (by convention), but traffic is not routed to it until
-  the rollout to that revision is begun (which markes it as
-  `next.my-service...`) and the percentage is manually ramped up. Upon
-  completing the rollout, the next revision is now the current revision.
+  `latest.my-service...`, but traffic is not routed to it until the rollout to
+  that revision is begun (which marks it as `next.my-service...`) and the
+  percentage is manually ramped up. Upon completing the rollout, the next
+  revision is now the current revision.
 
 ![Release mode](images/manual_rollout.png)
 
@@ -601,7 +601,7 @@ configuration (newly created Revision) routable when they became ready. While
 this pattern is useful for many scenarios such as functions-as-a-service and
 simple development flows, the Service can also reference Revisions directly in
 `release` mode to route traffic to two specific revisions: the revision that's
-been running, and the new revision the user would like test, or canary a portion
+been running, and the new revision the user would like test or canary a portion
 of traffic to, prior to rolling out entirely. This mode is also useful to roll
 back to a known-good previous revision. (Note: see [Appendix
 B](complex_examples.md) for a semi-automatic variation of managed rollouts).
@@ -627,9 +627,9 @@ spec:
             image: gcr.io/...
 ```
 
-This causes the Route to be updated to pin traffic the specified
-revision (note that the Configuration between the two is equivalent,
-and therefore unchanged).
+The Service controller updates the Route to put all traffic on the specified
+revision (note that the Configuration between the two is equivalent, and
+therefore unchanged).
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
@@ -641,18 +641,19 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  release:
-    revisions: [def]
-    configuration:  # Copied from spec.runLatest.configuration
-      revisionTemplate:
-        spec:
-          container:
-            image: gcr.io/...
+  rollout:
+    traffic:
+    - revisionName: def
+      name: current  # addressable as current.my-service.default.mydomain.com
+      percent: 100
+    - configurationName: my-service  # LatestReadyRevision of my-service
+      name: latest  # addressable as latest.my-service.default.mydomain.com
+      percent: 0 # no direct traffic ever.
 ```
 
-Next, the service is updated with the new variables, which causes the
-service controller to update the Configuration, in this case updating
-the environment but keeping the same container image:
+Next, the user updates the Service with the new variables, which causes the
+service controller to update the Configuration, in this case updating the
+environment but keeping the same container image:
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -711,9 +712,9 @@ status:
 ```
 
 Even when ready, the new revision does not automatically start serving
-production traffic, as the route was pinned to revision `def`. It will, however,
-be optionally accessible under the name `latest.my-service...` for initial
-manual testing.
+production traffic, as the route is still directing all traffic to revision
+`def`. It will, however, be optionally accessible under the name
+`latest.my-service...` for initial validation.
 
 The user can then begin the rollout of revision ghi:
 
@@ -812,7 +813,7 @@ spec:
 This causes the service to update the route to assign 100% of traffic to ghi.
 
 Once the update has been completed, if the latest ready revision is the same as
-the pinned revision, the names `current` and `latest` will point to the same
+the current revision, the names `current` and `latest` will point to the same
 revision. The name `next` is inactive until you're rolling out a revision again.
 
 Note that throughout this whole process, `latest` remains pointing to the latest
