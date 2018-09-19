@@ -14,7 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
-// Package config holds the typed objects that define the schemas for
-// assorted ConfigMap objects on which the Route controller depends.
-package config
+package http
+
+import "net/http"
+
+// LastHeaderValue gets the last value associated with the given key.
+// It is case insensitive; textproto.CanonicalMIMEHeaderKey is used
+// to canonicalize the provided key.
+// If there are no values associated with the key, Get returns "".
+func LastHeaderValue(header http.Header, key string) string {
+	if header == nil {
+		return ""
+	}
+
+	v := header[http.CanonicalHeaderKey(key)]
+
+	if len(v) == 0 {
+		return ""
+	}
+
+	return v[len(v)-1]
+}

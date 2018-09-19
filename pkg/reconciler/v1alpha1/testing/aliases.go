@@ -37,6 +37,7 @@ var (
 	ExpectNormalEventDelivery = testing.ExpectNormalEventDelivery
 	ValidateCreates           = testing.ValidateCreates
 	ValidateUpdates           = testing.ValidateUpdates
+	ConfigMapFromTestFile     = testing.ConfigMapFromTestFile
 
 	TestLogger = logtesting.TestLogger
 )

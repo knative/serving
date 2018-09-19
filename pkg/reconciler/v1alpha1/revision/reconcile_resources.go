@@ -24,16 +24,16 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 )
 
 const (
@@ -213,16 +213,19 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 
 func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.getObservabilityConfig().EnableVarLogCollection {
+	cfgs := config.FromContext(ctx)
+
+	if !cfgs.Observability.EnableVarLogCollection {
 		return nil
 	}
+
 	ns := rev.Namespace
 	name := resourcenames.FluentdConfigMap(rev)
 
 	configMap, err := c.configMapLister.ConfigMaps(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
-		desiredConfigMap := resources.MakeFluentdConfigMap(rev, c.getObservabilityConfig())
+		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
 		configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
 		if err != nil {
 			logger.Error("Error creating fluentd configmap", zap.Error(err))
@@ -233,7 +236,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		logger.Errorf("configmaps.Get for %q failed: %s", name, err)
 		return err
 	} else {
-		desiredConfigMap := resources.MakeFluentdConfigMap(rev, c.getObservabilityConfig())
+		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
 		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
 			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v",
 				cmp.Diff(desiredConfigMap.Data, configMap.Data))
@@ -251,7 +254,9 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 // TODO(#1876): Move this into the KPA's scope.
 func (c *Reconciler) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.getAutoscalerConfig().EnableVPA {
+	cfgs := config.FromContext(ctx)
+
+	if !cfgs.Autoscaler.EnableVPA {
 		return nil
 	}
 
