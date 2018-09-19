@@ -160,7 +160,7 @@ func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 	kubeClient, sharedClient, servingClient, _, reconciler, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
@@ -173,7 +173,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 	kubeClient, sharedClient, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
@@ -187,7 +187,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -206,7 +206,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewStaticWatcher(cms...)
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -232,6 +232,10 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
+
+	for _, cfg := range cms {
+		configMapWatcher.OnChange(cfg)
+	}
 
 	return
 }
@@ -908,7 +912,7 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, sharedClient, servingClient, controller, kubeInformer, sharedInformer, servingInformer, _ := newTestReconciler(t)
+	kubeClient, sharedClient, servingClient, controller, kubeInformer, sharedInformer, servingInformer, watcher := newTestReconciler(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -940,7 +944,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com":  "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
@@ -955,7 +959,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -971,7 +975,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}}

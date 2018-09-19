@@ -29,13 +29,15 @@ import (
 )
 
 type digestResolver struct {
-	client           kubernetes.Interface
-	transport        http.RoundTripper
-	registriesToSkip map[string]struct{}
+	client    kubernetes.Interface
+	transport http.RoundTripper
 }
 
 // Resolve resolves the image references that use tags to digests.
-func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
+func (r *digestResolver) Resolve(
+	deploy *appsv1.Deployment,
+	registriesToSkip map[string]struct{},
+) error {
 	pod := deploy.Spec.Template.Spec
 	opt := k8schain.Options{
 		Namespace:          deploy.Namespace,
@@ -58,7 +60,7 @@ func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
 			return err
 		}
 
-		if _, ok := r.registriesToSkip[tag.Registry.RegistryStr()]; ok {
+		if _, ok := registriesToSkip[tag.Registry.RegistryStr()]; ok {
 			continue
 		}
 

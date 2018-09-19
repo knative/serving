@@ -19,10 +19,10 @@ package route
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
@@ -47,6 +47,11 @@ const (
 	controllerAgentName = "route-controller"
 )
 
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
+
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
 	*reconciler.Base
@@ -57,11 +62,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	virtualServiceLister istiolisters.VirtualServiceLister
-
-	// Domain configuration could change over time and access to domainConfig
-	// must go through domainConfigMutex
-	domainConfig      *config.Domain
-	domainConfigMutex sync.Mutex
+	configStore          configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -122,7 +123,8 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	opt.ConfigMapWatcher.Watch(config.DomainConfigName, c.receiveDomainConfig)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"))
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
 
@@ -141,6 +143,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
+
+	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Route resource with this namespace/name
 	original, err := c.routeLister.Routes(namespace).Get(name)
@@ -200,7 +204,7 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 // In all cases we will add annotations to the referred targets.  This is so that when they become
 // routable we can know (through a listener) and attempt traffic configuration again.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
-	r.Status.Domain = c.routeDomain(r)
+	r.Status.Domain = c.routeDomain(ctx, r)
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 	badTarget, isTargetError := err.(traffic.TargetError)
@@ -257,25 +261,8 @@ func (c *Reconciler) EnqueueReferringRoute(impl *controller.Impl) func(obj inter
 // Misc helpers.
 /////////////////////////////////////////
 
-func (c *Reconciler) getDomainConfig() *config.Domain {
-	c.domainConfigMutex.Lock()
-	defer c.domainConfigMutex.Unlock()
-	return c.domainConfig
-}
-
-func (c *Reconciler) routeDomain(route *v1alpha1.Route) string {
-	domain := c.getDomainConfig().LookupDomainForLabels(route.ObjectMeta.Labels)
+func (c *Reconciler) routeDomain(ctx context.Context, route *v1alpha1.Route) string {
+	domainConfig := config.FromContext(ctx).Domain
+	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
-}
-
-func (c *Reconciler) receiveDomainConfig(configMap *corev1.ConfigMap) {
-	newDomainConfig, err := config.NewDomainFromConfigMap(configMap)
-	if err != nil {
-		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.",
-			zap.Error(err))
-		return
-	}
-	c.domainConfigMutex.Lock()
-	defer c.domainConfigMutex.Unlock()
-	c.domainConfig = newDomainConfig
 }
