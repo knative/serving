@@ -10,9 +10,10 @@ Examples in this section illustrate:
   pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
 * [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
 * [Configuration changes and managed rollout
-  options](#3-managed-rollout-of-a-new-revision---config-change-only)
-* [Creating a revision from source](#4-deploy-a-revision-from-source)
-* [Creating a function from source](#5-deploy-a-function)
+  options](#3-managed-release-of-a-new-revision---config-change-only)
+* [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)  
+* [Creating a revision from source](#5-deploy-a-revision-from-source)
+* [Creating a function from source](#6-deploy-a-function)
 
 Note that these API operations are identical for both app and function
 based services. (to see the full resource definitions, see the
@@ -305,7 +306,7 @@ illustrates. This is the most straightforward scenario that many
 Knative Serving customers are expected to use, and is consistent with the
 experience of deploying code that is rolled out immediately.  A Route
 may also directly reference a Revision, which is shown in
-[example 3](#3-managed-rollout-of-a-new-revision---config-change-only).
+[example 3](#3-managed-release-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by
 several GET calls to illustrate each step in the reconciliation
@@ -523,7 +524,7 @@ status:
   human-controlled rollout to 100%.
 
 ```
-$ knative rollout --service my-service strategy release
+$ knative release --service my-service strategy release
 
 $ knative revisions list --service my-service
 Route           Traffic  Id    Date                Deployer      Git SHA
@@ -541,7 +542,7 @@ latest          0%       ghi   2018-01-19 12:16    user1        a6f92d1
 current         100%     def   2018-01-18 20:34    user1        a6f92d1
                          abc   2018-01-17 10:32    user1        33643fc
 
-$ knative release begin ghi
+$ knative release --service my-service begin ghi
 
 $ knative revisions list --service my-service
 Route           Traffic  Id    Date                Deployer     Git SHA
@@ -558,9 +559,9 @@ next,latest     5%       ghi   2018-01-19 12:16    user1        a6f92d1
 current         100%     def   2018-01-18 20:34    user1        a6f92d1
                          abc   2018-01-17 10:32    user1        33643fc
 
-$ knative release percent 50
+$ knative release --service my-service percent 50
 [...]
-$ knative release finish
+$ knative release --service my-service finish
 [...]
 
 $ knative revisions list --service my-service
@@ -592,7 +593,7 @@ current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
   `next.my-service...`) and the percentage is manually ramped up. Upon
   completing the rollout, the next revision is now the current revision.
 
-![Rollout mode](images/manual_rollout.png)
+![Release mode](images/manual_rollout.png)
 
 
 In the previous examples, the Service automatically made changes to the
@@ -730,10 +731,6 @@ and the latter is `next`) The new revision will still not receive any traffic,
 but can be accessed for testing, verification, etc under the
 `next.my-service...` name.
 
-An admission hook prevents changing `revisions` without also setting
-`rolloutPercent`, if `rolloutPercent` is nonzero. This prevents you from
-accidentally changing what you're releasing out mid-release.
-
 To put traffic on `ghi`, the user can adjust `rolloutPercent`:
 
 ```http
@@ -787,9 +784,10 @@ status:
     status: True
 ```
 
-After testing the new revision at `next.my-service.default.mydomain.com`, it can
-be promoted to a fully-rolled-out `current` revision by updating the service to
-list only `ghi` in the revision list.
+After testing and gradually rolling out the new revision at
+`next.my-service.default.mydomain.com`, it can be promoted to a fully-rolled-out
+`current` revision by updating the service to list only `ghi` in the revision
+list.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -848,8 +846,53 @@ status:
     status: True
 ```
 
+## 4) Roll back to a known-good Revision
 
-## 4) Deploy a Revision from source
+**_Scenario_**: User realizes that the deployed revision is bad in some way, and
+decides to shift traffic as fast as possible to a previous known-good revision.
+
+```
+$ knative release --service my-service rollback abc
+[...]
+Rolled back to revision [abc] serving at [my-service.default.mydomain.com]
+```
+
+**Steps**:
+
+* Set the service to `release` mode (if it isn't already there), with the
+  `revisions` list equal to the revision you need to roll back to. Leave the
+  configuration the same (or copy it over from `runLatest` mode, if the service
+  wasn't already in `release` mode).
+
+**Results**:
+
+* The Route is updated to put 100% of traffic on your rollback Revision. Your
+  latest ready Revision remains available for validation under the
+  `latest.my-service.defaultdomain.com`-style name.
+
+```http
+PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  relase:
+    revisions: [abc]
+    configuration:  # Copied from spec.runLatest.configuration if needed
+      revisionTemplate:
+        spec:
+          container:
+            image: gcr.io/...
+```
+
+Since the Configuration does not change, this does not create a new revision. It
+does, however, point all production traffic to the revision named `abc`,
+effecting a rollback.
+
+## 5) Deploy a Revision from source
 
 **Scenario**: User deploys a revision to an existing service from
   source rather than a pre-built container
@@ -997,7 +1040,7 @@ build fails `LatestReadyRevisionName` will be entirely unset until a
 Revision is created which can become ready.
 
 
-## 5) Deploy a Function
+## 6) Deploy a Function
 
 **Scenario**: User deploys a new function revision to an existing service
 
