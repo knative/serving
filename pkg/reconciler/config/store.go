@@ -24,14 +24,29 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// The UntypedStore expects a logger that conforms to this interface
+// The store will log when updates succeed or fail
 type Logger interface {
 	Infof(string, ...interface{})
 	Fatalf(string, ...interface{})
 	Errorf(string, ...interface{})
 }
 
+// Constructors is a map for specifying config names to
+// their function constructors
+//
+// The values of this map must be functions with the definition
+//
+// func(*k8s.io/api/core/v1.ConfigMap) (... , error)
+//
+// These functions can return any type along with an error
 type Constructors map[string]interface{}
 
+// An UntypedStore is a responsible for storing and
+// constructing configs from Kubernetes ConfigMaps
+//
+// WatchConfigs should be used with a configmap,Watcher
+// in order for this store to remain up to date
 type UntypedStore struct {
 	name   string
 	logger Logger
@@ -40,6 +55,19 @@ type UntypedStore struct {
 	constructors map[string]reflect.Value
 }
 
+// NewUntypedStore creates an UntypedStore with given name,
+// Logger and Constructors
+//
+// The Logger must not be nil
+//
+// The values in the Constructors map must be functions with
+// the definition
+//
+// func(*k8s.io/api/core/v1.ConfigMap) (... , error)
+//
+// These functions can return any type along with an error.
+// If the function definition differs then NewUntypedStore
+// will panic.
 func NewUntypedStore(
 	name string,
 	logger Logger,
@@ -80,17 +108,27 @@ func (s *UntypedStore) registerConfig(name string, constructor interface{}) {
 	s.constructors[name] = reflect.ValueOf(constructor)
 }
 
+// WatchConfigs uses the provided configmap.Watcher
+// to setup watches for the config names provided in the
+// Constructors map
 func (s *UntypedStore) WatchConfigs(w configmap.Watcher) {
-	for configMapName, _ := range s.constructors {
+	for configMapName := range s.constructors {
 		w.Watch(configMapName, s.OnConfigChanged)
 	}
 }
 
+// UntypedLoad will return the constructed value for a given
+// ConfigMap name
 func (s *UntypedStore) UntypedLoad(name string) interface{} {
 	storage := s.storages[name]
 	return storage.Load()
 }
 
+// OnConfigChanged will invoke the mapped constructor against
+// a Kubernetes ConfigMap. If successful it will be stored.
+// If construction fails during the first appearance the store
+// will log a fatal error. If construction fails while updating
+// the store will log an error message.
 func (s *UntypedStore) OnConfigChanged(c *corev1.ConfigMap) {
 	name := c.ObjectMeta.Name
 
