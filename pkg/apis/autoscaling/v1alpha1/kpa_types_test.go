@@ -17,9 +17,12 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGeneration(t *testing.T) {
@@ -33,6 +36,75 @@ func TestGeneration(t *testing.T) {
 		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
 	}
 
+}
+
+func TestCanScaleToZero(t *testing.T) {
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result bool
+		grace  time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				// No LTT = beginning of time, so for sure we can.
+			}},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (LTT longer than grace period ago)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+				},
+				// LTT = 30 seconds ago.
+			}},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (LTT less than grace period ago)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+				},
+				// LTT = 10 seconds ago.
+			}},
+		},
+		result: false,
+		grace:  30 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
 }
 
 func TestIsReady(t *testing.T) {
