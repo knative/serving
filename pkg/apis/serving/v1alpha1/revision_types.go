@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -63,6 +61,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
 
 // Check that Revision implements the Conditions duck type.
 var _ = duck.VerifyType(&Revision{}, &duckv1alpha1.Conditions{})
+
+// Check that Revision implements the Generation duck type.
+var emptyGenRev duckv1alpha1.Generation
+var _ = duck.VerifyType(&Revision{}, &emptyGenRev)
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -233,18 +235,6 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
-}
-
-func (r *Revision) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Revision) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Revision) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {

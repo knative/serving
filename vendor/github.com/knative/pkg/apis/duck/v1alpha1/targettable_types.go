@@ -22,25 +22,25 @@ import (
 	"github.com/knative/pkg/apis/duck"
 )
 
-// Targettable is the schema for the targettable portion of the payload
-type Targettable struct {
+// Targetable is the schema for the targetable portion of the payload
+type Targetable struct {
 	// TODO(vaikas): Give me a schema!
 	Field string `json:"field,omitempty"`
 }
 
-// Implementations can verify that they implement Targettable via:
-var _ = duck.VerifyType(&Target{}, &Targettable{})
+// Implementations can verify that they implement Targetable via:
+var _ = duck.VerifyType(&Target{}, &Targetable{})
 
-// Targettable is an Implementable "duck type".
-var _ duck.Implementable = (*Targettable)(nil)
+// Targetable is an Implementable "duck type".
+var _ duck.Implementable = (*Targetable)(nil)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Target is a skeleton type wrapping Targettable in the manner we expect
+// Target is a skeleton type wrapping Targetable in the manner we expect
 // resource writers defining compatible resources to embed it.  We will
-// typically use this type to deserialize Targettable ObjectReferences and
-// access the Targettable data.  This is not a real resource.
+// typically use this type to deserialize Targetable ObjectReferences and
+// access the Targetable data.  This is not a real resource.
 type Target struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -48,23 +48,23 @@ type Target struct {
 	Status TargetStatus `json:"status"`
 }
 
-// TargetStatus shows how we expect folks to embed Targettable in
+// TargetStatus shows how we expect folks to embed Targetable in
 // their Status field.
 type TargetStatus struct {
-	Targettable *Targettable `json:"targettable,omitempty"`
+	Targetable *Targetable `json:"targetable,omitempty"`
 }
 
-// In order for Targettable to be Implementable, Target must be Populatable.
+// In order for Targetable to be Implementable, Target must be Populatable.
 var _ duck.Populatable = (*Target)(nil)
 
 // GetFullType implements duck.Implementable
-func (_ *Targettable) GetFullType() duck.Populatable {
+func (_ *Targetable) GetFullType() duck.Populatable {
 	return &Target{}
 }
 
 // Populate implements duck.Populatable
 func (t *Target) Populate() {
-	t.Status.Targettable = &Targettable{
+	t.Status.Targetable = &Targetable{
 		// Populate ALL fields
 		Field: "this is not empty",
 	}

@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -60,6 +58,10 @@ var _ kmeta.OwnerRefable = (*Route)(nil)
 
 // Check that Route implements the Conditions duck type.
 var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Conditions{})
+
+// Check that Route implements the Generation duck type.
+var emptyGenRoute duckv1alpha1.Generation
+var _ = duck.VerifyType(&Route{}, &emptyGenRoute)
 
 // Check that RouteStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
@@ -158,18 +160,6 @@ type RouteList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Route `json:"items"`
-}
-
-func (r *Route) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Route) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Route) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {

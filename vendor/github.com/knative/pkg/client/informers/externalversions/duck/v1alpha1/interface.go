@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// Generationals returns a GenerationalInformer.
+	Generationals() GenerationalInformer
 	// KResources returns a KResourceInformer.
 	KResources() KResourceInformer
 	// Targets returns a TargetInformer.
@@ -41,6 +43,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// Generationals returns a GenerationalInformer.
+func (v *version) Generationals() GenerationalInformer {
+	return &generationalInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // KResources returns a KResourceInformer.

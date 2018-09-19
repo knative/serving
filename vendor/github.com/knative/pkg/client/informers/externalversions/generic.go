@@ -59,6 +59,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Authentication().V1alpha1().Policies().Informer()}, nil
 
 		// Group=duck.knative.dev, Version=v1alpha1
+	case duckv1alpha1.SchemeGroupVersion.WithResource("generationals"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Duck().V1alpha1().Generationals().Informer()}, nil
 	case duckv1alpha1.SchemeGroupVersion.WithResource("kresources"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Duck().V1alpha1().KResources().Informer()}, nil
 	case duckv1alpha1.SchemeGroupVersion.WithResource("targets"):

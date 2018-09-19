@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,6 +63,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
 
 // Check that Configuration implements the Conditions duck type.
 var _ = duck.VerifyType(&Configuration{}, &duckv1alpha1.Conditions{})
+
+// Check that Configuration implements the Generation duck type.
+var emptyGenConfig duckv1alpha1.Generation
+var _ = duck.VerifyType(&Configuration{}, &emptyGenConfig)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
@@ -129,18 +131,6 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
-}
-
-func (r *Configuration) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Configuration) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Configuration) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {

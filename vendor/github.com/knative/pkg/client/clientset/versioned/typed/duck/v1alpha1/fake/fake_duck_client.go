@@ -28,6 +28,10 @@ type FakeDuckV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeDuckV1alpha1) Generationals(namespace string) v1alpha1.GenerationalInterface {
+	return &FakeGenerationals{c, namespace}
+}
+
 func (c *FakeDuckV1alpha1) KResources(namespace string) v1alpha1.KResourceInterface {
 	return &FakeKResources{c, namespace}
 }
