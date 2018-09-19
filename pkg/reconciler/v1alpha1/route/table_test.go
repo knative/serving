@@ -365,7 +365,10 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}, {
-		Name: "different labels, different domain",
+		// This tests that when the Route is labelled differently, it is configured with a
+		// different domain from config-domain.yaml.  This is otherwise a copy of the steady
+		// state test above.
+		Name: "different labels, different domain - steady state",
 		Objects: []runtime.Object{
 			addRouteLabel(
 				simpleRunLatest("default", "different-domain", "config", &v1alpha1.RouteStatus{
