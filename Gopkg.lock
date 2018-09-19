@@ -798,7 +798,7 @@
   revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
 
 [[projects]]
-  digest = "1:b0520ffd6bd3739f0118c5047a38149a30b3404d42d42363269e19c38a957664"
+  digest = "1:416ed39dd1e2cc988036be432789ff7137aec8f8856a2a2d8ff20dd6592e5d41"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -938,6 +938,7 @@
     "pkg/version",
     "plugin/pkg/client/auth/exec",
     "plugin/pkg/client/auth/gcp",
+    "plugin/pkg/client/auth/oidc",
     "rest",
     "rest/watch",
     "restmapper",
@@ -1073,6 +1074,7 @@
     "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/pkg/apis",
+    "github.com/knative/pkg/apis/duck",
     "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
@@ -1144,6 +1146,7 @@
     "k8s.io/client-go/listers/apps/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
+    "k8s.io/client-go/plugin/pkg/client/auth/oidc",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/restmapper",
     "k8s.io/client-go/scale",
