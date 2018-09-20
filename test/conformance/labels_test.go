@@ -58,7 +58,7 @@ func TestLabelsPropagation(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	// Now that the serive is ready, we can validate the Labels on the Revision, Configuration
+	// Now that the Serive is ready, we can validate the Labels on the Revision, Configuration
 	// and Route objects
 	// see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
 
@@ -69,10 +69,10 @@ func TestLabelsPropagation(t *testing.T) {
 	}
 
 	if revision.Labels["serving.knative.dev/configuration"] != names.Config {
-		t.Errorf("Expect confguration name in revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
+		t.Errorf("Expect Confguration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
 	}
 	if revision.Labels["serving.knative.dev/service"] != names.Service {
-		t.Errorf("Expect Service name in revision label %q but got %q ", names.Service, revision.Labels["serving.knative.dev/service"])
+		t.Errorf("Expect Service name in Revision label %q but got %q ", names.Service, revision.Labels["serving.knative.dev/service"])
 	}
 
 	logger.Info("Validate Labels on Configuration Object")
@@ -82,10 +82,10 @@ func TestLabelsPropagation(t *testing.T) {
 	}
 
 	if config.Labels["serving.knative.dev/service"] != names.Service {
-		t.Errorf("Expect Service name in configuration label %q but got %q ", names.Service, config.Labels["serving.knative.dev/service"])
+		t.Errorf("Expect Service name in Configuration label %q but got %q ", names.Service, config.Labels["serving.knative.dev/service"])
 	}
 	if config.Labels["serving.knative.dev/route"] != names.Route {
-		t.Errorf("Expect Route name in configuration label %q but got %q ", names.Route, config.Labels["serving.knative.dev/route"])
+		t.Errorf("Expect Route name in Configuration label %q but got %q ", names.Route, config.Labels["serving.knative.dev/route"])
 	}
 
 	logger.Info("Validate Labels on Route Object")
@@ -95,7 +95,6 @@ func TestLabelsPropagation(t *testing.T) {
 	}
 
 	if route.Labels["serving.knative.dev/service"] != names.Service {
-
 		t.Errorf("Expect Service name in Route label %q but got %q ", names.Service, route.Labels["serving.knative.dev/service"])
 	}
 }

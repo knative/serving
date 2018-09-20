@@ -52,7 +52,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the service   
+    knative.dev/service: ...  # name of the Service automatically filled in   
 
   # system generated meta
   uid: ...
@@ -114,8 +114,8 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the service
-    knative.dev/route: ...  # name of the route
+    knative.dev/service: ...  # name of the Service automatically filled in
+    knative.dev/route: ...  # name of the Route automatically filled in
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -224,8 +224,8 @@ metadata:
   name: myservice-a1e34  # system generated
   namespace: default
   labels:
-    knative.dev/configuration: ...  # name of the configuration 
-    knative.dev/service: ...  # name of the service
+    knative.dev/configuration: ...  # name of the Configuration automatically filled in 
+    knative.dev/service: ...  # name of the Service automatically filled in
   annotations:
     knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
