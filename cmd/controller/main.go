@@ -119,8 +119,6 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
-	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
-		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
@@ -195,7 +193,6 @@ func main() {
 	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
-	servingSystemInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
