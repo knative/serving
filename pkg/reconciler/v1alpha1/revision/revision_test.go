@@ -544,7 +544,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// watching for this build to complete, so make it complete
 	// successfully.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionTrue,
 		}},

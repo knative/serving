@@ -13,10 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
-type BuildExpansion interface{}
-
-type BuildTemplateExpansion interface{}
-
-type ClusterBuildTemplateExpansion interface{}
+// BuildTemplateInterface is implemented by BuildTemplate and ClusterBuildTemplate
+type BuildTemplateInterface interface {
+	TemplateSpec() BuildTemplateSpec
+	Copy() BuildTemplateInterface
+}

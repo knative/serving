@@ -269,7 +269,7 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rs.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionTrue,
 		}},
@@ -300,7 +300,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -316,7 +316,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	}
 
 	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionTrue,
 		}},
@@ -399,7 +399,7 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -411,7 +411,7 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 
 	wantReason, wantMessage := "this is the reason", "and this the message"
 	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
+		Conditions: []duckv1alpha1.Condition{{
 			Type:    buildv1alpha1.BuildSucceeded,
 			Status:  corev1.ConditionFalse,
 			Reason:  wantReason,
