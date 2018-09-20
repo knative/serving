@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
@@ -135,8 +136,11 @@ func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 func TestAutoscaleUpDownUp(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
-
 	clients := setup(t, logger)
+
+	stopChan := DiagnoseMeEvery(15*time.Second, clients, logger)
+	defer close(stopChan)
+
 	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
