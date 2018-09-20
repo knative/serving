@@ -338,7 +338,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:3a07f8614c920cb5b898c9746186f63609d514e9aeeb738417d8c111feb76316"
+  digest = "1:d2f386bf489eab13a24ba3101dd2b7658bcdcc06cc1f9aed84edd00e1795256e"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -354,20 +354,15 @@
     "client/clientset/versioned/scheme",
     "client/clientset/versioned/typed/authentication/v1alpha1",
     "client/clientset/versioned/typed/authentication/v1alpha1/fake",
-    "client/clientset/versioned/typed/duck/v1alpha1",
-    "client/clientset/versioned/typed/duck/v1alpha1/fake",
     "client/clientset/versioned/typed/istio/v1alpha3",
     "client/clientset/versioned/typed/istio/v1alpha3/fake",
     "client/informers/externalversions",
     "client/informers/externalversions/authentication",
     "client/informers/externalversions/authentication/v1alpha1",
-    "client/informers/externalversions/duck",
-    "client/informers/externalversions/duck/v1alpha1",
     "client/informers/externalversions/internalinterfaces",
     "client/informers/externalversions/istio",
     "client/informers/externalversions/istio/v1alpha3",
     "client/listers/authentication/v1alpha1",
-    "client/listers/duck/v1alpha1",
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
@@ -382,7 +377,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "c15d7c8f2220a7578b33504df6edefa948c845ae"
+  revision = "a133825579436877df315e7cb6d8aeba49b9f575"
 
 [[projects]]
   branch = "master"
