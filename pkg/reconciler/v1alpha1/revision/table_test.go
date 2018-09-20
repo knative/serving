@@ -1105,7 +1105,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
 			build("foo", "the-build",
-				buildv1alpha1.BuildCondition{
+				duckv1alpha1.Condition{
 					Type:   buildv1alpha1.BuildSucceeded,
 					Status: corev1.ConditionUnknown,
 				}),
@@ -1162,7 +1162,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 					}},
 				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
+			build("foo", "the-build", duckv1alpha1.Condition{
 				Type:   buildv1alpha1.BuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
@@ -1237,7 +1237,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			kpa("foo", "stable-reconcile-with-build", "Active", "busybox"),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
+			build("foo", "the-build", duckv1alpha1.Condition{
 				Type:   buildv1alpha1.BuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
@@ -1272,7 +1272,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 					}},
 				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
+			build("foo", "the-build", duckv1alpha1.Condition{
 				Type:    buildv1alpha1.BuildSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
@@ -1339,7 +1339,7 @@ func TestReconcile(t *testing.T) {
 						Message: "This is why the build failed.",
 					}},
 				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
+			build("foo", "the-build", duckv1alpha1.Condition{
 				Type:    buildv1alpha1.BuildSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
@@ -1682,7 +1682,7 @@ func addKPAStatus(kpa *kpav1alpha1.PodAutoscaler, status kpav1alpha1.PodAutoscal
 
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
-func build(namespace, name string, conds ...buildv1alpha1.BuildCondition) *buildv1alpha1.Build {
+func build(namespace, name string, conds ...duckv1alpha1.Condition) *buildv1alpha1.Build {
 	return &buildv1alpha1.Build{
 		ObjectMeta: om(namespace, name),
 		Status: buildv1alpha1.BuildStatus{
