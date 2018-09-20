@@ -29,7 +29,8 @@ data:
   # when concurrency exceeds 2x the desired set point. So we will panic
   # before we reach the limit.
   # TODO(#1956): tune target usage based on empirical data.
-  container-concurrency-target-percentage: "0.7"
+  # TODO(#2016): Revert to 0.7 once incorrect reporting is solved
+  container-concurrency-target-percentage: "1.0"
 
   # The container concurrency target default is what the Autoscaler will
   # try to maintain when the Revision specifies unlimited concurrency. A
@@ -70,7 +71,7 @@ data:
 
   # Tick interval is the time between autoscaling calculations.
   tick-interval: "2s"
-  
+
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the total time between traffic dropping to

@@ -305,7 +305,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:c2566e1191f270ed2ca5798601dd9d562745abf744fa147b277833978cab3e07"
+  digest = "1:da51ebf58b59e2f4a2c6dca493ad6f48ab57d5cd9ef7a37c3e612f659f2d730c"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
@@ -322,7 +322,7 @@
     "pkg/client/listers/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
+  revision = "2891231d4e47f80c9b72637da071468d7072cb62"
 
 [[projects]]
   digest = "1:c4996925da5207a2997f504fb9979ea8560c62f5d3307c72a7f4ab8480daf9be"
@@ -345,10 +345,12 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:bce01aaf77e1c97b47ad9a4dcd87b848b0bcb1d5843af4b8fb6f62e49bc9af3a"
+  digest = "1:3a07f8614c920cb5b898c9746186f63609d514e9aeeb738417d8c111feb76316"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
+    "apis/duck",
+    "apis/duck/v1alpha1",
     "apis/istio",
     "apis/istio/authentication",
     "apis/istio/authentication/v1alpha1",
@@ -359,15 +361,20 @@
     "client/clientset/versioned/scheme",
     "client/clientset/versioned/typed/authentication/v1alpha1",
     "client/clientset/versioned/typed/authentication/v1alpha1/fake",
+    "client/clientset/versioned/typed/duck/v1alpha1",
+    "client/clientset/versioned/typed/duck/v1alpha1/fake",
     "client/clientset/versioned/typed/istio/v1alpha3",
     "client/clientset/versioned/typed/istio/v1alpha3/fake",
     "client/informers/externalversions",
     "client/informers/externalversions/authentication",
     "client/informers/externalversions/authentication/v1alpha1",
+    "client/informers/externalversions/duck",
+    "client/informers/externalversions/duck/v1alpha1",
     "client/informers/externalversions/internalinterfaces",
     "client/informers/externalversions/istio",
     "client/informers/externalversions/istio/v1alpha3",
     "client/listers/authentication/v1alpha1",
+    "client/listers/duck/v1alpha1",
     "client/listers/istio/v1alpha3",
     "configmap",
     "controller",
@@ -382,7 +389,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "2a7e950c4e2d635d6e32ba3d050dd32ba7be5be3"
+  revision = "c15d7c8f2220a7578b33504df6edefa948c845ae"
 
 [[projects]]
   branch = "master"
@@ -801,7 +808,7 @@
   version = "1.12.0"
 
 [[projects]]
-  digest = "1:815068800b80b2b3c158a361679d1b44c119dd7b69405c156e8e4213aa17fd6f"
+  digest = "1:416ed39dd1e2cc988036be432789ff7137aec8f8856a2a2d8ff20dd6592e5d41"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -941,6 +948,7 @@
     "pkg/version",
     "plugin/pkg/client/auth/exec",
     "plugin/pkg/client/auth/gcp",
+    "plugin/pkg/client/auth/oidc",
     "rest",
     "rest/watch",
     "restmapper",
@@ -1076,6 +1084,8 @@
     "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/pkg/apis",
+    "github.com/knative/pkg/apis/duck",
+    "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
     "github.com/knative/pkg/client/clientset/versioned",
@@ -1146,6 +1156,7 @@
     "k8s.io/client-go/listers/apps/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
+    "k8s.io/client-go/plugin/pkg/client/auth/oidc",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/restmapper",
     "k8s.io/client-go/scale",

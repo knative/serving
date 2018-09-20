@@ -33,6 +33,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 
@@ -109,7 +111,7 @@ type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd Generic
 type AdmissionController struct {
 	Client   kubernetes.Interface
 	Options  ControllerOptions
-	Handlers map[schema.GroupVersionKind]runtime.Object
+	Handlers map[schema.GroupVersionKind]GenericCRD
 	Logger   *zap.SugaredLogger
 }
 
@@ -118,15 +120,7 @@ type AdmissionController struct {
 type GenericCRD interface {
 	apis.Defaultable
 	apis.Validatable
-
-	// GetObjectMeta return the object metadata
-	GetObjectMeta() metav1.Object
-	// GetGeneration returns the current Generation of the object
-	GetGeneration() int64
-	// SetGeneration sets the Generation of the object
-	SetGeneration(int64)
-	// GetSpecJSON returns the Spec part of the resource marshalled into JSON
-	GetSpecJSON() ([]byte, error)
+	runtime.Object
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -227,25 +221,31 @@ func Validate(ctx context.Context) ResourceCallback {
 // SetDefaults simply leverages apis.Defaultable to set defaults.
 func SetDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		rawOriginal, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-		crd.SetDefaults()
+		before, after := crd.DeepCopyObject(), crd
+		after.SetDefaults()
 
-		// Marshal the before and after.
-		rawAfter, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-
-		patch, err := jsonpatch.CreatePatch(rawOriginal, rawAfter)
+		patch, err := createPatch(before, after)
 		if err != nil {
 			return err
 		}
 		*patches = append(*patches, patch...)
 		return nil
 	}
+}
+
+func createPatch(before, after interface{}) ([]jsonpatch.JsonPatchOperation, error) {
+	// Marshal the before and after.
+	rawBefore, err := json.Marshal(before)
+	if err != nil {
+		return nil, err
+	}
+
+	rawAfter, err := json.Marshal(after)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonpatch.CreatePatch(rawBefore, rawAfter)
 }
 
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
@@ -284,6 +284,13 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	logger.Info("Found certificates for webhook...")
 	if ac.Options.RegistrationDelay != 0 {
 		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
+	}
+
+	// Verify that each of the types we are given implements the Generation duck type.
+	for _, crd := range ac.Handlers {
+		cp := crd.DeepCopyObject()
+		var emptyGen duckv1alpha1.Generation
+		duck.VerifyType(cp, &emptyGen)
 	}
 
 	select {
@@ -571,62 +578,91 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 // ObjectMeta.Generation instead.
 func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 	logger := logging.FromContext(ctx)
-	var oldGeneration int64
-	if old == nil {
-		logger.Info("Old is nil")
-	} else {
-		oldGeneration = old.GetGeneration()
-	}
-	if oldGeneration == 0 {
-		logger.Info("Creating an object, setting generation to 1")
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		})
+
+	if chg, err := hasChanged(ctx, old, new); err != nil {
+		return err
+	} else if !chg {
+		logger.Info("No changes in the spec, not bumping generation")
 		return nil
 	}
 
-	oldSpecJSON, err := old.GetSpecJSON()
+	// Leverage Spec duck typing to bump the Generation of the resource.
+	before, err := asGenerational(ctx, new)
+	if err != nil {
+		return err
+	}
+	after := before.DeepCopyObject().(*duckv1alpha1.Generational)
+	after.Spec.Generation = after.Spec.Generation + 1
+
+	genBump, err := createPatch(before, after)
+	if err != nil {
+		return err
+	}
+	*patches = append(*patches, genBump...)
+	return nil
+}
+
+// Not worth fully duck typing since there's no shared schema.
+type hasSpec struct {
+	Spec json.RawMessage `json:"spec"`
+}
+
+func getSpecJSON(crd GenericCRD) ([]byte, error) {
+	b, err := json.Marshal(crd)
+	if err != nil {
+		return nil, err
+	}
+	hs := hasSpec{}
+	if err := json.Unmarshal(b, &hs); err != nil {
+		return nil, err
+	}
+	return []byte(hs.Spec), nil
+}
+
+func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
+	if old == nil {
+		return true, nil
+	}
+	logger := logging.FromContext(ctx)
+
+	oldSpecJSON, err := getSpecJSON(old)
 	if err != nil {
 		logger.Error("Failed to get Spec JSON for old", zap.Error(err))
+		return false, err
 	}
-	newSpecJSON, err := new.GetSpecJSON()
+	newSpecJSON, err := getSpecJSON(new)
 	if err != nil {
 		logger.Error("Failed to get Spec JSON for new", zap.Error(err))
+		return false, err
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
 	if err != nil {
 		fmt.Printf("Error creating JSON patch:%v", err)
-		return err
+		return false, err
 	}
-	if len(specPatches) > 0 {
-		specPatchesJSON, err := json.Marshal(specPatches)
-		if err != nil {
-			logger.Error("Failed to marshal spec patches", zap.Error(err))
-			return err
-		}
-		logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+	if len(specPatches) == 0 {
+		return false, nil
+	}
+	specPatchesJSON, err := json.Marshal(specPatches)
+	if err != nil {
+		logger.Error("Failed to marshal spec patches", zap.Error(err))
+		return false, err
+	}
+	logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+	return true, nil
+}
 
-		operation := "replace"
-		if newGeneration := new.GetGeneration(); newGeneration == 0 {
-			// If new is missing Generation, we need to "add" instead of "replace".
-			// We see this for Service resources because the initial generation is
-			// added to the managed Configuration and Route, but not the Service
-			// that manages them.
-			// TODO(#642): Remove this.
-			operation = "add"
-		}
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: operation,
-			Path:      "/spec/generation",
-			Value:     oldGeneration + 1,
-		})
-		return nil
+func asGenerational(ctx context.Context, crd GenericCRD) (*duckv1alpha1.Generational, error) {
+	raw, err := json.Marshal(crd)
+	if err != nil {
+		return nil, err
 	}
-	logger.Info("No changes in the spec, not bumping generation")
-	return nil
+	kr := &duckv1alpha1.Generational{}
+	if err := json.Unmarshal(raw, kr); err != nil {
+		return nil, err
+	}
+	return kr, nil
 }
 
 func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {

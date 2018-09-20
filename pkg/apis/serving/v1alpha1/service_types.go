@@ -17,15 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -61,7 +60,14 @@ var _ apis.Defaultable = (*Service)(nil)
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
 // Check that ServiceStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*ServiceStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
+
+// Check that Service implements the Conditions duck type.
+var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Conditions{})
+
+// Check that Service implements the Generation duck type.
+var emptyGenService duckv1alpha1.Generation
+var _ = duck.VerifyType(&Service{}, &emptyGenService)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -108,20 +114,20 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady = sapis.ConditionReady
+	ServiceConditionReady = duckv1alpha1.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady sapis.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady duckv1alpha1.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady sapis.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady duckv1alpha1.ConditionType = "ConfigurationsReady"
 )
 
-var serviceCondSet = sapis.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
+var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
 type ServiceStatus struct {
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -172,18 +178,6 @@ type ServiceList struct {
 	Items []Service `json:"items"`
 }
 
-func (s *Service) GetGeneration() int64 {
-	return s.Spec.Generation
-}
-
-func (s *Service) SetGeneration(generation int64) {
-	s.Spec.Generation = generation
-}
-
-func (s *Service) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(s.Spec)
-}
-
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")
 }
@@ -192,15 +186,8 @@ func (ss *ServiceStatus) IsReady() bool {
 	return serviceCondSet.Manage(ss).IsHappy()
 }
 
-func (ss *ServiceStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
-}
-
-// This is kept for unit test integration.
-func (ss *ServiceStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		serviceCondSet.Manage(ss).SetCondition(*new)
-	}
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
@@ -245,13 +232,13 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {
 	return ss.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	ss.Conditions = conditions
 }

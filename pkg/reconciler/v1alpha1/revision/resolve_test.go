@@ -35,6 +35,8 @@ import (
 	fakeclient "k8s.io/client-go/kubernetes/fake"
 )
 
+var emptyRegistrySet = map[string]struct{}{}
+
 func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	h, err := img.Digest()
 	if err != nil {
@@ -170,7 +172,7 @@ func TestResolve(t *testing.T) {
 			},
 		},
 	}
-	if err := dr.Resolve(deploy); err != nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 
@@ -209,7 +211,7 @@ func TestResolveWithDigest(t *testing.T) {
 		},
 	}
 	deploy := original.DeepCopy()
-	if err := dr.Resolve(deploy); err != nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 
@@ -243,7 +245,7 @@ func TestResolveWithBadTag(t *testing.T) {
 			},
 		},
 	}
-	if err := dr.Resolve(deploy); err == nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", deploy)
 	}
 }
@@ -292,7 +294,7 @@ func TestResolveWithPingFailure(t *testing.T) {
 			},
 		},
 	}
-	if err := dr.Resolve(deploy); err == nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", deploy)
 	}
 }
@@ -341,7 +343,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 			},
 		},
 	}
-	if err := dr.Resolve(deploy); err == nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", deploy)
 	}
 }
@@ -366,7 +368,7 @@ func TestResolveNoAccess(t *testing.T) {
 		},
 	}
 	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if err := dr.Resolve(deploy); err == nil {
+	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", deploy)
 	}
 }
@@ -400,9 +402,6 @@ func TestResolveSkippingRegistry(t *testing.T) {
 	dr := &digestResolver{
 		client:    client,
 		transport: http.DefaultTransport,
-		registriesToSkip: map[string]struct{}{
-			"localhost:5000": {},
-		},
 	}
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -421,7 +420,11 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		},
 	}
 
-	if err := dr.Resolve(deploy); err != nil {
+	registriesToSkip := map[string]struct{}{
+		"localhost:5000": {},
+	}
+
+	if err := dr.Resolve(deploy, registriesToSkip); err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 

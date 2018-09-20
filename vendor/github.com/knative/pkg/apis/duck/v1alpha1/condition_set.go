@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apis
+package v1alpha1
 
 import (
 	"reflect"
@@ -35,8 +35,6 @@ type ConditionsAccessor interface {
 	GetConditions() Conditions
 	SetConditions(Conditions)
 }
-
-type Conditions []Condition
 
 // ConditionSet is an abstract collection of the possible ConditionType values
 // that a particular resource might expose.  It also holds the "happy condition"
@@ -83,13 +81,13 @@ type ConditionManager interface {
 }
 
 // NewLivingConditionSet returns a ConditionSet to hold the conditions for the
-// ongoing resource. ConditionReady is used as the happy.
+// living resource. ConditionReady is used as the happy condition.
 func NewLivingConditionSet(d ...ConditionType) ConditionSet {
 	return newConditionSet(ConditionReady, d...)
 }
 
 // NewBatchConditionSet returns a ConditionSet to hold the conditions for the
-// run once resource. ConditionSucceeded is used as the happy.
+// batch resource. ConditionSucceeded is used as the happy condition.
 func NewBatchConditionSet(d ...ConditionType) ConditionSet {
 	return newConditionSet(ConditionSucceeded, d...)
 }
@@ -97,12 +95,28 @@ func NewBatchConditionSet(d ...ConditionType) ConditionSet {
 // newConditionSet returns a ConditionSet to hold the conditions that are
 // important for the caller. The first ConditionType is the overarching status
 // for that will be used to signal the resources' status is Ready or Succeeded.
-func newConditionSet(l ConditionType, d ...ConditionType) ConditionSet {
-	c := ConditionSet{
-		happy:      l,
-		dependents: d,
+func newConditionSet(happy ConditionType, dependents ...ConditionType) ConditionSet {
+	var deps []ConditionType
+	for _, d := range dependents {
+		// Skip duplicates
+		if d == happy || contains(deps, d) {
+			continue
+		}
+		deps = append(deps, d)
 	}
-	return c
+	return ConditionSet{
+		happy:      happy,
+		dependents: deps,
+	}
+}
+
+func contains(ct []ConditionType, t ConditionType) bool {
+	for _, c := range ct {
+		if c == t {
+			return true
+		}
+	}
+	return false
 }
 
 // Check that conditionsImpl implements ConditionManager.
@@ -186,7 +200,7 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 	for _, cond := range r.dependents {
 		c := r.GetCondition(cond)
 		// Failed or Unknown conditions trump true conditions
-		if c == nil || c.Status != corev1.ConditionTrue {
+		if !c.IsTrue() {
 			return
 		}
 	}
@@ -213,7 +227,12 @@ func (r conditionsImpl) MarkUnknown(t ConditionType, reason, messageFormat strin
 	for _, cond := range r.dependents {
 		c := r.GetCondition(cond)
 		// Failed conditions trump Unknown conditions
-		if c == nil || c.Status == corev1.ConditionFalse {
+		if c.IsFalse() {
+			// Double check that the happy condition is also false.
+			happy := r.GetCondition(r.happy)
+			if !happy.IsFalse() {
+				r.MarkFalse(r.happy, reason, messageFormat, messageA)
+			}
 			return
 		}
 	}

@@ -133,6 +133,8 @@ func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
+	t.Skip("Re-enable this once #2052 is addressed")
+
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
 

@@ -17,16 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	sapis "github.com/knative/serving/pkg/apis"
 )
 
 // +genclient
@@ -58,7 +57,14 @@ var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have its conditions managed.
-var _ sapis.ConditionsAccessor = (*RevisionStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
+
+// Check that Revision implements the Conditions duck type.
+var _ = duck.VerifyType(&Revision{}, &duckv1alpha1.Conditions{})
+
+// Check that Revision implements the Generation duck type.
+var emptyGenRev duckv1alpha1.Generation
+var _ = duck.VerifyType(&Revision{}, &emptyGenRev)
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -175,22 +181,24 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = sapis.ConditionReady
+	RevisionConditionReady = duckv1alpha1.ConditionReady
 	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded sapis.ConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded duckv1alpha1.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable sapis.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable duckv1alpha1.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy sapis.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy duckv1alpha1.ConditionType = "ContainerHealthy"
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive sapis.ConditionType = "Active"
+	RevisionConditionActive duckv1alpha1.ConditionType = "Active"
 )
 
-var revCondSet = sapis.NewLivingConditionSet(
+var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
-	RevisionConditionContainerHealthy)
+	RevisionConditionContainerHealthy,
+	RevisionConditionActive,
+)
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -205,7 +213,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions sapis.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -229,18 +237,6 @@ type RevisionList struct {
 	Items []Revision `json:"items"`
 }
 
-func (r *Revision) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Revision) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Revision) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
-}
-
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
@@ -262,21 +258,12 @@ func (rs *RevisionStatus) IsRoutable() bool {
 	return rs.IsReady() || rs.IsActivationRequired()
 }
 
-func (rs *RevisionStatus) GetCondition(t sapis.ConditionType) *sapis.Condition {
+func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
-}
-
-// This is kept for unit test integration.
-func (rs *RevisionStatus) setCondition(new *sapis.Condition) {
-	if new != nil {
-		revCondSet.Manage(rs).SetCondition(*new)
-	}
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
-	// Active is not part of the dependents of the condition set.
-	revCondSet.Manage(rs).InitializeCondition(RevisionConditionActive)
 
 	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
@@ -340,13 +327,13 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) GetConditions() sapis.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the sapis.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions sapis.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }
