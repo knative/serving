@@ -65,6 +65,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
 // Check that Service implements the Conditions duck type.
 var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Conditions{})
 
+// Check that Route implements the [Legacy]Targetable duck type.
+var _ = duck.VerifyType(&Service{}, &duckv1alpha1.LegacyTargetable{})
+var _ = duck.VerifyType(&Service{}, &duckv1alpha1.Targetable{})
+
 // Check that Service implements the Generation duck type.
 var emptyGenService duckv1alpha1.Generation
 var _ = duck.VerifyType(&Service{}, &emptyGenService)
@@ -139,8 +143,13 @@ type ServiceStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPREACATED: Use Targetable instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Targetable holds the information needed for a Route to be the target of an event.
+	// +optional
+	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
 
 	// From RouteStatus.
 	// Traffic holds the configured traffic distribution.
@@ -215,6 +224,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
+	ss.Targetable = rs.Targetable
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)

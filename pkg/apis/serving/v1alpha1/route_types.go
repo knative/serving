@@ -59,6 +59,10 @@ var _ kmeta.OwnerRefable = (*Route)(nil)
 // Check that Route implements the Conditions duck type.
 var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Conditions{})
 
+// Check that Route implements the [Legacy]Targetable duck type.
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.LegacyTargetable{})
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Targetable{})
+
 // Check that Route implements the Generation duck type.
 var emptyGenRoute duckv1alpha1.Generation
 var _ = duck.VerifyType(&Route{}, &emptyGenRoute)
@@ -129,8 +133,13 @@ type RouteStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPREACATED: Use Targetable instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Targetable holds the information needed for a Route to be the target of an event.
+	// +optional
+	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
