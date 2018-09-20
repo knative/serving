@@ -224,7 +224,7 @@ metadata:
   name: creds-init
   namespace: knative-build
 spec:
-  image: gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:5752ba81ccc82fc29db9f13bd539aa6c98f89a63d1999b5dc22ba1129a31d29a
+  image: gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:f6594d53dab8c47a30110c054c64839d68b3215bb0591028e1c0ef291430eec7
 ---
 apiVersion: caching.internal.knative.dev/v1alpha1
 kind: Image
@@ -232,7 +232,7 @@ metadata:
   name: git-init
   namespace: knative-build
 spec:
-  image: gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:2058ae2ceccf4404fa9497ba74ceb1b82f1ee899297128b41e96ead7442a1aad
+  image: gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:940f2268bee5c1856da72aec475f8652e692601095918d87c8f4f4d90e76e987
 ---
 apiVersion: caching.internal.knative.dev/v1alpha1
 kind: Image
@@ -296,10 +296,10 @@ spec:
         - -stderrthreshold
         - INFO
         - -creds-image
-        - gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:5752ba81ccc82fc29db9f13bd539aa6c98f89a63d1999b5dc22ba1129a31d29a
+        - gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:f6594d53dab8c47a30110c054c64839d68b3215bb0591028e1c0ef291430eec7
         - -git-image
-        - gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:2058ae2ceccf4404fa9497ba74ceb1b82f1ee899297128b41e96ead7442a1aad
-        image: gcr.io/knative-releases/github.com/knative/build/cmd/controller@sha256:5ec2d78ee1570d22107bbfc9c7d48f4ed57167a0e5af0e4a1c3912027aa2d4a7
+        - gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:940f2268bee5c1856da72aec475f8652e692601095918d87c8f4f4d90e76e987
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/controller@sha256:1f5553d89d1ccc17d92421e57e7512c48c074adc63b9a0fa3f89bc745af1b196
         name: build-controller
         volumeMounts:
         - mountPath: /etc/config-logging
@@ -328,7 +328,7 @@ spec:
         - -logtostderr
         - -stderrthreshold
         - INFO
-        image: gcr.io/knative-releases/github.com/knative/build/cmd/webhook@sha256:daf0b303a9fd388e6280472f4373309b6794aae7ea41a4080449b11c2a5070cd
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/webhook@sha256:da3d38bd402a283328f13c3da2def7bee4b14c4d6bc162b8e16b3b00834c2c45
         name: build-webhook
         volumeMounts:
         - mountPath: /etc/config-logging
