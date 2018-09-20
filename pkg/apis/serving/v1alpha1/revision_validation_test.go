@@ -313,6 +313,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "has bad serving state",
 		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
 			ServingState: "blah",
 		},
 		want: apis.ErrInvalidValue("blah", "servingState"),
@@ -428,6 +431,12 @@ func TestRevisionValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "do.not.use.dots",
 			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
 	}, {
@@ -435,6 +444,12 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("a", 65),
+			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
 			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},

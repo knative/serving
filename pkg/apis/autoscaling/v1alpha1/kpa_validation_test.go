@@ -142,6 +142,19 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "multi invalid, bad concurrency model and missing ref kind",
+		rs: &PodAutoscalerSpec{
+			ContainerConcurrency: -0,
+			ServiceName:          "foo",
+			ConcurrencyModel:     "super-bogus",
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Name:       "bar",
+			},
+		},
+		want: apis.ErrMissingField("scaleTargetRef.kind").
+			Also(apis.ErrInvalidValue("super-bogus", "concurrencyModel")),
 	}}
 
 	for _, test := range tests {

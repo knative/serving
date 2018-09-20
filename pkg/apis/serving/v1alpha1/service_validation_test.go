@@ -154,6 +154,19 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "do.not.use.dots",
 			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
 	}, {
@@ -161,6 +174,19 @@ func TestServiceValidation(t *testing.T) {
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("a", 65),
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
@@ -249,7 +275,6 @@ func TestPinnedTypeValidation(t *testing.T) {
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Name:  "stuart",
 							Image: "hellworld",
 						},
 					},

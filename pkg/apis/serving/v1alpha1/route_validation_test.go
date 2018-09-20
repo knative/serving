@@ -81,13 +81,40 @@ func TestRouteValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "do.not.use.dots",
 			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					RevisionName: "foo",
+					Percent:      100,
+				}},
+			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid name - dots and spec percent is not 100",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "do.not.use.dots",
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					RevisionName: "foo",
+					Percent:      90,
+				}},
+			},
+		},
+		want: (&apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}}).
+			Also(&apis.FieldError{Message: "Traffic targets sum to 90, want 100", Paths: []string{"spec.traffic"}}),
 	}, {
 		name: "invalid name - too long",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("a", 65),
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					RevisionName: "foo",
+					Percent:      100,
+				}},
 			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},

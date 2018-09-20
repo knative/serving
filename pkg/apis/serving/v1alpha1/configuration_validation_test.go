@@ -128,7 +128,8 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "do.not.use.dots",
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+		want: (&apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}}).
+			Also(apis.ErrMissingField("spec")),
 	}, {
 		name: "invalid name - too long",
 		c: &Configuration{
@@ -136,7 +137,8 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: strings.Repeat("a", 65),
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
+		want: (&apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}}).
+			Also(apis.ErrMissingField("spec")),
 	}}
 
 	for _, test := range tests {
