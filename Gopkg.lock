@@ -38,7 +38,7 @@
   version = "v10.15.4"
 
 [[projects]]
-  digest = "1:0120c4d1380d6502000dfe7216bf2b8ef57bc76b6b621224bd2ea14b086941e3"
+  digest = "1:4703f312ac5e705f3b3ed6ece7a2c94585b77643e24602abfa6dbd04335c233b"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -73,8 +73,8 @@
     "service/sts",
   ]
   pruneopts = "NUT"
-  revision = "949f7800d745d1df9af349380e5deec8de206144"
-  version = "v1.15.38"
+  revision = "a93d31c26045c00c52f58dda4dcad02a3e622534"
+  version = "v1.15.39"
 
 [[projects]]
   branch = "master"
@@ -305,7 +305,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:da51ebf58b59e2f4a2c6dca493ad6f48ab57d5cd9ef7a37c3e612f659f2d730c"
+  digest = "1:ffecd1d37adb49f900c29258b6efa172cff14b9f86a553995dfdddd4ef079625"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
@@ -345,7 +345,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:3a07f8614c920cb5b898c9746186f63609d514e9aeeb738417d8c111feb76316"
+  digest = "1:13f77c6713e1c224df032ca65673f3f37a125a169f27ef27fe8adb277e62e776"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -393,11 +393,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9cf0286bb85dabf3c4fdee660eb6f5df148997ed48a8c53dccc8f371017b0f0c"
+  digest = "1:1ccb9e910c60212edce8b7f3fb055ddf1330d307be5c31798558a62b94cc2fba"
   name = "github.com/knative/test-infra"
   packages = ["."]
   pruneopts = "T"
-  revision = "2617f67d597ece7ea2276e55b781e86d9f18ca71"
+  revision = "52b32aad2800e6450d42e12f87d96a490a5593c7"
 
 [[projects]]
   branch = "master"
@@ -808,7 +808,7 @@
   version = "1.12.0"
 
 [[projects]]
-  digest = "1:416ed39dd1e2cc988036be432789ff7137aec8f8856a2a2d8ff20dd6592e5d41"
+  digest = "1:ec05f050d627452569fd68c61a999e5987a2820f368f6a5759e5de0f448f519e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
