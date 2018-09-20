@@ -111,6 +111,9 @@ func (fe *FieldError) Also(errs ...*FieldError) *FieldError {
 	for _, e := range errs {
 		newErr.errors = append(newErr.errors, e.getNormalizedErrors()...)
 	}
+	if len(newErr.errors) == 0 {
+		return nil
+	}
 	return newErr
 }
 

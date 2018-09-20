@@ -22,8 +22,6 @@ import (
 	clientset "github.com/knative/pkg/client/clientset/versioned"
 	authenticationv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/authentication/v1alpha1"
 	fakeauthenticationv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/authentication/v1alpha1/fake"
-	duckv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/duck/v1alpha1"
-	fakeduckv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/duck/v1alpha1/fake"
 	networkingv1alpha3 "github.com/knative/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	fakenetworkingv1alpha3 "github.com/knative/pkg/client/clientset/versioned/typed/istio/v1alpha3/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,16 +81,6 @@ func (c *Clientset) AuthenticationV1alpha1() authenticationv1alpha1.Authenticati
 // Authentication retrieves the AuthenticationV1alpha1Client
 func (c *Clientset) Authentication() authenticationv1alpha1.AuthenticationV1alpha1Interface {
 	return &fakeauthenticationv1alpha1.FakeAuthenticationV1alpha1{Fake: &c.Fake}
-}
-
-// DuckV1alpha1 retrieves the DuckV1alpha1Client
-func (c *Clientset) DuckV1alpha1() duckv1alpha1.DuckV1alpha1Interface {
-	return &fakeduckv1alpha1.FakeDuckV1alpha1{Fake: &c.Fake}
-}
-
-// Duck retrieves the DuckV1alpha1Client
-func (c *Clientset) Duck() duckv1alpha1.DuckV1alpha1Interface {
-	return &fakeduckv1alpha1.FakeDuckV1alpha1{Fake: &c.Fake}
 }
 
 // NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
