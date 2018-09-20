@@ -51,7 +51,7 @@ func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, nam
 
 func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
 	patches := []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
+		{
 			Operation: "replace",
 			Path:      "/spec/revisionTemplate/spec/container/image",
 			Value:     imagePaths[1],

@@ -1099,9 +1099,9 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-		// TODO(#1495): The parent configuration isn't labeled because it's established through
-		// labels instead of owner references.
-		//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
+			// TODO(#1495): The parent configuration isn't labeled because it's established through
+			// labels instead of owner references.
+			//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "pinned-becomes-ready",

@@ -36,13 +36,13 @@ const (
 	userPortEnvName = "PORT"
 
 	// TODO(mattmoor): Make this private once we remove revision_test.go
-	AutoscalerPort       = 8080
+	AutoscalerPort = 8080
 
 	// ServicePortName is the name of the external port of the service
-	ServicePortName      = "http"
+	ServicePortName = "http"
 	// ServicePort is the external port of the service
-	ServicePort          = int32(80)
-	AppLabelKey          = "app"
+	ServicePort = int32(80)
+	AppLabelKey = "app"
 )
 
 var ProgressDeadlineSeconds int32 = 120

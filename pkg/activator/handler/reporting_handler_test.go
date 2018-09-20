@@ -19,12 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/google/go-cmp/cmp"
-
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/activator"
-
 )
 
 func TestReporterHandlerResponseReceived(t *testing.T) {

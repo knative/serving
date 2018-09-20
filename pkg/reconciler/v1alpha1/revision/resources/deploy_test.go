@@ -78,13 +78,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -162,13 +162,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -255,13 +255,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -346,13 +346,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -439,13 +439,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -528,13 +528,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},
@@ -608,13 +608,13 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
-					corev1.EnvVar{
+					{
 						Name:  "K_REVISION",
 						Value: "bar",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_CONFIGURATION",
 						Value: "cfg",
-					}, corev1.EnvVar{
+					}, {
 						Name:  "K_SERVICE",
 						Value: "svc",
 					}},

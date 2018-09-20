@@ -27,11 +27,11 @@ func TestFilteringHandler(t *testing.T) {
 		passed         bool
 		expectedStatus int
 	}{{
-			label:          "forward a normal request",
-			headers:        http.Header{},
-			passed:         true,
-			expectedStatus: http.StatusOK,
-		},
+		label:          "forward a normal request",
+		headers:        http.Header{},
+		passed:         true,
+		expectedStatus: http.StatusOK,
+	},
 		{
 			label:          "filter a request containing retry header",
 			headers:        http.Header{activator.ResponseCountHTTPHeader: {"4"}},
