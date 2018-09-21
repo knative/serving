@@ -100,6 +100,7 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 		}
 	}
 	// Update the information that makes us Targetable.
+	route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
 	route.Status.Targetable = &duckv1alpha1.Targetable{
 		DomainInternal: resourcenames.K8sServiceFullname(route),
 	}

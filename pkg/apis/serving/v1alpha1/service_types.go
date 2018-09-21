@@ -143,7 +143,7 @@ type ServiceStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
-	// DEPREACATED: Use Targetable instead.
+	// DEPRECATED: Use Targetable instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
 
