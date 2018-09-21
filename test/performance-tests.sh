@@ -35,8 +35,12 @@ function perf_tests() {
   local ip=$(kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
   local host=$(kubectl get route observed-concurrency -o jsonpath="{.status.domain}")
   
-  wait_until_routable "$ip" "$host" || fail_test "App is not routable"
-  wrk -t 1 -c "$1" -d "$2" -s "${REPO_ROOT_DIR}/test/performance/observed-concurrency/reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"
+  local routable=$(wait_until_routable "$ip" "$host")
+  if [[ -n "$routable" ]]; then
+    wrk -t 1 -c "$1" -d "$2" -s "${REPO_ROOT_DIR}/test/performance/observed-concurrency/reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"
+    return 0    
+  fi
+  return 1  
 }
 
 header "Setting up environment"
@@ -57,7 +61,7 @@ ko apply -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 # Run the test with concurrency=5 and for 60s duration. 
 # Need to export concurrency var as it is required by the parser.
 export concurrency=5
-perf_tests "$concurrency" 60s
+perf_tests "$concurrency" 60s || fail_test "Could not run the load test"
 
 # Delete the service now that the test is done
 kubectl delete -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"

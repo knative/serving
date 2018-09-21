@@ -14,16 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Knative Serving built from source.
-# It is started by prow for each PR. For convenience, it can also be executed manually.
-
-# If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start knative in
-# the cluster and run the tests.
-
-# Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start knative in it, run the tests and delete the
-# cluster.
+# This script provides helper methods to perform cluster actions.
 
 # Location of istio for the test cluster
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
