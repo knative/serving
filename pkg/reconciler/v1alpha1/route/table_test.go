@@ -611,7 +611,6 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "update-vs-failure", "config", nil)),
 		},
-		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeVirtualService(
 				setDomain(simpleRunLatest("default", "update-vs-failure", "config", nil), "update-vs-failure.default.example.com"),
