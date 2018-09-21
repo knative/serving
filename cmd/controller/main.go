@@ -198,6 +198,7 @@ func main() {
 	kubeInformerFactory.Start(stopCh)
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
+	buildInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
