@@ -48,7 +48,7 @@ func TestBuildAndServe(t *testing.T) {
 	build := resources.UnstructuredWithContent(map[string]interface{}{
 		"steps": []interface{}{map[string]interface{}{
 			"image": "ubuntu",
-			"args":  []string{"echo", "built"},
+			"args":  []interface{}{"echo", "built"},
 		}},
 	})
 
@@ -117,7 +117,7 @@ func TestBuildFailure(t *testing.T) {
 	build := resources.UnstructuredWithContent(map[string]interface{}{
 		"steps": []interface{}{map[string]interface{}{
 			"image": "ubuntu",
-			"args":  []string{"false"}, // build will fail.
+			"args":  []interface{}{"false"}, // build will fail.
 		}},
 	})
 
