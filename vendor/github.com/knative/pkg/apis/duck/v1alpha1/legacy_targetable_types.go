@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 )
 
@@ -64,6 +66,9 @@ type LegacyTarget struct {
 // In order for LegacyTargetable to be Implementable, LegacyTarget must be Populatable.
 var _ duck.Populatable = (*LegacyTarget)(nil)
 
+// Ensure LegacyTarget satisfies apis.Listable
+var _ apis.Listable = (*LegacyTarget)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *LegacyTargetable) GetFullType() duck.Populatable {
 	return &LegacyTarget{}
@@ -75,6 +80,11 @@ func (t *LegacyTarget) Populate() {
 		// Populate ALL fields
 		DomainInternal: "this is not empty",
 	}
+}
+
+// GetListType implements apis.Listable
+func (r *LegacyTarget) GetListType() runtime.Object {
+	return &LegacyTargetList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

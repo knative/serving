@@ -19,7 +19,9 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 )
 
@@ -69,6 +71,9 @@ type SubscriptionStatus struct {
 // In order for Subscribable to be Implementable, Subscribable must be Populatable.
 var _ duck.Populatable = (*Subscription)(nil)
 
+// Ensure Subscription satisfies apis.Listable
+var _ apis.Listable = (*Subscription)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *Subscribable) GetFullType() duck.Populatable {
 	return &Subscription{}
@@ -84,6 +89,11 @@ func (t *Subscription) Populate() {
 			Kind:       "ChannelKindHere",
 		},
 	}
+}
+
+// GetListType implements apis.Listable
+func (r *Subscription) GetListType() runtime.Object {
+	return &SubscriptionList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

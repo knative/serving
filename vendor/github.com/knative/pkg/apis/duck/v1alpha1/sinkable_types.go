@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 )
 
@@ -60,6 +62,9 @@ type SinkStatus struct {
 // In order for Sinkable to be Implementable, Sink must be Populatable.
 var _ duck.Populatable = (*Sink)(nil)
 
+// Ensure Sink satisfies apis.Listable
+var _ apis.Listable = (*Sink)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *Sinkable) GetFullType() duck.Populatable {
 	return &Sink{}
@@ -73,6 +78,11 @@ func (t *Sink) Populate() {
 			DomainInternal: "this is not empty",
 		},
 	}
+}
+
+// GetListType implements apis.Listable
+func (r *Sink) GetListType() runtime.Object {
+	return &SinkList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

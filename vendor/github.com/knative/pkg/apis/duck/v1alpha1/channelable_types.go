@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 )
 
@@ -72,6 +74,9 @@ type ChannelSpec struct {
 // In order for Channelable to be Implementable, Channel must be Populatable.
 var _ duck.Populatable = (*Channel)(nil)
 
+// Ensure Channel satisfies apis.Listable
+var _ apis.Listable = (*Channel)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *Channelable) GetFullType() duck.Populatable {
 	return &Channel{}
@@ -83,6 +88,11 @@ func (t *Channel) Populate() {
 		// Populate ALL fields
 		Subscribers: []ChannelSubscriberSpec{{"call1", "sink2"}, {"call2", "sink2"}},
 	}
+}
+
+// GetListType implements apis.Listable
+func (r *Channel) GetListType() runtime.Object {
+	return &ChannelList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
