@@ -25,7 +25,6 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 source $(dirname $0)/cluster.sh
 
 # Helper functions.
@@ -69,9 +68,7 @@ publish_test_images
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
-wait_until_pods_running istio-system || fail_test "Istio system is not up"
-wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+wait_until_cluster_up
 
 # Run the tests
 

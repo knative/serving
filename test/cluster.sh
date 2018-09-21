@@ -16,6 +16,8 @@
 
 # This script provides helper methods to perform cluster actions.
 
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
+
 # Location of istio for the test cluster
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
@@ -77,6 +79,13 @@ function delete_everything() {
   delete_istio
 }
 
+function wait_until_cluster_up() {
+  wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
+  wait_until_pods_running istio-system || fail_test "Istio system is not up"
+  wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+}
+
+# Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   delete_everything
 }
