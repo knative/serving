@@ -29,10 +29,8 @@ import (
 )
 
 func (rt *Revision) Validate() *apis.FieldError {
-	if err := validateObjectMetadata(rt.GetObjectMeta()); err != nil {
-		return err.ViaField("metadata")
-	}
-	return rt.Spec.Validate().ViaField("spec")
+	return validateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
+		Also(rt.Spec.Validate().ViaField("spec"))
 }
 
 func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
@@ -43,19 +41,15 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	if err := rs.ServingState.Validate(); err != nil {
-		return err.ViaField("servingState")
+	errs := rs.ServingState.Validate().ViaField("servingState").
+		Also(validateContainer(rs.Container).ViaField("container"))
+
+	if err := rs.ConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
+		errs = errs.Also(err)
+	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+		errs = errs.Also(err)
 	}
-	if err := validateContainer(rs.Container); err != nil {
-		return err.ViaField("container")
-	}
-	if err := rs.ConcurrencyModel.Validate(); err != nil {
-		return err.ViaField("concurrencyModel")
-	}
-	if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
-		return err
-	}
-	return nil
+	return errs
 }
 
 func (ss RevisionServingStateType) Validate() *apis.FieldError {
@@ -124,18 +118,19 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Lifecycle != nil {
 		ignoredFields = append(ignoredFields, "lifecycle")
 	}
+	var errs *apis.FieldError
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
-		return apis.ErrDisallowedFields(ignoredFields...)
+		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
 	}
 	// Validate our probes
-	if err := validateProbe(container.ReadinessProbe); err != nil {
-		return err.ViaField("readinessProbe")
+	if err := validateProbe(container.ReadinessProbe).ViaField("readinessProbe"); err != nil {
+		errs = errs.Also(err)
 	}
-	if err := validateProbe(container.LivenessProbe); err != nil {
-		return err.ViaField("livenessProbe")
+	if err := validateProbe(container.LivenessProbe).ViaField("livenessProbe"); err != nil {
+		errs = errs.Also(err)
 	}
-	return nil
+	return errs
 }
 
 func validateProbe(p *corev1.Probe) *apis.FieldError {

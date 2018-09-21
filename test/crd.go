@@ -56,7 +56,7 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{
-				v1alpha1.TrafficTarget{
+				{
 					Name:              names.TrafficTarget,
 					ConfigurationName: names.Config,
 					Percent:           100,

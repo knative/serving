@@ -108,8 +108,8 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
-			EnableScaleToZero: true,
-			EnableVPA:         true,
+			EnableScaleToZero:                    true,
+			EnableVPA:                            true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,
@@ -136,8 +136,8 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
-			EnableScaleToZero: true,
-			EnableVPA:         true,
+			EnableScaleToZero:                    true,
+			EnableVPA:                            true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,
