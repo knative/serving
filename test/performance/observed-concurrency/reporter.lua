@@ -15,7 +15,7 @@
 -- parses a response as returned by the system under test
 function parse_response(res)
   if (res == nil or res == '') then
-    print('ERROR: Test produced no response.')
+    print('ERROR: Empty response from the test.')
     os.exit()
   end
   local split_at, _ = res:find(',', 0)
