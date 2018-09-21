@@ -60,6 +60,4 @@ perf_tests "$concurrency" 60s
 # Delete the service now that the test is done
 kubectl delete -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 
-delete_everything
-
 success
