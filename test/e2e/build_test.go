@@ -45,12 +45,12 @@ func TestBuildAndServe(t *testing.T) {
 		Route:  test.AppendRandomString(routeName, logger),
 	}
 
-	build := resources.UnstructuredWithContent(map[string]interface{}{
+	build := resources.WithBuildSpec(resources.UnstructuredWithContent(map[string]interface{}{
 		"steps": []interface{}{map[string]interface{}{
 			"image": "ubuntu",
 			"args":  []interface{}{"echo", "built"},
 		}},
-	})
+	}))
 
 	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
@@ -114,12 +114,12 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	// Request a build that doesn't succeed.
-	build := resources.UnstructuredWithContent(map[string]interface{}{
+	build := resources.WithBuildSpec(resources.UnstructuredWithContent(map[string]interface{}{
 		"steps": []interface{}{map[string]interface{}{
 			"image": "ubuntu",
 			"args":  []interface{}{"false"}, // build will fail.
 		}},
-	})
+	}))
 
 	imagePath := test.ImagePath("helloworld")
 	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))

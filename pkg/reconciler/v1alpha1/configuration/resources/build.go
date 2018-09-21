@@ -29,8 +29,16 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
-	build := config.Spec.Build.DeepCopy()
+	u := WithBuildSpec(config.Spec.Build)
 
+	u.SetNamespace(config.Namespace)
+	u.SetName(names.Build(config))
+	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
+	return u
+}
+
+func WithBuildSpec(build *unstructured.Unstructured) *unstructured.Unstructured {
+	build = build.DeepCopy()
 	u := &unstructured.Unstructured{}
 
 	spec, ok := build.Object["spec"]
@@ -46,9 +54,6 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 		u.SetGroupVersionKind(build.GroupVersionKind())
 	}
 
-	u.SetNamespace(config.Namespace)
-	u.SetName(names.Build(config))
-	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
 	return u
 }
 
