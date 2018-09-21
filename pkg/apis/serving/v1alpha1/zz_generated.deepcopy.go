@@ -21,8 +21,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	build_v1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	duck_v1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -97,7 +97,7 @@ func (in *ConfigurationSpec) DeepCopyInto(out *ConfigurationSpec) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(build_v1alpha1.BuildSpec)
+			*out = new(unstructured.Unstructured)
 			(*in).DeepCopyInto(*out)
 		}
 	}

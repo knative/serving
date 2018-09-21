@@ -798,13 +798,14 @@
   revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
 
 [[projects]]
-  digest = "1:416ed39dd1e2cc988036be432789ff7137aec8f8856a2a2d8ff20dd6592e5d41"
+  digest = "1:7b9749b51b48469af5e2fa8e282846c54bc6df30994799e44bc7bdcaa472ef47"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
     "discovery/cached",
     "discovery/fake",
     "dynamic",
+    "dynamic/fake",
     "informers",
     "informers/admissionregistration",
     "informers/admissionregistration/v1alpha1",
@@ -1116,6 +1117,7 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -1136,6 +1138,7 @@
     "k8s.io/client-go/discovery/cached",
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
+    "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
     "k8s.io/client-go/informers/core/v1",

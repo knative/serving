@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -44,12 +45,12 @@ func TestBuildAndServe(t *testing.T) {
 		Route:  test.AppendRandomString(routeName, logger),
 	}
 
-	build := &buildv1alpha1.BuildSpec{
-		Steps: []v1.Container{{
-			Image: "ubuntu",
-			Args:  []string{"echo", "built"},
+	build := resources.UnstructuredWithContent(map[string]interface{}{
+		"steps": []interface{}{map[string]interface{}{
+			"image": "ubuntu",
+			"args":  []string{"echo", "built"},
 		}},
-	}
+	})
 
 	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
@@ -113,12 +114,12 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	// Request a build that doesn't succeed.
-	build := &buildv1alpha1.BuildSpec{
-		Steps: []v1.Container{{
-			Image: "ubuntu",
-			Args:  []string{"false"}, // build will fail.
+	build := resources.UnstructuredWithContent(map[string]interface{}{
+		"steps": []interface{}{map[string]interface{}{
+			"image": "ubuntu",
+			"args":  []string{"false"}, // build will fail.
 		}},
-	}
+	})
 
 	imagePath := test.ImagePath("helloworld")
 	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
