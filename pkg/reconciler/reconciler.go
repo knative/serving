@@ -60,9 +60,6 @@ type Base struct {
 	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet clientset.Interface
 
-	// BuildClientSet allows us to configure Build objects
-	BuildClientSet buildclientset.Interface
-
 	// DynamicClientSet allows us to configure pluggable Build objects
 	DynamicClientSet dynamic.Interface
 
@@ -102,7 +99,6 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		KubeClientSet:    opt.KubeClientSet,
 		SharedClientSet:  opt.SharedClientSet,
 		ServingClientSet: opt.ServingClientSet,
-		BuildClientSet:   opt.BuildClientSet,
 		DynamicClientSet: opt.DynamicClientSet,
 		CachingClientSet: opt.CachingClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,

@@ -22,14 +22,30 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
+	build := config.Spec.Build.DeepCopy()
+
 	u := &unstructured.Unstructured{}
-	u.SetUnstructuredContent(map[string]interface{}{"spec": config.Spec.Build.DeepCopy().Object})
+
+	spec, ok := build.Object["spec"]
+	if !ok {
+		spec = build.Object
+	}
+	u.SetUnstructuredContent(map[string]interface{}{"spec": spec})
+
+	// Assume {apiVersion: build.knative.dev/v1alpha1, kind: Build} if not set
+	if build.GroupVersionKind().Empty() {
+		u.SetGroupVersionKind(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"})
+	} else {
+		u.SetGroupVersionKind(build.GroupVersionKind())
+	}
+
 	u.SetNamespace(config.Namespace)
 	u.SetName(names.Build(config))
 	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})

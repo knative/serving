@@ -75,6 +75,8 @@ func TestBuilds(t *testing.T) {
 			},
 		},
 		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
 			"metadata": map[string]interface{}{
 				"namespace": "simple",
 				"name":      "build-00031",
@@ -121,6 +123,8 @@ func TestBuilds(t *testing.T) {
 			},
 		},
 		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
 			"metadata": map[string]interface{}{
 				"namespace": "simple",
 				"name":      "build-template-00042",
