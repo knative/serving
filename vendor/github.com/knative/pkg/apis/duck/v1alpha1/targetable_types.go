@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 )
 
@@ -60,6 +62,9 @@ type TargetStatus struct {
 // In order for Targetable to be Implementable, Target must be Populatable.
 var _ duck.Populatable = (*Target)(nil)
 
+// Ensure Target satisfies apis.Listable
+var _ apis.Listable = (*Target)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *Targetable) GetFullType() duck.Populatable {
 	return &Target{}
@@ -73,6 +78,11 @@ func (t *Target) Populate() {
 			DomainInternal: "this is not empty",
 		},
 	}
+}
+
+// GetListType implements apis.Listable
+func (r *Target) GetListType() runtime.Object {
+	return &TargetList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
