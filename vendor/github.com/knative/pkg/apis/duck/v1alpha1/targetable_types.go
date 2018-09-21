@@ -22,10 +22,13 @@ import (
 	"github.com/knative/pkg/apis/duck"
 )
 
+// Targetable is very similar concept as Sinkable. However, at the
+// transport level they have different contracts and hence Sinkable
+// and Targetable are two distinct resources.
+
 // Targetable is the schema for the targetable portion of the payload
 type Targetable struct {
-	// TODO(vaikas): Give me a schema!
-	Field string `json:"field,omitempty"`
+	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
 // Implementations can verify that they implement Targetable via:
@@ -64,9 +67,11 @@ func (_ *Targetable) GetFullType() duck.Populatable {
 
 // Populate implements duck.Populatable
 func (t *Target) Populate() {
-	t.Status.Targetable = &Targetable{
-		// Populate ALL fields
-		Field: "this is not empty",
+	t.Status = TargetStatus{
+		&Targetable{
+			// Populate ALL fields
+			DomainInternal: "this is not empty",
+		},
 	}
 }
 

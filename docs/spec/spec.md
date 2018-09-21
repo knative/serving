@@ -78,9 +78,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: my-service.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: my-service.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   traffic:
   # current rollout status list. configurationName references
@@ -390,9 +394,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: myservice.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: myservice.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision
