@@ -20,7 +20,7 @@ function parse_response(res)
   end
   local split_at, _ = res:find(',', 0)
   if (split_at == nil or split_at == '') then
-    print(string.format("Error response from the test: %s",res))
+    print(string.format("ERROR: Malformed response '%s' from the test", res))
     os.exit()
   end
   local start_ts = tonumber(res:sub(0, split_at-1))
