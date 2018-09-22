@@ -47,7 +47,6 @@ func MakeFactory(ctor Ctor) Factory {
 		c := ctor(&ls, reconciler.Options{
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
-			BuildClientSet:   buildClient,
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,

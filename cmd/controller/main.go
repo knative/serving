@@ -134,7 +134,6 @@ func main() {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		CachingClientSet: cachingClient,
-		BuildClientSet:   buildClient,
 		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,

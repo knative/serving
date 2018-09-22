@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
@@ -41,7 +40,6 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	SharedClientSet  sharedclientset.Interface
 	ServingClientSet clientset.Interface
-	BuildClientSet   buildclientset.Interface
 	DynamicClientSet dynamic.Interface
 	CachingClientSet cachingclientset.Interface
 
