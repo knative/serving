@@ -451,6 +451,12 @@ func TestRevisionValidation(t *testing.T) {
 					autoscaling.MaxScaleAnnotationKey: "2",
 				},
 			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
 		},
 		want: (&apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", autoscaling.MaxScaleAnnotationKey, 2, autoscaling.MinScaleAnnotationKey, 5),
