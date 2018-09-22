@@ -31,10 +31,10 @@ required = [
   # HEAD as of 2018-09-20
   revision = "2891231d4e47f80c9b72637da071468d7072cb62"
 
-[[constraint]]
+[[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-09-18
-  revision = "c15d7c8f2220a7578b33504df6edefa948c845ae"
+  # HEAD as of 2018-09-21
+  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
 
 [[constraint]]
   name = "github.com/knative/caching"

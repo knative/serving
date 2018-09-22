@@ -34,38 +34,34 @@ func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	if err := validateReference(rs.ScaleTargetRef); err != nil {
-		return err.ViaField("scaleTargetRef")
-	}
+	errs := validateReference(rs.ScaleTargetRef).ViaField("scaleTargetRef")
 	if rs.ServiceName == "" {
-		return apis.ErrMissingField("serviceName")
+		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-	if err := rs.ServingState.Validate(); err != nil {
-		return err.ViaField("servingState")
-	}
+	errs = errs.Also(rs.ServingState.Validate().ViaField("servingState"))
 	if err := rs.ConcurrencyModel.Validate(); err != nil {
-		return err.ViaField("concurrencyModel")
+		errs = errs.Also(err.ViaField("concurrencyModel"))
+	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+		errs = errs.Also(err)
 	}
-	if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
-		return err
-	}
-	return nil
+	return errs
 }
 
 func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
 	if equality.Semantic.DeepEqual(ref, autoscalingv1.CrossVersionObjectReference{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+	var errs *apis.FieldError
 	if ref.Kind == "" {
-		return apis.ErrMissingField("kind")
+		errs = errs.Also(apis.ErrMissingField("kind"))
 	}
 	if ref.Name == "" {
-		return apis.ErrMissingField("name")
+		errs = errs.Also(apis.ErrMissingField("name"))
 	}
 	if ref.APIVersion == "" {
-		return apis.ErrMissingField("apiVersion")
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
 	}
-	return nil
+	return errs
 }
 
 func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.FieldError {

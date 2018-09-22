@@ -23,21 +23,20 @@ import (
 )
 
 func (c *Configuration) Validate() *apis.FieldError {
-	if err := validateObjectMetadata(c.GetObjectMeta()); err != nil {
-		return err.ViaField("metadata")
-	}
-	return c.Spec.Validate().ViaField("spec")
+	return validateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
+		Also(c.Spec.Validate().ViaField("spec"))
 }
 
 func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+	var errs *apis.FieldError
 	// In the context of Configuration, serving state may not be specified at all.
 	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
 	if cs.RevisionTemplate.Spec.ServingState != "" {
-		return apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
+		errs = apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
 	}
 
-	return cs.RevisionTemplate.Validate().ViaField("revisionTemplate")
+	return errs.Also(cs.RevisionTemplate.Validate().ViaField("revisionTemplate"))
 }

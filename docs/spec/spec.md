@@ -52,7 +52,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/type: ...  # +optional convention: function|app
+    knative.dev/service: ...  # name of the Service automatically filled in   
 
   # system generated meta
   uid: ...
@@ -78,9 +78,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: my-service.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: my-service.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   traffic:
   # current rollout status list. configurationName references
@@ -113,7 +117,9 @@ kind: Configuration
 metadata:
   name: my-service
   namespace: default
-
+  labels:
+    knative.dev/service: ...  # name of the Service automatically filled in
+    knative.dev/route: ...  # name of the Route automatically filled in
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -222,10 +228,8 @@ metadata:
   name: myservice-a1e34  # system generated
   namespace: default
   labels:
-    knative.dev/configuration: ...  # to list configurations/revisions by service
-    knative.dev/type: "function"  # convention, one of "function" or "app"
-    knative.dev/revision: ... # generated revision name
-    knative.dev/revisionUID: ... # generated revision UID
+    knative.dev/configuration: ...  # name of the Configuration automatically filled in 
+    knative.dev/service: ...  # name of the Service automatically filled in
   annotations:
     knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
@@ -390,9 +394,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: myservice.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: myservice.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision
