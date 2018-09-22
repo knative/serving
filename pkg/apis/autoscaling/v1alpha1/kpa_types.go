@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
 	"time"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -61,6 +60,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
 
 // Check that PodAutoscaler implements the Conditions duck type.
 var _ = duck.VerifyType(&PodAutoscaler{}, &duckv1alpha1.Conditions{})
+
+// Check that PodAutoscaler implements the Generation duck type.
+var emptyGen duckv1alpha1.Generation
+var _ = duck.VerifyType(&PodAutoscaler{}, &emptyGen)
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
@@ -127,18 +130,6 @@ type PodAutoscalerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PodAutoscaler `json:"items"`
-}
-
-func (r *PodAutoscaler) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *PodAutoscaler) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *PodAutoscaler) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 // IsReady looks at the conditions and if the Status has a condition

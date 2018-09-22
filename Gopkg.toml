@@ -28,13 +28,13 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-08-08
-  revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
+  # HEAD as of 2018-09-20
+  revision = "2891231d4e47f80c9b72637da071468d7072cb62"
 
-[[constraint]]
+[[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-09-17
-  revision = "67830c7a64431edc38ee19628dc7116b0c6d99b5"
+  # HEAD as of 2018-09-21
+  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
 
 [[constraint]]
   name = "github.com/knative/caching"

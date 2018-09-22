@@ -19,7 +19,6 @@ package autoscaling
 import (
 	"context"
 	"strconv"
-	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/scale"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -158,11 +158,7 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		logger.Error("Unable to parse APIVersion.", zap.Error(err))
 		return err
 	}
-	resource := schema.GroupResource{
-		Group: gv.Group,
-		// TODO(mattmoor): Do something better than this.
-		Resource: strings.ToLower(kpa.Spec.ScaleTargetRef.Kind) + "s",
-	}
+	resource := apis.KindToResource(gv.WithKind(kpa.Spec.ScaleTargetRef.Kind)).GroupResource()
 	resourceName := kpa.Spec.ScaleTargetRef.Name
 
 	// Identify the current scale.

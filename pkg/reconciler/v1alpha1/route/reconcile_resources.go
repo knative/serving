@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
@@ -98,8 +99,11 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 			}
 		}
 	}
-	// Update the route's domain internal field
+	// Update the information that makes us Targetable.
 	route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
+	route.Status.Targetable = &duckv1alpha1.Targetable{
+		DomainInternal: resourcenames.K8sServiceFullname(route),
+	}
 
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
