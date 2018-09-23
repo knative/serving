@@ -36,19 +36,29 @@ function perf_tests() {
   
   wait_until_routable "$ip" "$host" || return 1
   wrk -t 1 -c "$1" -d "$2" -s "${REPO_ROOT_DIR}/test/performance/observed-concurrency/reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"
-  return 0  
 }
 
-header "Setting up environment"
+# Deletes everything created on the cluster including all knative and istio components.
+function teardown() {
+  # Delete the service now that the test is done
+  kubectl delete -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
+  delete_everything
+}
 
 # Fail fast during setup.
-set +o errexit
-set +o pipefail
+set -o errexit
+set -o pipefail
+
+header "Setting up environment"
 
 initialize $@
 create_everything
 
 wait_until_cluster_up
+
+# Handle test failures ourselves, so we can dump useful info.
+set +o errexit
+set +o pipefail
 
 ko apply -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 
@@ -56,8 +66,5 @@ ko apply -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 # Need to export concurrency var as it is required by the parser.
 export concurrency=5
 perf_tests "$concurrency" 60s
-
-# Delete the service now that the test is done
-kubectl delete -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 
 success

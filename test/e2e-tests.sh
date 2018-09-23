@@ -51,6 +51,11 @@ function publish_test_images() {
   done
 }
 
+# Deletes everything created on the cluster including all knative and istio components.
+function teardown() {
+  delete_everything
+}
+
 # Script entry point.
 
 initialize $@

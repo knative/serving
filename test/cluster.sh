@@ -84,8 +84,3 @@ function wait_until_cluster_up() {
   wait_until_pods_running istio-system || fail_test "Istio system is not up"
   wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
 }
-
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  delete_everything
-}
