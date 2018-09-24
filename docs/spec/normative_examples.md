@@ -618,7 +618,7 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  relase:
+  release:
     revisions: [def]
     configuration:  # Copied from spec.runLatest.configuration
       revisionTemplate:
@@ -716,7 +716,7 @@ production traffic, as the route is still directing all traffic to revision
 `def`. It will, however, be optionally accessible under the name
 `latest.my-service...` for initial validation.
 
-The user can then begin the rollout of revision ghi:
+The user can then begin the rollout of revision `ghi`:
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -734,7 +734,7 @@ spec:
 
 This makes the route update the `next` name to point to the revision `ghi`. (The
 list of revisions can contain one or two items. If two, the first is `current`
-and the latter is `next`) The new revision will still not receive any traffic,
+and the latter is `next`.) The new revision will still not receive any traffic,
 but can be accessed for testing, verification, etc under the
 `next.my-service...` name.
 
@@ -855,7 +855,7 @@ status:
 
 ## 4) Roll back to a known-good Revision
 
-**_Scenario_**: User realizes that the deployed revision is bad in some way, and
+**_Scenario_**: User realizes that the deployed revision is bad in some way and
 decides to shift traffic as fast as possible to a previous known-good revision.
 
 ```
@@ -886,7 +886,7 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  relase:
+  release:
     revisions: [abc]
     configuration:  # Copied from spec.runLatest.configuration if needed
       revisionTemplate:
