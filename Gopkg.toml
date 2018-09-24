@@ -28,8 +28,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-09-20
-  revision = "2891231d4e47f80c9b72637da071468d7072cb62"
+  # HEAD as of 2018-09-21
+  revision = "95e3199746a50f0a4e4ba62f1d8760e9a203b30e"
 
 [[override]]
   name = "github.com/knative/pkg"
