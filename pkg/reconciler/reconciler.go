@@ -17,9 +17,9 @@ limitations under the License.
 package reconciler
 
 import (
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
@@ -40,7 +40,7 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	SharedClientSet  sharedclientset.Interface
 	ServingClientSet clientset.Interface
-	BuildClientSet   buildclientset.Interface
+	DynamicClientSet dynamic.Interface
 	CachingClientSet cachingclientset.Interface
 
 	ConfigMapWatcher configmap.Watcher
@@ -58,8 +58,8 @@ type Base struct {
 	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet clientset.Interface
 
-	// BuildClientSet allows us to configure Build objects
-	BuildClientSet buildclientset.Interface
+	// DynamicClientSet allows us to configure pluggable Build objects
+	DynamicClientSet dynamic.Interface
 
 	// CachingClientSet allows us to instantiate Image objects
 	CachingClientSet cachingclientset.Interface
@@ -97,7 +97,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		KubeClientSet:    opt.KubeClientSet,
 		SharedClientSet:  opt.SharedClientSet,
 		ServingClientSet: opt.ServingClientSet,
-		BuildClientSet:   opt.BuildClientSet,
+		DynamicClientSet: opt.DynamicClientSet,
 		CachingClientSet: opt.CachingClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,
 		Recorder:         recorder,

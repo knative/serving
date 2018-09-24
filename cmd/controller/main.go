@@ -31,6 +31,7 @@ import (
 
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -104,6 +105,11 @@ func main() {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building build clientset: %v", err)
+	}
+
 	cachingClient, err := cachingclientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building caching clientset: %v", err)
@@ -128,7 +134,7 @@ func main() {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		CachingClientSet: cachingClient,
-		BuildClientSet:   buildClient,
+		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}

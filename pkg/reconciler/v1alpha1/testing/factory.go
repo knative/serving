@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
@@ -25,6 +26,7 @@ import (
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
@@ -38,13 +40,14 @@ func MakeFactory(ctor Ctor) Factory {
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 		buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 
 		// Set up our Controller from the fakes.
 		c := ctor(&ls, reconciler.Options{
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
-			BuildClientSet:   buildClient,
+			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
 			Logger:           TestLogger(t),
@@ -55,6 +58,7 @@ func MakeFactory(ctor Ctor) Factory {
 			sharedClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
 			buildClient.PrependReactor("*", "*", reactor)
+			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 		}
 
@@ -62,6 +66,6 @@ func MakeFactory(ctor Ctor) Factory {
 		client.PrependReactor("create", "*", ValidateCreates)
 		client.PrependReactor("update", "*", ValidateUpdates)
 
-		return c, ActionRecorderList{sharedClient, buildClient, client, kubeClient, cachingClient}
+		return c, ActionRecorderList{sharedClient, buildClient, dynamicClient, client, kubeClient, cachingClient}
 	}
 }
