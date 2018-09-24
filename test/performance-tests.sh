@@ -41,7 +41,7 @@ function perf_tests() {
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   # Delete the service now that the test is done
-  kubectl delete -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
+  kubectl delete --ignore-not-found=true -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
   delete_everything
 }
 
@@ -55,12 +55,11 @@ initialize $@
 create_everything
 
 wait_until_cluster_up
+ko apply -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
-
-ko apply -f "${REPO_ROOT_DIR}/test/performance/observed-concurrency/app.yaml"
 
 # Run the test with concurrency=5 and for 60s duration. 
 # Need to export concurrency var as it is required by the parser.
