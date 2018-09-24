@@ -52,6 +52,25 @@ func TestBuilds(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "nil build",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "no",
+				Name:      "build",
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				Build: UnstructuredWithContent(nil),
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
 		name: "simple build",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
