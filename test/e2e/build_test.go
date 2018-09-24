@@ -46,6 +46,8 @@ func TestBuildAndServe(t *testing.T) {
 	}
 
 	build := resources.WithBuildSpec(resources.UnstructuredWithContent(map[string]interface{}{
+		"apiVersion": "build.knative.dev/v1alpha1",
+		"kind":       "Build",
 		"steps": []interface{}{map[string]interface{}{
 			"image": "ubuntu",
 			"args":  []interface{}{"echo", "built"},

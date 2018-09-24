@@ -96,6 +96,52 @@ func TestBuilds(t *testing.T) {
 			},
 		}),
 	}, {
+		name: "simple build with type meta",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "simple",
+				Name:      "build",
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				Generation: 31,
+				Build: UnstructuredWithContent(map[string]interface{}{
+					"apiVersion": "foo.knative.dev/v1alfoo1",
+					"kind":       "Foo",
+					"steps": []interface{}{map[string]interface{}{
+						"image": "busybox",
+					}},
+				}),
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "foo.knative.dev/v1alfoo1",
+			"kind":       "Foo",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-00031",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
+				}},
+			},
+			"spec": map[string]interface{}{
+				"steps": []interface{}{map[string]interface{}{
+					"image": "busybox",
+				}},
+			},
+		}),
+	}, {
 		name: "simple build with template",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{

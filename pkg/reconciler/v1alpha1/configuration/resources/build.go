@@ -38,12 +38,14 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 }
 
 func WithBuildSpec(build *unstructured.Unstructured) *unstructured.Unstructured {
-	build = build.DeepCopy()
 	u := &unstructured.Unstructured{}
 
 	spec, ok := build.Object["spec"]
 	if !ok {
-		spec = build.Object
+		s := build.DeepCopy().Object
+		delete(s, "apiVersion")
+		delete(s, "kind")
+		spec = s
 	}
 	u.SetUnstructuredContent(map[string]interface{}{"spec": spec})
 
