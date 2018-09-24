@@ -27,6 +27,7 @@ import (
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
@@ -97,6 +98,8 @@ type Reconciler struct {
 	serviceLister    corev1listers.ServiceLister
 	endpointsLister  corev1listers.EndpointsLister
 	configMapLister  corev1listers.ConfigMapLister
+
+	buildInformerFactory duck.InformerFactory
 
 	buildtracker *buildTracker
 	resolver     resolver
@@ -237,38 +240,50 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
+func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
+	if rev.Spec.BuildName == "" {
+		return nil
+	}
+
+	logger := commonlogging.FromContext(ctx)
+
+	rev.Status.InitializeBuildCondition()
+	build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
+	if err != nil {
+		logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
+		return err
+	}
+	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	rev.Status.PropagateBuildStatus(build.Status)
+	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	if before.Status != after.Status {
+		// Create events when the Build result is in.
+		if after.Status == corev1.ConditionTrue {
+			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
+			c.buildtracker.Untrack(rev)
+		} else if after.Status == corev1.ConditionFalse {
+			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
+			c.buildtracker.Untrack(rev)
+		}
+	}
+	// If the Build isn't done, then add it to our tracker.
+	// TODO(#1267): See the comment in SyncBuild about replacing this utility.
+	if after.Status == corev1.ConditionUnknown {
+		logger.Errorf("Tracking revision: %v", rev.Name)
+		c.buildtracker.Track(rev)
+	}
+
+	return nil
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	if rev.Spec.BuildName != "" {
-		rev.Status.InitializeBuildCondition()
-		build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
-		if err != nil {
-			logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
-			return err
-		}
-		before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-		rev.Status.PropagateBuildStatus(build.Status)
-		after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-		if before.Status != after.Status {
-			// Create events when the Build result is in.
-			if after.Status == corev1.ConditionTrue {
-				c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-				c.buildtracker.Untrack(rev)
-			} else if after.Status == corev1.ConditionFalse {
-				c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
-				c.buildtracker.Untrack(rev)
-			}
-		}
-		// If the Build isn't done, then add it to our tracker.
-		// TODO(#1267): See the comment in SyncBuild about replacing this utility.
-		if after.Status == corev1.ConditionUnknown {
-			logger.Errorf("Tracking revision: %v", rev.Name)
-			c.buildtracker.Track(rev)
-		}
+	if err := c.reconcileBuild(ctx, rev); err != nil {
+		return err
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
