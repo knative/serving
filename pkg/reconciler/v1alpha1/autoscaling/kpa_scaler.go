@@ -146,6 +146,11 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		desiredScale = 0
 	}
 
+	// When ServingState=Active propagates to us and we are scaled to zero, scale up to 1.
+	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
+		desiredScale = 1
+	}
+
 	currentScale := scl.Spec.Replicas
 	if desiredScale == currentScale {
 		return nil
