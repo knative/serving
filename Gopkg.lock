@@ -338,7 +338,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:95c2ff130db0410dc9735905cecff862352a3981c6ed048d83fd959ed19fc16a"
+  digest = "1:23d92224a4de50cb1be81edbd41d96b3eaeffd9ab5aca0d7170c643228f4203b"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -376,8 +376,9 @@
     "test/spoof",
     "webhook",
   ]
-  pruneopts = "NUT"
-  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
+  pruneopts = "NT"
+  revision = "42dc42b80b9bbd620e67bb7c07c01d1b57a74979"
+  source = "https://github.com/mattmoor/pkg-1.git"
 
 [[projects]]
   branch = "master"

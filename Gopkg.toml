@@ -33,8 +33,11 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-09-21
-  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
+  revision = "42dc42b80b9bbd620e67bb7c07c01d1b57a74979"
+  source = "https://github.com/mattmoor/pkg-1.git"
+#  branch = "pull/86/head"
+#  # HEAD as of 2018-09-21
+#  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
 
 [[constraint]]
   name = "github.com/knative/caching"
@@ -86,3 +89,7 @@ required = [
   name = "github.com/knative/test-infra"
   unused-packages = false
   non-go = false
+
+[[prune.project]]
+  name = "github.com/knative/pkg"
+  unused-packages = false
