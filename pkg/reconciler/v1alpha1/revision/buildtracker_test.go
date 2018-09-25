@@ -19,7 +19,7 @@ package revision
 import (
 	"testing"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,7 +83,11 @@ func TestSet(t *testing.T) {
 func TestTrack(t *testing.T) {
 	bt := &buildTracker{builds: make(map[key]set)}
 
-	build := &buildv1alpha1.Build{
+	build := &duckv1alpha1.KResource{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "build.knative.dev/v1alpha1",
+			Kind:       "Build",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
 			Name:      "bar",

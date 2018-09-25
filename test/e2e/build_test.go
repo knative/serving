@@ -21,13 +21,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	"github.com/knative/serving/test"
 )
 
@@ -97,7 +97,7 @@ func TestBuildAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
-	if cond := b.Status.GetCondition(buildv1alpha1.BuildSucceeded); cond == nil {
+	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
 	} else if cond.Status != v1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
@@ -157,7 +157,7 @@ func TestBuildFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
-	if cond := b.Status.GetCondition(buildv1alpha1.BuildSucceeded); cond == nil {
+	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
 	} else if cond.Status != v1.ConditionFalse {
 		t.Fatalf("Build %q was not unsuccessful", buildName)

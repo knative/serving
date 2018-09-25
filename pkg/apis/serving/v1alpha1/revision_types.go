@@ -199,6 +199,8 @@ var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionActive,
 )
 
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
+
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
 	// ServiceName holds the name of a core Kubernetes Service resource that
@@ -273,7 +275,7 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 }
 
 func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
-	bc := bs.GetCondition(duckv1alpha1.ConditionSucceeded)
+	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return
 	}

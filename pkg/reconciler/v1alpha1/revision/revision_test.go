@@ -166,7 +166,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		buildInformer.Build().V1alpha1().Builds(),
+		//buildInformer.Build().V1alpha1().Builds(),
 		cachingInformer.Caching().V1alpha1().Images(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
