@@ -27,7 +27,7 @@ import (
 type key string
 
 func getKey(namespace, name string) key {
-	//TODO(imikushin): getKey should take *KResource
+	//TODO(imikushin): getKey() should take build ObjectReference
 	return key(fmt.Sprintf("%s/%s", namespace, name))
 }
 
