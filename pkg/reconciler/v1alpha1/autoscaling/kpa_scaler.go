@@ -103,14 +103,6 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return nil
 	}
 
-	// Do not scale an inactive revision.
-	revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
-	rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
-	if err != nil {
-		logger.Error("Unable to fetch Revision.", zap.Error(err))
-		return err
-	}
-
 	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
 		logger.Error("Unable to parse APIVersion.", zap.Error(err))
@@ -129,6 +121,12 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		logger.Debug("Setting revision ServingState to Reserve.")
+		revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
+		rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
+		if err != nil {
+			logger.Error("Unable to fetch Revision.", zap.Error(err))
+			return err
+		}
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		if _, err := revisionClient.Update(rev); err != nil {
 			logger.Error("Error updating revision serving state.", zap.Error(err))

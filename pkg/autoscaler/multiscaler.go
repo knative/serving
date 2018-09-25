@@ -166,7 +166,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) 
 	}
 
 	stopCh := make(chan struct{})
-	runner := &scalerRunner{scaler: scaler, latestScale: -1, stopCh: stopCh}
+	runner := &scalerRunner{scaler: scaler, latestScale: 1, stopCh: stopCh}
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
