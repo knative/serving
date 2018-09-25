@@ -88,11 +88,6 @@ func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
 func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return nil
-	}
-
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
 	// scale exclusively on metrics.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -117,6 +112,7 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
 		return err
 	}
+	currentScale := scl.Spec.Replicas
 
 	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
@@ -146,12 +142,17 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		desiredScale = 0
 	}
 
-	// When ServingState=Active propagates to us and we are scaled to zero, scale up to 1.
-	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
+	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && currentScale == 0 {
+		// When ServingState=Active propagates to us and we are scaled to zero, scale up to 1.
+		logger.Debugf("Scaling up from 0 to 1")
 		desiredScale = 1
 	}
 
-	currentScale := scl.Spec.Replicas
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return nil
+	}
+
 	if desiredScale == currentScale {
 		return nil
 	}
