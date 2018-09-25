@@ -22,12 +22,10 @@ import (
 	"reflect"
 	"strings"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
-	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
@@ -45,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -92,7 +91,6 @@ type Reconciler struct {
 	// lister indexes properties about Revision
 	revisionLister   listers.RevisionLister
 	kpaLister        kpalisters.PodAutoscalerLister
-	buildLister      buildlisters.BuildLister
 	imageLister      cachinglisters.ImageLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
@@ -119,7 +117,6 @@ func NewController(
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	kpaInformer kpainformers.PodAutoscalerInformer,
-	buildInformer buildinformers.BuildInformer,
 	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
@@ -133,7 +130,6 @@ func NewController(
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
 		kpaLister:        kpaInformer.Lister(),
-		buildLister:      buildInformer.Lister(),
 		imageLister:      imageInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
@@ -154,11 +150,6 @@ func NewController(
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 		DeleteFunc: impl.Enqueue,
-	})
-
-	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueBuildTrackers(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers(impl)),
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -185,6 +176,16 @@ func NewController(
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
 	})
+
+	c.buildInformerFactory = &duck.CachedInformerFactory{
+		Delegate: &duck.EnqueueInformerFactory{
+			Delegate: &duck.TypedInformerFactory{},
+			EventHandler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    c.EnqueueBuildTrackers(impl),
+				UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers(impl)),
+			},
+		},
+	}
 
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
@@ -248,11 +249,24 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeBuildCondition()
-	build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
+
+	_, lister, err := c.buildInformerFactory.Get(schema.GroupVersionResource{
+		Group:    "build.knative.dev",
+		Version:  "v1alpha1",
+		Resource: "builds",
+	})
+	if err != nil {
+		return err
+	}
+
+	buildObj, err := lister.ByNamespace(rev.Namespace).Get(rev.Spec.BuildName)
 	if err != nil {
 		logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
 		return err
 	}
+
+	build := buildObj.(*duckv1alpha1.KResource)
+
 	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
 	rev.Status.PropagateBuildStatus(build.Status)
 	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -341,7 +355,7 @@ func (c *Reconciler) updateRevisionLoggingURL(
 
 func (c *Reconciler) EnqueueBuildTrackers(impl *controller.Impl) func(obj interface{}) {
 	return func(obj interface{}) {
-		build := obj.(*buildv1alpha1.Build)
+		build := obj.(*duckv1alpha1.KResource)
 
 		// TODO(#1267): We should consider alternatives to the buildtracker that
 		// allow us to shed this indexed state.

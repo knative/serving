@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -91,7 +91,7 @@ func (bt *buildTracker) Untrack(u *v1alpha1.Revision) {
 	}
 }
 
-func (bt *buildTracker) GetTrackers(build *buildv1alpha1.Build) set {
+func (bt *buildTracker) GetTrackers(build *duckv1alpha1.KResource) set {
 	bt.buildMtx.Lock()
 	defer bt.buildMtx.Unlock()
 

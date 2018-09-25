@@ -39,8 +39,6 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
@@ -100,11 +98,6 @@ func main() {
 		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
-	buildClient, err := buildclientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building build clientset: %v", err)
-	}
-
 	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
@@ -123,7 +116,6 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
-	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
@@ -144,7 +136,6 @@ func main() {
 	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
@@ -166,7 +157,6 @@ func main() {
 			vpaClient,
 			revisionInformer,
 			kpaInformer,
-			buildInformer,
 			imageInformer,
 			deploymentInformer,
 			coreServiceInformer,
@@ -197,7 +187,6 @@ func main() {
 	kubeInformerFactory.Start(stopCh)
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
-	buildInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
@@ -212,7 +201,6 @@ func main() {
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
 		kpaInformer.Informer().HasSynced,
-		buildInformer.Informer().HasSynced,
 		imageInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,

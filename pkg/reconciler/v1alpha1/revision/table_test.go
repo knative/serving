@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -1106,7 +1105,7 @@ func TestReconcile(t *testing.T) {
 			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
 			build("foo", "the-build",
 				duckv1alpha1.Condition{
-					Type:   buildv1alpha1.BuildSucceeded,
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionUnknown,
 				}),
 		},
@@ -1163,7 +1162,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   buildv1alpha1.BuildSucceeded,
+				Type:   duckv1alpha1.ConditionSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
 		},
@@ -1238,7 +1237,7 @@ func TestReconcile(t *testing.T) {
 				}),
 			kpa("foo", "stable-reconcile-with-build", "Active", "busybox"),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   buildv1alpha1.BuildSucceeded,
+				Type:   duckv1alpha1.ConditionSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
 			deploy("foo", "stable-reconcile-with-build", "Active", "busybox"),
@@ -1273,7 +1272,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    buildv1alpha1.BuildSucceeded,
+				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
 				Message: "This is why the build failed.",
@@ -1340,7 +1339,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    buildv1alpha1.BuildSucceeded,
+				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
 				Message: "This is why the build failed.",
@@ -1351,10 +1350,10 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			buildLister:      listers.GetBuildLister(),
+			Base:           reconciler.NewBase(opt, controllerAgentName),
+			revisionLister: listers.GetRevisionLister(),
+			kpaLister:      listers.GetKPALister(),
+			//buildLister:      listers.GetBuildLister(), // TODO replace with duck.InformerFactory
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
@@ -1615,10 +1614,10 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			buildLister:      listers.GetBuildLister(),
+			Base:           reconciler.NewBase(opt, controllerAgentName),
+			revisionLister: listers.GetRevisionLister(),
+			kpaLister:      listers.GetKPALister(),
+			//buildLister:      listers.GetBuildLister(), // TODO replace with duck.InformerFactory
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
@@ -1682,10 +1681,10 @@ func addKPAStatus(kpa *kpav1alpha1.PodAutoscaler, status kpav1alpha1.PodAutoscal
 
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
-func build(namespace, name string, conds ...duckv1alpha1.Condition) *buildv1alpha1.Build {
-	return &buildv1alpha1.Build{
+func build(namespace, name string, conds ...duckv1alpha1.Condition) *duckv1alpha1.KResource {
+	return &duckv1alpha1.KResource{
 		ObjectMeta: om(namespace, name),
-		Status: buildv1alpha1.BuildStatus{
+		Status: duckv1alpha1.KResourceStatus{
 			Conditions: conds,
 		},
 	}
