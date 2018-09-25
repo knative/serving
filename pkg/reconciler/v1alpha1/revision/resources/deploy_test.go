@@ -40,6 +40,7 @@ var (
 )
 
 func TestMakePodSpec(t *testing.T) {
+	labels := map[string]string{serving.ConfigurationLabelKey: "cfg", serving.ServiceLabelKey: "svc"}
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -55,6 +56,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
@@ -75,7 +77,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -121,6 +133,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -148,7 +161,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -194,6 +217,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -230,7 +254,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -276,6 +310,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -310,7 +345,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -356,6 +401,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -392,7 +438,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -438,6 +494,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
@@ -470,7 +527,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -516,6 +583,7 @@ func TestMakePodSpec(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
@@ -539,7 +607,17 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
-				Env:          []corev1.EnvVar{userEnv},
+				Env: []corev1.EnvVar{userEnv,
+					corev1.EnvVar{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, corev1.EnvVar{
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, corev1.EnvVar{
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
@@ -649,6 +727,15 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "PORT",
 					Value: "8080",
+				}, {
+					Name:  "K_REVISION",
+					Value: "bar",
+				}, {
+					Name:  "K_CONFIGURATION",
+					Value: "",
+				}, {
+					Name:  "K_SERVICE",
+					Value: "",
 				}},
 				Resources:    userResources,
 				Ports:        userPorts,

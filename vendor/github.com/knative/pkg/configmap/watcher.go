@@ -17,11 +17,7 @@ limitations under the License.
 package configmap
 
 import (
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Observer is the signature of the callbacks that notify an observer of the latest
@@ -39,16 +35,4 @@ type Watcher interface {
 	// stop watching.  When Start returns, all registered Observers will be called with the
 	// initial state of the ConfigMaps they are watching.
 	Start(<-chan struct{}) error
-}
-
-// NewDefaultWatcher creates a new default configmap.Watcher instance.
-func NewDefaultWatcher(kc kubernetes.Interface, ns string) Watcher {
-	sif := kubeinformers.NewFilteredSharedInformerFactory(
-		kc, 5*time.Minute, ns, nil)
-
-	return &defaultImpl{
-		sif:      sif,
-		informer: sif.Core().V1().ConfigMaps(),
-		ns:       ns,
-	}
 }

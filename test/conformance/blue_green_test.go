@@ -21,6 +21,7 @@ package conformance
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ import (
 )
 
 const (
-	concurrentRequests = 100
+	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1
@@ -89,7 +90,6 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 			return nil
 		})
 	}
-
 	return responses, g.Wait()
 }
 
@@ -181,7 +181,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a Configuration")
-	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{}); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
@@ -208,14 +208,22 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
 	}
 
-	// TODO(#882): Remove these?
+	// We should only need to wait until the Revision is routable,
+	// i.e. Ready or Inactive.  At that point, activator could start
+	// queuing requests until the Revision wakes up.  However, due to
+	// #882 we are currently lumping the inactive splits and that
+	// would result in 100% requests reaching Blue or Green.
+	//
+	// TODO: After we implement #1583 and honor the split percentage
+	// for inactive cases, change this wait to allow for inactive
+	// revisions as well.
 	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
 	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", blue.Revision, err)
+		t.Fatalf("The Revision %q still can't serve traffic: %v", blue.Revision, err)
 	}
 	logger.Infof("Waiting for revision %q to be ready", green.Revision)
 	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", green.Revision, err)
+		t.Fatalf("The Revision %q still can't serve traffic: %v", green.Revision, err)
 	}
 
 	// Set names for traffic targets to make them directly routable.
@@ -245,6 +253,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// It doesn't matter which domain we probe, we just need to choose one.
+	logger.Infof("Probing domain %s", tealDomain)
 	if err := probeDomain(logger, clients, tealDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
 	}
@@ -252,15 +261,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
-		min := int(concurrentRequests * minSplitPercentage)
+		min := int(math.Floor(concurrentRequests * minSplitPercentage))
 		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {

@@ -23,7 +23,6 @@ import (
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -36,7 +35,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 /* TODO tests:
@@ -65,7 +64,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	// Create fake clients
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
 			Namespace: system.Namespace,

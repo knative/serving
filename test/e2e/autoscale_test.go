@@ -140,7 +140,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
+		ContainerConcurrency: 10,
+	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -190,7 +192,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	err = generateTrafficBurst(clients, logger, 500, domain)
+	err = generateTrafficBurst(clients, logger, 20, domain)
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
@@ -241,7 +243,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	err = generateTrafficBurst(clients, logger, 500, domain)
+	err = generateTrafficBurst(clients, logger, 20, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}

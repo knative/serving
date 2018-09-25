@@ -40,6 +40,15 @@ func TestNamer(t *testing.T) {
 		f:    Deployment,
 		want: "foo-deployment",
 	}, {
+		name: "ImageCache",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
+		f:    ImageCache,
+		want: "foo-cache",
+	}, {
 		name: "VPA",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{

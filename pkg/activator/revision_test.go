@@ -20,10 +20,12 @@ import (
 	"testing"
 	"time"
 
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	. "github.com/knative/pkg/logging/testing"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -152,6 +154,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkActive()
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
@@ -243,12 +246,10 @@ func newRevisionBuilder() *revisionBuilder {
 				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{
-					v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
+				Conditions: duck.Conditions{{
+					Type:   v1alpha1.RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
 			},
 		},
 	}
@@ -291,12 +292,13 @@ func newServiceBuilder() *serviceBuilder {
 				Namespace: testNamespace,
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: "http",
-						Port: 8080,
-					},
-				},
+				Ports: []corev1.ServicePort{{
+					Name: revisionresources.ServicePortName,
+					Port: 8080,
+				}, {
+					Name: "anotherport",
+					Port: 9090,
+				}},
 			},
 		},
 	}

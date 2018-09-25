@@ -37,7 +37,11 @@ const (
 
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	AutoscalerPort       = 8080
-	ServicePort    int32 = 80
+
+	// ServicePortName is the name of the external port of the service
+	ServicePortName      = "http"
+	// ServicePort is the external port of the service
+	ServicePort          = int32(80)
 	AppLabelKey          = "app"
 )
 

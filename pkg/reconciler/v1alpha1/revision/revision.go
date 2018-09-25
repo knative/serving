@@ -23,38 +23,37 @@ import (
 	"strings"
 	"sync"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
+	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
+	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
+	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
-	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
-	"github.com/knative/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 )
 
 const (
@@ -90,6 +89,7 @@ type Reconciler struct {
 	revisionLister   listers.RevisionLister
 	kpaLister        kpalisters.PodAutoscalerLister
 	buildLister      buildlisters.BuildLister
+	imageLister      cachinglisters.ImageLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
 	endpointsLister  corev1listers.EndpointsLister
@@ -140,6 +140,7 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	kpaInformer kpainformers.PodAutoscalerInformer,
 	buildInformer buildinformers.BuildInformer,
+	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
@@ -153,6 +154,7 @@ func NewController(
 		revisionLister:   revisionInformer.Lister(),
 		kpaLister:        kpaInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
+		imageLister:      imageInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
@@ -187,6 +189,10 @@ func NewController(
 		},
 	})
 
+	// We don't watch for changes to Image because we don't incorporate any of its
+	// properties into our own status and should work completely in the absence of
+	// a functioning Image controller.
+
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -214,8 +220,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-
+	logger := commonlogging.FromContext(ctx)
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name
@@ -249,7 +254,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
+	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(rev)

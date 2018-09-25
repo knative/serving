@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	duck "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -32,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -59,13 +60,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
@@ -93,13 +94,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "permanently-failed", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "RevisionMissing",
@@ -131,13 +132,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
@@ -180,13 +181,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "becomes-ready.default.example.com",
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -220,13 +221,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "label-config-failure", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "label-config-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "label-config-failure.default.example.com",
 				DomainInternal: "label-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionUnknown,
 				}, {
@@ -256,7 +257,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "create-svc-failure", "config", &v1alpha1.RouteStatus{
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionUnknown,
 				}, {
@@ -301,13 +302,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "vs-create-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "vs-create-failure.default.example.com",
 				DomainInternal: "vs-create-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionUnknown,
 				}, {
@@ -323,7 +324,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "steady-state", "config", &v1alpha1.RouteStatus{
 				Domain:         "steady-state.default.example.com",
 				DomainInternal: "steady-state.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -370,7 +371,7 @@ func TestReconcile(t *testing.T) {
 				simpleRunLatest("default", "different-domain", "config", &v1alpha1.RouteStatus{
 					Domain:         "different-domain.default.another-example.com",
 					DomainInternal: "different-domain.default.svc.cluster.local",
-					Conditions: []v1alpha1.RouteCondition{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 						Status: corev1.ConditionTrue,
 					}, {
@@ -418,7 +419,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "new-latest-created", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-created.default.example.com",
 				DomainInternal: "new-latest-created.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -470,7 +471,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-ready.default.example.com",
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -535,7 +536,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-ready.default.example.com",
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -561,7 +562,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "update-vs-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "update-vs-failure.default.example.com",
 				DomainInternal: "update-vs-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -630,7 +631,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "svc-mutation.default.example.com",
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -684,7 +685,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "svc-mutation.default.example.com",
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -733,7 +734,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "cluster-ip", "config", &v1alpha1.RouteStatus{
 				Domain:         "cluster-ip.default.example.com",
 				DomainInternal: "cluster-ip.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -779,7 +780,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "virt-svc-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "virt-svc-mutation.default.example.com",
 				DomainInternal: "virt-svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -842,7 +843,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "licked-cookie", "config", &v1alpha1.RouteStatus{
 				Domain:         "licked-cookie.default.example.com",
 				DomainInternal: "licked-cookie.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -890,7 +891,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
 				Domain:         "change-configs.default.example.com",
 				DomainInternal: "change-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -936,8 +937,8 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "change-configs", "oldconfig", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route"),
-			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs"),
+			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route", "v1"),
+			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// Updated to point to "newconfig" things.
@@ -961,7 +962,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
 				Domain:         "change-configs.default.example.com",
 				DomainInternal: "change-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -988,7 +989,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "config-missing", "not-found", &v1alpha1.RouteStatus{
 				Domain:         "config-missing.default.example.com",
 				DomainInternal: "config-missing.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "ConfigurationMissing",
@@ -1015,7 +1016,7 @@ func TestReconcile(t *testing.T) {
 			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
 				Domain:         "missing-revision-direct.default.example.com",
 				DomainInternal: "missing-revision-direct.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "RevisionMissing",
@@ -1039,13 +1040,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-indirect", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect"),
+			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
 				Domain:         "missing-revision-indirect.default.example.com",
 				DomainInternal: "missing-revision-indirect.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "RevisionMissing",
@@ -1093,9 +1094,9 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			// TODO(#1495): The parent configuration isn't labeled because it's established through
-			// labels instead of owner references.
-			//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
+		// TODO(#1495): The parent configuration isn't labeled because it's established through
+		// labels instead of owner references.
+		//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "pinned-becomes-ready",
@@ -1103,7 +1104,7 @@ func TestReconcile(t *testing.T) {
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, &v1alpha1.RouteStatus{
 					Domain:         "pinned-becomes-ready.default.example.com",
 					DomainInternal: "pinned-becomes-ready.default.svc.cluster.local",
-					Conditions: []v1alpha1.RouteCondition{{
+					Conditions: duck.Conditions{{
 						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 						Status: corev1.ConditionTrue,
 					}, {
@@ -1187,14 +1188,14 @@ func TestReconcile(t *testing.T) {
 				})),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split"),
+			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split", "v1"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: routeWithTraffic("default", "named-traffic-split", &v1alpha1.RouteStatus{
 				Domain:         "named-traffic-split.default.example.com",
 				DomainInternal: "named-traffic-split.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1226,7 +1227,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
 				Domain:         "switch-configs.default.example.com",
 				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1271,8 +1272,8 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "switch-configs", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs"),
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route", "v1"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs", "v1"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeVirtualService(
@@ -1294,7 +1295,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
 				Domain:         "switch-configs.default.example.com",
 				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1321,7 +1322,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "rmlabel-config-failure", "green", &v1alpha1.RouteStatus{
 				Domain:         "rmlabel-config-failure.default.example.com",
 				DomainInternal: "rmlabel-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1366,7 +1367,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route", "v1"),
 		},
 		Key: "default/rmlabel-config-failure",
 	}, {
@@ -1381,7 +1382,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "addlabel-config-failure", "green", &v1alpha1.RouteStatus{
 				Domain:         "addlabel-config-failure.default.example.com",
 				DomainInternal: "addlabel-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
+				Conditions: duck.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1422,7 +1423,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "addlabel-config-failure", "blue", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure", "v1"),
 		},
 		Key: "default/addlabel-config-failure",
 	}}
@@ -1506,8 +1507,9 @@ func setDomain(route *v1alpha1.Route, domain string) *v1alpha1.Route {
 func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: 1,
@@ -1528,8 +1530,9 @@ func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: 1,
@@ -1547,23 +1550,23 @@ func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
 	return cfg
 }
 
-func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, key)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
-func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+func patchAddLabel(namespace, name, key, value, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, key, value)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
 
 	action.Patch = []byte(patch)
 	return action
@@ -1606,7 +1609,7 @@ func simpleReadyRevision(namespace, name string) *v1alpha1.Revision {
 			Name:      name,
 		},
 		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
+			Conditions: duck.Conditions{{
 				Type:   v1alpha1.RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -1621,7 +1624,7 @@ func simpleNotReadyRevision(namespace, name string) *v1alpha1.Revision {
 			Name:      name,
 		},
 		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
+			Conditions: duck.Conditions{{
 				Type:   v1alpha1.RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -1636,7 +1639,7 @@ func simpleFailedRevision(namespace, name string) *v1alpha1.Revision {
 			Name:      name,
 		},
 		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
+			Conditions: duck.Conditions{{
 				Type:   v1alpha1.RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},

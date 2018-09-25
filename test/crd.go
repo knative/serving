@@ -90,8 +90,8 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by imagePath.
-func Configuration(namespace string, names ResourceNames, imagePath string) *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
+func Configuration(namespace string, names ResourceNames, imagePath string, options *Options) *v1alpha1.Configuration {
+	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Config,
@@ -102,10 +102,15 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 					Container: corev1.Container{
 						Image: imagePath,
 					},
+					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
 				},
 			},
 		},
 	}
+	if options.EnvVars != nil && len(options.EnvVars) > 0 {
+		config.Spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
+	}
+	return config
 }
 
 func ConfigurationWithBuild(namespace string, names ResourceNames, build *buildv1alpha1.BuildSpec, imagePath string) *v1alpha1.Configuration {

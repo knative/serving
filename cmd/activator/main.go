@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
@@ -30,10 +32,9 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-
+	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/third_party/h2c"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -98,9 +99,12 @@ func main() {
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
 	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
-	retryer := activatorutil.NewRetryer(activatorutil.NewExponentialIntervalFunc(minRetryInterval, exponentialBackoffBase), maxRetries)
-
-	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
+	backoffSettings := wait.Backoff{
+		Duration: minRetryInterval,
+		Factor:   exponentialBackoffBase,
+		Steps:    maxRetries,
+	}
+	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: &activatorhandler.ReportingHTTPHandler{
@@ -124,7 +128,7 @@ func main() {
 	}()
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)

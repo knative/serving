@@ -28,7 +28,7 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0.1/istio-lean.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
 # Helper functions.
 
@@ -38,7 +38,7 @@ function create_istio() {
 }
 
 function create_monitoring() {
-  echo ">> Bringing up monitoring"
+  echo ">> Bringing up Monitoring"
   kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
@@ -61,7 +61,7 @@ function create_everything() {
   # when checking non-probe requests to discover other routing issues.
   #
   # We should revisit this when Istio API exposes a Status that we can rely on.
-  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/822 is fixed.
+  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
   create_monitoring
@@ -69,12 +69,12 @@ function create_everything() {
 
 function delete_istio() {
   echo ">> Bringing down Istio"
-  kubectl delete -f ${ISTIO_YAML}
+  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
 function delete_monitoring() {
-  echo ">> Bringing down monitoring"
+  echo ">> Bringing down Monitoring"
   kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \

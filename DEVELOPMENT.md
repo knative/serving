@@ -128,7 +128,7 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.1/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
@@ -207,8 +207,8 @@ Once the codegen and dependency information is correct, redeploying the controll
 ko apply -f config/controller.yaml
 ```
 
-Or you can [clean it up completely](./README.md#clean-up) and [completely
-redeploy `Knative Serving`](./README.md#start-knative).
+Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and [completely
+redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
 
 ## Clean up
 
@@ -219,7 +219,7 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.1/istio.yaml
+  -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 ## Telemetry

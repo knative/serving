@@ -22,8 +22,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/knative/pkg/logging"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 )
 
 // Stat defines a single measurement at a point in time

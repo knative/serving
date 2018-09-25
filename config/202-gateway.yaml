@@ -37,29 +37,36 @@ spec:
     tls:
       mode: PASSTHROUGH
 ---
+# TODO(#1969): We should allow the users to use `istio-ingressgateway` by default,
+#              while having the choice to specify their own Ingress Gateway service
+#              if that isn't enough for them.  That way we can get out of maintaining
+#              these YAML ourselves.
+#
 # This is the Service definition for the ingress pods serving
 # Knative's shared Gateway.
-#
-# Source: istio/charts/ingressgateway/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: knative-ingressgateway
   namespace: istio-system
+  annotations:
   labels:
-    chart: ingressgateway-0.8.0
+    chart: gateways-1.0.1
     release: RELEASE-NAME
     heritage: Tiller
+    app: knative-ingressgateway
     knative: ingressgateway
 spec:
   type: LoadBalancer
   selector:
+    app: knative-ingressgateway
     knative: ingressgateway
   ports:
     -
-      name: http
+      name: http2
       nodePort: 32380
       port: 80
+      targetPort: 80
     -
       name: https
       nodePort: 32390
@@ -67,40 +74,65 @@ spec:
     -
       name: tcp
       nodePort: 32400
-      port: 32400
+      port: 31400
+    -
+      name: tcp-pilot-grpc-tls
+      port: 15011
+      targetPort: 15011
+    -
+      name: tcp-citadel-grpc-tls
+      port: 8060
+      targetPort: 8060
+    -
+      name: tcp-dns-tls
+      port: 853
+      targetPort: 853
+    -
+      name: http2-prometheus
+      port: 15030
+      targetPort: 15030
+    -
+      name: http2-grafana
+      port: 15031
+      targetPort: 15031
 ---
 # This is the corresponding Deployment to backed the aforementioned Service.
-#
-# Source: istio/charts/ingressgateway/templates/deployment.yaml
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: knative-ingressgateway
   namespace: istio-system
   labels:
-    app: knative-ingressgateway
-    chart: ingressgateway-0.8.0
+    chart: gateways-1.0.1
     release: RELEASE-NAME
     heritage: Tiller
+    app: knative-ingressgateway
     knative: ingressgateway
 spec:
-  replicas:
+  replicas: 1
   template:
     metadata:
       labels:
+        app: knative-ingressgateway
         knative: ingressgateway
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
-        - name: ingressgateway
-          image: "docker.io/istio/proxyv2:0.8.0"
+        - name: istio-proxy
+          image: "docker.io/istio/proxyv2:1.0.1"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
             - containerPort: 443
-            - containerPort: 32400
+            - containerPort: 31400
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 853
+            - containerPort: 15030
+            - containerPort: 15031
           args:
           - proxy
           - router
@@ -127,7 +159,8 @@ spec:
           - --discoveryAddress
           - istio-pilot:8080
           resources:
-            {}
+            requests:
+              cpu: 10m
 
           env:
           - name: POD_NAME
@@ -156,14 +189,21 @@ spec:
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
+          - name: ingressgateway-ca-certs
+            mountPath: "/etc/istio/ingressgateway-ca-certs"
+            readOnly: true
       volumes:
       - name: istio-certs
         secret:
-          secretName: "istio.default"
+          secretName: istio.istio-ingressgateway-service-account
           optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
+          optional: true
+      - name: ingressgateway-ca-certs
+        secret:
+          secretName: "istio-ingressgateway-ca-certs"
           optional: true
       affinity:
         nodeAffinity:
@@ -202,22 +242,21 @@ spec:
 # This is the horizontal pod autoscaler to make sure the ingress Pods
 # scale up to meet traffic demand.
 #
-# Source: istio/charts/ingressgateway/templates/autoscale.yaml
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
     name: knative-ingressgateway
     namespace: istio-system
 spec:
-    minReplicas: 1
     # TODO(1411): Document/fix this.  We are choosing an arbitrary 10 here.
     maxReplicas: 10
+    minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
       name: knative-ingressgateway
     metrics:
-      - type: Resource
-        resource:
-          name: cpu
-          targetAverageUtilization: 60
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 60

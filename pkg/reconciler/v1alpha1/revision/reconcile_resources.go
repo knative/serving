@@ -22,20 +22,18 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-
 	"go.uber.org/zap"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 )
 
 const (
@@ -48,7 +46,6 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
-	// When Active or Reserved, deployment should exist and have a particular specification.
 	if apierrs.IsNotFound(getDepErr) {
 		// Deployment does not exist. Create it.
 		rev.Status.MarkDeploying("Deploying")
@@ -74,6 +71,23 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
+
+	// We do this here so that we can construct the Image resource based on the
+	// resulting Deployment resource (e.g. including resolved digest).
+	imageName := resourcenames.ImageCache(rev)
+	_, getImageCacheErr := c.imageLister.Images(ns).Get(imageName)
+	if apierrs.IsNotFound(getImageCacheErr) {
+		_, err := c.createImageCache(ctx, rev, deployment)
+		if err != nil {
+			logger.Errorf("Error creating image cache %q: %v", imageName, err)
+			return err
+		}
+		logger.Infof("Created image cache %q", imageName)
+	} else if getImageCacheErr != nil {
+		logger.Errorf("Error reconciling image cache %q: %v", imageName, getImageCacheErr)
+		return getImageCacheErr
+	}
+
 	return nil
 }
 

@@ -19,12 +19,12 @@ function parse_response(res)
   local end_ts = tonumber(res:sub(split_at+1))
   return start_ts, end_ts
 end
-  
+
 -- converts nanoseconds to milliseconds
 function nanos_to_millis(n)
   return math.floor(n / 1000000)
 end
-  
+
 -- returns the time it took to scale up to a certain scale
 -- returns -1 if that scale was never reached
 function time_to_scale(accumulated, scale)
@@ -35,12 +35,16 @@ function time_to_scale(accumulated, scale)
   end
   return -1
 end
-  
-  
+
+
 local threads = {}
 
 function setup(thread)
   table.insert(threads, thread)
+  if tonumber(os.getenv('concurrency')) == nil then
+    print('"concurrency" environment variable must be defined and be a number. Set it to the number of connections configured for wrk.')
+    os.exit()
+  end
 end
 
 function init(args)

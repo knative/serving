@@ -23,6 +23,7 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -132,13 +133,19 @@ func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (en
 		return end, errors.Wrapf(err, "Unable to get service %s for revision", serviceName)
 	}
 
-	// TODO: in the future, the target service could have more than one port.
-	// https://github.com/knative/serving/issues/837
-	if len(svc.Spec.Ports) != 1 {
-		return end, fmt.Errorf("Revision needs one port. Found %v", len(svc.Spec.Ports))
-	}
 	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, revision.Namespace)
-	port := svc.Spec.Ports[0].Port
+
+	// Search for the correct port in all the service ports.
+	port := int32(-1)
+	for _, p := range svc.Spec.Ports {
+		if p.Name == revisionresources.ServicePortName {
+			port = p.Port
+			break
+		}
+	}
+	if port == -1 {
+		return end, fmt.Errorf("Revision needs external. Found %v", len(svc.Spec.Ports))
+	}
 
 	return Endpoint{
 		FQDN: fqdn,

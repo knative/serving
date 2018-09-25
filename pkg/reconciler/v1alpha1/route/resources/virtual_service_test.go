@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -44,7 +44,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 		Namespace: "test-ns",
 		Labels:    map[string]string{"route": "test-route"},
 		OwnerReferences: []metav1.OwnerReference{
-			*reconciler.NewControllerRef(r),
+			*kmeta.NewControllerRef(r),
 		},
 	}
 	meta := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta
