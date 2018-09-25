@@ -6,7 +6,8 @@ aliases:
   serving-api-reviewers:
   - mattmoor
   - tcnghia
-  - grantr
+  - jonjohnsonjr
+  - dprotaso
 
   autoscaling-approvers:
   - josephburnett

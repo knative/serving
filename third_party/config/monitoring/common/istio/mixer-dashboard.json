@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-mixer
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   mixer-dashboard.json: |+
     {

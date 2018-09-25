@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
@@ -73,14 +73,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
-	return getTestRevisionWithCondition(name, duck.Condition{
+	return getTestRevisionWithCondition(name, duckv1alpha1.Condition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond duck.Condition) *v1alpha1.Revision {
+func getTestRevisionWithCondition(name string, cond duckv1alpha1.Condition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
@@ -94,7 +94,7 @@ func getTestRevisionWithCondition(name string, cond duck.Condition) *v1alpha1.Re
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  duck.Conditions{cond},
+			Conditions:  duckv1alpha1.Conditions{cond},
 		},
 	}
 }
@@ -160,7 +160,7 @@ func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 	kubeClient, sharedClient, servingClient, _, reconciler, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
@@ -173,7 +173,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 	kubeClient, sharedClient, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
@@ -187,7 +187,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	sharedInformer sharedinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher) {
+	configMapWatcher *configmap.ManualWatcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -206,7 +206,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = configmap.NewStaticWatcher(cms...)
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -232,6 +232,10 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
+
+	for _, cfg := range cms {
+		configMapWatcher.OnChange(cfg)
+	}
 
 	return
 }
@@ -278,7 +282,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		duck.Condition{
+		duckv1alpha1.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -467,7 +471,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, sharedClient, servingClient, controller, _, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
-		duck.Condition{
+		duckv1alpha1.Condition{
 			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
 		})
@@ -908,7 +912,7 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, sharedClient, servingClient, controller, kubeInformer, sharedInformer, servingInformer, _ := newTestReconciler(t)
+	kubeClient, sharedClient, servingClient, controller, kubeInformer, sharedInformer, servingInformer, watcher := newTestReconciler(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -940,7 +944,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com":  "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
@@ -955,7 +959,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -971,7 +975,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.receiveDomainConfig(&domainConfig)
+			watcher.OnChange(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}}

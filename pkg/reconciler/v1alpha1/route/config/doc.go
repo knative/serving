@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +k8s:deepcopy-gen=package
 // Package config holds the typed objects that define the schemas for
 // assorted ConfigMap objects on which the Route controller depends.
 package config

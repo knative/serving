@@ -67,12 +67,26 @@ rules:
   resources:
   - builds
   - buildtemplates
+  - clusterbuildtemplates
   verbs:
   - get
   - list
   - create
   - update
   - delete
+  - patch
+  - watch
+- apiGroups:
+  - caching.internal.knative.dev
+  resources:
+  - images
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - deletecollection
   - patch
   - watch
 ---
@@ -126,9 +140,6 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  - JSONPath: .status.completionTime
-    name: Completed
-    type: date
   group: build.knative.dev
   names:
     categories:
@@ -136,6 +147,44 @@ spec:
     - knative
     kind: BuildTemplate
     plural: buildtemplates
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterbuildtemplates.build.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: build.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    kind: ClusterBuildTemplate
+    plural: clusterbuildtemplates
+  scope: Cluster
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: images.caching.internal.knative.dev
+spec:
+  group: caching.internal.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - caching
+    kind: Image
+    plural: images
+    shortNames:
+    - img
+    singular: image
   scope: Namespaced
   version: v1alpha1
 ---
@@ -168,6 +217,38 @@ spec:
     targetPort: 443
   selector:
     role: build-webhook
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: creds-init
+  namespace: knative-build
+spec:
+  image: gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:9188a0c6d9fc55b17eea5b94e607ac7aaa28c45b3e696093dc74fa47d71300a8
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: git-init
+  namespace: knative-build
+spec:
+  image: gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:d248a2a92496f1bf510e285648fa7a235abf7fee06167976fbc0761298a65c15
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: gcs-fetcher
+  namespace: knative-build
+spec:
+  image: gcr.io/cloud-builders/gcs-fetcher
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: nop
+  namespace: knative-build
+spec:
+  image: gcr.io/knative-releases/github.com/knative/build/cmd/nop@sha256:e9e55ff57f9effb6a012468cc8b50db2afff0ecec92b95ee00951a4a3fdea38e
 ---
 apiVersion: v1
 data:
@@ -219,18 +300,25 @@ spec:
     spec:
       containers:
       - args:
-        - -builder
-        - cluster
         - -logtostderr
         - -stderrthreshold
         - INFO
         - -creds-image
-        - gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:b5dff24742c5c8ac4673dc991e3f960d11b58efdf751d26c54ec5144c48eef30
+        - gcr.io/knative-releases/github.com/knative/build/cmd/creds-init@sha256:9188a0c6d9fc55b17eea5b94e607ac7aaa28c45b3e696093dc74fa47d71300a8
         - -git-image
-        - gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:fe0d19e5da3fc9e7da20abc13d032beafcc283358a8325188dced62536a66e54
-        image: gcr.io/knative-releases/github.com/knative/build/cmd/controller@sha256:3981b19105aabf3ed66db38c15407dc7accf026f4f4703d7e0ca7986ffd37d99
+        - gcr.io/knative-releases/github.com/knative/build/cmd/git-init@sha256:d248a2a92496f1bf510e285648fa7a235abf7fee06167976fbc0761298a65c15
+        - -nop-image
+        - gcr.io/knative-releases/github.com/knative/build/cmd/nop@sha256:e9e55ff57f9effb6a012468cc8b50db2afff0ecec92b95ee00951a4a3fdea38e
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/controller@sha256:e44facb78d3be5b4e76e7a48e5b071b6b5fddde5e288814ae8334ad7d3a68901
         name: build-controller
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
       serviceAccountName: build-controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -247,12 +335,10 @@ spec:
     spec:
       containers:
       - args:
-        - -builder
-        - cluster
         - -logtostderr
         - -stderrthreshold
         - INFO
-        image: gcr.io/knative-releases/github.com/knative/build/cmd/webhook@sha256:b9a97b7d360e10e540edfc9329e4f1c01832e58bf57d5dddea5c3a664f64bfc6
+        image: gcr.io/knative-releases/github.com/knative/build/cmd/webhook@sha256:ae85e09efead23b505319d139b0dd7d20af1701b704ddd17fc0901c106b801c6
         name: build-webhook
         volumeMounts:
         - mountPath: /etc/config-logging

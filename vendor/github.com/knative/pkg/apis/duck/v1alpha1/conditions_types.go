@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
@@ -121,6 +122,9 @@ type KResourceStatus struct {
 // In order for Conditions to be Implementable, KResource must be Populatable.
 var _ duck.Populatable = (*KResource)(nil)
 
+// Ensure KResource satisfies apis.Listable
+var _ apis.Listable = (*KResource)(nil)
+
 // GetFullType implements duck.Implementable
 func (_ *Conditions) GetFullType() duck.Populatable {
 	return &KResource{}
@@ -136,6 +140,11 @@ func (t *KResource) Populate() {
 		Reason:             "Celebrate",
 		Message:            "n3wScott, find your party hat :tada:",
 	}}
+}
+
+// GetListType implements apis.Listable
+func (r *KResource) GetListType() runtime.Object {
+	return &KResourceList{}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

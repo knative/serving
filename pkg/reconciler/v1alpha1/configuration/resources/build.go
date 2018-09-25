@@ -17,24 +17,53 @@ limitations under the License.
 package resources
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
+func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
-	return &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       config.Namespace,
-			Name:            names.Build(config),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(config)},
-		},
-		Spec: *config.Spec.Build,
+	u := WithBuildSpec(config.Spec.Build)
+
+	u.SetNamespace(config.Namespace)
+	u.SetName(names.Build(config))
+	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
+	return u
+}
+
+func WithBuildSpec(build *unstructured.Unstructured) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+
+	spec, ok := build.Object["spec"]
+	if !ok {
+		s := build.DeepCopy().Object
+		delete(s, "apiVersion")
+		delete(s, "kind")
+		spec = s
 	}
+	u.SetUnstructuredContent(map[string]interface{}{"spec": spec})
+
+	// Assume {apiVersion: build.knative.dev/v1alpha1, kind: Build} if not set
+	if build.GroupVersionKind().Empty() {
+		u.SetGroupVersionKind(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"})
+	} else {
+		u.SetGroupVersionKind(build.GroupVersionKind())
+	}
+
+	return u
+}
+
+func UnstructuredWithContent(content map[string]interface{}) *unstructured.Unstructured {
+	if content == nil {
+		return nil
+	}
+	u := &unstructured.Unstructured{}
+	u.SetUnstructuredContent(content)
+	return u.DeepCopy()
 }

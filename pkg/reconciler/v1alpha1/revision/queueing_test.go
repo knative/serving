@@ -49,7 +49,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
+func (r *nopResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
 	return nil
 }
 
@@ -143,7 +143,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher,
+	configMapWatcher *configmap.ManualWatcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 
 	// Create fake clients
@@ -153,46 +153,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
-	configMapWatcher = configmap.NewStaticWatcher(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      config.NetworkConfigName,
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      logging.ConfigName,
-		},
-		Data: map[string]string{
-			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
-			"loglevel.queueproxy": "info",
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      config.ObservabilityConfigName,
-		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         testFluentdImage,
-			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      autoscaler.ConfigName,
-		},
-		Data: map[string]string{
-			"max-scale-up-rate":                       "1.0",
-			"container-concurrency-target-percentage": "0.5",
-			"container-concurrency-target-default":    "10.0",
-			"stable-window":                           "5m",
-			"panic-window":                            "10s",
-			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
-			"tick-interval":                           "2s",
-		},
-	}, getTestControllerConfigMap())
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -223,6 +184,49 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	configs := []*corev1.ConfigMap{
+		getTestControllerConfigMap(),
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      config.NetworkConfigName,
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      logging.ConfigName,
+			},
+			Data: map[string]string{
+				"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+				"loglevel.queueproxy": "info",
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         testFluentdImage,
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      autoscaler.ConfigName,
+			},
+			Data: map[string]string{
+				"max-scale-up-rate":                       "1.0",
+				"container-concurrency-target-percentage": "0.5",
+				"container-concurrency-target-default":    "10.0",
+				"stable-window":                           "5m",
+				"panic-window":                            "10s",
+				"scale-to-zero-threshold":                 "10m",
+				"concurrency-quantum-of-time":             "100ms",
+				"tick-interval":                           "2s",
+			}},
+	}
+
+	for _, configMap := range configs {
+		configMapWatcher.OnChange(configMap)
+	}
 
 	return
 }

@@ -17,13 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
 
@@ -57,8 +56,19 @@ var _ apis.Defaultable = (*Route)(nil)
 // Check that we can create OwnerReferences to a Route.
 var _ kmeta.OwnerRefable = (*Route)(nil)
 
+// Check that Route implements the Conditions duck type.
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Conditions{})
+
+// Check that Route implements the [Legacy]Targetable duck type.
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.LegacyTargetable{})
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Targetable{})
+
+// Check that Route implements the Generation duck type.
+var emptyGenRoute duckv1alpha1.Generation
+var _ = duck.VerifyType(&Route{}, &emptyGenRoute)
+
 // Check that RouteStatus may have its conditions managed.
-var _ duck.ConditionsAccessor = (*RouteStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
@@ -103,15 +113,15 @@ type RouteSpec struct {
 const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	RouteConditionReady = duck.ConditionReady
+	RouteConditionReady = duckv1alpha1.ConditionReady
 
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
-	RouteConditionAllTrafficAssigned duck.ConditionType = "AllTrafficAssigned"
+	RouteConditionAllTrafficAssigned duckv1alpha1.ConditionType = "AllTrafficAssigned"
 )
 
-var routeCondSet = duck.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
+var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -123,8 +133,13 @@ type RouteStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPRECATED: Use Targetable instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Targetable holds the information needed for a Route to be the target of an event.
+	// +optional
+	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
@@ -137,7 +152,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions duck.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -156,18 +171,6 @@ type RouteList struct {
 	Items []Route `json:"items"`
 }
 
-func (r *Route) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Route) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Route) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
-}
-
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
 }
@@ -176,15 +179,8 @@ func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *RouteStatus) GetCondition(t duck.ConditionType) *duck.Condition {
+func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return routeCondSet.Manage(rs).GetCondition(t)
-}
-
-// This is kept for unit test integration
-func (rs *RouteStatus) setCondition(new *duck.Condition) {
-	if new != nil {
-		routeCondSet.Manage(rs).SetCondition(*new)
-	}
 }
 
 func (rs *RouteStatus) InitializeConditions() {
@@ -230,13 +226,13 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *RouteStatus) GetConditions() duck.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *RouteStatus) SetConditions(conditions duck.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }

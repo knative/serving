@@ -21,8 +21,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -32,7 +32,7 @@ func TestBuilds(t *testing.T) {
 	tests := []struct {
 		name          string
 		configuration *v1alpha1.Configuration
-		want          *buildv1alpha1.Build
+		want          *unstructured.Unstructured
 	}{{
 		name: "no build",
 		configuration: &v1alpha1.Configuration{
@@ -52,19 +52,14 @@ func TestBuilds(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "simple build",
+		name: "nil build",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "simple",
+				Namespace: "no",
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 31,
-				Build: &buildv1alpha1.BuildSpec{
-					Steps: []corev1.Container{{
-						Image: "busybox",
-					}},
-				},
+				Build: UnstructuredWithContent(nil),
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -74,24 +69,97 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 		},
-		want: &buildv1alpha1.Build{
+		want: nil,
+	}, {
+		name: "simple build",
+		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "simple",
-				Name:      "build-00031",
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "build",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
-				}},
+				Name:      "build",
 			},
-			Spec: buildv1alpha1.BuildSpec{
-				Steps: []corev1.Container{{
-					Image: "busybox",
-				}},
+			Spec: v1alpha1.ConfigurationSpec{
+				Generation: 31,
+				Build: UnstructuredWithContent(map[string]interface{}{
+					"steps": []interface{}{map[string]interface{}{
+						"image": "busybox",
+					}},
+				}),
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
 			},
 		},
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-00031",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
+				}},
+			},
+			"spec": map[string]interface{}{
+				"steps": []interface{}{map[string]interface{}{
+					"image": "busybox",
+				}},
+			},
+		}),
+	}, {
+		name: "simple build with type meta",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "simple",
+				Name:      "build",
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				Generation: 31,
+				Build: UnstructuredWithContent(map[string]interface{}{
+					"apiVersion": "foo.knative.dev/v1alfoo1",
+					"kind":       "Foo",
+					"steps": []interface{}{map[string]interface{}{
+						"image": "busybox",
+					}},
+				}),
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "foo.knative.dev/v1alfoo1",
+			"kind":       "Foo",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-00031",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
+				}},
+			},
+			"spec": map[string]interface{}{
+				"steps": []interface{}{map[string]interface{}{
+					"image": "busybox",
+				}},
+			},
+		}),
 	}, {
 		name: "simple build with template",
 		configuration: &v1alpha1.Configuration{
@@ -101,15 +169,15 @@ func TestBuilds(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 42,
-				Build: &buildv1alpha1.BuildSpec{
-					Template: &buildv1alpha1.TemplateInstantiationSpec{
-						Name: "buildpacks",
-						Arguments: []buildv1alpha1.ArgumentSpec{{
-							Name:  "foo",
-							Value: "bar",
+				Build: UnstructuredWithContent(map[string]interface{}{
+					"template": map[string]interface{}{
+						"name": "buildpacks",
+						"arguments": []interface{}{map[string]interface{}{
+							"name":  "foo",
+							"value": "bar",
 						}},
 					},
-				},
+				}),
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -119,28 +187,31 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 		},
-		want: &buildv1alpha1.Build{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "simple",
-				Name:      "build-template-00042",
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "build-template",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-template-00042",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build-template",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
 				}},
 			},
-			Spec: buildv1alpha1.BuildSpec{
-				Template: &buildv1alpha1.TemplateInstantiationSpec{
-					Name: "buildpacks",
-					Arguments: []buildv1alpha1.ArgumentSpec{{
-						Name:  "foo",
-						Value: "bar",
+			"spec": map[string]interface{}{
+				"template": map[string]interface{}{
+					"name": "buildpacks",
+					"arguments": []interface{}{map[string]interface{}{
+						"name":  "foo",
+						"value": "bar",
 					}},
 				},
 			},
-		},
+		}),
 	}}
 
 	for _, test := range tests {

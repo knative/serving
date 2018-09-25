@@ -30,7 +30,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: activationResult{
+			revisionID{testNamespace, testConfiguration, testRevision}: {
 				endpoint: want,
 				status:   Status(0),
 				err:      nil,
@@ -58,7 +58,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: activationResult{
+			revisionID{testNamespace, testConfiguration, testRevision}: {
 				endpoint: ep,
 				status:   Status(0),
 				err:      nil,
@@ -67,13 +67,13 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
-		revisionID{testNamespace, testConfiguration, testRevision},
-		revisionID{testNamespace, testConfiguration, testRevision},
+		{testNamespace, testConfiguration, testRevision},
+		{testNamespace, testConfiguration, testRevision},
 	})
 
 	want := []activationResult{
-		activationResult{ep, Status(0), nil},
-		activationResult{ep, Status(0), nil},
+		{ep, Status(0), nil},
+		{ep, Status(0), nil},
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("Unexpected results. Wanted %+v. Got %+v.", want, got)
@@ -93,12 +93,12 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 	ep2 := Endpoint{"ip2", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, "rev1"}: activationResult{
+			revisionID{testNamespace, testConfiguration, "rev1"}: {
 				endpoint: ep1,
 				status:   Status(0),
 				err:      nil,
 			},
-			revisionID{testNamespace, testConfiguration, "rev2"}: activationResult{
+			revisionID{testNamespace, testConfiguration, "rev2"}: {
 				endpoint: ep2,
 				status:   Status(0),
 				err:      nil,
@@ -107,17 +107,17 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
-		revisionID{testNamespace, testConfiguration, "rev1"},
-		revisionID{testNamespace, testConfiguration, "rev2"},
-		revisionID{testNamespace, testConfiguration, "rev1"},
-		revisionID{testNamespace, testConfiguration, "rev2"},
+		{testNamespace, testConfiguration, "rev1"},
+		{testNamespace, testConfiguration, "rev2"},
+		{testNamespace, testConfiguration, "rev1"},
+		{testNamespace, testConfiguration, "rev2"},
 	})
 
 	want := []activationResult{
-		activationResult{ep1, Status(0), nil},
-		activationResult{ep2, Status(0), nil},
-		activationResult{ep1, Status(0), nil},
-		activationResult{ep2, Status(0), nil},
+		{ep1, Status(0), nil},
+		{ep2, Status(0), nil},
+		{ep1, Status(0), nil},
+		{ep2, Status(0), nil},
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
@@ -138,12 +138,12 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	error2 := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, "rev1"}: activationResult{
+			revisionID{testNamespace, testConfiguration, "rev1"}: {
 				endpoint: ep1,
 				status:   Status(0),
 				err:      nil,
 			},
-			revisionID{testNamespace, testConfiguration, "rev2"}: activationResult{
+			revisionID{testNamespace, testConfiguration, "rev2"}: {
 				endpoint: Endpoint{},
 				status:   status2,
 				err:      error2,
@@ -152,17 +152,17 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
-		revisionID{testNamespace, testConfiguration, "rev1"},
-		revisionID{testNamespace, testConfiguration, "rev2"},
-		revisionID{testNamespace, testConfiguration, "rev1"},
-		revisionID{testNamespace, testConfiguration, "rev2"},
+		{testNamespace, testConfiguration, "rev1"},
+		{testNamespace, testConfiguration, "rev2"},
+		{testNamespace, testConfiguration, "rev1"},
+		{testNamespace, testConfiguration, "rev2"},
 	})
 
 	want := []activationResult{
-		activationResult{ep1, Status(0), nil},
-		activationResult{Endpoint{}, status2, error2},
-		activationResult{ep1, Status(0), nil},
-		activationResult{Endpoint{}, status2, error2},
+		{ep1, Status(0), nil},
+		{Endpoint{}, status2, error2},
+		{ep1, Status(0), nil},
+		{Endpoint{}, status2, error2},
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
@@ -182,7 +182,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	failErr := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: activationResult{
+			revisionID{testNamespace, testConfiguration, testRevision}: {
 				endpoint: failEp,
 				status:   failStatus,
 				err:      failErr,
@@ -239,7 +239,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: activationResult{
+			revisionID{testNamespace, testConfiguration, testRevision}: {
 				endpoint: ep,
 				status:   Status(0),
 				err:      nil,

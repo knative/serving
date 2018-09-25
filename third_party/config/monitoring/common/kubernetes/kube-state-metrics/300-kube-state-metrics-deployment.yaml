@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   replicas: 1
   template:

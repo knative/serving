@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-kubernetes-resource-requests
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   kubernetes-resource-requests-dashboard.json: |+
     {

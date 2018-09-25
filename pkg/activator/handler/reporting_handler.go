@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/activator"
+	pkghttp "github.com/knative/serving/pkg/http"
 )
 
 // ReportingHTTPHandler will forward request & response metrics
@@ -29,9 +30,10 @@ type ReportingHTTPHandler struct {
 }
 
 func (h *ReportingHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
-	name := r.Header.Get(activator.RevisionHeaderName)
-	config := r.Header.Get(activator.ConfigurationHeader)
+	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
+	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
+	config := pkghttp.LastHeaderValue(r.Header, activator.ConfigurationHeader)
+
 	start := time.Now()
 
 	capture := &statusCapture{
