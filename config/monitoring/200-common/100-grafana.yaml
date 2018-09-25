@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-datasources
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   prometheus.yaml: |+
     datasources:
@@ -32,7 +32,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   dashboards.yaml: |+
     - name: 'knative'
@@ -130,7 +130,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: knative-monitoring
   labels:
     app: grafana
 spec:
@@ -146,7 +146,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   replicas: 1
   template:

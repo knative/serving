@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-knative-efficiency
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   knative-control-plane-efficiency-dashboard.json: |+
     {
@@ -121,11 +121,11 @@ data:
               "refId": "E"
             },
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"monitoring\"}[1m]))",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"knative-monitoring\"}[1m]))",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 1,
-              "legendFormat": "monitoring",
+              "legendFormat": "knative-monitoring",
               "refId": "B"
             }
           ],
@@ -246,11 +246,11 @@ data:
               "refId": "E"
             },
             {
-              "expr": "sum(container_memory_usage_bytes{namespace=\"monitoring\"})",
+              "expr": "sum(container_memory_usage_bytes{namespace=\"knative-monitoring\"})",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 1,
-              "legendFormat": "monitoring",
+              "legendFormat": "knative-monitoring",
               "refId": "B"
             }
           ],
@@ -330,7 +330,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace!~\"knative-serving|monitoring|knative-build|istio-system|kube-system|kube-public|^$\"}[1m]))",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace!~\"knative-serving|knative-monitoring|knative-build|istio-system|kube-system|kube-public|^$\"}[1m]))",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -338,7 +338,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"knative-serving|monitoring|knative-build|istio-system|kube-system|kube-public\"}[1m]))",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"knative-serving|knative-monitoring|knative-build|istio-system|kube-system|kube-public\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Control plane",
@@ -421,7 +421,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(container_memory_usage_bytes{namespace!~\"knative-serving|monitoring|knative-build|istio-system|kube-system|kube-public|^$\"})",
+              "expr": "sum(container_memory_usage_bytes{namespace!~\"knative-serving|knative-monitoring|knative-build|istio-system|kube-system|kube-public|^$\"})",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -429,7 +429,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "sum(container_memory_usage_bytes{namespace=~\"knative-serving|monitoring|knative-build|istio-system|kube-system|kube-public\"})",
+              "expr": "sum(container_memory_usage_bytes{namespace=~\"knative-serving|knative-monitoring|knative-build|istio-system|kube-system|kube-public\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Control plane",
