@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -1472,6 +1473,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
+			tracker:              &rtesting.NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},

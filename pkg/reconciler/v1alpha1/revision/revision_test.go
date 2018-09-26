@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
@@ -55,7 +54,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -495,86 +493,6 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
 	if updatedRev.Status.LogURL != expectedLoggingURL {
 		t.Errorf("Updated revision does not have an updated logging URL: expected: %s, got: %s", expectedLoggingURL, updatedRev.Status.LogURL)
-	}
-}
-
-// TODO(mattmoor): Remove when we have coverage of EnqueueBuildTrackers
-func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, buildClient, servingClient, cachingClient, _, controller, kubeInformer, buildInformer, servingInformer, cachingInformer, _, _ := newTestController(t)
-
-	h := NewHooks()
-	// Look for the build complete event. Events are delivered asynchronously so
-	// we need to use hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
-		event := obj.(*corev1.Event)
-		if wanted, got := "BuildSucceeded", event.Reason; wanted != got {
-			t.Errorf("unexpected event reason: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return HookComplete
-	})
-
-	bld := &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      "foo",
-		},
-		Spec: buildv1alpha1.BuildSpec{
-			Steps: []corev1.Container{{
-				Name:    "nop",
-				Image:   "busybox:latest",
-				Command: []string{"/bin/sh"},
-				Args:    []string{"-c", "echo Hello"},
-			}},
-		},
-	}
-	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	rev := getTestRevision()
-	// Direct the Revision to wait for this build to complete.
-	rev.Spec.BuildName = bld.Name
-
-	rev = createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
-
-	// After the initial update to the revision, we should be
-	// watching for this build to complete, so make it complete
-	// successfully.
-	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   buildv1alpha1.BuildSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	f := controller.Reconciler.(*Reconciler).EnqueueBuildTrackers(controller)
-	f(bld)
-	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
-
-	// Make sure that the changes from the Reconcile are reflected in our Informers.
-	completedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
-
-	// The next update we receive should tell us that the build completed.
-	for _, ct := range []duckv1alpha1.ConditionType{"BuildSucceeded"} {
-		got := completedRev.Status.GetCondition(ct)
-		want := &duckv1alpha1.Condition{
-			Type:               ct,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	// Wait for events to be delivered.
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Error(err)
 	}
 }
 
