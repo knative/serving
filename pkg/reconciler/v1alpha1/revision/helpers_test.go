@@ -34,7 +34,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 	tests := []struct {
 		description string
 		build       *buildv1alpha1.Build
-		cond        *buildv1alpha1.BuildCondition
+		cond        *duckv1alpha1.Condition
 	}{{
 		// If there are no build conditions, we should get nil.
 		description: "no conditions",
@@ -44,7 +44,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		description: "build running",
 		build: &buildv1alpha1.Build{
 			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
+				Conditions: []duckv1alpha1.Condition{{
 					Type:   buildv1alpha1.BuildSucceeded,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -55,13 +55,13 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		description: "build succeeded",
 		build: &buildv1alpha1.Build{
 			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
+				Conditions: []duckv1alpha1.Condition{{
 					Type:   buildv1alpha1.BuildSucceeded,
 					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
-		cond: &buildv1alpha1.BuildCondition{
+		cond: &duckv1alpha1.Condition{
 			Type:   buildv1alpha1.BuildSucceeded,
 			Status: corev1.ConditionTrue,
 		},
@@ -70,7 +70,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		description: "build failed",
 		build: &buildv1alpha1.Build{
 			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
+				Conditions: []duckv1alpha1.Condition{{
 					Type:    buildv1alpha1.BuildSucceeded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "TheReason",
@@ -78,7 +78,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 				}},
 			},
 		},
-		cond: &buildv1alpha1.BuildCondition{
+		cond: &duckv1alpha1.Condition{
 			Type:    buildv1alpha1.BuildSucceeded,
 			Status:  corev1.ConditionTrue,
 			Reason:  "TheReason",

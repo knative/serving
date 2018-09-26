@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -84,11 +83,11 @@ func TestRevisions(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 99,
-				Build: &buildv1alpha1.BuildSpec{
-					Steps: []corev1.Container{{
-						Image: "busybox",
+				Build: UnstructuredWithContent(map[string]interface{}{
+					"steps": []interface{}{map[string]interface{}{
+						"image": "busybox",
 					}},
-				},
+				}),
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{

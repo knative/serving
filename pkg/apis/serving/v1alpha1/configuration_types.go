@@ -17,11 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
-	build "github.com/knative/build/pkg/apis/build/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
@@ -66,6 +63,10 @@ var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
 // Check that Configuration implements the Conditions duck type.
 var _ = duck.VerifyType(&Configuration{}, &duckv1alpha1.Conditions{})
 
+// Check that Configuration implements the Generation duck type.
+var emptyGenConfig duckv1alpha1.Generation
+var _ = duck.VerifyType(&Configuration{}, &emptyGenConfig)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -78,7 +79,7 @@ type ConfigurationSpec struct {
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
 	// +optional
-	Build *build.BuildSpec `json:"build,omitempty"`
+	Build *unstructured.Unstructured `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the
@@ -129,18 +130,6 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
-}
-
-func (r *Configuration) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Configuration) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Configuration) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {

@@ -31,6 +31,7 @@ import (
 
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -104,6 +105,11 @@ func main() {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building build clientset: %v", err)
+	}
+
 	cachingClient, err := cachingclientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building caching clientset: %v", err)
@@ -119,8 +125,6 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
-	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
-		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
@@ -130,7 +134,7 @@ func main() {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		CachingClientSet: cachingClient,
-		BuildClientSet:   buildClient,
+		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}
@@ -195,7 +199,6 @@ func main() {
 	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
-	servingSystemInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)

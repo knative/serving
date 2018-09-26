@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-kubernetes-nodes
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   kubernetes-nodes-dashboard.json: |+
     {

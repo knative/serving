@@ -19,7 +19,6 @@ package configuration
 import (
 	"testing"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -27,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -40,13 +40,13 @@ var (
 			Image: "busybox",
 		},
 	}
-	buildSpec = buildv1alpha1.BuildSpec{
-		Steps: []corev1.Container{{
-			Image: "build-step1",
-		}, {
-			Image: "build-step2",
+	buildSpec = *resources.UnstructuredWithContent(map[string]interface{}{
+		"steps": []interface{}{map[string]interface{}{
+			"image": "build-step1",
+		}, map[string]interface{}{
+			"image": "build-step2",
 		}},
-	}
+	})
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -346,7 +346,7 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
+func cfgWithBuildAndStatus(name, namespace string, generation int64, build *unstructured.Unstructured, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -367,7 +367,7 @@ func cfgWithStatus(name, namespace string, generation int64, status v1alpha1.Con
 	return cfgWithBuildAndStatus(name, namespace, generation, nil, status)
 }
 
-func cfgWithBuild(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec) *v1alpha1.Configuration {
+func cfgWithBuild(name, namespace string, generation int64, build *unstructured.Unstructured) *v1alpha1.Configuration {
 	return cfgWithBuildAndStatus(name, namespace, generation, build, v1alpha1.ConfigurationStatus{})
 }
 

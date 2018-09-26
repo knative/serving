@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // ResourceNames holds names of various resources.
@@ -56,7 +56,7 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{
-				v1alpha1.TrafficTarget{
+				{
 					Name:              names.TrafficTarget,
 					ConfigurationName: names.Config,
 					Percent:           100,
@@ -113,7 +113,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 	return config
 }
 
-func ConfigurationWithBuild(namespace string, names ResourceNames, build *buildv1alpha1.BuildSpec, imagePath string) *v1alpha1.Configuration {
+func ConfigurationWithBuild(namespace string, names ResourceNames, build *unstructured.Unstructured, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,

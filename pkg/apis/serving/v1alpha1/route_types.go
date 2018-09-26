@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -60,6 +58,14 @@ var _ kmeta.OwnerRefable = (*Route)(nil)
 
 // Check that Route implements the Conditions duck type.
 var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Conditions{})
+
+// Check that Route implements the [Legacy]Targetable duck type.
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.LegacyTargetable{})
+var _ = duck.VerifyType(&Route{}, &duckv1alpha1.Targetable{})
+
+// Check that Route implements the Generation duck type.
+var emptyGenRoute duckv1alpha1.Generation
+var _ = duck.VerifyType(&Route{}, &emptyGenRoute)
 
 // Check that RouteStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
@@ -127,8 +133,13 @@ type RouteStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPRECATED: Use Targetable instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Targetable holds the information needed for a Route to be the target of an event.
+	// +optional
+	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
@@ -158,18 +169,6 @@ type RouteList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Route `json:"items"`
-}
-
-func (r *Route) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Route) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Route) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
 }
 
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
