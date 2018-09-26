@@ -338,7 +338,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:95c2ff130db0410dc9735905cecff862352a3981c6ed048d83fd959ed19fc16a"
+  digest = "1:23908b10c938e633d39e51085155eb82f865284d6536d94ff226828a7d867ec5"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -377,11 +377,11 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
+  revision = "2b6bdaba3b747205139b1202168523306cdfd333"
 
 [[projects]]
   branch = "master"
-  digest = "1:1ccb9e910c60212edce8b7f3fb055ddf1330d307be5c31798558a62b94cc2fba"
+  digest = "1:a9ea78781269ac2d55fee8ae896208679a5b6a60d4c66077b756afb882a34f30"
   name = "github.com/knative/test-infra"
   packages = ["."]
   pruneopts = "T"
@@ -529,7 +529,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:25531f2a1f9e75b832a945c670bf84f8caf5bd0fe8d8ad5bab5f13e162680922"
+  digest = "1:5ab79d2a36037de1ab2908733a2cab0c08b12f6956e3e1eab07cd1b2abf7b903"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -537,11 +537,12 @@
     "internal/bufferpool",
     "internal/color",
     "internal/exit",
+    "internal/ztest",
     "zapcore",
+    "zaptest",
   ]
   pruneopts = "NUT"
-  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
-  version = "v1.8.0"
+  revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 
 [[projects]]
   branch = "master"

@@ -17,21 +17,12 @@ limitations under the License.
 package duck
 
 import (
-	"encoding/json"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
-// Marshallable is implementated by the Unstructured K8s types.
-type Marshalable interface {
-	MarshalJSON() ([]byte, error)
-}
-
-// FromUnstructured takes unstructured object from (say from client-go/dynamic) and
-// converts it into our duck types.
-func FromUnstructured(obj Marshalable, target interface{}) error {
-	// Use the unstructured marshaller to ensure it's proper JSON
-	raw, err := obj.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(raw, &target)
+// InformerFactory is used to create Informer/Lister pairs for a schema.GroupVersionResource
+type InformerFactory interface {
+	// Get returns a synced Informer/Lister pair for the provided schema.GroupVersionResource.
+	Get(schema.GroupVersionResource) (cache.SharedIndexInformer, cache.GenericLister, error)
 }

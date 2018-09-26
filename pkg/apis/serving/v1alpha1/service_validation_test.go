@@ -100,14 +100,14 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got both",
-			Paths:   []string{"spec.runLatest", "spec.pinned"},
+			Paths:   []string{"spec.pinned", "spec.runLatest"},
 		},
 	}, {
 		name: "invalid neither type",
 		s:    &Service{},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths:   []string{"spec.runLatest", "spec.pinned"},
+			Paths:   []string{"spec.pinned", "spec.runLatest"},
 		},
 	}, {
 		name: "invalid runLatest",
