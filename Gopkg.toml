@@ -34,7 +34,9 @@ required = [
 [[override]]
   name = "github.com/knative/pkg"
   # HEAD as of 2018-09-25
-  revision = "d77de96af3240f2939b3e23ac0c07174f6460cf9"
+  #revision = "d77de96af3240f2939b3e23ac0c07174f6460cf9"
+  revision = "16f7398fbaf48bc0c27a124771692a4c58b7c5ba"
+  source = "https://github.com/mattmoor/pkg-1.git"
 
 [[constraint]]
   name = "github.com/knative/caching"
