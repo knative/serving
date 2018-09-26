@@ -200,17 +200,17 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
+	// Do nothing when we have no data.
+	if stableData.observedPods() == 0 {
+		logger.Debug("No data to scale on.")
+		return 0, false
+	}
+
 	// Scale to zero if the last request is from too long ago
 	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
 		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
 		a.scaleToZeroThresholdExceeded = true
 		return 0, true
-	}
-
-	// Do nothing when we have no data.
-	if stableData.observedPods() == 0 {
-		logger.Debug("No data to scale on.")
-		return 0, false
 	}
 
 	// Log system totals
