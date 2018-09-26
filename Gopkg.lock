@@ -338,7 +338,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:23908b10c938e633d39e51085155eb82f865284d6536d94ff226828a7d867ec5"
+  digest = "1:bb0d9a254188eef28253a4313ee16caa1f831bb430d008157e7989bbb5002ab6"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -374,10 +374,12 @@
     "test",
     "test/logging",
     "test/spoof",
+    "tracker",
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "2b6bdaba3b747205139b1202168523306cdfd333"
+  revision = "16f7398fbaf48bc0c27a124771692a4c58b7c5ba"
+  source = "github.com/mattmoor/pkg-1"
 
 [[projects]]
   branch = "master"
@@ -1090,6 +1092,7 @@
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra",
     "github.com/mattbaird/jsonpatch",
