@@ -114,7 +114,8 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 	currentScale := scl.Spec.Replicas
 
-	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
+	// Scale to zero.  When scaling to zero, flip the revision's
+	// ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		logger.Debug("Setting revision ServingState to Reserve.")
 		revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
@@ -131,21 +132,25 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return nil
 	}
 
-	// When ServingState=Reserve (see above) propagates to us, then actually scale
-	// things to zero.
-	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		// Delay the scale to zero until the LTT of "Active=False" is some time in the past.
+	switch kpa.Spec.ServingState {
+	case v1alpha1.RevisionServingStateActive:
+		// Scale from zero.  When there are no metrics and
+		// desired state is Active, scale to 1.
+		if currentScale == 0 && desiredScale == -1 {
+			logger.Debugf("Scaling up from 0 to 1")
+			desiredScale = 1
+		}
+	default:
+		// Scale to zero grace period.  When revision
+		// ServingState=Reserve (see above) propagates to us,
+		// then actually scale things to zero.
+		// Delay the scale to zero until the LTT of
+		// "Active=False" is some time in the past.
 		if !kpa.Status.CanScaleToZero(rs.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
 			return nil
 		}
 		desiredScale = 0
-	}
-
-	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && currentScale == 0 {
-		// When ServingState=Active propagates to us and we are scaled to zero, scale up to 1.
-		logger.Debugf("Scaling up from 0 to 1")
-		desiredScale = 1
 	}
 
 	if desiredScale < 0 {

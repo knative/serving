@@ -121,7 +121,23 @@ func TestKPAScaler(t *testing.T) {
 			}}
 		},
 	}, {
-		label:         "does not scale up from zero",
+		label:         "scales up from zero with no metrics",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 0,
+		scaleTo:       -1, // no metrics
+		wantState:     v1alpha1.RevisionServingStateActive,
+		wantReplicas:  1,
+		wantScaling:   true,
+	}, {
+		label:         "scales up from zero to desired one",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 0,
+		scaleTo:       1,
+		wantState:     v1alpha1.RevisionServingStateActive,
+		wantReplicas:  1,
+		wantScaling:   true,
+	}, {
+		label:         "scales up from zero to desired high scale",
 		startState:    v1alpha1.RevisionServingStateActive,
 		startReplicas: 0,
 		scaleTo:       10,
