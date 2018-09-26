@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,39 +56,51 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 }
 
 func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, want int, domain string) error {
-	concurrentRequests := make(chan bool, want)
+	successfulRequests := make(chan bool, want)
 
 	logger.Infof("Performing %d concurrent requests.", want)
+	var wg sync.WaitGroup
 	for i := 0; i < want; i++ {
+		wg.Add(1)
 		go func() {
-			res, err := pkgTest.WaitForEndpointState(clients.KubeClient,
-				logger,
-				domain,
-				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
-				"MakingConcurrentRequests",
-				test.ServingFlags.ResolvableDomain)
+			defer wg.Done()
+			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				logger.Errorf("Unsuccessful request: %v", err)
-				if res != nil {
-					logger.Errorf("Response headers: %v", res.Header)
-				} else {
-					logger.Errorf("Nil response. No response headers to show.")
-				}
+				logger.Errorf("error creating spoofing client %v", err)
+				return
 			}
-			concurrentRequests <- err == nil
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			if err != nil {
+				logger.Errorf("error creating request %v", err)
+				return
+			}
+			res, err := client.Do(req)
+			if err != nil {
+				logger.Errorf("error making request %v", err)
+				return
+			}
+			if res.StatusCode != http.StatusOK {
+				logger.Errorf("non 200 response %v", res.StatusCode)
+				logger.Errorf("response headers: %v", res.Header)
+				logger.Errorf("response body: %v", res.Body)
+				return
+			}
+			successfulRequests <- true
 		}()
 	}
 
 	logger.Infof("Waiting for all requests to complete.")
+	wg.Wait()
+	close(successfulRequests)
+	logger.Infof("All requests completed. Checking results.")
 	got := 0
-	for i := 0; i < want; i++ {
-		if <-concurrentRequests {
-			got++
-		}
+	for _ = range successfulRequests {
+		got++
 	}
 	if got != want {
 		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.", got, want)
 	}
+	logger.Infof("Got all successful responses.")
 	return nil
 }
 
@@ -200,6 +213,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
+	logger.Info("Waiting for scale up")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -216,6 +230,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
 		    faster testing.`)
 
+	logger.Infof("Waiting for scale to zero")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
