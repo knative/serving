@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sync"
+	"time"
 )
 
 // Algorithm from https://stackoverflow.com/a/21854246
@@ -74,9 +76,21 @@ func primes(N int) []int {
 func handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	p := primes(40000000)
-	largest := p[len(p)-1]
-	fmt.Fprintf(w, "The largest prime under 40000000 is %d. Enjoy your noodles!", largest)
+	wg.Add(2)
+	var wg sync.WaitGroup
+	go func() {
+		defer wg.Done()
+		p := primes(40000000)
+		largest := p[len(p)-1]
+		fmt.Fprintf(w, "The largest prime under 40000000 is %d. Enjoy your noodles!", largest)
+	}()
+	go func() {
+		defer wg.Done()
+		start := time.Now()
+		time.Sleep(time.Second)
+		fmt.Fprintf(w, "Slept for %v.", time.Since(start))
+	}()
+	wg.Wait()
 }
 
 func main() {
