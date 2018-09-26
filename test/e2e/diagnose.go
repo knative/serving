@@ -19,31 +19,50 @@ func DiagnoseMeEvery(duration time.Duration, clients *test.Clients, logger *logg
 				return
 			default:
 			}
-			if diagnosis := DiagnoseMe(clients); len(diagnosis) != 0 {
-				logger.Errorf("diagnosis: %v", diagnosis)
-			}
+			DiagnoseMe(clients, logger)
 			time.Sleep(duration)
 		}
 	}()
 	return stopChan
 }
 
-func DiagnoseMe(clients *test.Clients) []string {
-	diagnosis := make([]string, 0)
-	if msg := checkUnschedulablePods(clients); msg != "" {
-		diagnosis = append(diagnosis, msg)
+func DiagnoseMe(clients *test.Clients, logger *logging.BaseLogger) {
+	if clients == nil || clients.KubeClient == nil || clients.KubeClient.Kube == nil {
+		logger.Errorf(fmt.Sprintf("could not diagnose: nil kube client"))
+		return
 	}
-	return diagnosis
+
+	for _, check := range []func(*test.Clients, *logging.BaseLogger){
+		checkCurrentPodCount,
+		checkUnschedulablePods,
+	} {
+		check(clients, logger)
+	}
 }
 
-func checkUnschedulablePods(clients *test.Clients) string {
-	if clients == nil || clients.KubeClient == nil || clients.KubeClient.Kube == nil {
-		return fmt.Sprintf("could not check unschedulable pods: nil kube client")
-	}
-	kube := clients.KubeClient.Kube
-	pods, err := kube.CoreV1().Pods("serving-tests").List(metav1.ListOptions{})
+func checkCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
+	revs, err := clients.ServingClient.Revisions.List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Sprintf("could not check unschedulable pods: %v", err)
+		logger.Errorf(fmt.Sprintf("could not check current pod count: %v", err))
+		return
+	}
+	for _, r := range revs.Items {
+		deploymentName := r.Name + "-deployment"
+		dep, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(deploymentName, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf(fmt.Sprintf("could not get deployment %v", deploymentName))
+			continue
+		}
+		logger.Infof("current pod count for %v: %v", deploymentName, *dep.Spec.Replicas)
+	}
+}
+
+func checkUnschedulablePods(clients *test.Clients, logger *logging.BaseLogger) {
+	kube := clients.KubeClient.Kube
+	pods, err := kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		logger.Errorf(fmt.Sprintf("could not check unschedulable pods: %v", err))
+		return
 	}
 	totalPods := 0
 	unschedulablePods := 0
@@ -57,8 +76,7 @@ func checkUnschedulablePods(clients *test.Clients) string {
 		}
 	}
 	if unschedulablePods != 0 {
-		return fmt.Sprintf("%v out of %v pods are unschedulable. insufficient cluster capacity?",
-			unschedulablePods, totalPods)
+		logger.Errorf(fmt.Sprintf("%v out of %v pods are unschedulable. insufficient cluster capacity?",
+			unschedulablePods, totalPods))
 	}
-	return ""
 }

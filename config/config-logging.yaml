@@ -46,7 +46,7 @@ data:
   # changes are be picked up immediately.
   # For autoscaler and queue proxy, changes require recreation of the pods.
   loglevel.controller: "info"
-  loglevel.autoscaler: "info"
+  loglevel.autoscaler: "debug"
   loglevel.queueproxy: "info"
   loglevel.webhook: "info"
   loglevel.activator: "info"
