@@ -119,6 +119,17 @@ type KResourceStatus struct {
 	Conditions Conditions `json:"conditions,omitempty"`
 }
 
+func (krs *KResourceStatus) GetConditions() Conditions {
+	return krs.Conditions
+}
+
+func (krs *KResourceStatus) SetConditions(conditions Conditions) {
+	krs.Conditions = conditions
+}
+
+// Ensure KResourceStatus satisfies ConditionsAccessor
+var _ ConditionsAccessor = (*KResourceStatus)(nil)
+
 // In order for Conditions to be Implementable, KResource must be Populatable.
 var _ duck.Populatable = (*KResource)(nil)
 

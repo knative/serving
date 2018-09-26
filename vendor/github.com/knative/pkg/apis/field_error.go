@@ -18,6 +18,7 @@ package apis
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -60,6 +61,7 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 		for _, oldPath := range e.Paths {
 			newPaths = append(newPaths, flatten(append(prefix, oldPath)))
 		}
+		sort.Slice(newPaths, func(i, j int) bool { return newPaths[i] < newPaths[j] })
 		e.Paths = newPaths
 
 		// Append the mutated error to the errors list.
@@ -137,6 +139,7 @@ func (fe *FieldError) getNormalizedErrors() []FieldError {
 	for _, e := range fe.errors {
 		errors = append(errors, e.getNormalizedErrors()...)
 	}
+	sort.Slice(errors, func(i, j int) bool { return errors[i].Message < errors[j].Message })
 	return errors
 }
 

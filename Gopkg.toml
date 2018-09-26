@@ -33,8 +33,12 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-09-21
-  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
+  # HEAD as of 2018-09-26
+  revision = "2b6bdaba3b747205139b1202168523306cdfd333"
+
+[[override]]
+  name = "go.uber.org/zap"
+  revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 
 [[constraint]]
   name = "github.com/knative/caching"
