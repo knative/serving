@@ -53,7 +53,13 @@ func checkCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
 			logger.Errorf(fmt.Sprintf("could not get deployment %v", deploymentName))
 			continue
 		}
-		logger.Infof("current pod count for %v: %v", deploymentName, *dep.Spec.Replicas)
+		want := dep.Status.Replicas
+		have := dep.Status.ReadyReplicas
+		if have != want {
+			logger.Infof("deployment %v has %v pods. want %v.", deploymentName, have, want)
+		} else {
+			logger.Infof("deployment %v has %v pods.", deploymentName, have)
+		}
 	}
 }
 
