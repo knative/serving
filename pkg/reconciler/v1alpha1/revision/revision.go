@@ -123,6 +123,7 @@ func NewController(
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
+	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -179,7 +180,7 @@ func NewController(
 
 	c.buildInformerFactory = &duck.CachedInformerFactory{
 		Delegate: &duck.EnqueueInformerFactory{
-			Delegate: &duck.TypedInformerFactory{},
+			Delegate: buildInformerFactory,
 			EventHandler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    c.EnqueueBuildTrackers(impl),
 				UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers(impl)),

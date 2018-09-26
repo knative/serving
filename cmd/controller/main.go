@@ -21,6 +21,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 
 	"github.com/knative/pkg/controller"
@@ -118,6 +120,12 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
+	buildInformerFactory := &duck.TypedInformerFactory{
+		Client:       dynamicClient,
+		Type:         &v1alpha1.KResource{},
+		ResyncPeriod: time.Second * 30,
+		StopChannel:  stopCh,
+	}
 
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 
@@ -163,6 +171,7 @@ func main() {
 			endpointsInformer,
 			configMapInformer,
 			vpaInformer,
+			buildInformerFactory,
 		),
 		route.NewController(
 			opt,

@@ -24,6 +24,8 @@ import (
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -41,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
@@ -138,13 +141,15 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
+	dynamicClient *fakedynamicclientset.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher,
-	vpaInformer vpainformers.SharedInformerFactory) {
+	vpaInformer vpainformers.SharedInformerFactory,
+	buildInformerFactory *duck.TypedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -152,6 +157,13 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
+	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
+	buildInformerFactory = &duck.TypedInformerFactory{
+		Client:       dynamicClient,
+		Type:         &duckv1alpha1.KResource{},
+		ResyncPeriod: 0,
+		//StopChannel: nil,
+	}
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 
@@ -181,6 +193,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
+		buildInformerFactory,
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
@@ -237,8 +250,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, controller, kubeInformer, buildInformer,
-		servingInformer, _, servingSystemInformer, vpaInformer :=
+	kubeClient, _, _, _, _, _, controller, kubeInformer, _,
+		servingInformer, _, servingSystemInformer, vpaInformer, buildInformerFactory :=
 		newTestController(t, rev)
 
 	h := NewHooks()
@@ -255,10 +268,10 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	defer close(stopCh)
 
 	kubeInformer.Start(stopCh)
-	buildInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
 	vpaInformer.Start(stopCh)
+	buildInformerFactory.StopChannel = stopCh
 
 	go func() {
 		if err := controller.Run(2, stopCh); err != nil {
