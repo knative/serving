@@ -70,7 +70,7 @@ These tests require:
     ```
 3. A docker repo containing [the test images](#test-images)
 
-### Flags
+### Common Flags
 
 * By default the e2e tests against the current cluster in `~/.kube/config`
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
@@ -115,6 +115,7 @@ To run the script for all end to end test images:
 ```bash
 ./test/upload-test-images.sh
 ```
+
 A docker tag may be passed as an optional parameter. This can be
 useful on [Minikube] in tandem with the `--tag` [flag](#using-a-docker-tag):
 
@@ -132,58 +133,12 @@ New test images should be placed in `./test/test_images`.
 These flags are useful for running against an existing cluster, making use of your existing
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
-Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library) recognize these flags:
+Tests importing [`github.com/knative/serving/test`](#test-library) recognize these flags:
 
-* [`--kubeconfig`](#specifying-kubeconfig)
-* [`--cluster`](#specifying-cluster)
-* [`--namespace`](#specifying-namespace)
+* [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--tag`](#using-a-docker-tag)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
-* [`--logverbose`](#output-verbose-logs)
-* [`--emitmetrics`](#emit-metrics)
-
-### Specifying kubeconfig
-
-By default the tests will use the [kubeconfig
-file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~/.kube/config`. If there is an error getting the current user, it will use `kubeconfig` instead as the default value.
-You can specify a different config file with the argument `--kubeconfig`.
-
-To run the tests with a non-default kubeconfig file:
-
-```bash
-go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig /my/path/kubeconfig
-go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig /my/path/kubeconfig
-```
-
-### Specifying cluster
-
-The `--cluster` argument lets you use a different cluster than [your specified
-kubeconfig's](#specifying-kubeconfig) active context. This will default to the value
-of your [`K8S_CLUSTER_OVERRIDE` environment variable](/DEVELOPMENT.md#environment-setup)
-if not specified.
-
-```bash
-go test -v -tags=e2e -count=1 ./test/conformance --cluster your-cluster-name
-go test -v -tags=e2e -count=1 ./test/e2e --cluster your-cluster-name
-```
-
-The current cluster names can be obtained by running:
-
-```bash
-kubectl config get-clusters
-```
-
-### Specifying namespace
-
-The `--namespace` argument lets you specify the namespace to use for the
-tests. By default, tests will use `serving-tests`.
-
-```bash
-go test -v -tags=e2e -count=1 ./test/conformance --namespace your-namespace-name
-go test -v -tags=e2e -count=1 ./test/e2e --namespace your-namespace-name
-```
 
 ### Overridding docker repo
 
@@ -212,7 +167,6 @@ go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
 Of course, this implies that you tagged the images when you [uploaded
 them](#building-the-test-images).
 
-
 ### Using a resolvable domain
 
 If you set up your cluster using [the getting started
@@ -227,21 +181,3 @@ the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against
 `Route.Status.Domain` and does not need to spoof the `Host`.
-
-### Output verbose logs
-
-The `--logverbose` argument lets you see verbose test logs and k8s logs.
-
-```bash
-go test -v -tags=e2e -count=1 ./test/e2e --logverbose
-```
-
-### Emit metrics
-
-Running tests with the `--emitmetrics` argument will cause latency metrics to be emitted by
-the tests.
-
-* To add additional metrics to a test, see [emitting metrics](adding_tests.md#emit-metrics).
-* For more info on the format of the metrics, see [metric format](adding_tests.md#metric-format).
-
-[Minikube]: https://kubernetes.io/docs/setup/minikube/
