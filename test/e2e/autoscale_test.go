@@ -281,7 +281,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof("Scaled down.")
 	logger.Infof("Sending traffic again to verify deployment scales back up")
-	err = generateTraffic(clients, logger, 20, 30*time.Second, domain)
+	err = generateTraffic(clients, logger, 20, 40*time.Second, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}
