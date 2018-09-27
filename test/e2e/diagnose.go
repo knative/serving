@@ -56,7 +56,7 @@ func checkCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
 		want := dep.Status.Replicas
 		have := dep.Status.ReadyReplicas
 		if have != want {
-			logger.Infof("deployment %v has %v pods. want %v.", deploymentName, have, want)
+			logger.Infof("deployment %v has %v pods. wants %v.", deploymentName, have, want)
 		} else {
 			logger.Infof("deployment %v has %v pods.", deploymentName, have)
 		}

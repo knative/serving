@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"sync"
@@ -76,19 +77,23 @@ func primes(N int) []int {
 func handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	wg.Add(2)
 	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		p := primes(40000000)
+		p := primes(400000)
 		largest := p[len(p)-1]
-		fmt.Fprintf(w, "The largest prime under 40000000 is %d. Enjoy your noodles!", largest)
+		msg := fmt.Sprintf("The largest prime under 400000 is %d. Enjoy your noodles!", largest)
+		fmt.Fprintf(w, msg)
+		log.Printf(msg)
 	}()
 	go func() {
 		defer wg.Done()
 		start := time.Now()
 		time.Sleep(time.Second)
-		fmt.Fprintf(w, "Slept for %v.", time.Since(start))
+		msg := fmt.Sprintf("Slept for %v.", time.Since(start))
+		fmt.Fprintf(w, msg)
+		log.Printf(msg)
 	}()
 	wg.Wait()
 }

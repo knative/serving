@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	autoscaleExpectedOutput = "39999983"
+	autoscaleExpectedOutput = "399989"
 )
 
 var (
@@ -55,15 +55,17 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, want int, domain string) error {
-	successfulRequests := make(chan bool, want)
+func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
+	totalRequests := make(chan struct{}, concurrency)
+	successfulRequests := make(chan struct{}, concurrency)
 
-	logger.Infof("Performing %d concurrent requests.", want)
+	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	var wg sync.WaitGroup
-	for i := 0; i < want; i++ {
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			done := time.After(duration)
 			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				logger.Errorf("error creating spoofing client %v", err)
@@ -74,33 +76,51 @@ func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, wan
 				logger.Errorf("error creating request %v", err)
 				return
 			}
-			res, err := client.Do(req)
-			if err != nil {
-				logger.Errorf("error making request %v", err)
-				return
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					res, err := client.Do(req)
+					if err != nil {
+						logger.Errorf("error making request %v", err)
+						return
+					}
+					if res.StatusCode != http.StatusOK {
+						logger.Errorf("non 200 response %v", res.StatusCode)
+						logger.Errorf("response headers: %v", res.Header)
+						logger.Errorf("response body: %v", res.Body)
+						return
+					}
+					totalRequests <- struct{}{}
+					successfulRequests <- struct{}{}
+				}
 			}
-			if res.StatusCode != http.StatusOK {
-				logger.Errorf("non 200 response %v", res.StatusCode)
-				logger.Errorf("response headers: %v", res.Header)
-				logger.Errorf("response body: %v", res.Body)
-				return
-			}
-			successfulRequests <- true
 		}()
 	}
 
+	want := 0
+	go func() {
+		for _ = range totalRequests {
+			want++
+		}
+	}()
+	got := 0
+	go func() {
+		for _ = range successfulRequests {
+			got++
+		}
+	}()
+
 	logger.Infof("Waiting for all requests to complete.")
 	wg.Wait()
+	close(totalRequests)
 	close(successfulRequests)
 	logger.Infof("All requests completed. Checking results.")
-	got := 0
-	for _ = range successfulRequests {
-		got++
-	}
 	if got != want {
 		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.", got, want)
 	}
-	logger.Infof("Got all successful responses.")
+	logger.Infof("Got %v successful responses.", want)
 	return nil
 }
 
@@ -209,7 +229,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	err = generateTrafficBurst(clients, logger, 20, domain)
+	err = generateTraffic(clients, logger, 20, 20*time.Second, domain)
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
@@ -261,7 +281,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof("Scaled down.")
 	logger.Infof("Sending traffic again to verify deployment scales back up")
-	err = generateTrafficBurst(clients, logger, 20, domain)
+	err = generateTraffic(clients, logger, 20, 30*time.Second, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}
