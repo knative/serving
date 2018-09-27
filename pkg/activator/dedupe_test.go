@@ -30,7 +30,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: {
+			{testNamespace, testConfiguration, testRevision}: {
 				endpoint: want,
 				status:   Status(0),
 				err:      nil,
@@ -58,7 +58,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: {
+			{testNamespace, testConfiguration, testRevision}: {
 				endpoint: ep,
 				status:   Status(0),
 				err:      nil,
@@ -93,12 +93,12 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 	ep2 := Endpoint{"ip2", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, "rev1"}: {
+			{testNamespace, testConfiguration, "rev1"}: {
 				endpoint: ep1,
 				status:   Status(0),
 				err:      nil,
 			},
-			revisionID{testNamespace, testConfiguration, "rev2"}: {
+			{testNamespace, testConfiguration, "rev2"}: {
 				endpoint: ep2,
 				status:   Status(0),
 				err:      nil,
@@ -138,12 +138,12 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	error2 := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, "rev1"}: {
+			{testNamespace, testConfiguration, "rev1"}: {
 				endpoint: ep1,
 				status:   Status(0),
 				err:      nil,
 			},
-			revisionID{testNamespace, testConfiguration, "rev2"}: {
+			{testNamespace, testConfiguration, "rev2"}: {
 				endpoint: Endpoint{},
 				status:   status2,
 				err:      error2,
@@ -182,7 +182,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	failErr := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: {
+			{testNamespace, testConfiguration, testRevision}: {
 				endpoint: failEp,
 				status:   failStatus,
 				err:      failErr,
@@ -239,7 +239,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
-			revisionID{testNamespace, testConfiguration, testRevision}: {
+			{testNamespace, testConfiguration, testRevision}: {
 				endpoint: ep,
 				status:   Status(0),
 				err:      nil,
