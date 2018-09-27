@@ -181,15 +181,7 @@ func NewController(
 		},
 	})
 
-	c.buildInformerFactory = &duck.CachedInformerFactory{
-		Delegate: &duck.EnqueueInformerFactory{
-			Delegate: buildInformerFactory,
-			EventHandler: cache.ResourceEventHandlerFuncs{
-				AddFunc:    c.tracker.OnChanged,
-				UpdateFunc: controller.PassNew(c.tracker.OnChanged),
-			},
-		},
-	}
+	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
@@ -198,6 +190,18 @@ func NewController(
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
+}
+
+func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {
+	return &duck.CachedInformerFactory{
+		Delegate: &duck.EnqueueInformerFactory{
+			Delegate: delegate,
+			EventHandler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    t.OnChanged,
+				UpdateFunc: controller.PassNew(t.OnChanged),
+			},
+		},
+	}
 }
 
 // Reconcile compares the actual state with the desired, and attempts to
@@ -271,7 +275,6 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 	if err != nil {
 		return err
 	}
-
 
 	buildObj, err := lister.ByNamespace(rev.Namespace).Get(rev.Spec.BuildName)
 	if err != nil {

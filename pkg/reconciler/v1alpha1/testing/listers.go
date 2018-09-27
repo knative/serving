@@ -23,6 +23,7 @@ import (
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -35,6 +36,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -45,8 +47,10 @@ var clientSetSchemes = []func(*runtime.Scheme){
 	fakekubeclientset.AddToScheme,
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
-	fakebuildclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
+	func(scheme *runtime.Scheme) {
+		scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &duckv1alpha1.KResource{})
+	},
 }
 
 type Listers struct {

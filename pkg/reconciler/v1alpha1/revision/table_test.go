@@ -23,6 +23,7 @@ import (
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -1350,6 +1351,13 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		t := &rtesting.NullTracker{}
+		buildInformerFactory := &duck.TypedInformerFactory{
+			Client:       opt.DynamicClientSet,
+			Type:         &duckv1alpha1.KResource{},
+			ResyncPeriod: time.Second * 30,
+			StopChannel:  nil, // TODO(imikushin) replace nil
+		}
 		return &Reconciler{
 			Base:           reconciler.NewBase(opt, controllerAgentName),
 			revisionLister: listers.GetRevisionLister(),
@@ -1361,8 +1369,10 @@ func TestReconcile(t *testing.T) {
 			endpointsLister:  listers.GetEndpointsLister(),
 			configMapLister:  listers.GetConfigMapLister(),
 			resolver:         &nopResolver{},
-			tracker:          &rtesting.NullTracker{},
+			tracker:          t,
 			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
+
+			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
 	}))
 }
