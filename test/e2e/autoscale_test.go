@@ -56,8 +56,9 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 }
 
 func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
-	totalRequests := make(chan struct{}, concurrency)
-	successfulRequests := make(chan struct{}, concurrency)
+	totalRequests := 0
+	successfulRequests := 0
+	var mux sync.Mutex
 
 	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	var wg sync.WaitGroup
@@ -81,46 +82,37 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 				case <-done:
 					return
 				default:
+					mux.Lock()
+					totalRequests++
+					mux.Unlock()
 					res, err := client.Do(req)
 					if err != nil {
 						logger.Errorf("error making request %v", err)
-						return
+						continue
 					}
+
 					if res.StatusCode != http.StatusOK {
 						logger.Errorf("non 200 response %v", res.StatusCode)
 						logger.Errorf("response headers: %v", res.Header)
 						logger.Errorf("response body: %v", res.Body)
-						return
+						continue
 					}
-					totalRequests <- struct{}{}
-					successfulRequests <- struct{}{}
+					mux.Lock()
+					successfulRequests++
+					mux.Unlock()
 				}
 			}
 		}()
 	}
 
-	want := 0
-	go func() {
-		for _ = range totalRequests {
-			want++
-		}
-	}()
-	got := 0
-	go func() {
-		for _ = range successfulRequests {
-			got++
-		}
-	}()
-
 	logger.Infof("Waiting for all requests to complete.")
 	wg.Wait()
-	close(totalRequests)
-	close(successfulRequests)
 	logger.Infof("All requests completed. Checking results.")
-	if got != want {
-		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.", got, want)
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.",
+			successfulRequests, totalRequests)
 	}
-	logger.Infof("Got %v successful responses.", want)
+	logger.Infof("Got %v successful responses out of %v.", successfulRequests, totalRequests)
 	return nil
 }
 
@@ -281,7 +273,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof("Scaled down.")
 	logger.Infof("Sending traffic again to verify deployment scales back up")
-	err = generateTraffic(clients, logger, 20, 40*time.Second, domain)
+	err = generateTraffic(clients, logger, 20, 60*time.Second, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}
