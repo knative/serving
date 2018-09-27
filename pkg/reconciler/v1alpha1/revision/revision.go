@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
+	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
@@ -99,9 +101,9 @@ type Reconciler struct {
 
 	buildInformerFactory duck.InformerFactory
 
-	buildtracker *buildTracker
-	resolver     resolver
-	configStore  configStore
+	tracker     tracker.Interface
+	resolver    resolver
+	configStore configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -136,13 +138,11 @@ func NewController(
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
-		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
 			transport: http.DefaultTransport,
 		},
 	}
-
 	impl := controller.NewImpl(c, c.Logger, "Revisions")
 
 	// Set up an event handler for when the resource types of interest change
@@ -166,6 +166,9 @@ func NewController(
 		},
 	})
 
+	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
+	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
@@ -182,8 +185,8 @@ func NewController(
 		Delegate: &duck.EnqueueInformerFactory{
 			Delegate: buildInformerFactory,
 			EventHandler: cache.ResourceEventHandlerFuncs{
-				AddFunc:    c.EnqueueBuildTrackers(impl),
-				UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers(impl)),
+				AddFunc:    c.tracker.OnChanged,
+				UpdateFunc: controller.PassNew(c.tracker.OnChanged),
 			},
 		},
 	}
@@ -249,6 +252,15 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 
 	logger := commonlogging.FromContext(ctx)
 
+	buildRef := corev1.ObjectReference{
+		APIVersion: "build.knative.dev",
+		Kind:       "Build",
+		Namespace:  rev.Namespace,
+		Name:       rev.Spec.BuildName,
+	}
+	if err := c.tracker.Track(buildRef, rev); err != nil {
+		return err
+	}
 	rev.Status.InitializeBuildCondition()
 
 	_, lister, err := c.buildInformerFactory.Get(schema.GroupVersionResource{
@@ -260,12 +272,12 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		return err
 	}
 
+
 	buildObj, err := lister.ByNamespace(rev.Namespace).Get(rev.Spec.BuildName)
 	if err != nil {
 		logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
 		return err
 	}
-
 	build := buildObj.(*duckv1alpha1.KResource)
 
 	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -275,17 +287,9 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		// Create events when the Build result is in.
 		if after.Status == corev1.ConditionTrue {
 			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-			c.buildtracker.Untrack(rev)
 		} else if after.Status == corev1.ConditionFalse {
 			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
-			c.buildtracker.Untrack(rev)
 		}
-	}
-	// If the Build isn't done, then add it to our tracker.
-	// TODO(#1267): See the comment in SyncBuild about replacing this utility.
-	if after.Status == corev1.ConditionUnknown {
-		logger.Errorf("Tracking revision: %v", rev.Name)
-		c.buildtracker.Track(rev)
 	}
 
 	return nil
@@ -352,21 +356,6 @@ func (c *Reconciler) updateRevisionLoggingURL(
 	rev.Status.LogURL = strings.Replace(
 		config.Observability.LoggingURLTemplate,
 		"${REVISION_UID}", uid, -1)
-}
-
-func (c *Reconciler) EnqueueBuildTrackers(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		build := obj.(*duckv1alpha1.KResource)
-
-		// TODO(#1267): We should consider alternatives to the buildtracker that
-		// allow us to shed this indexed state.
-		if bc := getBuildDoneCondition(build); bc != nil {
-			// For each of the revisions watching this build, mark their build phase as complete.
-			for k := range c.buildtracker.GetTrackers(build) {
-				impl.EnqueueKey(string(k))
-			}
-		}
-	}
 }
 
 func (c *Reconciler) EnqueueEndpointsRevision(impl *controller.Impl) func(obj interface{}) {

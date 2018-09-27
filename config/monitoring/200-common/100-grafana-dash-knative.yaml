@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-knative
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   revision-dashboard.json: |+
     {

@@ -4,7 +4,7 @@ metadata:
   labels:
     app: kube-state-metrics
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   clusterIP: None
   ports:

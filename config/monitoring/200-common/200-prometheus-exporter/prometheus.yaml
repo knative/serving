@@ -20,7 +20,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-system-discovery
-  namespace: monitoring
+  namespace: knative-monitoring
   labels:
     app: prometheus
 spec:

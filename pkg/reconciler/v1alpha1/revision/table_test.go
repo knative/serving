@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -1360,7 +1361,7 @@ func TestReconcile(t *testing.T) {
 			endpointsLister:  listers.GetEndpointsLister(),
 			configMapLister:  listers.GetConfigMapLister(),
 			resolver:         &nopResolver{},
-			buildtracker:     &buildTracker{builds: map[key]set{}},
+			tracker:          &rtesting.NullTracker{},
 			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
 		}
 	}))
@@ -1624,7 +1625,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:  listers.GetEndpointsLister(),
 			configMapLister:  listers.GetConfigMapLister(),
 			resolver:         &nopResolver{},
-			buildtracker:     &buildTracker{builds: map[key]set{}},
+			tracker:          &rtesting.NullTracker{},
 			configStore:      &testConfigStore{config: config},
 		}
 	}))

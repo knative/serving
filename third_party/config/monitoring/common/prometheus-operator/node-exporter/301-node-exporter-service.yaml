@@ -4,7 +4,7 @@ metadata:
   labels:
     app: node-exporter
   name: node-exporter
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   type: ClusterIP
   clusterIP: None

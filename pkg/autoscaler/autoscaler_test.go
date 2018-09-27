@@ -32,6 +32,23 @@ func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, false)
 }
 
+func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			durationSeconds:  300, // 5 minutes
+			podCount:         1,
+		})
+
+	a.expectScale(t, now, 0, true)
+	now = now.Add(2 * time.Minute)
+	a.expectScale(t, now, 0, false) // do nothing
+}
+
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(

@@ -17,10 +17,11 @@ limitations under the License.
 package traffic
 
 import (
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 // A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
