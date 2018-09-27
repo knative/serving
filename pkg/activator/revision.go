@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -58,13 +59,12 @@ func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionActivator) activateRevision(namespace, configuration, name string) (*v1alpha1.Revision, error) {
+func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.Revision, error) {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	rev := revisionID{
-		namespace:     namespace,
-		configuration: configuration,
-		name:          name,
+		namespace: namespace,
+		name:      name,
 	}
 
 	// Get the current revision serving state
@@ -74,7 +74,8 @@ func (r *revisionActivator) activateRevision(namespace, configuration, name stri
 		return nil, errors.Wrap(err, "Unable to get revision")
 	}
 
-	r.reporter.ReportRequest(namespace, configuration, name, string(revision.Spec.ServingState), 1.0)
+	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, string(revision.Spec.ServingState), 1.0)
 	switch revision.Spec.ServingState {
 	default:
 		return nil, fmt.Errorf("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
@@ -153,18 +154,41 @@ func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (en
 	}, nil
 }
 
-func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, err error) {
+func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))
-	revision, err := r.activateRevision(namespace, configuration, name)
+	revision, err := r.activateRevision(namespace, name)
 	if err != nil {
 		logger.Error(err)
-		return end, http.StatusInternalServerError, err
+		return ActivationResult{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
-	end, err = r.getRevisionEndpoint(revision)
+
+	endpoint, err := r.getRevisionEndpoint(revision)
 	if err != nil {
 		logger.Error(err)
-		return end, http.StatusInternalServerError, err
+		return ActivationResult{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
-	return end, 0, err
+
+	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+
+	return ActivationResult{
+		Status:            Status(0),
+		Endpoint:          endpoint,
+		ServiceName:       serviceName,
+		ConfigurationName: configurationName,
+		Error:             nil,
+	}
+}
+
+func getServiceAndConfigurationLabels(rev *v1alpha1.Revision) (string, string) {
+	if rev.Labels == nil {
+		return "", ""
+	}
+	return rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey]
 }

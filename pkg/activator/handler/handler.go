@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
@@ -31,32 +33,53 @@ type ActivationHandler struct {
 	Activator activator.Activator
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
+	Reporter  activator.StatsReporter
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-	config := pkghttp.LastHeaderValue(r.Header, activator.ConfigurationHeader)
 
-	endpoint, status, err := a.Activator.ActiveEndpoint(namespace, config, name)
+	start := time.Now()
+	capture := &statusCapture{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+	}
 
-	if err != nil {
-		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-
+	ar := a.Activator.ActiveEndpoint(namespace, name)
+	if ar.Error != nil {
+		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
 		a.Logger.Errorf(msg)
-		http.Error(w, msg, int(status))
+		http.Error(w, msg, int(ar.Status))
 		return
 	}
 
 	target := &url.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
+		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
 	}
-
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
-
 	util.SetupHeaderPruning(proxy)
+	proxy.ServeHTTP(capture, r)
 
-	proxy.ServeHTTP(w, r)
+	// Report the metrics
+	httpStatus := capture.statusCode
+	duration := time.Now().Sub(start)
+	if numRetries := w.Header().Get(activator.ResponseCountHTTPHeader); numRetries != "" {
+		if count, err := strconv.Atoi(numRetries); err == nil {
+			a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), count, 1.0)
+		}
+	}
+	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), duration)
+}
+
+type statusCapture struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (s *statusCapture) WriteHeader(statusCode int) {
+	s.statusCode = statusCode
+	s.ResponseWriter.WriteHeader(statusCode)
 }

@@ -21,7 +21,6 @@ const (
 	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
 	// Knative service header names
 	RevisionHeaderName      string = "knative-serving-revision"
-	ConfigurationHeader     string = "knative-serving-configuration"
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
@@ -31,18 +30,26 @@ type Status int
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
-	ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error)
+	ActiveEndpoint(namespace, name string) ActivationResult
 	Shutdown()
 }
 
 type revisionID struct {
-	namespace     string
-	configuration string
-	name          string
+	namespace string
+	name      string
 }
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.
 type Endpoint struct {
 	FQDN string
 	Port int32
+}
+
+// ActivationResult is used to return the result of an ActivateEndpoint call
+type ActivationResult struct {
+	Status            Status
+	Endpoint          Endpoint
+	ServiceName       string
+	ConfigurationName string
+	Error             error
 }

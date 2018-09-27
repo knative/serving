@@ -220,7 +220,8 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 
 func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	// Create a stats reporter which tags statistics by KPA namespace, configuration name, and KPA name.
-	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, configurationName(kpa), kpa.Name)
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace,
+		labelValueOrEmpty(kpa, serving.ServiceLabelKey), labelValueOrEmpty(kpa, serving.ConfigurationLabelKey), kpa.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -228,10 +229,10 @@ func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicC
 	return autoscaler.New(dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
 }
 
-func configurationName(kpa *kpa.PodAutoscaler) string {
+func labelValueOrEmpty(kpa *kpa.PodAutoscaler, labelKey string) string {
 	// Get the name of the configuration. If the KPA has no controller, use the empty string.
 	if kpa.Labels != nil {
-		if value, ok := kpa.Labels[serving.ConfigurationLabelKey]; ok {
+		if value, ok := kpa.Labels[labelKey]; ok {
 			return value
 		}
 	}

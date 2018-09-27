@@ -20,23 +20,17 @@ import (
 	"sync"
 )
 
-var shuttingDownError = activationResult{
-	endpoint: Endpoint{},
-	status:   Status(500),
-	err:      fmt.Errorf("activator shutting down"),
-}
-
-type activationResult struct {
-	endpoint Endpoint
-	status   Status
-	err      error
+var shuttingDownError = ActivationResult{
+	Endpoint: Endpoint{},
+	Status:   Status(500),
+	Error:    fmt.Errorf("activator shutting down"),
 }
 
 var _ Activator = (*dedupingActivator)(nil)
 
 type dedupingActivator struct {
 	mux             sync.Mutex
-	pendingRequests map[revisionID][]chan activationResult
+	pendingRequests map[revisionID][]chan ActivationResult
 	activator       Activator
 	shutdown        bool
 }
@@ -45,19 +39,17 @@ type dedupingActivator struct {
 // activations requests for the same revision id and namespace.
 func NewDedupingActivator(a Activator) Activator {
 	return &dedupingActivator{
-		pendingRequests: make(map[revisionID][]chan activationResult),
+		pendingRequests: make(map[revisionID][]chan ActivationResult),
 		activator:       a,
 	}
 }
 
-func (a *dedupingActivator) ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error) {
-	id := revisionID{namespace: namespace,
-		configuration: configuration,
-		name:          name}
-	ch := make(chan activationResult, 1)
+func (a *dedupingActivator) ActiveEndpoint(namespace, name string) ActivationResult {
+	id := revisionID{namespace: namespace, name: name}
+	ch := make(chan ActivationResult, 1)
 	a.dedupe(id, ch)
 	result := <-ch
-	return result.endpoint, result.status, result.err
+	return result
 }
 
 func (a *dedupingActivator) Shutdown() {
@@ -72,7 +64,7 @@ func (a *dedupingActivator) Shutdown() {
 	}
 }
 
-func (a *dedupingActivator) dedupe(id revisionID, ch chan activationResult) {
+func (a *dedupingActivator) dedupe(id revisionID, ch chan ActivationResult) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if a.shutdown {
@@ -82,20 +74,15 @@ func (a *dedupingActivator) dedupe(id revisionID, ch chan activationResult) {
 	if reqs, ok := a.pendingRequests[id]; ok {
 		a.pendingRequests[id] = append(reqs, ch)
 	} else {
-		a.pendingRequests[id] = []chan activationResult{ch}
+		a.pendingRequests[id] = []chan ActivationResult{ch}
 		go a.activate(id)
 	}
 }
 
 func (a *dedupingActivator) activate(id revisionID) {
-	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.configuration, id.name)
+	result := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
-	result := activationResult{
-		endpoint: endpoint,
-		status:   status,
-		err:      err,
-	}
 	if reqs, ok := a.pendingRequests[id]; ok {
 		delete(a.pendingRequests, id)
 		for _, ch := range reqs {

@@ -38,11 +38,6 @@ func TestHeaderPruning(t *testing.T) {
 			return
 		}
 
-		if r.Header.Get(activator.ConfigurationHeader) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		w.WriteHeader(http.StatusOK)
 	}
 
@@ -60,9 +55,6 @@ func TestHeaderPruning(t *testing.T) {
 	}, {
 		name:   "revision namespace header",
 		header: activator.RevisionHeaderNamespace,
-	}, {
-		name:   "configuratio name header",
-		header: activator.ConfigurationHeader,
 	}}
 
 	for _, test := range tests {
