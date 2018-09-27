@@ -76,20 +76,20 @@ func main() {
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
+		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
 
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "activator"})
 	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(10 * time.Second)
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
