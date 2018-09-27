@@ -230,7 +230,6 @@ func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicC
 }
 
 func labelValueOrEmpty(kpa *kpa.PodAutoscaler, labelKey string) string {
-	// Get the name of the configuration. If the KPA has no controller, use the empty string.
 	if kpa.Labels != nil {
 		if value, ok := kpa.Labels[labelKey]; ok {
 			return value

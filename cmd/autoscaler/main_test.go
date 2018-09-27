@@ -26,7 +26,6 @@ func TestLabelValueOrEmpty(t *testing.T) {
 	kpa.Labels = make(map[string]string)
 	kpa.Labels["test1"] = "test1val"
 	kpa.Labels["test2"] = ""
-	kpa.Labels["test3"] = "test3val"
 
 	cases := []struct {
 		name string
@@ -41,18 +40,16 @@ func TestLabelValueOrEmpty(t *testing.T) {
 		key:  "test2",
 		want: "",
 	}, {
-		name: "existing key 2",
-		key:  "test3",
-		want: "test3val",
-	}, {
 		name: "non-existent key",
 		key:  "test4",
 		want: "",
 	}}
 
-	for _, tc := range cases {
-		if got := labelValueOrEmpty(kpa, tc.key); got != tc.want {
-			t.Errorf("%q expected: %v got: %v", tc.name, got, tc.want)
-		}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := labelValueOrEmpty(kpa, c.key); got != c.want {
+				t.Errorf("%q expected: %v got: %v", c.name, got, c.want)
+			}
+		})
 	}
 }
