@@ -66,9 +66,11 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Report the metrics
 	httpStatus := capture.statusCode
 	duration := time.Now().Sub(start)
-	if numRetries := w.Header().Get(activator.ResponseCountHTTPHeader); numRetries != "" {
-		if count, err := strconv.Atoi(numRetries); err == nil {
+	if numTries := w.Header().Get(activator.ResponseCountHTTPHeader); numTries != "" {
+		if count, err := strconv.Atoi(numTries); err == nil {
 			a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), count, 1.0)
+		} else {
+			a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.ResponseCountHTTPHeader, err)
 		}
 	}
 	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), duration)

@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package activator
 
 import (
@@ -159,16 +160,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	revision, err := r.activateRevision(namespace, name)
 	if err != nil {
-		logger.Error(err)
-		return ActivationResult{
-			Status: http.StatusInternalServerError,
-			Error:  err,
-		}
-	}
-
-	endpoint, err := r.getRevisionEndpoint(revision)
-	if err != nil {
-		logger.Error(err)
+		logger.Error("Failed to activate the revision.", zap.Error(err))
 		return ActivationResult{
 			Status: http.StatusInternalServerError,
 			Error:  err,
@@ -176,6 +168,16 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	}
 
 	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+	endpoint, err := r.getRevisionEndpoint(revision)
+	if err != nil {
+		logger.Error("Failed to get revision endpoint.", zap.Error(err))
+		return ActivationResult{
+			Status:            http.StatusInternalServerError,
+			ServiceName:       serviceName,
+			ConfigurationName: configurationName,
+			Error:             err,
+		}
+	}
 
 	return ActivationResult{
 		Status:            Status(0),

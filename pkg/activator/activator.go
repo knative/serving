@@ -13,14 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package activator
 
 const (
-	// The name of the activator service.
-	K8sServiceName          = "activator-service"
+	// K8sServiceName is the name of the activator service
+	K8sServiceName = "activator-service"
+	// ResponseCountHTTPHeader is the header key for number of tries
 	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
-	// Knative service header names
-	RevisionHeaderName      string = "knative-serving-revision"
+	// RevisionHeaderName is the header key for revision name
+	RevisionHeaderName string = "knative-serving-revision"
+	// RevisionHeaderNamespace is the header key for revision's namespace
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
