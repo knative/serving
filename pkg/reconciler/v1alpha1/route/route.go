@@ -260,7 +260,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		return r, err
 	}
 	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
-	r.Status.Traffic = t.GetTrafficTargets()
+	r.Status.Traffic = t.GetRevisionTrafficTargets()
 	r.Status.MarkTrafficAssigned()
 	return r, nil
 }
