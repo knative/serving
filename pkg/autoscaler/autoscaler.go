@@ -63,7 +63,6 @@ func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
 		window:             window,
 		perPodAggregations: make(map[string]*perPodAggregation),
-		lameducks:          make(map[string]time.Time),
 	}
 }
 
@@ -72,35 +71,30 @@ type totalAggregation struct {
 	window             time.Duration
 	perPodAggregations map[string]*perPodAggregation
 	probeCount         int32
-	lameducks          map[string]time.Time
 }
 
 // Aggregates a given stat to the correct pod-aggregation
 func (agg *totalAggregation) aggregate(stat Stat) {
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
-		current = &perPodAggregation{}
+		current = &perPodAggregation{window: agg.window}
 		agg.perPodAggregations[stat.PodName] = current
 	}
-	current.aggregate(stat.AverageConcurrentRequests)
-	agg.probeCount += 1
 	if stat.LameDuck {
-		// Record the first lameduck time
-		if t, ok := agg.lameducks[stat.PodName]; ok && t.After(*stat.Time) {
-			agg.lameducks[stat.PodName] = *stat.Time
-		}
+		current.lameduck(stat.Time)
+	} else {
+		current.aggregate(stat.AverageConcurrentRequests)
+		agg.probeCount += 1
 	}
 }
 
 // The number of pods that are observable via stats
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
-	nonLameDucks := float64(len(agg.perPodAggregations) - len(agg.lameducks))
-	lameDucks := float64(0.0)
-	for _, t := range agg.lameducks {
-		weightedPod := float64(1.0) - float64(now.Sub(t)/agg.window)
-		lameDucks += math.Max(0.0, weightedPod)
+	podCount := float64(0.0)
+	for _, pod := range agg.perPodAggregations {
+		podCount += pod.weightedPodCount(now)
 	}
-	return nonLameDucks + lameDucks
+	return podCount
 }
 
 // The observed concurrency per pod (sum of all average concurrencies
@@ -108,7 +102,7 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	accumulatedConcurrency := float64(0)
 	for _, perPod := range agg.perPodAggregations {
-		accumulatedConcurrency += perPod.calculateAverage()
+		accumulatedConcurrency += perPod.calculateAverage(now)
 	}
 	return accumulatedConcurrency / agg.observedPods(now)
 }
@@ -117,6 +111,8 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 type perPodAggregation struct {
 	accumulatedConcurrency float64
 	probeCount             int32
+	window                 time.Duration
+	lameduckTime           *time.Time
 }
 
 // Aggregates the given concurrency
@@ -125,9 +121,34 @@ func (agg *perPodAggregation) aggregate(concurrency float64) {
 	agg.probeCount += 1
 }
 
+func (agg *perPodAggregation) lameduck(t *time.Time) {
+	if agg.lameduckTime == nil {
+		agg.lameduckTime = t
+	}
+	if agg.lameduckTime.After(*t) {
+		agg.lameduckTime = t
+	}
+}
+
 // Calculates the average concurrency over all values given
-func (agg *perPodAggregation) calculateAverage() float64 {
-	return agg.accumulatedConcurrency / float64(agg.probeCount)
+func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
+	if agg.probeCount == 0 {
+		return 0.0
+	}
+	avg := agg.accumulatedConcurrency / float64(agg.probeCount)
+	if agg.lameduckTime == nil {
+		return avg
+	}
+	return agg.weightedPodCount(now) * avg
+}
+
+// Calculates the weighted pod count
+func (agg *perPodAggregation) weightedPodCount(now time.Time) float64 {
+	if agg.lameduckTime == nil {
+		return float64(1.0)
+	}
+	outOfService := now.Sub(*agg.lameduckTime)
+	return float64(1.0) - (float64(outOfService) / float64(agg.window))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -220,7 +241,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Do nothing when we have no data.
-	if stableData.observedPods(now) == 0.0 {
+	if stableData.observedPods(now) < 1.0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
