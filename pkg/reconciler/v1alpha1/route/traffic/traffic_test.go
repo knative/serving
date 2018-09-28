@@ -588,22 +588,19 @@ func TestRoundTripping(t *testing.T) {
 		ConfigurationName: niceConfig.Name,
 	}}
 	expected := []v1alpha1.TrafficTarget{{
-		ConfigurationName: goodConfig.Name,
 		RevisionName:      goodOldRev.Name,
 		Percent:           100,
 	}, {
 		Name:              "beta",
-		ConfigurationName: goodConfig.Name,
 		RevisionName:      goodNewRev.Name,
 	}, {
 		Name:              "alpha",
-		ConfigurationName: niceConfig.Name,
 		RevisionName:      niceNewRev.Name,
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc.GetTrafficTargets()); diff != "" {
-		fmt.Printf("%+v\n", tc.GetTrafficTargets())
+	} else if diff := cmp.Diff(expected, tc.GetRevisionTrafficTargets()); diff != "" {
+		fmt.Printf("%+v\n", tc.GetRevisionTrafficTargets())
 		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
 	}
 }
