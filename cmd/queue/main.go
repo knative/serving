@@ -78,6 +78,8 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
+	health *healthServer = &healthServer{alive: true}
+
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	containerConcurrency     = flag.Int("containerConcurrency", 0, "")
 )
@@ -100,6 +102,9 @@ func statReporter() {
 		if statSink == nil {
 			logger.Warn("Stat sink not (yet) connected.")
 			continue
+		}
+		if !health.isAlive() {
+			s.LameDuck = true
 		}
 		sm := autoscaler.StatMessage{
 			Stat: *s,
@@ -209,12 +214,9 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 
 // Sets up /health and /quitquitquit endpoints.
 func setupAdminHandlers(server *http.Server) {
-	h := healthServer{
-		alive: true,
-	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), h.healthHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), h.quitHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
 	server.Handler = mux
 	server.ListenAndServe()
 }
