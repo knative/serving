@@ -88,7 +88,7 @@ func TestActivationHandler(t *testing.T) {
 		wantBody      string
 		wantCode      int
 		wantErr       error
-		attempts      int
+		attempts      string
 		reporterCalls []reporterCall
 	}{
 		{
@@ -98,7 +98,7 @@ func TestActivationHandler(t *testing.T) {
 			wantBody:  "everything good!",
 			wantCode:  http.StatusOK,
 			wantErr:   nil,
-			attempts:  123,
+			attempts:  "123",
 			reporterCalls: []reporterCall{
 				{
 					Op:         "ReportResponseCount",
@@ -165,6 +165,25 @@ func TestActivationHandler(t *testing.T) {
 				},
 			},
 		},
+		{
+			label:     "invalid number of attempts",
+			namespace: "real-namespace",
+			name:      "real-name",
+			wantBody:  "everything good!",
+			wantCode:  http.StatusOK,
+			wantErr:   nil,
+			attempts:  "hi there",
+			reporterCalls: []reporterCall{
+				{
+					Op:         "ReportResponseTime",
+					Namespace:  "real-namespace",
+					Revision:   "real-name",
+					Service:    "service-real-name",
+					Config:     "config-real-name",
+					StatusCode: http.StatusOK,
+				},
+			},
+		},
 	}
 
 	for _, e := range examples {
@@ -177,8 +196,8 @@ func TestActivationHandler(t *testing.T) {
 				if err != nil {
 					return resp, err
 				}
-				if e.attempts > 0 {
-					resp.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(e.attempts))
+				if e.attempts != "" {
+					resp.Header.Add(activator.ResponseCountHTTPHeader, e.attempts)
 				}
 				return resp, err
 			})
