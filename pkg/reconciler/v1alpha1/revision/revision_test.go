@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -127,14 +125,12 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 
 func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controller, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
 	dynamicClient *fakedynamic.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher,
@@ -143,7 +139,6 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
@@ -154,7 +149,6 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
@@ -381,7 +375,7 @@ func (r *errorResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
 }
 
 func TestResolutionFailed(t *testing.T) {
-	kubeClient, _, servingClient, cachingClient, _, _, controller, kubeInformer, _, servingInformer, cachingInformer, _, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -418,7 +412,7 @@ func TestResolutionFailed(t *testing.T) {
 func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 
-	kubeClient, _, servingClient, cachingClient, vpaClient, _, controller, kubeInformer, _, servingInformer, cachingInformer, _, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+	kubeClient, servingClient, cachingClient, vpaClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
@@ -463,7 +457,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, cachingClient, _, _, controller, kubeInformer, _, servingInformer, cachingInformer, watcher, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace,
@@ -510,7 +504,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, _, servingClient, cachingClient, _, _, controller, kubeInformer, _, servingInformer, cachingInformer, _, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -568,7 +562,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	kubeClient, _, servingClient, cachingClient, _, _, controller, kubeInformer, _, servingInformer, cachingInformer, watcher, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _, _ := newTestController(t)
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
@@ -634,7 +628,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, cachingClient, _, _, controller, kubeInformer, _, servingInformer, cachingInformer, watcher, _, _ := newTestControllerWithConfig(t, controllerConfig)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"

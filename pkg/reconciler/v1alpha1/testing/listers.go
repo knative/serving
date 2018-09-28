@@ -17,9 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -81,10 +78,6 @@ func (l *Listers) GetKubeObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakekubeclientset.AddToScheme)
 }
 
-func (l *Listers) GetBuildObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakebuildclientset.AddToScheme)
-}
-
 func (l *Listers) GetCachingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakecachingclientset.AddToScheme)
 }
@@ -119,10 +112,6 @@ func (l *Listers) GetKPALister() kpalisters.PodAutoscalerLister {
 
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
-}
-
-func (l *Listers) GetBuildLister() buildlisters.BuildLister {
-	return buildlisters.NewBuildLister(l.indexerFor(&buildv1alpha1.Build{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {

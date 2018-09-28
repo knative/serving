@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -137,14 +135,12 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 
 func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
 	dynamicClient *fakedynamicclientset.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher,
@@ -153,7 +149,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
@@ -170,7 +165,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
@@ -250,7 +244,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, _, controller, kubeInformer, _,
+	kubeClient, _, _, _, _, controller, kubeInformer,
 		servingInformer, _, servingSystemInformer, vpaInformer, buildInformerFactory :=
 		newTestController(t, rev)
 
