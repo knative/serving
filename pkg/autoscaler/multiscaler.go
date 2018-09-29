@@ -101,7 +101,7 @@ type MultiScaler struct {
 
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
-	logger.Debugf("Creating MultiScalar with configuration %#v", dynConfig)
+	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
 		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
