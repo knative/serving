@@ -64,6 +64,7 @@ var (
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
+	userTargetPort        string
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	statSink              *websocket.ManagedConnection
@@ -84,6 +85,7 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+	userTargetPort = util.GetRequiredEnvOrFatal("PORT", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
@@ -225,7 +227,7 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, podName))
 
-	target, err := url.Parse("http://localhost:8080")
+	target, err := url.Parse(fmt.Sprintf("http://localhost: %s", userTargetPort))
 	if err != nil {
 		logger.Fatal("Failed to parse localhost url", zap.Error(err))
 	}

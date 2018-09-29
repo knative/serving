@@ -48,17 +48,6 @@ var (
 		MountPath: "/var/log",
 	}
 
-	userPorts = []corev1.ContainerPort{{
-		Name:          userPortName,
-		ContainerPort: int32(userPort),
-	}}
-
-	// Expose containerPort as env PORT.
-	userEnv = corev1.EnvVar{
-		Name:  userPortEnvName,
-		Value: strconv.Itoa(userPort),
-	}
-
 	userResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: userContainerCPU,
@@ -81,7 +70,7 @@ var (
 	}
 )
 
-func rewriteUserProbe(p *corev1.Probe) {
+func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	if p == nil {
 		return
 	}
@@ -101,10 +90,19 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	// update the validations in pkg/webhook.validateContainer.
 	userContainer.Name = userContainerName
 	userContainer.Resources = userResources
-	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
-	userContainer.Env = append(userContainer.Env, userEnv)
+
+	userPort, bIsFind := getUserPort(userContainer.Ports)
+	if !bIsFind {
+		userPort = &corev1.ContainerPort{
+			Name:          userPortName,
+			ContainerPort: int32(defaultUserPort),
+		}
+		userContainer.Ports = append(userContainer.Ports, *userPort)
+	}
+	userPortEnv := getUserPortEnv(userPort)
+	userContainer.Env = append(userContainer.Env, userPortEnv)
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 	// Prefer imageDigest from revision if available
 	if rev.Status.ImageDigest != "" {
@@ -112,13 +110,13 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	}
 
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe)
-	rewriteUserProbe(userContainer.LivenessProbe)
+	rewriteUserProbe(userContainer.ReadinessProbe, int(userPort.ContainerPort))
+	rewriteUserProbe(userContainer.LivenessProbe, int(userPort.ContainerPort))
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
+			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig, &userPortEnv),
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -131,6 +129,25 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	}
 
 	return podSpec
+}
+
+func getUserPort(ports []corev1.ContainerPort) (*corev1.ContainerPort, bool) {
+	for _, port := range ports {
+		if port.Name == userPortName {
+			return &port, true
+		}
+	}
+
+	return nil, false
+}
+
+func getUserPortEnv(userPort *corev1.ContainerPort) corev1.EnvVar {
+	// Expose containerPort as env PORT.
+	userPortEnv := corev1.EnvVar{
+		Name:  userPortEnvName,
+		Value: strconv.Itoa(int(userPort.ContainerPort)),
+	}
+	return userPortEnv
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,

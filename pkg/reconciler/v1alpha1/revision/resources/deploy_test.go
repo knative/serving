@@ -33,10 +33,21 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"strconv"
 )
 
 var (
-	one int32 = 1
+	one       int32 = 1
+	userPorts       = []corev1.ContainerPort{{
+		Name:          userPortName,
+		ContainerPort: int32(defaultUserPort),
+	}}
+
+	// Expose containerPort as env PORT.
+	userEnv = corev1.EnvVar{
+		Name:  userPortEnvName,
+		Value: strconv.Itoa(defaultUserPort),
+	}
 )
 
 func TestMakePodSpec(t *testing.T) {
@@ -50,6 +61,101 @@ func TestMakePodSpec(t *testing.T) {
 		cc   *config.Controller
 		want *corev1.PodSpec
 	}{{
+		name: "user-defined user port, queue proxy have PORT env",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels:    labels,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 1,
+				Container: corev1.Container{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          userPortName,
+							ContainerPort: 8888,
+						},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:      UserContainerName,
+				Image:     "busybox",
+				Resources: userResources,
+				Ports: []corev1.ContainerPort{
+					{
+						Name:          userPortName,
+						ContainerPort: 8888,
+					},
+				},
+				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:    userLifecycle,
+				Env: []corev1.EnvVar{
+					{
+						Name:  "PORT",
+						Value: "8888", // match user port
+					},
+					{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, {
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, {
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
+			}, {
+				Name:           queueContainerName,
+				Resources:      queueResources,
+				Ports:          queuePorts,
+				Lifecycle:      queueLifecycle,
+				ReadinessProbe: queueReadinessProbe,
+				// These changed based on the Revision and configs passed in.
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+				Env: []corev1.EnvVar{{
+					Name:  "SERVING_NAMESPACE",
+					Value: "foo", // matches namespace
+				}, {
+					Name: "SERVING_CONFIGURATION",
+					// No OwnerReference
+				}, {
+					Name:  "SERVING_REVISION",
+					Value: "bar", // matches name
+				}, {
+					Name:  "SERVING_AUTOSCALER",
+					Value: "autoscaler", // no autoscaler configured.
+				}, {
+					Name:  "SERVING_AUTOSCALER_PORT",
+					Value: "8080",
+				}, {
+					Name: "SERVING_POD",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
+				}, {
+					Name: "SERVING_LOGGING_CONFIG",
+					// No logging configuration
+				}, {
+					Name: "SERVING_LOGGING_LEVEL",
+					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8888", // match user port
+				}},
+			}},
+			Volumes: []corev1.Volume{varLogVolume},
+		},
+	}, {
 		name: "simple concurrency=single no owner",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -202,6 +308,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -286,6 +395,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -306,7 +418,7 @@ func TestMakePodSpec(t *testing.T) {
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(userPort),
+								Port: intstr.FromInt(defaultUserPort),
 								Path: "/",
 							},
 						},
@@ -379,6 +491,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -470,6 +585,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -563,6 +681,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -599,7 +720,7 @@ func TestMakePodSpec(t *testing.T) {
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(userPort),
+							Port: intstr.FromInt(defaultUserPort),
 						},
 					},
 				},
@@ -652,6 +773,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
@@ -732,6 +856,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}, {
 				Name:      fluentdContainerName,
@@ -864,6 +991,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},

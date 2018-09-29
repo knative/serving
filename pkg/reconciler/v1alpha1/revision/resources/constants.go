@@ -31,7 +31,7 @@ const (
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
 	userPortName    = "user-port"
-	userPort        = 8080
+	defaultUserPort = 8080
 	userPortEnvName = "PORT"
 
 	autoscalerPort = 8080
