@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -45,14 +45,12 @@ func TestBuildAndServe(t *testing.T) {
 		Route:  test.AppendRandomString(routeName, logger),
 	}
 
-	build := resources.WithBuildSpec(resources.UnstructuredWithContent(map[string]interface{}{
-		"apiVersion": "build.knative.dev/v1alpha1",
-		"kind":       "Build",
-		"steps": []interface{}{map[string]interface{}{
-			"image": "ubuntu",
-			"args":  []interface{}{"echo", "built"},
+	build := &buildv1alpha1.BuildSpec{
+		Steps: []corev1.Container{{
+			Image: "ubuntu",
+			Args:  []string{"echo", "built"},
 		}},
-	}))
+	}
 
 	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
@@ -99,7 +97,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
-	} else if cond.Status != v1.ConditionTrue {
+	} else if cond.Status != corev1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
 	}
 }
@@ -116,12 +114,12 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	// Request a build that doesn't succeed.
-	build := resources.WithBuildSpec(resources.UnstructuredWithContent(map[string]interface{}{
-		"steps": []interface{}{map[string]interface{}{
-			"image": "ubuntu",
-			"args":  []interface{}{"false"}, // build will fail.
+	build := &buildv1alpha1.BuildSpec{
+		Steps: []corev1.Container{{
+			Image: "ubuntu",
+			Args:  []string{"false"}, // build will fail.
 		}},
-	}))
+	}
 
 	imagePath := test.ImagePath("helloworld")
 	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
@@ -159,7 +157,7 @@ func TestBuildFailure(t *testing.T) {
 	}
 	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
-	} else if cond.Status != v1.ConditionFalse {
+	} else if cond.Status != corev1.ConditionFalse {
 		t.Fatalf("Build %q was not unsuccessful", buildName)
 	}
 }

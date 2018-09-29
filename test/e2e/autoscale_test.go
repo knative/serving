@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
@@ -33,7 +35,7 @@ import (
 )
 
 const (
-	autoscaleExpectedOutput = "39999983"
+	autoscaleExpectedOutput = "399989"
 )
 
 var (
@@ -53,40 +55,64 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *logging.BaseLogger, want int, domain string) error {
-	concurrentRequests := make(chan bool, want)
+func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
+	totalRequests := 0
+	successfulRequests := 0
+	var mux sync.Mutex
 
-	logger.Infof("Performing %d concurrent requests.", want)
-	for i := 0; i < want; i++ {
+	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
 		go func() {
-			res, err := pkgTest.WaitForEndpointState(clients.KubeClient,
-				logger,
-				domain,
-				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
-				"MakingConcurrentRequests",
-				test.ServingFlags.ResolvableDomain)
+			defer wg.Done()
+			done := time.After(duration)
+			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				logger.Errorf("Unsuccessful request: %v", err)
-				if res != nil {
-					logger.Errorf("Response headers: %v", res.Header)
-				} else {
-					logger.Errorf("Nil response. No response headers to show.")
+				logger.Errorf("error creating spoofing client %v", err)
+				return
+			}
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			if err != nil {
+				logger.Errorf("error creating request %v", err)
+				return
+			}
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					mux.Lock()
+					totalRequests++
+					mux.Unlock()
+					res, err := client.Do(req)
+					if err != nil {
+						logger.Errorf("error making request %v", err)
+						continue
+					}
+
+					if res.StatusCode != http.StatusOK {
+						logger.Errorf("non 200 response %v", res.StatusCode)
+						logger.Errorf("response headers: %v", res.Header)
+						logger.Errorf("response body: %v", res.Body)
+						continue
+					}
+					mux.Lock()
+					successfulRequests++
+					mux.Unlock()
 				}
 			}
-			concurrentRequests <- err == nil
 		}()
 	}
 
 	logger.Infof("Waiting for all requests to complete.")
-	got := 0
-	for i := 0; i < want; i++ {
-		if <-concurrentRequests {
-			got++
-		}
+	wg.Wait()
+	logger.Infof("All requests completed. Checking results.")
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.",
+			successfulRequests, totalRequests)
 	}
-	if got != want {
-		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.", got, want)
-	}
+	logger.Infof("Got %v successful responses out of %v.", successfulRequests, totalRequests)
 	return nil
 }
 
@@ -133,12 +159,13 @@ func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	t.Skip("Re-enable this once #2052 is addressed")
-
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
-
 	clients := setup(t, logger)
+
+	stopChan := DiagnoseMeEvery(15*time.Second, clients, logger)
+	defer close(stopChan)
+
 	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
@@ -194,10 +221,11 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	err = generateTrafficBurst(clients, logger, 20, domain)
+	err = generateTraffic(clients, logger, 20, 20*time.Second, domain)
 	if err != nil {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
+	logger.Info("Waiting for scale up")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -214,6 +242,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
 		    faster testing.`)
 
+	logger.Infof("Waiting for scale to zero")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -243,9 +272,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 
 	logger.Infof("Scaled down.")
-	logger.Infof(`The autoscaler spins up additional replicas once again when
-              traffic increases.`)
-	err = generateTrafficBurst(clients, logger, 20, domain)
+	logger.Infof("Sending traffic again to verify deployment scales back up")
+	err = generateTraffic(clients, logger, 20, 60*time.Second, domain)
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}
