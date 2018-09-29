@@ -257,7 +257,7 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 	logger := commonlogging.FromContext(ctx)
 
 	buildRef := corev1.ObjectReference{
-		APIVersion: "build.knative.dev",
+		APIVersion: "build.knative.dev/v1alpha1",
 		Kind:       "Build",
 		Namespace:  rev.Namespace,
 		Name:       rev.Spec.BuildName,
