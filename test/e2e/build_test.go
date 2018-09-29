@@ -21,13 +21,13 @@ import (
 	"net/http"
 	"testing"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	"github.com/knative/serving/test"
 )
 
