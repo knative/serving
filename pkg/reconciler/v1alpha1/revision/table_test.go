@@ -37,7 +37,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
@@ -1692,13 +1694,19 @@ func addKPAStatus(kpa *kpav1alpha1.PodAutoscaler, status kpav1alpha1.PodAutoscal
 
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
-func build(namespace, name string, conds ...duckv1alpha1.Condition) *duckv1alpha1.KResource {
-	return &duckv1alpha1.KResource{
-		ObjectMeta: om(namespace, name),
-		Status: duckv1alpha1.KResourceStatus{
-			Conditions: conds,
-		},
-	}
+func build(namespace, name string, conds ...duckv1alpha1.Condition) *unstructured.Unstructured {
+	b := &unstructured.Unstructured{}
+	b.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "build.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Build",
+	})
+	b.SetName(name)
+	b.SetNamespace(namespace)
+	b.Object["status"] = map[string]interface{}{"conditions": conds}
+	u := &unstructured.Unstructured{}
+	duck.FromUnstructured(b, u)
+	return u
 }
 
 func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *v1alpha1.Revision {

@@ -38,9 +38,7 @@ func MakeFactory(ctor Ctor) Factory {
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-		//scheme := runtime.NewScheme()
-		//scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &v1alpha1.KResource{})
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme(), ls.GetBuildObjects()...)
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 
 		// Set up our Controller from the fakes.
