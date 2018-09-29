@@ -41,14 +41,12 @@ import (
 // Constants for test images located in test/test_images
 const (
 	pizzaPlanet1        = "pizzaplanetv1"
-	pizzaPlanetText1    = "What a spaceport!"
 	pizzaPlanet2        = "pizzaplanetv2"
-	pizzaPlanetText2    = "Re-energize yourself with a slice of pepperoni!"
 	helloworld          = "helloworld"
-	helloWorldText      = "Hello World! How about some tasty noodles?"
 	httpproxy           = "httpproxy"
 	singleThreadedImage = "singlethreaded"
 	timeout             = "timeout"
+	printport           = "printport"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
@@ -57,6 +55,13 @@ const (
 	// We expect to see at least 25% of either response since we're routing 50/50.
 	// This might be a bad assumption.
 	minSplitPercentage = 0.25
+)
+
+// Constants for test image output
+const (
+	pizzaPlanetText1 = "What a spaceport!"
+	pizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
+	helloWorldText   = "Hello World! How about some tasty noodles?"
 )
 
 func setup(t *testing.T) *test.Clients {

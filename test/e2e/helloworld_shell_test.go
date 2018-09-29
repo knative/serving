@@ -71,13 +71,13 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	// Populate manifets file with the real path to the container
 	yamlBytes, err := ioutil.ReadFile(appYaml)
+
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", appYaml, err)
 	}
 
 	content := strings.Replace(string(yamlBytes), yamlImagePlaceholder, imagePath, -1)
-	content = strings.Replace(string(content), "namespace: "+namespacePlaceholder,
-		"namespace: "+test.ServingNamespace, -1)
+	content = strings.Replace(string(content), namespacePlaceholder, test.ServingNamespace, -1)
 
 	if _, err = newYaml.WriteString(content); err != nil {
 		t.Fatalf("Failed to write new manifest: %v", err)

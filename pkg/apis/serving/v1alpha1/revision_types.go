@@ -118,6 +118,16 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
+const (
+	// UserPortName is the name that will be used for the Port on the
+	// Deployment and Pod created by a Revision. This name will be set regardless of if
+	// a user specifies a port or the default value is chosen.
+	UserPortName = "user-port"
+	// DefaultUserPort is the default port value the QueueProxy will
+	// use for connecting to the user container.
+	DefaultUserPort = 8080
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed

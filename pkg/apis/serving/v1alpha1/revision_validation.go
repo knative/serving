@@ -130,9 +130,6 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "name")
 	}
-	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "ports")
-	}
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "volumeMounts")
 	}
@@ -143,6 +140,9 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
+	}
+	if err := validateContainerPorts(container.Ports); err != nil {
+		errs = errs.Also(err.ViaField("ports"))
 	}
 	// Validate our probes
 	if err := validateProbe(container.ReadinessProbe).ViaField("readinessProbe"); err != nil {
@@ -159,6 +159,68 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		}
 		errs = errs.Also(fe)
 	}
+	return errs
+}
+
+func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
+	if len(ports) == 0 {
+		return nil
+	}
+
+	var errs *apis.FieldError
+
+	// user can set container port which names "user-port" to define application's port.
+	// Queue-proxy will use it to send requests to application
+	// if user didn't set any port, it will set default port user-port=8080.
+	if len(ports) > 1 {
+		errs = errs.Also(&apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{apis.CurrentField},
+			Details: "Only a single port is allowed",
+		})
+	}
+
+	userPort := ports[0]
+	// Only allow empty (defaulting to "TCP") or explicit TCP for protocol
+	if userPort.Protocol != "" && userPort.Protocol != corev1.ProtocolTCP {
+		errs = errs.Also(apis.ErrInvalidValue(string(userPort.Protocol), "Protocol"))
+	}
+
+	// Don't allow HostIP or HostPort to be set
+	var disallowedFields []string
+	if userPort.HostIP != "" {
+		disallowedFields = append(disallowedFields, "HostIP")
+
+	}
+	if userPort.HostPort != 0 {
+		disallowedFields = append(disallowedFields, "HostPort")
+	}
+	if len(disallowedFields) != 0 {
+		errs = errs.Also(apis.ErrDisallowedFields(disallowedFields...))
+	}
+
+	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
+	}
+
+	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
+	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
+	// allowed.
+	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+	validPortNames := map[string]bool{
+		"h2c":   true,
+		"http1": true,
+		"":      true,
+	}
+
+	if !validPortNames[userPort.Name] {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
+			Paths:   []string{apis.CurrentField},
+			Details: "Name must be empty, or one of: 'h2c', 'http1'",
+		})
+	}
+
 	return errs
 }
 

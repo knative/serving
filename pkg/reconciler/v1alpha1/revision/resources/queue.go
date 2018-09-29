@@ -77,6 +77,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	}
 
 	autoscalerAddress := "autoscaler"
+	userPort := getUserPort(rev)
 
 	var loggingLevel string
 	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
@@ -124,6 +125,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
+		}, {
+			Name:  "USER_PORT",
+			Value: strconv.Itoa(int(userPort)),
 		}},
 	}
 }
