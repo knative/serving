@@ -21,6 +21,10 @@ spec:
   # TODO: Increase the replicas
   # https://github.com/knative/serving/issues/695
   replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
   template:
     metadata:
       annotations:

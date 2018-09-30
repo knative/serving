@@ -19,6 +19,10 @@ metadata:
   namespace: knative-serving
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      role: webhook
   template:
     metadata:
       annotations:

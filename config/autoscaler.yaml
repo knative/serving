@@ -19,6 +19,9 @@ metadata:
   namespace: knative-serving
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
   template:
     metadata:
       annotations:

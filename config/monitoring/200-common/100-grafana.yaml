@@ -149,6 +149,9 @@ metadata:
   namespace: knative-monitoring
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
   template:
     metadata:
       labels:
