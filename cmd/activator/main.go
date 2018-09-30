@@ -72,7 +72,7 @@ func main() {
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building new config", zap.Error(err))
+		logger.Fatal("Error building new kubernetes client", zap.Error(err))
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
