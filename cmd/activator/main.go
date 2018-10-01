@@ -153,7 +153,7 @@ func main() {
 	})
 
 	ah := &activatorhandler.FilteringHandler{
-		NextHandler: activatorhandler.NewConcurrencyReportingHandler(statChan, time.NewTicker(time.Second).C,
+		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
 			&activatorhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &activatorhandler.ActivationHandler{
