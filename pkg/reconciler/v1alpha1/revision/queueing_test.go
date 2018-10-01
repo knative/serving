@@ -23,7 +23,6 @@ import (
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -133,7 +132,7 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
@@ -145,7 +144,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher,
 	vpaInformer vpainformers.SharedInformerFactory,
-	buildInformerFactory *duck.TypedInformerFactory) {
+	buildInformerFactory duck.InformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -153,34 +152,33 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
-	buildInformerFactory = &duck.TypedInformerFactory{
-		Client:       dynamicClient,
-		Type:         &duckv1alpha1.KResource{},
-		ResyncPeriod: 0,
-		//StopChannel: nil,
-	}
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 
+	opt := rclr.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		CachingClientSet: cachingClient,
+		ConfigMapWatcher: configMapWatcher,
+		Logger:           TestLogger(t),
+		ResyncPeriod:     0,
+		StopChannel:      stopCh,
+	}
+	buildInformerFactory = KResourceTypedInformerFactory(opt)
+
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
-	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
-	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, opt.ResyncPeriod)
 
 	controller = NewController(
-		rclr.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: servingClient,
-			CachingClientSet: cachingClient,
-			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
-		},
+		opt,
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		//buildInformer.Build().V1alpha1().Builds(),
 		cachingInformer.Caching().V1alpha1().Images(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
@@ -239,14 +237,17 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 }
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	rev := getTestRevision()
 	// TODO(grantr): inserting the route at client creation is necessary
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
 	kubeClient, _, _, _, _, controller, kubeInformer,
-		servingInformer, _, servingSystemInformer, vpaInformer, buildInformerFactory :=
-		newTestController(t, rev)
+	servingInformer, _, servingSystemInformer, vpaInformer, _ :=
+		newTestController(t, stopCh, rev)
 
 	h := NewHooks()
 
@@ -258,14 +259,10 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
 	vpaInformer.Start(stopCh)
-	buildInformerFactory.StopChannel = stopCh
 
 	go func() {
 		if err := controller.Run(2, stopCh); err != nil {

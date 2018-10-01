@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"time"
 
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -71,6 +70,8 @@ type Changed bool
 const (
 	WasChanged Changed = true
 	Unchanged  Changed = false
+
+	TrackerLeaseFactor = 3 // 3x controller resync period should be enough
 )
 
 type resolver interface {
@@ -166,8 +167,7 @@ func NewController(
 		},
 	})
 
-	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
-	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.ResyncPeriod*TrackerLeaseFactor)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
@@ -190,6 +190,15 @@ func NewController(
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
+}
+
+func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+	return &duck.TypedInformerFactory{
+		Client:       opt.DynamicClientSet,
+		Type:         &duckv1alpha1.KResource{},
+		ResyncPeriod: opt.ResyncPeriod,
+		StopChannel:  opt.StopChannel,
+	}
 }
 
 func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {

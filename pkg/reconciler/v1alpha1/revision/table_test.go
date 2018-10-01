@@ -1354,12 +1354,7 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		t := &rtesting.NullTracker{}
-		buildInformerFactory := &duck.TypedInformerFactory{
-			Client:       opt.DynamicClientSet,
-			Type:         &duckv1alpha1.KResource{},
-			ResyncPeriod: time.Second * 30,
-			StopChannel:  nil, // TODO(imikushin) replace nil
-		}
+		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:           reconciler.NewBase(opt, controllerAgentName),
 			revisionLister: listers.GetRevisionLister(),
@@ -1705,7 +1700,7 @@ func build(namespace, name string, conds ...duckv1alpha1.Condition) *unstructure
 	b.SetNamespace(namespace)
 	b.Object["status"] = map[string]interface{}{"conditions": conds}
 	u := &unstructured.Unstructured{}
-	duck.FromUnstructured(b, u)
+	duck.FromUnstructured(b, u) // prevent panic in b.DeepCopy()
 	return u
 }
 

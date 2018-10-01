@@ -21,8 +21,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 
 	"github.com/knative/pkg/controller"
@@ -115,18 +113,6 @@ func main() {
 		logger.Fatalf("Error building VPA clientset: %v", err)
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
-	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
-	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
-	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
-	buildInformerFactory := &duck.TypedInformerFactory{
-		Client:       dynamicClient,
-		Type:         &v1alpha1.KResource{},
-		ResyncPeriod: time.Second * 30,
-		StopChannel:  stopCh,
-	}
-
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 
 	opt := reconciler.Options{
@@ -137,7 +123,16 @@ func main() {
 		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
+		ResyncPeriod:     time.Second * 30,
+		StopChannel:      stopCh,
 	}
+
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, opt.ResyncPeriod)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, opt.ResyncPeriod)
+	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()

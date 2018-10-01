@@ -146,30 +146,30 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
 
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
-	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
-	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
-	buildInformerFactory = &duck.TypedInformerFactory{
-		Client:       dynamicClient,
-		Type:         &duckv1alpha1.KResource{},
-		ResyncPeriod: 0,
+	opt := rclr.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		CachingClientSet: cachingClient,
+		ConfigMapWatcher: configMapWatcher,
+		Logger:           TestLogger(t),
+		ResyncPeriod:     0,
+		StopChannel:      nil,
 	}
 
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, opt.ResyncPeriod)
+	buildInformerFactory = KResourceTypedInformerFactory(opt)
+
 	controller = NewController(
-		rclr.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: servingClient,
-			ConfigMapWatcher: configMapWatcher,
-			CachingClientSet: cachingClient,
-			Logger:           TestLogger(t),
-		},
+		opt,
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		//buildInformer.Build().V1alpha1().Builds(),
 		cachingInformer.Caching().V1alpha1().Images(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
@@ -375,7 +375,7 @@ func (r *errorResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
 }
 
 func TestResolutionFailed(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t, nil)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -504,7 +504,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, _, _, _ := newTestController(t, nil)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -562,7 +562,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _, _ := newTestController(t, nil)
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
