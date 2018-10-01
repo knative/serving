@@ -17,46 +17,68 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
-func TestNoData(t *testing.T) {
+func TestMultipleDifferentKeys(t *testing.T) {
 
 	pod1 := "pod1"
 	pod2 := "pod2"
 
-	s := Channels{}
+	s := Channels{
+		ReqChan:    make(chan ReqEvent),
+		ReportChan: make(chan time.Time),
+		StatChan:   make(chan *autoscaler.StatMessage),
+	}
 	NewConcurrencyReporter(autoscaler.ActivatorPodName, s)
 
-	fmt.Println("got here1")
-
 	s.requestStart(pod1)
-	fmt.Println("got here2")
 	s.requestStart(pod1)
 	s.requestStart(pod2)
 
-	fmt.Println("got here")
-
 	now := time.Now()
-	got := s.report(now)
-
-	want := &autoscaler.StatMessage{
-		Key: "pod1",
-		Stat: autoscaler.Stat{
-			Time:                      &now,
-			PodName:                   autoscaler.ActivatorPodName,
-			AverageConcurrentRequests: 2.0,
-			RequestCount:              0,
+	expectStats(t, s.report(now, 2), []*autoscaler.StatMessage{
+		&autoscaler.StatMessage{
+			Key: pod1,
+			Stat: autoscaler.Stat{
+				Time:                      &now,
+				PodName:                   autoscaler.ActivatorPodName,
+				AverageConcurrentRequests: 2.0,
+				RequestCount:              0,
+			},
 		},
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Unexpected stat (-want +got): %v", diff)
-	}
+		&autoscaler.StatMessage{
+			Key: pod2,
+			Stat: autoscaler.Stat{
+				Time:                      &now,
+				PodName:                   autoscaler.ActivatorPodName,
+				AverageConcurrentRequests: 1.0,
+				RequestCount:              0,
+			},
+		},
+	})
+
+	s.requestEnd(pod2)
+	s.requestEnd(pod1)
+
+	now = time.Now()
+	expectStats(t, s.report(now, 1), []*autoscaler.StatMessage{
+		&autoscaler.StatMessage{
+			Key: pod1,
+			Stat: autoscaler.Stat{
+				Time:                      &now,
+				PodName:                   autoscaler.ActivatorPodName,
+				AverageConcurrentRequests: 1.0,
+				RequestCount:              0,
+			},
+		},
+	})
 }
 
 func (s *Channels) requestStart(key string) {
@@ -67,7 +89,21 @@ func (s *Channels) requestEnd(key string) {
 	s.ReqChan <- ReqEvent{Key: key, EventType: ReqOut}
 }
 
-func (s *Channels) report(t time.Time) *autoscaler.StatMessage {
+func (s *Channels) report(t time.Time, count int) []*autoscaler.StatMessage {
 	s.ReportChan <- t
-	return <-s.StatChan
+	metrics := make([]*autoscaler.StatMessage, count)
+	for i := 0; i < count; i++ {
+		metrics[i] = <-s.StatChan
+	}
+	return metrics
+}
+
+func expectStats(t *testing.T, gots, wants []*autoscaler.StatMessage) {
+	// Sort the stats to guarantee a given order
+	sorter := cmpopts.SortSlices(func(a, b *autoscaler.StatMessage) bool {
+		return a.Key < b.Key
+	})
+	if diff := cmp.Diff(wants, gots, sorter); diff != "" {
+		t.Errorf("Unexpected stats (-want +got): %v", diff)
+	}
 }
