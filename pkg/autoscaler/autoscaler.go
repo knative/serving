@@ -27,6 +27,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
+const (
+	// ActivatorPodName defines the pod name of the activator
+	// as defined in the metrics it sends.
+	ActivatorPodName string = "activator"
+)
+
 // Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was collected on the pod.
@@ -64,8 +70,9 @@ func newTotalAggregation() *totalAggregation {
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	perPodAggregations map[string]*perPodAggregation
-	probeCount         int32
+	perPodAggregations        map[string]*perPodAggregation
+	probeCount                int32
+	containsAutoscalerMetrics bool
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -76,20 +83,34 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		agg.perPodAggregations[stat.PodName] = current
 	}
 	current.aggregate(stat.AverageConcurrentRequests)
+	if stat.PodName == ActivatorPodName {
+		agg.containsAutoscalerMetrics = true
+	}
 	agg.probeCount += 1
 }
 
 // The number of pods that are observable via stats
 func (agg *totalAggregation) observedPods() int {
-	return len(agg.perPodAggregations)
+	observedPods := len(agg.perPodAggregations)
+	if agg.containsAutoscalerMetrics {
+		if observedPods <= 1 {
+			return 1
+		}
+		return observedPods - 1
+	}
+	return observedPods
 }
 
 // The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
 func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
 	accumulatedConcurrency := float64(0)
-	for _, perPod := range agg.perPodAggregations {
-		accumulatedConcurrency += perPod.calculateAverage()
+	observedPods := agg.observedPods()
+
+	for podName, perPod := range agg.perPodAggregations {
+		if podName != ActivatorPodName || observedPods == 1 {
+			accumulatedConcurrency += perPod.calculateAverage()
+		}
 	}
 	return accumulatedConcurrency / float64(agg.observedPods())
 }

@@ -80,7 +80,9 @@ func (sr *scalerRunner) updateLatestScale(new int32) bool {
 	return false
 }
 
-func newKPAKey(namespace string, name string) string {
+// NewKpaKey identifies a KPA in the multiscaler. Stats send in
+// are identified and routed via this key.
+func NewKpaKey(namespace string, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
@@ -127,7 +129,7 @@ func (m *MultiScaler) Get(ctx context.Context, key string) (*Metric, error) {
 func (m *MultiScaler) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*Metric, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := newKPAKey(kpa.Namespace, kpa.Name)
+	key := NewKpaKey(kpa.Namespace, kpa.Name)
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
@@ -187,7 +189,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) 
 		}
 	}()
 
-	kpaKey := newKPAKey(kpa.Namespace, kpa.Name)
+	kpaKey := NewKpaKey(kpa.Namespace, kpa.Name)
 	go func() {
 		for {
 			select {

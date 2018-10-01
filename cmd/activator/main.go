@@ -18,10 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -40,6 +42,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/knative/serving/pkg/websocket"
 )
 
 const (
@@ -49,7 +53,33 @@ const (
 	maxRetries             = 18 // the sum of all retries would add up to 1 minute
 	minRetryInterval       = 100 * time.Millisecond
 	exponentialBackoffBase = 1.3
+
+	// Add a little buffer space between request handling and stat
+	// reporting so that latency in the stat pipeline doesn't
+	// interfere with request handling.
+	statReportingQueueLength = 10
 )
+
+var (
+	logger *zap.SugaredLogger
+
+	statSink *websocket.ManagedConnection
+	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
+)
+
+func statReporter() {
+	for {
+		sm := <-statChan
+		if statSink == nil {
+			logger.Error("Stat sink not connected.")
+			continue
+		}
+		err := statSink.Send(sm)
+		if err != nil {
+			logger.Error("Error while sending stat", zap.Error(err))
+		}
+	}
+}
 
 func main() {
 	flag.Parse()
@@ -61,9 +91,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	defer logger.Sync()
-	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	defer createdLogger.Sync()
+	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -106,16 +136,24 @@ func main() {
 	}
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
+	// Open a websocket connection to the autoscaler
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace, "8080")
+	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	go statReporter()
+
 	ah := &activatorhandler.FilteringHandler{
-		NextHandler: &activatorhandler.EnforceMaxContentLengthHandler{
-			MaxContentLengthBytes: maxUploadBytes,
-			NextHandler: &activatorhandler.ActivationHandler{
-				Activator: a,
-				Transport: rt,
-				Logger:    logger,
-				Reporter:  reporter,
+		NextHandler: activatorhandler.NewConcurrencyReportingHandler(statChan, time.NewTicker(time.Second).C,
+			&activatorhandler.EnforceMaxContentLengthHandler{
+				MaxContentLengthBytes: maxUploadBytes,
+				NextHandler: &activatorhandler.ActivationHandler{
+					Activator: a,
+					Transport: rt,
+					Logger:    logger,
+					Reporter:  reporter,
+				},
 			},
-		},
+		),
 	}
 
 	// set up signals so we handle the first shutdown signal gracefully
