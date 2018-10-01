@@ -214,7 +214,7 @@ _See [states.go](./states.go)._
 Your tests will probably need to create `Route` and `Configuration` objects. You can use the
 existing boilerplate to describe them.
 
-You can also use the function `RandomizedName` to create a random name for your `crd` so that
+You can also use the function `AppendRandomString` to create a random name for your `crd` so that
 your tests can use unique names each time they run.
 
 For example to create a `Configuration` object that uses a certain docker image with a
@@ -222,7 +222,7 @@ randomized name:
 
 ```go
 var names test.ResourceNames
-names.Config := test.RandomizedName('hotdog')
+names.Config := test.AppendRandomString('hotdog', logger)
 _, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
