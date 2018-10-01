@@ -53,7 +53,8 @@ function create_everything() {
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
-  create_monitoring
+  # TODO(#2122): Re-enable once we have monitoring e2e.
+  # create_monitoring
 }
 
 function delete_istio() {
@@ -72,7 +73,8 @@ function delete_monitoring() {
 }
 
 function delete_everything() {
-  delete_monitoring
+  # TODO(#2122): Re-enable once we have monitoring e2e.
+  # delete_monitoring
   echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
