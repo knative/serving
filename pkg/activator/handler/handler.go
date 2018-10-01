@@ -50,7 +50,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
 		a.Logger.Errorf(msg)
-		http.Error(w, msg, int(ar.Status))
+		http.Error(w, msg, ar.Status)
 		return
 	}
 
@@ -68,12 +68,12 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := time.Now().Sub(start)
 	if numTries := w.Header().Get(activator.ResponseCountHTTPHeader); numTries != "" {
 		if count, err := strconv.Atoi(numTries); err == nil {
-			a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), count, 1.0)
+			a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, count, 1.0)
 		} else {
 			a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.ResponseCountHTTPHeader, err)
 		}
 	}
-	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, int(httpStatus), duration)
+	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
 }
 
 type statusCapture struct {

@@ -180,7 +180,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	}
 
 	return ActivationResult{
-		Status:            Status(0),
+		Status:            http.StatusOK,
 		Endpoint:          endpoint,
 		ServiceName:       serviceName,
 		ConfigurationName: configurationName,

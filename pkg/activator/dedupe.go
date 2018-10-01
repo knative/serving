@@ -18,12 +18,13 @@ package activator
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 )
 
 var shuttingDownError = ActivationResult{
 	Endpoint: Endpoint{},
-	Status:   Status(500),
+	Status:   http.StatusInternalServerError,
 	Error:    fmt.Errorf("activator shutting down"),
 }
 

@@ -80,7 +80,7 @@ func TestActivator(t *testing.T) {
 			revisionLabels: defaultRevisionLabels,
 			want: ActivationResult{
 				Endpoint:          Endpoint{testServiceFQDN, 8080},
-				Status:            0,
+				Status:            http.StatusOK,
 				ServiceName:       "test-service",
 				ConfigurationName: "test-config",
 				Error:             nil,
@@ -93,7 +93,7 @@ func TestActivator(t *testing.T) {
 			revisionLabels: nil,
 			want: ActivationResult{
 				Endpoint:          Endpoint{testServiceFQDN, 8080},
-				Status:            0,
+				Status:            http.StatusOK,
 				ServiceName:       "",
 				ConfigurationName: "",
 				Error:             nil,
@@ -106,7 +106,7 @@ func TestActivator(t *testing.T) {
 			revisionLabels: map[string]string{serving.ConfigurationLabelKey: "test-config"},
 			want: ActivationResult{
 				Endpoint:          Endpoint{testServiceFQDN, 8080},
-				Status:            0,
+				Status:            http.StatusOK,
 				ServiceName:       "",
 				ConfigurationName: "test-config",
 				Error:             nil,
@@ -119,7 +119,7 @@ func TestActivator(t *testing.T) {
 			revisionLabels: defaultRevisionLabels,
 			want: ActivationResult{
 				Endpoint:          Endpoint{testServiceFQDN, 8080},
-				Status:            0,
+				Status:            http.StatusOK,
 				ServiceName:       "test-service",
 				ConfigurationName: "test-config",
 				Error:             nil,
@@ -212,7 +212,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		if ar.Endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
-		if ar.Status != Status(0) {
+		if ar.Status != http.StatusOK {
 			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
 		}
 		if ar.ServiceName != "test-service" {
@@ -258,7 +258,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 		if got, want := ar.Endpoint, (Endpoint{}); got != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
 		}
-		if got, want := ar.Status, Status(http.StatusInternalServerError); got != want {
+		if got, want := ar.Status, http.StatusInternalServerError; got != want {
 			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
 		}
 		if ar.ServiceName != "" {

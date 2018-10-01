@@ -27,9 +27,6 @@ const (
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
-// Status is an HTTP status code.
-type Status int
-
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
@@ -50,7 +47,7 @@ type Endpoint struct {
 
 // ActivationResult is used to return the result of an ActivateEndpoint call
 type ActivationResult struct {
-	Status            Status
+	Status            int
 	Endpoint          Endpoint
 	ServiceName       string
 	ConfigurationName string
