@@ -70,9 +70,9 @@ func newTotalAggregation() *totalAggregation {
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	perPodAggregations        map[string]*perPodAggregation
-	probeCount                int32
-	containsAutoscalerMetrics bool
+	perPodAggregations       map[string]*perPodAggregation
+	probeCount               int32
+	containsActivatorMetrics bool
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -84,15 +84,16 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 	}
 	current.aggregate(stat.AverageConcurrentRequests)
 	if stat.PodName == ActivatorPodName {
-		agg.containsAutoscalerMetrics = true
+		agg.containsActivatorMetrics = true
 	}
-	agg.probeCount += 1
+	agg.probeCount++
 }
 
 // The number of pods that are observable via stats
+// Substracts the activator pod if its not the only pod reporting stats
 func (agg *totalAggregation) observedPods() int {
 	observedPods := len(agg.perPodAggregations)
-	if agg.containsAutoscalerMetrics {
+	if agg.containsActivatorMetrics {
 		if observedPods <= 1 {
 			return 1
 		}
@@ -103,16 +104,20 @@ func (agg *totalAggregation) observedPods() int {
 
 // The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
+// Ignores activator sent metrics if its not the only pod reporting stats
 func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
 	accumulatedConcurrency := float64(0)
-	observedPods := agg.observedPods()
+	podsInCalculation := 0
+
+	observedPods := len(agg.perPodAggregations)
 
 	for podName, perPod := range agg.perPodAggregations {
 		if podName != ActivatorPodName || observedPods == 1 {
 			accumulatedConcurrency += perPod.calculateAverage()
+			podsInCalculation++
 		}
 	}
-	return accumulatedConcurrency / float64(agg.observedPods())
+	return accumulatedConcurrency / float64(podsInCalculation)
 }
 
 // Hols an aggregation per pod
@@ -124,7 +129,7 @@ type perPodAggregation struct {
 // Aggregates the given concurrency
 func (agg *perPodAggregation) aggregate(concurrency float64) {
 	agg.accumulatedConcurrency += concurrency
-	agg.probeCount += 1
+	agg.probeCount++
 }
 
 // Calculates the average concurrency over all values given
