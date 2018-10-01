@@ -44,7 +44,7 @@ type Channels struct {
 	// Ticks with every request arrived/completed respectively
 	ReqChan chan ReqEvent
 	// Ticks with every stat report request
-	ReportChan chan time.Time
+	ReportChan <-chan time.Time
 	// Stat reporting channel
 	StatChan chan *autoscaler.StatMessage
 }

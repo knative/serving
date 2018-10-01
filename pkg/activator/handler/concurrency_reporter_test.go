@@ -31,12 +31,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 	pod1 := "pod1"
 	pod2 := "pod2"
 
-	s := Channels{
-		ReqChan:    make(chan ReqEvent),
-		ReportChan: make(chan time.Time),
-		StatChan:   make(chan *autoscaler.StatMessage),
-	}
-	NewConcurrencyReporter(autoscaler.ActivatorPodName, s)
+	s := newTestStats()
 
 	s.requestStart(pod1)
 	s.requestStart(pod1)
@@ -81,19 +76,40 @@ func TestMultipleDifferentKeys(t *testing.T) {
 	})
 }
 
-func (s *Channels) requestStart(key string) {
-	s.ReqChan <- ReqEvent{Key: key, EventType: ReqIn}
+// Test type to hold the bi-directional time channels
+type testStats struct {
+	channels     Channels
+	reportBiChan chan time.Time
 }
 
-func (s *Channels) requestEnd(key string) {
-	s.ReqChan <- ReqEvent{Key: key, EventType: ReqOut}
+func newTestStats() *testStats {
+	reportBiChan := make(chan time.Time)
+	ch := Channels{
+		ReqChan:    make(chan ReqEvent),
+		ReportChan: (<-chan time.Time)(reportBiChan),
+		StatChan:   make(chan *autoscaler.StatMessage),
+	}
+	NewConcurrencyReporter(autoscaler.ActivatorPodName, ch)
+	t := &testStats{
+		channels:     ch,
+		reportBiChan: reportBiChan,
+	}
+	return t
 }
 
-func (s *Channels) report(t time.Time, count int) []*autoscaler.StatMessage {
-	s.ReportChan <- t
+func (s *testStats) requestStart(key string) {
+	s.channels.ReqChan <- ReqEvent{Key: key, EventType: ReqIn}
+}
+
+func (s *testStats) requestEnd(key string) {
+	s.channels.ReqChan <- ReqEvent{Key: key, EventType: ReqOut}
+}
+
+func (s *testStats) report(t time.Time, count int) []*autoscaler.StatMessage {
+	s.reportBiChan <- t
 	metrics := make([]*autoscaler.StatMessage, count)
 	for i := 0; i < count; i++ {
-		metrics[i] = <-s.StatChan
+		metrics[i] = <-s.channels.StatChan
 	}
 	return metrics
 }
