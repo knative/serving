@@ -298,7 +298,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:da51ebf58b59e2f4a2c6dca493ad6f48ab57d5cd9ef7a37c3e612f659f2d730c"
+  digest = "1:05b16d7c56a9600074edf87197a4333849d46969d6928aa71ebe73ff786fc8e2"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
@@ -315,7 +315,7 @@
     "pkg/client/listers/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "95e3199746a50f0a4e4ba62f1d8760e9a203b30e"
+  revision = "e63ec56b2f1f1d1eb23d7a4dcf86940610232aaa"
 
 [[projects]]
   digest = "1:826576a2dbea52eb350ed5c0fd3e53f1f24cd6bdcfaf89ff89239b8cd426cd0d"
@@ -384,7 +384,7 @@
   branch = "master"
   digest = "1:fc21c9ecb1d30c7b1ef093f90ac10fe26ed90e801136dff6019eff03495450c6"
   name = "github.com/knative/test-infra"
-  packages = ["."]
+  packages = ["test"]
   pruneopts = "T"
   revision = "c016a2a5676d3e363ad7bc94dc8d57a0aa1a0a9d"
 
@@ -1093,7 +1093,7 @@
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
-    "github.com/knative/test-infra",
+    "github.com/knative/test-infra/test",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
     "go.opencensus.io/exporter/prometheus",

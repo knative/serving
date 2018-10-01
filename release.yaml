@@ -1,0 +1,1345 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-build
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: knative-build-admin
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  - secrets
+  - events
+  - serviceaccounts
+  - configmaps
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - build.knative.dev
+  resources:
+  - builds
+  - buildtemplates
+  - clusterbuildtemplates
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - caching.internal.knative.dev
+  resources:
+  - images
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - deletecollection
+  - patch
+  - watch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: build-controller
+  namespace: knative-build
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: build-controller-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: knative-build-admin
+subjects:
+- kind: ServiceAccount
+  name: build-controller
+  namespace: knative-build
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: builds.build.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.completionTime
+    name: Completed
+    type: date
+  group: build.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    kind: Build
+    plural: builds
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: buildtemplates.build.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: build.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    kind: BuildTemplate
+    plural: buildtemplates
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterbuildtemplates.build.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: build.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    kind: ClusterBuildTemplate
+    plural: clusterbuildtemplates
+  scope: Cluster
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: images.caching.internal.knative.dev
+spec:
+  group: caching.internal.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - caching
+    kind: Image
+    plural: images
+    shortNames:
+    - img
+    singular: image
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: build-controller
+  name: build-controller
+  namespace: knative-build
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: build-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: build-webhook
+  name: build-webhook
+  namespace: knative-build
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    role: build-webhook
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: creds-init
+  namespace: knative-build
+spec:
+  image: gcr.io/mattmoor-public/creds-init-deae2f97eba24d722ddbbb5256fdab85@sha256:adb98718a51697539476237a33b851249417c71b19c0f617a0e2b08e2196eb33
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: git-init
+  namespace: knative-build
+spec:
+  image: gcr.io/mattmoor-public/git-init-edc40519d94eade2cc2c40d754b84067@sha256:4c9e2eea54954d3aaec01c3eaac5deedec67fc3e53cde2146975032297f1fa33
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: gcs-fetcher
+  namespace: knative-build
+spec:
+  image: gcr.io/cloud-builders/gcs-fetcher
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: nop
+  namespace: knative-build
+spec:
+  image: gcr.io/mattmoor-public/nop-1ae268dc65969c2b76640268b8f5f14c@sha256:356e6d60e912c5b4bad0ce6f801f199152ac72894c9b2273affcbbd50ae90f34
+---
+apiVersion: v1
+data:
+  loglevel.controller: info
+  loglevel.creds-init: info
+  loglevel.git-init: info
+  loglevel.webhook: info
+  zap-logger-config: |
+    {
+      "level": "info",
+      "development": false,
+      "sampling": {
+        "initial": 100,
+        "thereafter": 100
+      },
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "",
+        "levelKey": "level",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: knative-build
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: build-controller
+  namespace: knative-build
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: build-controller
+    spec:
+      containers:
+      - args:
+        - -logtostderr
+        - -stderrthreshold
+        - INFO
+        - -creds-image
+        - gcr.io/mattmoor-public/creds-init-deae2f97eba24d722ddbbb5256fdab85@sha256:adb98718a51697539476237a33b851249417c71b19c0f617a0e2b08e2196eb33
+        - -git-image
+        - gcr.io/mattmoor-public/git-init-edc40519d94eade2cc2c40d754b84067@sha256:4c9e2eea54954d3aaec01c3eaac5deedec67fc3e53cde2146975032297f1fa33
+        - -nop-image
+        - gcr.io/mattmoor-public/nop-1ae268dc65969c2b76640268b8f5f14c@sha256:356e6d60e912c5b4bad0ce6f801f199152ac72894c9b2273affcbbd50ae90f34
+        image: gcr.io/mattmoor-public/controller-12e96bc762f32867760d3b6f51bdae1d@sha256:22db18f0af01ba971ffa0794e9ad2a893707afb2514e610acd2f3f356716c9b7
+        name: build-controller
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: build-controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: build-webhook
+  namespace: knative-build
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: build-webhook
+        role: build-webhook
+    spec:
+      containers:
+      - args:
+        - -logtostderr
+        - -stderrthreshold
+        - INFO
+        image: gcr.io/mattmoor-public/webhook-98f665fe94975e40fa69f4b2dd6f58b4@sha256:9461c18d7c89bc12972708dcf39f110b1751656f93eebf253f6214b41c415dac
+        name: build-webhook
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: build-controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: knative-serving
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: knative-serving-admin
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  - secrets
+  - configmaps
+  - endpoints
+  - services
+  - events
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  - deployments
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/scale
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - configurations
+  - configurationgenerations
+  - routes
+  - revisions
+  - revisionuids
+  - autoscalers
+  - services
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - autoscaling.internal.knative.dev
+  resources:
+  - podautoscalers
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - caching.internal.knative.dev
+  resources:
+  - images
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - build.knative.dev
+  resources:
+  - builds
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: knative-serving-write
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  - secrets
+  - configmaps
+  - endpoints
+  - services
+  - events
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  - deployments
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/scale
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - configurations
+  - configurationgenerations
+  - routes
+  - revisions
+  - revisionuids
+  - autoscalers
+  - services
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - build.knative.dev
+  resources:
+  - builds
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: controller
+  namespace: knative-serving
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autoscaler
+  namespace: knative-serving
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: knative-serving-controller-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: knative-serving-admin
+subjects:
+- kind: ServiceAccount
+  name: controller
+  namespace: knative-serving
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: knative-serving-autoscaler-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: knative-serving-write
+subjects:
+- kind: ServiceAccount
+  name: autoscaler
+  namespace: knative-serving
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-shared-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    knative: ingressgateway
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+  - hosts:
+    - '*'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: null
+  labels:
+    app: knative-ingressgateway
+    chart: gateways-1.0.1
+    heritage: Tiller
+    knative: ingressgateway
+    release: RELEASE-NAME
+  name: knative-ingressgateway
+  namespace: istio-system
+spec:
+  ports:
+  - name: http2
+    nodePort: 32380
+    port: 80
+    targetPort: 80
+  - name: https
+    nodePort: 32390
+    port: 443
+  - name: tcp
+    nodePort: 32400
+    port: 31400
+  - name: tcp-pilot-grpc-tls
+    port: 15011
+    targetPort: 15011
+  - name: tcp-citadel-grpc-tls
+    port: 8060
+    targetPort: 8060
+  - name: tcp-dns-tls
+    port: 853
+    targetPort: 853
+  - name: http2-prometheus
+    port: 15030
+    targetPort: 15030
+  - name: http2-grafana
+    port: 15031
+    targetPort: 15031
+  selector:
+    app: knative-ingressgateway
+    knative: ingressgateway
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: knative-ingressgateway
+    chart: gateways-1.0.1
+    heritage: Tiller
+    knative: ingressgateway
+    release: RELEASE-NAME
+  name: knative-ingressgateway
+  namespace: istio-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: knative-ingressgateway
+      knative: ingressgateway
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: knative-ingressgateway
+        knative: ingressgateway
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - proxy
+        - router
+        - -v
+        - "2"
+        - --discoveryRefreshDelay
+        - 1s
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --connectTimeout
+        - 10s
+        - --serviceCluster
+        - knative-ingressgateway
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-statsd-prom-bridge:9125
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --discoveryAddress
+        - istio-pilot:8080
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: docker.io/istio/proxyv2:1.0.1
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 31400
+        - containerPort: 15011
+        - containerPort: 8060
+        - containerPort: 853
+        - containerPort: 15030
+        - containerPort: 15031
+        resources:
+          requests:
+            cpu: 10m
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+        - mountPath: /etc/istio/ingressgateway-certs
+          name: ingressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/ingressgateway-ca-certs
+          name: ingressgateway-ca-certs
+          readOnly: true
+      serviceAccountName: istio-ingressgateway-service-account
+      volumes:
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.istio-ingressgateway-service-account
+      - name: ingressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-ca-certs
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: knative-ingressgateway
+  namespace: istio-system
+spec:
+  maxReplicas: 10
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 60
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: knative-ingressgateway
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: configurations.serving.knative.dev
+spec:
+  group: serving.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    - serving
+    kind: Configuration
+    plural: configurations
+    shortNames:
+    - config
+    - cfg
+    singular: configuration
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: images.caching.internal.knative.dev
+spec:
+  group: caching.internal.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - caching
+    kind: Image
+    plural: images
+    shortNames:
+    - img
+    singular: image
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: podautoscalers.autoscaling.internal.knative.dev
+spec:
+  group: autoscaling.internal.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - autoscaling
+    kind: PodAutoscaler
+    plural: podautoscalers
+    shortNames:
+    - kpa
+    singular: podautoscaler
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: revisions.serving.knative.dev
+spec:
+  group: serving.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    - serving
+    kind: Revision
+    plural: revisions
+    shortNames:
+    - rev
+    singular: revision
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: routes.serving.knative.dev
+spec:
+  group: serving.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    - serving
+    kind: Route
+    plural: routes
+    shortNames:
+    - rt
+    singular: route
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: services.serving.knative.dev
+spec:
+  group: serving.knative.dev
+  names:
+    categories:
+    - all
+    - knative
+    - serving
+    kind: Service
+    plural: services
+    shortNames:
+    - kservice
+    - ksvc
+    singular: service
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: activator
+  name: activator-service
+  namespace: knative-serving
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: activator
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: controller
+  name: controller
+  namespace: knative-serving
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: webhook
+  name: webhook
+  namespace: knative-serving
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    role: webhook
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: queue-proxy
+  namespace: knative-serving
+spec:
+  image: gcr.io/mattmoor-public/queue-7204c16e44715cd30f78443fb99e0f58@sha256:d4642f4c133e40e3cc9dde77ede0ccedb3f8171ce27377cd9af3e99cc647f06d
+---
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: fluentd-sidecar
+  namespace: knative-serving
+spec:
+  image: k8s.gcr.io/fluentd-elasticsearch:v2.0.4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activator
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: activator
+        role: activator
+    spec:
+      containers:
+      - args:
+        - -logtostderr=false
+        - -stderrthreshold=FATAL
+        image: gcr.io/mattmoor-public/activator-2d008c4c36689d255523e5fa210c0bec@sha256:b6a74dd51177fac76999f7283265757a0d6253b71ef78a2ca53f945310ec899e
+        name: activator
+        ports:
+        - containerPort: 8080
+          name: activator-port
+        - containerPort: 9090
+          name: metrics-port
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: autoscaler
+  name: autoscaler
+  namespace: knative-serving
+spec:
+  ports:
+  - name: websocket
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: autoscaler
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaler
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: autoscaler
+    spec:
+      containers:
+      - image: gcr.io/mattmoor-public/autoscaler-b41733a3e5694e8fc64777bdfd8e791a@sha256:9b2af71e481b8df8f5359ca25ac773e396737efe1a51915c97fecdb93d332e3f
+        name: autoscaler
+        ports:
+        - containerPort: 8080
+          name: websocket
+        - containerPort: 9090
+          name: metrics
+        volumeMounts:
+        - mountPath: /etc/config-autoscaler
+          name: config-autoscaler
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-autoscaler
+        name: config-autoscaler
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: v1
+data:
+  concurrency-quantum-of-time: 100ms
+  container-concurrency-target-default: "100"
+  container-concurrency-target-percentage: "1.0"
+  enable-scale-to-zero: "true"
+  enable-vertical-pod-autoscaling: "false"
+  max-scale-up-rate: "10"
+  panic-window: 6s
+  scale-to-zero-grace-period: 2m
+  scale-to-zero-threshold: 5m
+  stable-window: 60s
+  tick-interval: 2s
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: knative-serving
+---
+apiVersion: v1
+data:
+  queueSidecarImage: gcr.io/mattmoor-public/queue-7204c16e44715cd30f78443fb99e0f58@sha256:d4642f4c133e40e3cc9dde77ede0ccedb3f8171ce27377cd9af3e99cc647f06d
+  registriesSkippingTagResolving: ko.local,dev.local
+kind: ConfigMap
+metadata:
+  name: config-controller
+  namespace: knative-serving
+---
+apiVersion: v1
+data:
+  example.com: ""
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+---
+apiVersion: v1
+data:
+  loglevel.activator: info
+  loglevel.autoscaler: info
+  loglevel.controller: info
+  loglevel.queueproxy: info
+  loglevel.webhook: info
+  zap-logger-config: |
+    {
+      "level": "info",
+      "development": false,
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "ts",
+        "levelKey": "level",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "iso8601",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: knative-serving
+---
+apiVersion: v1
+data:
+  istio.sidecar.includeOutboundIPRanges: '*'
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+---
+apiVersion: v1
+data:
+  logging.enable-var-log-collection: "false"
+  logging.fluentd-sidecar-image: k8s.gcr.io/fluentd-elasticsearch:v2.0.4
+  logging.fluentd-sidecar-output-config: |
+    # Parse json log before sending to Elastic Search
+    <filter **>
+      @type parser
+      key_name log
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+          time_key fluentd-time # fluentd-time is reserved for structured logs
+          time_format %Y-%m-%dT%H:%M:%S.%NZ
+        </pattern>
+        <pattern>
+          format none
+          message_key log
+        </pattern>
+      </parse>
+    </filter>
+    # Send to Elastic Search
+    <match **>
+      @id elasticsearch
+      @type elasticsearch
+      @log_level info
+      include_tag_key true
+      # Elasticsearch service is in monitoring namespace.
+      host elasticsearch-logging.knative-monitoring
+      port 9200
+      logstash_format true
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/kubernetes.system.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 5s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size 2M
+        queue_limit_length 8
+        overflow_action block
+      </buffer>
+    </match>
+  logging.revision-url-template: |
+    http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: knative-serving
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: controller
+    spec:
+      containers:
+      - image: gcr.io/mattmoor-public/controller-43f0364ab2f6dab17267e80a1f6a4adc@sha256:e91d9d81d3448720222485f2cd6c4545ec9a2ec837d20829e40b2e1301d6a9a5
+        name: controller
+        ports:
+        - containerPort: 9090
+          name: metrics
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      role: webhook
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: webhook
+        role: webhook
+    spec:
+      containers:
+      - image: gcr.io/mattmoor-public/webhook-37fa64b5b216d563332fd3210a121e52@sha256:140871013b85fa5769918822ff3f30d3ef1b5ee79f67ab455e2b0a06cd4c6392
+        name: webhook
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
