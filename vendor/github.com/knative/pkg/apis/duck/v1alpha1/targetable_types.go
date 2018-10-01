@@ -33,8 +33,6 @@ type Targetable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
-// Implementations can verify that they implement Targetable via:
-var _ = duck.VerifyType(&Target{}, &Targetable{})
 
 // Targetable is an Implementable "duck type".
 var _ duck.Implementable = (*Targetable)(nil)

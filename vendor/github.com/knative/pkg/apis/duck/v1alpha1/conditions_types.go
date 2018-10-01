@@ -93,8 +93,6 @@ func (c *Condition) IsUnknown() bool {
 	return c.Status == corev1.ConditionUnknown
 }
 
-// Implementations can verify that they implement Conditions via:
-var _ = duck.VerifyType(&KResource{}, &Conditions{})
 
 // Conditions is an Implementable "duck type".
 var _ duck.Implementable = (*Conditions)(nil)

@@ -298,21 +298,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:da51ebf58b59e2f4a2c6dca493ad6f48ab57d5cd9ef7a37c3e612f659f2d730c"
+  digest = "1:55afb8eda90ece0efb93a35577dedce68a8c058140136b0f04b9b3f88a0ac1ed"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
     "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
     "pkg/client/clientset/versioned/scheme",
     "pkg/client/clientset/versioned/typed/build/v1alpha1",
-    "pkg/client/clientset/versioned/typed/build/v1alpha1/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/build",
-    "pkg/client/informers/externalversions/build/v1alpha1",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/listers/build/v1alpha1",
   ]
   pruneopts = "NUT"
   revision = "95e3199746a50f0a4e4ba62f1d8760e9a203b30e"
@@ -338,7 +331,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:2e8f5077f8a6dad7c8958e848e132d0e97a5fe66128c33b71d68e4647e8ec97d"
+  digest = "1:afd1166ac1ec7a13aaeba055d18f43bd2ae23479970f55f6373b24db65cf7490"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -378,7 +371,7 @@
     "webhook",
   ]
   pruneopts = "NT"
-  revision = "e653ef4b1b527e4581929d694a056fd2ab7315ad"
+  revision = "fd1e3cc5c9bfc33d54afbcf59e8739dd54533034"
 
 [[projects]]
   branch = "master"
@@ -1059,10 +1052,7 @@
     "github.com/gorilla/websocket",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/build/pkg/client/clientset/versioned",
-    "github.com/knative/build/pkg/client/clientset/versioned/fake",
     "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
-    "github.com/knative/build/pkg/client/informers/externalversions",
-    "github.com/knative/build/pkg/client/listers/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",

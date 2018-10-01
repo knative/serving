@@ -19,5 +19,5 @@ limitations under the License.
 // that resource authors may choose to implement to interoperate with
 // consumers of these "duck typed" interfaces.
 // For more information see:
-// TODO(mattmoor): Add link to doc.
+// https://docs.google.com/document/d/16j8C91jML4fQRQPhnHihNJUJDcbvW0RM1YAX2REHgyY/edit#
 package duck

@@ -23,8 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -44,9 +42,6 @@ var _ apis.Immutable = (*Resource)(nil)
 var _ apis.Listable = (*Resource)(nil)
 
 // Check that we implement the Generation duck type.
-var emptyGen duckv1alpha1.Generation
-var _ = duck.VerifyType(&Resource{}, &emptyGen)
-
 type ResourceSpec struct {
 	Generation int64 `json:"generation,omitempty"`
 
