@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: webhook
   namespace: knative-serving
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      role: webhook
   template:
     metadata:
       annotations:

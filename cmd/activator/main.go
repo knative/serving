@@ -135,8 +135,11 @@ func main() {
 	}
 
 	// Start the endpoint for Prometheus scraping
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", ah.ServeHTTP)
-	mux.Handle("/metrics", promExporter)
-	h2c.ListenAndServe(":8080", mux)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
+
+	h2c.ListenAndServe(":8080", ah)
 }

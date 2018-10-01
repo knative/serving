@@ -244,30 +244,39 @@ function report_go_test() {
     local fields=(`echo -n ${line}`)
     local field0="${fields[0]}"
     local field1="${fields[1]}"
-    local name=${fields[2]}
+    local name="${fields[2]}"
     # Ignore subtests (those containing slashes)
     if [[ -n "${name##*/*}" ]]; then
+      local error=""
+      # Deal with a fatal log entry, which has a different format:
+      # fatal   TestFoo   foo_test.go:275 Expected "foo" but got "bar"
+      if [[ "${field0}" == "fatal" ]]; then
+        name="${fields[1]}"
+        field1="FAIL:"
+        error="${fields[@]:3}"
+      fi
+      # Handle regular go test pass/fail entry for a test.
       if [[ "${field1}" == "PASS:" || "${field1}" == "FAIL:" ]]; then
         echo "- ${name} :${field1}"
         test_count=$(( test_count + 1 ))
-        # Populate BUILD.bazel
         local src="${name}.sh"
         echo "exit 0" > ${src}
         if [[ "${field1}" == "FAIL:" ]]; then
-          read error
+          [[ -z "${error}" ]] && read error
           echo "cat <<ERROR-EOF" > ${src}
           echo "${error}" >> ${src}
           echo "ERROR-EOF" >> ${src}
           echo "exit 1" >> ${src}
         fi
         chmod +x ${src}
+        # Populate BUILD.bazel
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
       elif [[ "${field0}" == "FAIL" || "${field0}" == "ok" ]] && [[ -n "${field1}" ]]; then
         echo "- ${field0} ${field1}"
         # Create the package structure, move tests and BUILD file
         local package=${field1/github.com\//}
         local bazel_files="$(ls -1 *.sh BUILD.bazel 2> /dev/null)"
-        if [[ $? -eq 0 ]]; then
+        if [[ -n "${bazel_files}" ]]; then
           mkdir -p ${package}
           targets="${targets} //${package}/..."
           mv ${bazel_files} ${package}
@@ -282,6 +291,7 @@ function report_go_test() {
   # Otherwise, we already shown the summary.
   # Exception: when emitting metrics, dump the full report.
   if (( failed )) || [[ "$@" == *" -emitmetrics"* ]]; then
+    echo "At least one test failed, full log:"
     cat ${report}
   fi
   # Always generate the junit summary.
