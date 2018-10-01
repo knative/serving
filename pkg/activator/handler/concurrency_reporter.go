@@ -22,16 +22,19 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
+// ReqEvent represents an incoming/finished request with a given key
 type ReqEvent struct {
 	Key       string
 	EventType ReqEventType
 }
 
-// Tokens to record ReqIn (request in) and ReqOut (request out) events respectively
+// ReqEventType specifies the type of event (In/Out)
 type ReqEventType int
 
 const (
+	// ReqIn represents an incoming request
 	ReqIn ReqEventType = iota
+	// ReqOut represents a finished request
 	ReqOut
 )
 
@@ -41,30 +44,30 @@ type Channels struct {
 	// Ticks with every request arrived/completed respectively
 	ReqChan chan ReqEvent
 	// Ticks with every stat report request
-	ReportChan <-chan time.Time
+	ReportChan chan time.Time
 	// Stat reporting channel
 	StatChan chan *autoscaler.StatMessage
 }
 
-// NewStats instantiates a new instance of Stats.
+// NewConcurrencyReporter instantiates a new instance of Stats.
 func NewConcurrencyReporter(podName string, channels Channels) {
 
 	go func() {
-		concurrencyPerKey := make(map[string]int32)
+		outstandingRequestsPerKey := make(map[string]int32)
 		for {
 			select {
 			case event := <-channels.ReqChan:
 				switch event.EventType {
 				case ReqIn:
-					concurrencyPerKey[event.Key]++
+					outstandingRequestsPerKey[event.Key]++
 				case ReqOut:
-					concurrencyPerKey[event.Key]--
+					outstandingRequestsPerKey[event.Key]--
 
 				}
 			case now := <-channels.ReportChan:
-				for key, concurrency := range concurrencyPerKey {
+				for key, concurrency := range outstandingRequestsPerKey {
 					if concurrency == 0 {
-						delete(concurrencyPerKey, key)
+						delete(outstandingRequestsPerKey, key)
 					} else {
 						stat := autoscaler.Stat{
 							Time:                      &now,

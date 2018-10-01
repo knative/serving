@@ -27,7 +27,7 @@ const (
 	requestCountingQueueLength = 100
 )
 
-func NewConcurrencyReportingHandler(statChan chan *autoscaler.StatMessage, reportChan <-chan time.Time, next http.Handler) *concurrencyReportingHandler {
+func NewConcurrencyReportingHandler(statChan chan *autoscaler.StatMessage, reportChan chan time.Time, next http.Handler) *concurrencyReportingHandler {
 
 	channels := Channels{
 		ReqChan:    make(chan ReqEvent, requestCountingQueueLength),
