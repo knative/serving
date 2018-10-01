@@ -32,6 +32,11 @@ required = [
   revision = "95e3199746a50f0a4e4ba62f1d8760e9a203b30e"
 
 [[override]]
+  name = "github.com/knative/test-infra"
+  # HEAD as of 2018-10-01
+  revision = "c21d3a832727d5d4334e734c0878eac3a5a07ae7"
+
+[[override]]
   name = "github.com/knative/pkg"
   revision = "e653ef4b1b527e4581929d694a056fd2ab7315ad"
 
