@@ -15,42 +15,45 @@ package handler
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/knative/serving/pkg/activator"
-
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
+// ReqEvent represents an incoming/finished request with a given key
+type ReqEvent struct {
+	Key       string
+	EventType ReqEventType
+}
+
+// ReqEventType specifies the type of event (In/Out)
+type ReqEventType int
+
 const (
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
+	// ReqIn represents an incoming request
+	ReqIn ReqEventType = iota
+	// ReqOut represents a finished request
+	ReqOut
 )
 
-func NewConcurrencyReportingHandler(statChan chan *autoscaler.StatMessage, reportChan <-chan time.Time, next http.Handler) *concurrencyReportingHandler {
-
-	channels := Channels{
-		ReqChan:    make(chan ReqEvent, requestCountingQueueLength),
-		StatChan:   statChan,
-		ReportChan: reportChan,
-	}
-
-	NewConcurrencyReporter(autoscaler.ActivatorPodName, channels)
-
-	handler := &concurrencyReportingHandler{
-		NextHandler: next,
-		ReqChan:     channels.ReqChan,
+// NewRequestEventHandler creates a handler that sends events
+// about incoming/closed http connections to the given channel.
+func NewRequestEventHandler(reqChan chan ReqEvent, next http.Handler) *RequestEventHandler {
+	handler := &RequestEventHandler{
+		nextHandler: next,
+		ReqChan:     reqChan,
 	}
 
 	return handler
 }
 
-type concurrencyReportingHandler struct {
-	NextHandler http.Handler
+// RequestEventHandler sends events to the given channel.
+type RequestEventHandler struct {
+	nextHandler http.Handler
 	ReqChan     chan ReqEvent
 }
 
-func (h *concurrencyReportingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 
@@ -58,5 +61,5 @@ func (h *concurrencyReportingHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqIn}
 	defer func() { h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqOut} }()
-	h.NextHandler.ServeHTTP(w, r)
+	h.nextHandler.ServeHTTP(w, r)
 }

@@ -58,6 +58,9 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
+
+	// Add enough buffer to not block request serving on stats collection
+	requestCountingQueueLength = 100
 )
 
 var (
@@ -65,6 +68,7 @@ var (
 
 	statSink *websocket.ManagedConnection
 	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 )
 
 func statReporter() {
@@ -141,6 +145,12 @@ func main() {
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
+
+	activatorhandler.NewConcurrencyReporter(autoscaler.ActivatorPodName, activatorhandler.Channels{
+		ReqChan:    reqChan,
+		StatChan:   statChan,
+		ReportChan: time.NewTicker(time.Second).C,
+	})
 
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: activatorhandler.NewConcurrencyReportingHandler(statChan, time.NewTicker(time.Second).C,

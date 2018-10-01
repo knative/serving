@@ -22,22 +22,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
-// ReqEvent represents an incoming/finished request with a given key
-type ReqEvent struct {
-	Key       string
-	EventType ReqEventType
-}
-
-// ReqEventType specifies the type of event (In/Out)
-type ReqEventType int
-
-const (
-	// ReqIn represents an incoming request
-	ReqIn ReqEventType = iota
-	// ReqOut represents a finished request
-	ReqOut
-)
-
 // Channels is a structure for holding the channels for driving Stats.
 // It's just to make the NewStats signature easier to read.
 type Channels struct {
@@ -49,7 +33,10 @@ type Channels struct {
 	StatChan chan *autoscaler.StatMessage
 }
 
-// NewConcurrencyReporter instantiates a new instance of Stats.
+// NewConcurrencyReporter instantiates a new goroutine that consumes and
+// produces from the given channels.
+// On each tick on the ReportChan, StatMessages will be sent to the
+// StatChan.
 func NewConcurrencyReporter(podName string, channels Channels) {
 
 	go func() {
