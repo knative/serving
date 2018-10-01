@@ -79,7 +79,9 @@ func TestNamer(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 999,
-				Build:      &buildv1alpha1.BuildSpec{},
+				Build: &v1alpha1.RawExtension{
+					BuildSpec: &buildv1alpha1.BuildSpec{},
+				},
 			},
 		},
 		f:    Build,

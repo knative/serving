@@ -347,6 +347,10 @@ func TestReconcile(t *testing.T) {
 }
 
 func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
+	var bld *v1alpha1.RawExtension
+	if build != nil {
+		bld = &v1alpha1.RawExtension{BuildSpec: build}
+	}
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -354,7 +358,7 @@ func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buil
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
-			Build:      build,
+			Build:      bld,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: revisionSpec,
 			},

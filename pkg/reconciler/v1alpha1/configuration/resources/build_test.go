@@ -61,11 +61,11 @@ func TestBuilds(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 31,
-				Build: &buildv1alpha1.BuildSpec{
+				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
 					}},
-				},
+				}},
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -116,7 +116,7 @@ func TestBuilds(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 42,
-				Build: &buildv1alpha1.BuildSpec{
+				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Template: &buildv1alpha1.TemplateInstantiationSpec{
 						Name: "buildpacks",
 						Arguments: []buildv1alpha1.ArgumentSpec{{
@@ -124,7 +124,7 @@ func TestBuilds(t *testing.T) {
 							Value: "bar",
 						}},
 					},
-				},
+				}},
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{

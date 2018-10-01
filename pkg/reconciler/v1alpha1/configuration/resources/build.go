@@ -33,20 +33,26 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 		return nil
 	}
 
-	b := &buildv1alpha1.Build{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "build.knative.dev/v1alpha1",
-			Kind:       "Build",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       config.Namespace,
-			Name:            names.Build(config),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(config)},
-		},
-		Spec: *config.Spec.Build,
+	u := &unstructured.Unstructured{}
+	if err := config.Spec.Build.As(u); err != nil {
+		b := &buildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+			},
+		}
+		if err := config.Spec.Build.As(&b.Spec); err != nil {
+			// TODO(mattmoor): Return errors.
+			panic(err.Error())
+		}
+
+		u = MustToUnstructured(b)
 	}
 
-	return MustToUnstructured(b)
+	u.SetNamespace(config.Namespace)
+	u.SetName(names.Build(config))
+	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
+	return u
 }
 
 func MustToUnstructured(build *buildv1alpha1.Build) *unstructured.Unstructured {
