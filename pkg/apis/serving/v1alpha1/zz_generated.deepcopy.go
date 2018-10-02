@@ -97,7 +97,7 @@ func (in *ConfigurationSpec) DeepCopyInto(out *ConfigurationSpec) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(build_v1alpha1.BuildSpec)
+			*out = new(RawExtension)
 			(*in).DeepCopyInto(*out)
 		}
 	}
