@@ -100,7 +100,6 @@ func TestBuilds(t *testing.T) {
 				"timeout": "0s",
 			},
 			"status": map[string]interface{}{
-				"creationTime":   nil,
 				"startTime":      nil,
 				"completionTime": nil,
 				"stepStates":     nil,
@@ -161,7 +160,6 @@ func TestBuilds(t *testing.T) {
 				"timeout": "0s",
 			},
 			"status": map[string]interface{}{
-				"creationTime":   nil,
 				"startTime":      nil,
 				"completionTime": nil,
 				"stepStates":     nil,
