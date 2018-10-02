@@ -33,8 +33,6 @@ type Sinkable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
-// Implementations can verify that they implement Sinkable via:
-var _ = duck.VerifyType(&Sink{}, &Sinkable{})
 
 // Sinkable is an Implementable "duck type".
 var _ duck.Implementable = (*Sinkable)(nil)

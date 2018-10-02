@@ -275,7 +275,9 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	for _, crd := range ac.Handlers {
 		cp := crd.DeepCopyObject()
 		var emptyGen duckv1alpha1.Generation
-		duck.VerifyType(cp, &emptyGen)
+		if err := duck.VerifyType(cp, &emptyGen); err != nil {
+			return err
+		}
 	}
 
 	select {

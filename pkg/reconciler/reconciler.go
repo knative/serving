@@ -17,6 +17,8 @@ limitations under the License.
 package reconciler
 
 import (
+	"time"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -45,6 +47,9 @@ type Options struct {
 
 	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
+
+	ResyncPeriod time.Duration
+	StopChannel  <-chan struct{}
 }
 
 // Base implements the core controller logic, given a Reconciler.

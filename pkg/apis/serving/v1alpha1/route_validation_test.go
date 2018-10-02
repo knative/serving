@@ -172,7 +172,10 @@ func TestRouteSpecValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths:   []string{"traffic[0].configurationName", "traffic[0].revisionName"},
+			Paths: []string{
+				"traffic[0].configurationName",
+				"traffic[0].revisionName",
+			},
 		},
 	}, {
 		name: "invalid revision name",

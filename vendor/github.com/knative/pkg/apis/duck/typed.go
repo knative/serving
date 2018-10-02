@@ -18,12 +18,14 @@ package duck
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 
@@ -47,7 +49,7 @@ func (dif *TypedInformerFactory) Get(gvr schema.GroupVersionResource) (cache.Sha
 	listObj := dif.Type.GetListType()
 	lw := &cache.ListWatch{
 		ListFunc:  asStructuredLister(dif.Client.Resource(gvr).List, listObj),
-		WatchFunc: dif.Client.Resource(gvr).Watch,
+		WatchFunc: AsStructuredWatcher(dif.Client.Resource(gvr).Watch, dif.Type),
 	}
 	inf := cache.NewSharedIndexInformer(lw, dif.Type, dif.ResyncPeriod, cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -77,5 +79,63 @@ func asStructuredLister(ulist unstructuredLister, listObj runtime.Object) cache.
 			return nil, err
 		}
 		return res, nil
+	}
+}
+
+// AsStructuredWatcher is public for testing only.
+// TODO(mattmoor): Move tests for this to `package duck` and make private.
+func AsStructuredWatcher(wf cache.WatchFunc, obj runtime.Object) cache.WatchFunc {
+	return func(lo metav1.ListOptions) (watch.Interface, error) {
+		uw, err := wf(lo)
+		if err != nil {
+			return nil, err
+		}
+		structuredCh := make(chan watch.Event)
+		go func() {
+			defer close(structuredCh)
+			unstructuredCh := uw.ResultChan()
+			for {
+				select {
+				case ue, ok := <-unstructuredCh:
+					if !ok {
+						// Channel is closed.
+						return
+					}
+
+					unstructuredObj, ok := ue.Object.(*unstructured.Unstructured)
+					if !ok {
+						// If it isn't an unstructured object, then forward the
+						// event as-is.  This is likely to happen when the event's
+						// Type is an Error.
+						structuredCh <- ue
+						continue
+					}
+					structuredObj := obj.DeepCopyObject()
+
+					err := FromUnstructured(unstructuredObj, structuredObj)
+					if err != nil {
+						// Pass back an error indicating that the object we got
+						// was invalid.
+						structuredCh <- watch.Event{
+							Type: watch.Error,
+							Object: &metav1.Status{
+								Status:  metav1.StatusFailure,
+								Code:    http.StatusUnprocessableEntity,
+								Reason:  metav1.StatusReasonInvalid,
+								Message: err.Error(),
+							},
+						}
+						continue
+					}
+					// Send the structured event.
+					structuredCh <- watch.Event{
+						Type:   ue.Type,
+						Object: structuredObj,
+					}
+				}
+			}
+		}()
+
+		return NewProxyWatcher(structuredCh), nil
 	}
 }
