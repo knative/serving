@@ -43,8 +43,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -265,6 +265,7 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 
 	logger := commonlogging.FromContext(ctx)
 
+	//TODO(imikushin): get this from rev when it's added to Revision in the API
 	buildRef := corev1.ObjectReference{
 		APIVersion: "build.knative.dev/v1alpha1",
 		Kind:       "Build",
@@ -272,16 +273,15 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		Name:       rev.Spec.BuildName,
 	}
 	if err := c.tracker.Track(buildRef, rev); err != nil {
+		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
 		return err
 	}
 	rev.Status.InitializeBuildCondition()
 
-	_, lister, err := c.buildInformerFactory.Get(schema.GroupVersionResource{
-		Group:    "build.knative.dev",
-		Version:  "v1alpha1",
-		Resource: "builds",
-	})
+	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
+	_, lister, err := c.buildInformerFactory.Get(gvr)
 	if err != nil {
+		logger.Errorf("Error getting a lister for a builds resource '%+v': %+v", gvr, err)
 		return err
 	}
 
