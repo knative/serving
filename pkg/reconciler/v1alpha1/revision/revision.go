@@ -71,7 +71,11 @@ const (
 	WasChanged Changed = true
 	Unchanged  Changed = false
 
-	TrackerLeaseFactor = 3 // 3x controller resync period should be enough
+	// TrackerLeaseFactor is the multiple of the controller resync period to use
+	// as the duration for tracker leases. This attempts to ensure that resyncs
+	// happen to refresh leases frequently enough that we don't miss updates to
+	// tracked objects.
+	TrackerLeaseFactor = 3
 )
 
 type resolver interface {

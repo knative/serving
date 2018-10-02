@@ -331,7 +331,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:60a4b0e31df498c469356859b0a0926fe8c47c847a98579e48ebadec48ff2852"
+  digest = "1:213664599d44d8a5c94b19b8b28407ee8a1e5cf3f1789c0b08286c4f479a4644"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -370,7 +370,7 @@
     "tracker",
     "webhook",
   ]
-  pruneopts = "NT"
+  pruneopts = "NUT"
   revision = "f00975a13e4c7284aac5b8d01181590869472291"
 
 [[projects]]

@@ -90,7 +90,3 @@ required = [
   name = "github.com/knative/test-infra"
   unused-packages = false
   non-go = false
-
-[[prune.project]]
-  name = "github.com/knative/pkg"
-  unused-packages = false

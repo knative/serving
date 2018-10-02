@@ -1359,7 +1359,6 @@ func TestReconcile(t *testing.T) {
 			Base:           reconciler.NewBase(opt, controllerAgentName),
 			revisionLister: listers.GetRevisionLister(),
 			kpaLister:      listers.GetKPALister(),
-			//buildLister:      listers.GetBuildLister(), // TODO replace with duck.InformerFactory
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
@@ -1625,7 +1624,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			Base:           reconciler.NewBase(opt, controllerAgentName),
 			revisionLister: listers.GetRevisionLister(),
 			kpaLister:      listers.GetKPALister(),
-			//buildLister:      listers.GetBuildLister(), // TODO replace with duck.InformerFactory
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
