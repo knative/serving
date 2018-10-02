@@ -29,6 +29,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,31 +57,29 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 }
 
 func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
-	totalRequests := 0
-	successfulRequests := 0
-	var mux sync.Mutex
+	var (
+		totalRequests      int
+		successfulRequests int
+		mux                sync.Mutex
+		group              errgroup.Group
+	)
 
 	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		group.Go(func() error {
 			done := time.After(duration)
 			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				logger.Errorf("error creating spoofing client %v", err)
-				return
+				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 			if err != nil {
-				logger.Errorf("error creating request %v", err)
-				return
+				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
 			for {
 				select {
 				case <-done:
-					return
+					return nil
 				default:
 					mux.Lock()
 					totalRequests++
@@ -102,17 +101,20 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					mux.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	logger.Infof("Waiting for all requests to complete.")
-	wg.Wait()
-	logger.Infof("All requests completed. Checking results.")
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("Error making requests for scale up: %v.", err)
+	}
+
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.",
+		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
 			successfulRequests, totalRequests)
 	}
-	logger.Infof("Got %v successful responses out of %v.", successfulRequests, totalRequests)
+
+	logger.Infof("All %d requests succeeded.", totalRequests)
 	return nil
 }
 
