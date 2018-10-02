@@ -14,7 +14,15 @@
 
 -- parses a response as returned by the system under test
 function parse_response(res)
+  if (res == nil or res == '') then
+    print('ERROR: Empty response from the test.')
+    os.exit()
+  end
   local split_at, _ = res:find(',', 0)
+  if (split_at == nil or split_at == '') then
+    print(string.format("ERROR: Malformed response '%s' from the test", res))
+    os.exit()
+  end
   local start_ts = tonumber(res:sub(0, split_at-1))
   local end_ts = tonumber(res:sub(split_at+1))
   return start_ts, end_ts
@@ -42,7 +50,7 @@ local threads = {}
 function setup(thread)
   table.insert(threads, thread)
   if tonumber(os.getenv('concurrency')) == nil then
-    print('"concurrency" environment variable must be defined and be a number. Set it to the number of connections configured for wrk.')
+    print('ERROR: "concurrency" environment variable must be defined and be a number. Set it to the number of connections configured for wrk.')
     os.exit()
   end
 end

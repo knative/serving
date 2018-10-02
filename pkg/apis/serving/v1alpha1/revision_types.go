@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -200,6 +199,8 @@ var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionActive,
 )
 
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
+
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
 	// ServiceName holds the name of a core Kubernetes Service resource that
@@ -273,8 +274,8 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 	revCondSet.Manage(rs).InitializeCondition(RevisionConditionBuildSucceeded)
 }
 
-func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
-	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
+	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return
 	}

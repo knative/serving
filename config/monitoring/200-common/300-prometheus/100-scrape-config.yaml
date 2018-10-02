@@ -18,7 +18,7 @@ metadata:
   name: prometheus-scrape-config
   labels:
     name: prometheus-scrape-config
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   prometheus.yml: |-
     global:
@@ -63,7 +63,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: knative-serving;activator;activator-port
+        regex: knative-serving;activator;metrics-port
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -88,7 +88,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;fluentd-ds;prometheus-metrics
+        regex: knative-monitoring;fluentd-ds;prometheus-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -275,7 +275,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;kube-controller-manager;http-metrics
+        regex: knative-monitoring;kube-controller-manager;http-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -330,7 +330,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;kube-state-metrics;https-main
+        regex: knative-monitoring;kube-state-metrics;https-main
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -359,7 +359,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;kube-state-metrics;https-self
+        regex: knative-monitoring;kube-state-metrics;https-self
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -437,7 +437,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;node-exporter;https
+        regex: knative-monitoring;node-exporter;https
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -462,7 +462,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: monitoring;prometheus;web
+        regex: knative-monitoring;prometheus;web
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace

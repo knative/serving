@@ -43,8 +43,6 @@ type ChannelSubscriberSpec struct {
 	SinkableDomain string `json:"sinkableDomain,omitempty"`
 }
 
-// Implementations can verify that they implement Channelable via:
-var _ = duck.VerifyType(&Channel{}, &Channelable{})
 
 // Channelable is an Implementable "duck type".
 var _ duck.Implementable = (*Channelable)(nil)

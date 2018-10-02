@@ -93,8 +93,6 @@ func (c *Condition) IsUnknown() bool {
 	return c.Status == corev1.ConditionUnknown
 }
 
-// Implementations can verify that they implement Conditions via:
-var _ = duck.VerifyType(&KResource{}, &Conditions{})
 
 // Conditions is an Implementable "duck type".
 var _ duck.Implementable = (*Conditions)(nil)
@@ -118,6 +116,17 @@ type KResource struct {
 type KResourceStatus struct {
 	Conditions Conditions `json:"conditions,omitempty"`
 }
+
+func (krs *KResourceStatus) GetConditions() Conditions {
+	return krs.Conditions
+}
+
+func (krs *KResourceStatus) SetConditions(conditions Conditions) {
+	krs.Conditions = conditions
+}
+
+// Ensure KResourceStatus satisfies ConditionsAccessor
+var _ ConditionsAccessor = (*KResourceStatus)(nil)
 
 // In order for Conditions to be Implementable, KResource must be Populatable.
 var _ duck.Populatable = (*KResource)(nil)

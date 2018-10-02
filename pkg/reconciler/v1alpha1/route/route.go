@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"time"
 
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -29,11 +30,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -63,6 +65,7 @@ type Reconciler struct {
 	serviceLister        corev1listers.ServiceLister
 	virtualServiceLister istiolisters.VirtualServiceLister
 	configStore          configStore
+	tracker              tracker.Interface
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -101,11 +104,6 @@ func NewController(
 		DeleteFunc: impl.Enqueue,
 	})
 
-	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueReferringRoute(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute(impl)),
-	})
-
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -113,13 +111,23 @@ func NewController(
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
 	})
-
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
+	})
+
+	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
+	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.tracker.OnChanged,
+		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
+	})
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.tracker.OnChanged,
+		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -204,9 +212,28 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 // In all cases we will add annotations to the referred targets.  This is so that when they become
 // routable we can know (through a listener) and attempt traffic configuration again.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
-	r.Status.Domain = c.routeDomain(ctx, r)
+	r.Status.Domain = routeDomain(ctx, r)
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+
+	if t != nil {
+		// Tell our trackers to reconcile Route whenever the things referred to by our
+		// Traffic stanza change.
+		for _, configuration := range t.Configurations {
+			if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+				return nil, err
+			}
+		}
+		for _, revision := range t.Revisions {
+			if revision.Status.IsActivationRequired() {
+				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
+			}
+			if err := c.tracker.Track(objectRef(revision), r); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	badTarget, isTargetError := err.(traffic.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
@@ -214,6 +241,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		r.Status.MarkUnknownTrafficError(err.Error())
 		return r, err
 	}
+
 	// If the only errors are missing traffic target, we need to
 	// update the labels first, so that when these targets recover we
 	// receive an update.
@@ -226,42 +254,39 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// Traffic targets aren't ready, no need to configure Route.
 		return r, nil
 	}
+
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
 		return r, err
 	}
 	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
-	r.Status.Traffic = t.GetTrafficTargets()
+	r.Status.Traffic = t.GetRevisionTrafficTargets()
 	r.Status.MarkTrafficAssigned()
 	return r, nil
-}
-
-func (c *Reconciler) EnqueueReferringRoute(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		config, ok := obj.(*v1alpha1.Configuration)
-		if !ok {
-			c.Logger.Infof("Ignoring non-Configuration objects %v", obj)
-			return
-		}
-		if config.Status.LatestReadyRevisionName == "" {
-			c.Logger.Infof("Configuration %s is not ready", config.Name)
-			return
-		}
-		// Check whether is configuration is referred by a route.
-		routeName, ok := config.Labels[serving.RouteLabelKey]
-		if !ok {
-			c.Logger.Infof("Configuration %s does not have a referring route", config.Name)
-			return
-		}
-		impl.EnqueueKey(fmt.Sprintf("%s/%s", config.Namespace, routeName))
-	}
 }
 
 /////////////////////////////////////////
 // Misc helpers.
 /////////////////////////////////////////
 
-func (c *Reconciler) routeDomain(ctx context.Context, route *v1alpha1.Route) string {
+type accessor interface {
+	GroupVersionKind() schema.GroupVersionKind
+	GetNamespace() string
+	GetName() string
+}
+
+func objectRef(a accessor) corev1.ObjectReference {
+	gvk := a.GroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  a.GetNamespace(),
+		Name:       a.GetName(),
+	}
+}
+
+func routeDomain(ctx context.Context, route *v1alpha1.Route) string {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)

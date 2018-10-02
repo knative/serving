@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -37,9 +37,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -1106,7 +1109,7 @@ func TestReconcile(t *testing.T) {
 			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
 			build("foo", "the-build",
 				duckv1alpha1.Condition{
-					Type:   buildv1alpha1.BuildSucceeded,
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionUnknown,
 				}),
 		},
@@ -1163,7 +1166,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   buildv1alpha1.BuildSucceeded,
+				Type:   duckv1alpha1.ConditionSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
 		},
@@ -1238,7 +1241,7 @@ func TestReconcile(t *testing.T) {
 				}),
 			kpa("foo", "stable-reconcile-with-build", "Active", "busybox"),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   buildv1alpha1.BuildSucceeded,
+				Type:   duckv1alpha1.ConditionSucceeded,
 				Status: corev1.ConditionTrue,
 			}),
 			deploy("foo", "stable-reconcile-with-build", "Active", "busybox"),
@@ -1273,7 +1276,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    buildv1alpha1.BuildSucceeded,
+				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
 				Message: "This is why the build failed.",
@@ -1340,7 +1343,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    buildv1alpha1.BuildSucceeded,
+				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  "SomeReason",
 				Message: "This is why the build failed.",
@@ -1350,19 +1353,22 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		t := &rtesting.NullTracker{}
+		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			buildLister:      listers.GetBuildLister(),
+			Base:           reconciler.NewBase(opt, controllerAgentName),
+			revisionLister: listers.GetRevisionLister(),
+			kpaLister:      listers.GetKPALister(),
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
 			endpointsLister:  listers.GetEndpointsLister(),
 			configMapLister:  listers.GetConfigMapLister(),
 			resolver:         &nopResolver{},
-			buildtracker:     &buildTracker{builds: map[key]set{}},
+			tracker:          t,
 			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
+
+			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
 	}))
 }
@@ -1615,17 +1621,16 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			buildLister:      listers.GetBuildLister(),
+			Base:           reconciler.NewBase(opt, controllerAgentName),
+			revisionLister: listers.GetRevisionLister(),
+			kpaLister:      listers.GetKPALister(),
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
 			endpointsLister:  listers.GetEndpointsLister(),
 			configMapLister:  listers.GetConfigMapLister(),
 			resolver:         &nopResolver{},
-			buildtracker:     &buildTracker{builds: map[key]set{}},
+			tracker:          &rtesting.NullTracker{},
 			configStore:      &testConfigStore{config: config},
 		}
 	}))
@@ -1682,13 +1687,19 @@ func addKPAStatus(kpa *kpav1alpha1.PodAutoscaler, status kpav1alpha1.PodAutoscal
 
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
-func build(namespace, name string, conds ...duckv1alpha1.Condition) *buildv1alpha1.Build {
-	return &buildv1alpha1.Build{
-		ObjectMeta: om(namespace, name),
-		Status: buildv1alpha1.BuildStatus{
-			Conditions: conds,
-		},
-	}
+func build(namespace, name string, conds ...duckv1alpha1.Condition) *unstructured.Unstructured {
+	b := &unstructured.Unstructured{}
+	b.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "build.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Build",
+	})
+	b.SetName(name)
+	b.SetNamespace(namespace)
+	b.Object["status"] = map[string]interface{}{"conditions": conds}
+	u := &unstructured.Unstructured{}
+	duck.FromUnstructured(b, u) // prevent panic in b.DeepCopy()
+	return u
 }
 
 func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string) *v1alpha1.Revision {

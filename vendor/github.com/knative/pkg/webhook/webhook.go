@@ -224,28 +224,13 @@ func SetDefaults(ctx context.Context) ResourceDefaulter {
 		before, after := crd.DeepCopyObject(), crd
 		after.SetDefaults()
 
-		patch, err := createPatch(before, after)
+		patch, err := duck.CreatePatch(before, after)
 		if err != nil {
 			return err
 		}
 		*patches = append(*patches, patch...)
 		return nil
 	}
-}
-
-func createPatch(before, after interface{}) ([]jsonpatch.JsonPatchOperation, error) {
-	// Marshal the before and after.
-	rawBefore, err := json.Marshal(before)
-	if err != nil {
-		return nil, err
-	}
-
-	rawAfter, err := json.Marshal(after)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonpatch.CreatePatch(rawBefore, rawAfter)
 }
 
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
@@ -290,7 +275,9 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	for _, crd := range ac.Handlers {
 		cp := crd.DeepCopyObject()
 		var emptyGen duckv1alpha1.Generation
-		duck.VerifyType(cp, &emptyGen)
+		if err := duck.VerifyType(cp, &emptyGen); err != nil {
+			return err
+		}
 	}
 
 	select {
@@ -594,7 +581,7 @@ func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperati
 	after := before.DeepCopyObject().(*duckv1alpha1.Generational)
 	after.Spec.Generation = after.Spec.Generation + 1
 
-	genBump, err := createPatch(before, after)
+	genBump, err := duck.CreatePatch(before, after)
 	if err != nil {
 		return err
 	}

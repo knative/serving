@@ -18,13 +18,16 @@ package duck
 
 import (
 	"encoding/json"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+// Marshallable is implementated by the Unstructured K8s types.
+type Marshalable interface {
+	MarshalJSON() ([]byte, error)
+}
 
 // FromUnstructured takes unstructured object from (say from client-go/dynamic) and
 // converts it into our duck types.
-func FromUnstructured(obj unstructured.Unstructured, target interface{}) error {
+func FromUnstructured(obj Marshalable, target interface{}) error {
 	// Use the unstructured marshaller to ensure it's proper JSON
 	raw, err := obj.MarshalJSON()
 	if err != nil {

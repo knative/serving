@@ -32,7 +32,7 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	"go.opencensus.io/exporter/prometheus"
@@ -76,20 +76,20 @@ func main() {
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
+		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
 
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "activator"})
 	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(10 * time.Second)
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
@@ -135,8 +135,11 @@ func main() {
 	}
 
 	// Start the endpoint for Prometheus scraping
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", ah.ServeHTTP)
-	mux.Handle("/metrics", promExporter)
-	h2c.ListenAndServe(":8080", mux)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
+
+	h2c.ListenAndServe(":8080", ah)
 }

@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -113,7 +112,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
-			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
 			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),

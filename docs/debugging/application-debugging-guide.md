@@ -25,7 +25,7 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 ## Check application logs
 Knative Serving provides default out-of-the-box logs for your application. After entering
 `kubectl proxy`, you can go to the
-[Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
+[Kibana UI](http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana)
 to search for logs. _(See [telemetry guide](../telemetry.md) for more information
 on logging and monitoring features of Knative Serving.)_
 
@@ -166,7 +166,7 @@ kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.bui
 ```
 
 The `conditions` in `status` provide the reason if there is any failure. To
-access build logs, first execute `kubectl proxy` and then open [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana).
+access build logs, first execute `kubectl proxy` and then open [Kibana UI](http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana).
 Use any of the following filters within Kibana UI to
 see build logs. _(See [telemetry guide](../telemetry.md) for more information on
 logging and monitoring features of Knative Serving.)_

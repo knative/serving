@@ -27,9 +27,6 @@ import (
 // Generation is the schema for the generational portion of the payload
 type Generation int64
 
-// Implementations can verify that they implement Generation via:
-var emptyGen Generation
-var _ = duck.VerifyType(&Generational{}, &emptyGen)
 
 // Generation is an Implementable "duck type".
 var _ duck.Implementable = (*Generation)(nil)

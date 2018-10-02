@@ -32,6 +32,23 @@ func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, false)
 }
 
+func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			durationSeconds:  300, // 5 minutes
+			podCount:         1,
+		})
+
+	a.expectScale(t, now, 0, true)
+	now = now.Add(2 * time.Minute)
+	a.expectScale(t, now, 0, false) // do nothing
+}
+
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -276,6 +293,51 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	if len(a.stats) != 0 {
 		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
 	}
+}
+
+func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	stat := Stat{
+		Time:                      nil,
+		PodName:                   "pod-1",
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              5,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+
+	if len(a.stats) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	}
+	a.expectScale(t, time.Now(), 0, false)
+}
+
+func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         1,
+		})
+
+	// Need 100 pods but only scale x10
+	a.expectScale(t, now, 10, true)
+
+	now = a.recordLinearSeries(
+		t,
+		now,
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         10,
+		})
+
+	// Scale x10 again
+	a.expectScale(t, now, 100, true)
 }
 
 type linearSeries struct {

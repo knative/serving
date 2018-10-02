@@ -101,11 +101,6 @@ func applyBounds(min, max int32) func(int32) int32 {
 func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return nil
-	}
-
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
 	// scale exclusively on metrics.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -114,14 +109,6 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("KPA is not owned by a Revision.")
 		return nil
-	}
-
-	// Do not scale an inactive revision.
-	revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
-	rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
-	if err != nil {
-		logger.Error("Unable to fetch Revision.", zap.Error(err))
-		return err
 	}
 
 	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
@@ -138,10 +125,18 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
 		return err
 	}
+	currentScale := scl.Spec.Replicas
 
-	// When scaling to zero, flip the revision's ServingState to Reserve (if Active).
+	// Scale to zero.  When scaling to zero, flip the revision's
+	// ServingState to Reserve (if Active).
 	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateActive && desiredScale == 0 {
 		logger.Debug("Setting revision ServingState to Reserve.")
+		revisionClient := rs.servingClientSet.ServingV1alpha1().Revisions(kpa.Namespace)
+		rev, err := revisionClient.Get(owner.Name, metav1.GetOptions{})
+		if err != nil {
+			logger.Error("Unable to fetch Revision.", zap.Error(err))
+			return err
+		}
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		if _, err := revisionClient.Update(rev); err != nil {
 			logger.Error("Error updating revision serving state.", zap.Error(err))
@@ -150,10 +145,20 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return nil
 	}
 
-	// When ServingState=Reserve (see above) propagates to us, then actually scale
-	// things to zero.
-	if kpa.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		// Delay the scale to zero until the LTT of "Active=False" is some time in the past.
+	switch kpa.Spec.ServingState {
+	case v1alpha1.RevisionServingStateActive:
+		// Scale from zero.  When there are no metrics and
+		// desired state is Active, scale to 1.
+		if currentScale == 0 && desiredScale == -1 {
+			logger.Debugf("Scaling up from 0 to 1")
+			desiredScale = 1
+		}
+	default:
+		// Scale to zero grace period.  When revision
+		// ServingState=Reserve (see above) propagates to us,
+		// then actually scale things to zero.
+		// Delay the scale to zero until the LTT of
+		// "Active=False" is some time in the past.
 		if !kpa.Status.CanScaleToZero(rs.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
 			return nil
@@ -161,12 +166,16 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		desiredScale = 0
 	}
 
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return nil
+	}
+
 	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
 	}
 
-	currentScale := scl.Spec.Replicas
 	if desiredScale == currentScale {
 		return nil
 	}

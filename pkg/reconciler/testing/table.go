@@ -83,7 +83,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 	for i, want := range r.WantCreates {
 		if i >= len(actions.Creates) {
-			t.Errorf("Missing create: %v", want)
+			t.Errorf("Missing create: %#v", want)
 			continue
 		}
 		got := actions.Creates[i]
@@ -97,13 +97,13 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
 		for _, extra := range actions.Creates[want:] {
-			t.Errorf("Extra create: %v", extra)
+			t.Errorf("Extra create: %#v", extra)
 		}
 	}
 
 	for i, want := range r.WantUpdates {
 		if i >= len(actions.Updates) {
-			t.Errorf("Missing update: %v", want.GetObject())
+			t.Errorf("Missing update: %#v", want.GetObject())
 			continue
 		}
 		got := actions.Updates[i]
@@ -113,13 +113,13 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Updates), len(r.WantUpdates); got > want {
 		for _, extra := range actions.Updates[want:] {
-			t.Errorf("Extra update: %v", extra)
+			t.Errorf("Extra update: %#v", extra)
 		}
 	}
 
 	for i, want := range r.WantDeletes {
 		if i >= len(actions.Deletes) {
-			t.Errorf("Missing delete: %v", want)
+			t.Errorf("Missing delete: %#v", want)
 			continue
 		}
 		got := actions.Deletes[i]
@@ -132,13 +132,13 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Deletes), len(r.WantDeletes); got > want {
 		for _, extra := range actions.Deletes[want:] {
-			t.Errorf("Extra delete: %v", extra)
+			t.Errorf("Extra delete: %#v", extra)
 		}
 	}
 
 	for i, want := range r.WantPatches {
 		if i >= len(actions.Patches) {
-			t.Errorf("Missing patch: %v", want)
+			t.Errorf("Missing patch: %#v", want)
 			continue
 		}
 
@@ -155,7 +155,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
 		for _, extra := range actions.Patches[want:] {
-			t.Errorf("Extra patch: %v", extra)
+			t.Errorf("Extra patch: %#v", extra)
 		}
 	}
 }

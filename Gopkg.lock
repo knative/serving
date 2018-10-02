@@ -298,24 +298,17 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:da51ebf58b59e2f4a2c6dca493ad6f48ab57d5cd9ef7a37c3e612f659f2d730c"
+  digest = "1:bf90c2ace9ab0f6b499593a9887b61e36c4032aba5dcac77fc90705bbd96b911"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
     "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
     "pkg/client/clientset/versioned/scheme",
     "pkg/client/clientset/versioned/typed/build/v1alpha1",
-    "pkg/client/clientset/versioned/typed/build/v1alpha1/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/build",
-    "pkg/client/informers/externalversions/build/v1alpha1",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/listers/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "2891231d4e47f80c9b72637da071468d7072cb62"
+  revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
 
 [[projects]]
   digest = "1:826576a2dbea52eb350ed5c0fd3e53f1f24cd6bdcfaf89ff89239b8cd426cd0d"
@@ -338,7 +331,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:95c2ff130db0410dc9735905cecff862352a3981c6ed048d83fd959ed19fc16a"
+  digest = "1:213664599d44d8a5c94b19b8b28407ee8a1e5cf3f1789c0b08286c4f479a4644"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -374,18 +367,19 @@
     "test",
     "test/logging",
     "test/spoof",
+    "tracker",
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "f81d0f8f0fac9943f3892c5e86007dc00382a909"
+  revision = "f00975a13e4c7284aac5b8d01181590869472291"
 
 [[projects]]
   branch = "master"
-  digest = "1:849fc53918b4658b896a43881305d60afc0d6a51d87c0d5b065afd631415f1d4"
+  digest = "1:00f434f614520a4b48ef3f6d3ed5c7a1a4f89be1bed98c250711413f6da2eb51"
   name = "github.com/knative/test-infra"
   packages = ["."]
   pruneopts = "T"
-  revision = "51872094d69a5b0266fd92a38978819e20ee70c8"
+  revision = "c21d3a832727d5d4334e734c0878eac3a5a07ae7"
 
 [[projects]]
   branch = "master"
@@ -529,7 +523,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:25531f2a1f9e75b832a945c670bf84f8caf5bd0fe8d8ad5bab5f13e162680922"
+  digest = "1:5ab79d2a36037de1ab2908733a2cab0c08b12f6956e3e1eab07cd1b2abf7b903"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -537,11 +531,12 @@
     "internal/bufferpool",
     "internal/color",
     "internal/exit",
+    "internal/ztest",
     "zapcore",
+    "zaptest",
   ]
   pruneopts = "NUT"
-  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
-  version = "v1.8.0"
+  revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 
 [[projects]]
   branch = "master"
@@ -793,13 +788,14 @@
   revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
 
 [[projects]]
-  digest = "1:416ed39dd1e2cc988036be432789ff7137aec8f8856a2a2d8ff20dd6592e5d41"
+  digest = "1:7b9749b51b48469af5e2fa8e282846c54bc6df30994799e44bc7bdcaa472ef47"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
     "discovery/cached",
     "discovery/fake",
     "dynamic",
+    "dynamic/fake",
     "informers",
     "informers/admissionregistration",
     "informers/admissionregistration/v1alpha1",
@@ -1056,11 +1052,7 @@
     "github.com/gorilla/websocket",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/build/pkg/client/clientset/versioned",
-    "github.com/knative/build/pkg/client/clientset/versioned/fake",
     "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
-    "github.com/knative/build/pkg/client/informers/externalversions",
-    "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1",
-    "github.com/knative/build/pkg/client/listers/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",
@@ -1088,6 +1080,7 @@
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra",
     "github.com/mattbaird/jsonpatch",
@@ -1109,8 +1102,10 @@
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -1131,6 +1126,7 @@
     "k8s.io/client-go/discovery/cached",
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
+    "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
     "k8s.io/client-go/informers/core/v1",

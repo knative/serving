@@ -41,8 +41,6 @@ type LegacyTargetable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
-// Implementations can verify that they implement LegacyTargetable via:
-var _ = duck.VerifyType(&LegacyTarget{}, &LegacyTargetable{})
 
 // LegacyTargetable is an Implementable "duck type".
 var _ duck.Implementable = (*LegacyTargetable)(nil)

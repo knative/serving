@@ -36,7 +36,7 @@ discovery issues for metrics. To access to the web UI, forward the Prometheus
 server to your machine:
 
 ```shell
-kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
+kubectl port-forward -n knative-monitoring $(kubectl get pods -n knative-monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
 Then browse to http://localhost:9090 to access the UI.

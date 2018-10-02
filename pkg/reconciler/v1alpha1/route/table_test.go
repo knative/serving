@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -201,7 +202,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -341,7 +341,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -392,7 +391,6 @@ func TestReconcile(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					}},
 					Traffic: []v1alpha1.TrafficTarget{{
-						ConfigurationName: "config",
 						RevisionName:      "config-00001",
 						Percent:           100,
 					}},
@@ -441,7 +439,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -560,7 +557,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00002",
 					Percent:           100,
 				}},
@@ -656,7 +652,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -761,7 +756,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -808,7 +802,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
 					RevisionName:      "config-00001",
 					Percent:           100,
 				}},
@@ -993,7 +986,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "newconfig",
 					RevisionName:      "newconfig-00001",
 					Percent:           100,
 				}},
@@ -1231,11 +1223,9 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "blue",
 					RevisionName:      "blue-00001",
 					Percent:           50,
 				}, {
-					ConfigurationName: "green",
 					RevisionName:      "green-00001",
 					Percent:           50,
 				}},
@@ -1333,7 +1323,6 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "green",
 					RevisionName:      "green-00001",
 					Percent:           100,
 				}},
@@ -1472,6 +1461,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
+			tracker:              &rtesting.NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},

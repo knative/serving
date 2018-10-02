@@ -17,7 +17,10 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/kmeta"
@@ -25,11 +28,16 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
-func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
+func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
-	return &buildv1alpha1.Build{
+
+	b := &buildv1alpha1.Build{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "build.knative.dev/v1alpha1",
+			Kind:       "Build",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       config.Namespace,
 			Name:            names.Build(config),
@@ -37,4 +45,30 @@ func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
 		},
 		Spec: *config.Spec.Build,
 	}
+
+	return MustToUnstructured(b)
+}
+
+func MustToUnstructured(build *buildv1alpha1.Build) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+
+	b, err := json.Marshal(build)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	if err := json.Unmarshal(b, u); err != nil {
+		panic(err.Error())
+	}
+
+	return u
+}
+
+func UnstructuredWithContent(content map[string]interface{}) *unstructured.Unstructured {
+	if content == nil {
+		return nil
+	}
+	u := &unstructured.Unstructured{}
+	u.SetUnstructuredContent(content)
+	return u.DeepCopy()
 }

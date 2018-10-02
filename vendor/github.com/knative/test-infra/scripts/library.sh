@@ -28,6 +28,14 @@ readonly KNATIVE_SERVING_RELEASE=https://storage.googleapis.com/knative-releases
 readonly KNATIVE_BUILD_RELEASE=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
 readonly KNATIVE_EVENTING_RELEASE=https://storage.googleapis.com/knative-releases/eventing/latest/release.yaml
 
+# Conveniently set GOPATH if unset
+if [[ -z "${GOPATH:-}" ]]; then
+  export GOPATH="$(go env GOPATH)"
+  if [[ -z "${GOPATH}" ]]; then
+    echo "WARNING: GOPATH not set and go binary unable to provide it"
+  fi
+fi
+
 # Useful environment variables
 [[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
@@ -146,6 +154,24 @@ function wait_until_service_has_external_ip() {
   return 1
 }
 
+# Waits for the endpoint to be routable.
+# Parameters: $1 - External ingress IP address.
+#             $2 - cluster hostname.
+function wait_until_routable() {
+  echo -n "Waiting until cluster $2 at $1 has a routable endpoint"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local val=$(curl -H "Host: $2" "http://$1" 2>/dev/null)
+    if [[ -n "$val" ]]; then
+      echo "\nEndpoint is now routable"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: Timed out waiting for endpoint to be routable"
+  return 1
+}
+
 # Returns the name of the pod of the given app.
 # Parameters: $1 - app name.
 #             $2 - namespace (optional).
@@ -164,8 +190,21 @@ function acquire_cluster_admin_role() {
   # might not have the necessary permission.
   local password=$(gcloud --format="value(masterAuth.password)" \
       container clusters describe $2 --zone=$3)
-  kubectl config set-credentials cluster-admin \
-      --username=admin --password=${password}
+  if [[ -n "${password}" ]]; then
+    # Cluster created with basic authentication
+    kubectl config set-credentials cluster-admin \
+        --username=admin --password=${password}
+  else
+    local cert=$(mktemp)
+    local key=$(mktemp)
+    echo "Certificate in ${cert}, key in ${key}"
+    gcloud --format="value(masterAuth.clientCertificate)" \
+      container clusters describe $2 --zone=$3 | base64 -d > ${cert}
+    gcloud --format="value(masterAuth.clientKey)" \
+      container clusters describe $2 --zone=$3 | base64 -d > ${key}
+    kubectl config set-credentials cluster-admin \
+      --client-certificate=${cert} --client-key=${key}
+  fi
   kubectl config set-context $(kubectl config current-context) \
       --user=cluster-admin
   kubectl create clusterrolebinding cluster-admin-binding \
@@ -179,62 +218,81 @@ function acquire_cluster_admin_role() {
 # Runs a go test and generate a junit summary through bazel.
 # Parameters: $1... - parameters to go test
 function report_go_test() {
-  # Just run regular go tests if not on Prow.
-  if (( ! IS_PROW )); then
-    go test $@
-    return
-  fi
-  local report=$(mktemp)
-  local summary=$(mktemp)
-  local failed=0
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
   local args=("${@/-v}")
-  go test -race -v ${args[@]} > ${report} || failed=$?
+  local go_test="go test -race -v ${args[@]}"
+  # Just run regular go tests if not on Prow.
+  if (( ! IS_PROW )); then
+    ${go_test}
+    return
+  fi
+  echo "Running tests with '${go_test}'"
+  local report=$(mktemp)
+  local failed=0
+  local test_count=0
+  ${go_test} > ${report} || failed=$?
+  echo "Finished run, return code is ${failed}"
   # Tests didn't run.
   [[ ! -s ${report} ]] && return 1
   # Create WORKSPACE file, required to use bazel
   touch WORKSPACE
   local targets=""
   # Parse the report and generate fake tests for each passing/failing test.
+  echo "Start parsing results, summary:"
   while read line ; do
     local fields=(`echo -n ${line}`)
     local field0="${fields[0]}"
     local field1="${fields[1]}"
-    local name=${fields[2]}
+    local name="${fields[2]}"
     # Ignore subtests (those containing slashes)
     if [[ -n "${name##*/*}" ]]; then
-      if [[ ${field1} == PASS: || ${field1} == FAIL: ]]; then
-        # Populate BUILD.bazel
+      local error=""
+      # Deal with a fatal log entry, which has a different format:
+      # fatal   TestFoo   foo_test.go:275 Expected "foo" but got "bar"
+      if [[ "${field0}" == "fatal" ]]; then
+        name="${fields[1]}"
+        field1="FAIL:"
+        error="${fields[@]:3}"
+      fi
+      # Handle regular go test pass/fail entry for a test.
+      if [[ "${field1}" == "PASS:" || "${field1}" == "FAIL:" ]]; then
+        echo "- ${name} :${field1}"
+        test_count=$(( test_count + 1 ))
         local src="${name}.sh"
         echo "exit 0" > ${src}
-        if [[ ${field1} == "FAIL:" ]]; then
-          read error
+        if [[ "${field1}" == "FAIL:" ]]; then
+          [[ -z "${error}" ]] && read error
           echo "cat <<ERROR-EOF" > ${src}
           echo "${error}" >> ${src}
           echo "ERROR-EOF" >> ${src}
           echo "exit 1" >> ${src}
         fi
         chmod +x ${src}
+        # Populate BUILD.bazel
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
-      elif [[ ${field0} == FAIL || ${field0} == ok ]]; then
-        # Update the summary with the result for the package
-        echo "${line}" >> ${summary}
+      elif [[ "${field0}" == "FAIL" || "${field0}" == "ok" ]] && [[ -n "${field1}" ]]; then
+        echo "- ${field0} ${field1}"
         # Create the package structure, move tests and BUILD file
         local package=${field1/github.com\//}
-        mkdir -p ${package}
-        targets="${targets} //${package}/..."
-        mv *.sh BUILD.bazel ${package}
+        local bazel_files="$(ls -1 *.sh BUILD.bazel 2> /dev/null)"
+        if [[ -n "${bazel_files}" ]]; then
+          mkdir -p ${package}
+          targets="${targets} //${package}/..."
+          mv ${bazel_files} ${package}
+        else
+          echo "*** INTERNAL ERROR: missing tests for ${package}, got [${bazel_files/$'\n'/, }]"
+        fi
       fi
     fi
   done < ${report}
+  echo "Done parsing ${test_count} tests"
   # If any test failed, show the detailed report.
-  # Otherwise, just show the summary.
+  # Otherwise, we already shown the summary.
   # Exception: when emitting metrics, dump the full report.
   if (( failed )) || [[ "$@" == *" -emitmetrics"* ]]; then
+    echo "At least one test failed, full log:"
     cat ${report}
-  else
-    cat ${summary}
   fi
   # Always generate the junit summary.
   bazel test ${targets} > /dev/null 2>&1
@@ -294,16 +352,36 @@ function check_licenses() {
   run_dep_collector -check $@
 }
 
-# Check links in all .md files in the repo.
-function check_links_in_markdown() {
-  local checker="markdown-link-check"
+# Run the given linter on the given files, checking it exists first.
+# Parameters: $1 - tool
+#             $2 - tool purpose (for error message if tool not installed)
+#             $3 - tool parameters (quote if multiple parameters used)
+#             $4..$n - files to run linter on
+function run_lint_tool() {
+  local checker=$1
+  local params=$3
   if ! hash ${checker} 2>/dev/null; then
-    warning "${checker} not installed, not checking links in .md files"
-    return 0
+    warning "${checker} not installed, not $2"
+    return 127
   fi
+  shift 3
   local failed=0
-  for md_file in $(find ${REPO_ROOT_DIR} -name \*.md); do
-    ${checker} -q ${md_file} || failed=1
+  for file in $@; do
+    ${checker} ${params} ${file} || failed=1
   done
   return ${failed}
+}
+
+# Check links in the given markdown files.
+# Parameters: $1...$n - files to inspect
+function check_links_in_markdown() {
+  # https://github.com/tcort/markdown-link-check
+  run_lint_tool markdown-link-check "checking links in markdown files" -q $@
+}
+
+# Check format of the given markdown files.
+# Parameters: $1...$n - files to inspect
+function lint_markdown() {
+  # https://github.com/markdownlint/markdownlint
+  run_lint_tool mdl "linting markdown files" "-r ~MD013" $@
 }

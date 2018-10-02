@@ -22,14 +22,14 @@ import (
 	"reflect"
 	"strings"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
-	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
+	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
@@ -43,6 +43,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
@@ -69,6 +70,12 @@ type Changed bool
 const (
 	WasChanged Changed = true
 	Unchanged  Changed = false
+
+	// TrackerLeaseFactor is the multiple of the controller resync period to use
+	// as the duration for tracker leases. This attempts to ensure that resyncs
+	// happen to refresh leases frequently enough that we don't miss updates to
+	// tracked objects.
+	TrackerLeaseFactor = 3
 )
 
 type resolver interface {
@@ -91,16 +98,17 @@ type Reconciler struct {
 	// lister indexes properties about Revision
 	revisionLister   listers.RevisionLister
 	kpaLister        kpalisters.PodAutoscalerLister
-	buildLister      buildlisters.BuildLister
 	imageLister      cachinglisters.ImageLister
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
 	endpointsLister  corev1listers.EndpointsLister
 	configMapLister  corev1listers.ConfigMapLister
 
-	buildtracker *buildTracker
-	resolver     resolver
-	configStore  configStore
+	buildInformerFactory duck.InformerFactory
+
+	tracker     tracker.Interface
+	resolver    resolver
+	configStore configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -116,13 +124,13 @@ func NewController(
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	kpaInformer kpainformers.PodAutoscalerInformer,
-	buildInformer buildinformers.BuildInformer,
 	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
+	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -130,19 +138,16 @@ func NewController(
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
 		kpaLister:        kpaInformer.Lister(),
-		buildLister:      buildInformer.Lister(),
 		imageLister:      imageInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
-		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
 			transport: http.DefaultTransport,
 		},
 	}
-
 	impl := controller.NewImpl(c, c.Logger, "Revisions")
 
 	// Set up an event handler for when the resource types of interest change
@@ -151,11 +156,6 @@ func NewController(
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 		DeleteFunc: impl.Enqueue,
-	})
-
-	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueBuildTrackers(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers(impl)),
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -171,6 +171,8 @@ func NewController(
 		},
 	})
 
+	c.tracker = tracker.New(impl.EnqueueKey, opt.ResyncPeriod*TrackerLeaseFactor)
+
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
@@ -183,6 +185,8 @@ func NewController(
 		},
 	})
 
+	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
+
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
 	// logging configuration changes are rolled out to active revisions.
@@ -190,6 +194,27 @@ func NewController(
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
+}
+
+func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+	return &duck.TypedInformerFactory{
+		Client:       opt.DynamicClientSet,
+		Type:         &duckv1alpha1.KResource{},
+		ResyncPeriod: opt.ResyncPeriod,
+		StopChannel:  opt.StopChannel,
+	}
+}
+
+func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {
+	return &duck.CachedInformerFactory{
+		Delegate: &duck.EnqueueInformerFactory{
+			Delegate: delegate,
+			EventHandler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    t.OnChanged,
+				UpdateFunc: controller.PassNew(t.OnChanged),
+			},
+		},
+	}
 }
 
 // Reconcile compares the actual state with the desired, and attempts to
@@ -237,38 +262,63 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
+func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
+	if rev.Spec.BuildName == "" {
+		return nil
+	}
+
+	logger := commonlogging.FromContext(ctx)
+
+	//TODO(imikushin): get this from rev when it's added to Revision in the API
+	buildRef := corev1.ObjectReference{
+		APIVersion: "build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Namespace:  rev.Namespace,
+		Name:       rev.Spec.BuildName,
+	}
+	if err := c.tracker.Track(buildRef, rev); err != nil {
+		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
+		return err
+	}
+	rev.Status.InitializeBuildCondition()
+
+	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
+	_, lister, err := c.buildInformerFactory.Get(gvr)
+	if err != nil {
+		logger.Errorf("Error getting a lister for a builds resource '%+v': %+v", gvr, err)
+		return err
+	}
+
+	buildObj, err := lister.ByNamespace(rev.Namespace).Get(rev.Spec.BuildName)
+	if err != nil {
+		logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
+		return err
+	}
+	build := buildObj.(*duckv1alpha1.KResource)
+
+	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	rev.Status.PropagateBuildStatus(build.Status)
+	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	if before.Status != after.Status {
+		// Create events when the Build result is in.
+		if after.Status == corev1.ConditionTrue {
+			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
+		} else if after.Status == corev1.ConditionFalse {
+			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
+		}
+	}
+
+	return nil
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	if rev.Spec.BuildName != "" {
-		rev.Status.InitializeBuildCondition()
-		build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
-		if err != nil {
-			logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
-			return err
-		}
-		before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-		rev.Status.PropagateBuildStatus(build.Status)
-		after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-		if before.Status != after.Status {
-			// Create events when the Build result is in.
-			if after.Status == corev1.ConditionTrue {
-				c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-				c.buildtracker.Untrack(rev)
-			} else if after.Status == corev1.ConditionFalse {
-				c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
-				c.buildtracker.Untrack(rev)
-			}
-		}
-		// If the Build isn't done, then add it to our tracker.
-		// TODO(#1267): See the comment in SyncBuild about replacing this utility.
-		if after.Status == corev1.ConditionUnknown {
-			logger.Errorf("Tracking revision: %v", rev.Name)
-			c.buildtracker.Track(rev)
-		}
+	if err := c.reconcileBuild(ctx, rev); err != nil {
+		return err
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -322,21 +372,6 @@ func (c *Reconciler) updateRevisionLoggingURL(
 	rev.Status.LogURL = strings.Replace(
 		config.Observability.LoggingURLTemplate,
 		"${REVISION_UID}", uid, -1)
-}
-
-func (c *Reconciler) EnqueueBuildTrackers(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		build := obj.(*buildv1alpha1.Build)
-
-		// TODO(#1267): We should consider alternatives to the buildtracker that
-		// allow us to shed this indexed state.
-		if bc := getBuildDoneCondition(build); bc != nil {
-			// For each of the revisions watching this build, mark their build phase as complete.
-			for k := range c.buildtracker.GetTrackers(build) {
-				impl.EnqueueKey(string(k))
-			}
-		}
-	}
 }
 
 func (c *Reconciler) EnqueueEndpointsRevision(impl *controller.Impl) func(obj interface{}) {

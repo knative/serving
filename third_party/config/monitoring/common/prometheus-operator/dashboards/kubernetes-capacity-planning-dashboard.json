@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-kubernetes-capacity-planning
-  namespace: monitoring
+  namespace: knative-monitoring
 data:
   kubernetes-capacity-planning-dashboard.json: |+
     {
