@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
+func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
 
 	if strings.Contains(name, ".") {
@@ -43,7 +43,7 @@ func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
 		}
 	}
 
-	if err := validateScaleBoundAnnotations(meta.GetAnnotations()); err != nil {
+	if err := validateScaleBoundsAnnotations(meta.GetAnnotations()); err != nil {
 		return err.ViaField("annotations")
 	}
 
@@ -65,7 +65,7 @@ func getIntGT0(m map[string]string, k string) (int64, *apis.FieldError) {
 	return 0, nil
 }
 
-func validateScaleBoundAnnotations(annotations map[string]string) *apis.FieldError {
+func validateScaleBoundsAnnotations(annotations map[string]string) *apis.FieldError {
 	if annotations == nil {
 		return nil
 	}

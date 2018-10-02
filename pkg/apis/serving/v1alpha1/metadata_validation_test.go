@@ -88,7 +88,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := validateScaleBoundAnnotations(c.annotations)
+			err := validateScaleBoundsAnnotations(c.annotations)
 			if !reflect.DeepEqual(c.expectErr, err) {
 				t.Errorf("Expected: '%+v', Got: '%+v'", c.expectErr, err)
 			}

@@ -18,7 +18,6 @@ package autoscaling
 
 import (
 	"context"
-	"strconv"
 	"sync"
 
 	"go.uber.org/zap"
@@ -30,7 +29,6 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -84,33 +82,6 @@ func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
 	ks.autoscalerConfigMutex.Lock()
 	defer ks.autoscalerConfigMutex.Unlock()
 	return ks.autoscalerConfig.DeepCopy()
-}
-
-func scaleBoundInt32(ctx context.Context, kpa *kpa.PodAutoscaler, key string) int32 {
-	logger := logging.FromContext(ctx)
-	if s, ok := kpa.Annotations[key]; ok {
-		i, err := strconv.ParseInt(s, 10, 32)
-		if err != nil || i < 1 {
-			logger.Debugf("value of %s must be an integer greater than 0", key)
-			return 0
-		}
-		return int32(i)
-	}
-	return 0
-}
-
-func getScaleBounds(ctx context.Context, kpa *kpa.PodAutoscaler) (int32, int32) {
-	logger := logging.FromContext(ctx)
-
-	min := scaleBoundInt32(ctx, kpa, autoscaling.MinScaleAnnotationKey)
-	max := scaleBoundInt32(ctx, kpa, autoscaling.MaxScaleAnnotationKey)
-
-	if max != 0 && min > max {
-		logger.Debugf("%s must be less than or equal %s, adjusting min = max", autoscaling.MinScaleAnnotationKey, autoscaling.MaxScaleAnnotationKey)
-		min = max
-	}
-
-	return min, max
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -190,7 +161,7 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		desiredScale = 0
 	}
 
-	if newScale := applyBounds(getScaleBounds(ctx, kpa))(desiredScale); newScale != desiredScale {
+	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
 	}
