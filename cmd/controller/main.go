@@ -123,7 +123,7 @@ func main() {
 		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
-		ResyncPeriod:     time.Second * 30,
+		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
 		StopChannel:      stopCh,
 	}
 
