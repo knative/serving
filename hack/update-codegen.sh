@@ -36,6 +36,12 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "serving:v1alpha1 autoscaling:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
+# Generate the same for our test resources.
+${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+  github.com/knative/serving/test/client github.com/knative/serving/test/apis \
+  "testing:v1alpha1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \

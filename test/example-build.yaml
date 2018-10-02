@@ -1,0 +1,5 @@
+apiVersion: testing.internal.knative.dev/v1alpha1
+kind: Build
+metadata:
+  name: example
+spec: {}
