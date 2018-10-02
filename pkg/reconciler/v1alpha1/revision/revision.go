@@ -263,19 +263,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
-	if rev.Spec.BuildName == "" {
+	if rev.Spec.BuildRef == nil {
 		return nil
 	}
 
 	logger := commonlogging.FromContext(ctx)
 
-	//TODO(imikushin): get this from rev when it's added to Revision in the API
-	buildRef := corev1.ObjectReference{
-		APIVersion: "build.knative.dev/v1alpha1",
-		Kind:       "Build",
-		Namespace:  rev.Namespace,
-		Name:       rev.Spec.BuildName,
-	}
+	buildRef := *rev.Spec.BuildRef
 	if err := c.tracker.Track(buildRef, rev); err != nil {
 		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
 		return err
@@ -289,9 +283,9 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		return err
 	}
 
-	buildObj, err := lister.ByNamespace(rev.Namespace).Get(rev.Spec.BuildName)
+	buildObj, err := lister.ByNamespace(rev.Namespace).Get(buildRef.Name)
 	if err != nil {
-		logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
+		logger.Errorf("Error fetching Build %q for Revision %q: %v", buildRef.Name, rev.Name, err)
 		return err
 	}
 	build := buildObj.(*duckv1alpha1.KResource)

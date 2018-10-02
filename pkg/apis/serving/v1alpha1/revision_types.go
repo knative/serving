@@ -165,8 +165,14 @@ type RevisionSpec struct {
 
 	// BuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
+	// DEPRECATED: Use BuildRef instead.
 	// +optional
 	BuildName string `json:"buildName,omitempty"`
+
+	// BuildRef holds the reference to the build (if there is one) responsible
+	// for producing the container image for this Revision. Otherwise, nil
+	// +optional
+	BuildRef *corev1.ObjectReference
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of

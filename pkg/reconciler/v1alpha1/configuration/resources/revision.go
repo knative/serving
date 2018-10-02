@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
@@ -56,5 +57,22 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	// Fill in the build name, if specified.
 	rev.Spec.BuildName = names.Build(config)
 
+	// Fill in buildRef if build is involved
+	rev.Spec.BuildRef = BuildRef(config)
+
 	return rev
+}
+
+func BuildRef(config *v1alpha1.Configuration) *corev1.ObjectReference {
+	if config.Spec.Build == nil {
+		return nil
+	}
+
+	b := MakeBuild(config)
+	return &corev1.ObjectReference{
+		APIVersion: b.GetAPIVersion(),
+		Kind:       b.GetKind(),
+		Namespace:  b.GetNamespace(),
+		Name:       b.GetName(),
+	}
 }

@@ -300,7 +300,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	haveBuild := rev.Spec.BuildName != ""
+	haveBuild := rev.Spec.BuildRef != nil
 	inActive := rev.Spec.ServingState != "Active"
 
 	ns := rev.Namespace
