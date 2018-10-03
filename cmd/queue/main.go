@@ -141,9 +141,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Metrics for autoscaling
-	reqChan <- queue.ReqIn
+	reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqIn}
 	defer func() {
-		reqChan <- queue.ReqOut
+		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqOut}
 	}()
 	// Enforce queuing and concurrency limits
 	if breaker != nil {
@@ -267,14 +267,12 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
-		ReqChan:          reqChan,
-		QuantizationChan: bucketTicker,
-		ReportChan:       reportTicker,
-		StatChan:         statChan,
-	})
+		ReqChan:    reqChan,
+		ReportChan: reportTicker,
+		StatChan:   statChan,
+	}, time.Now())
 	defer func() {
 		if statSink != nil {
 			statSink.Close()

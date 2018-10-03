@@ -29,11 +29,10 @@ const (
 )
 
 func TestNoData(t *testing.T) {
-	s := newTestStats()
 	now := time.Now()
+	s := newTestStats(now)
 
 	got := s.report(now)
-
 	want := &autoscaler.Stat{
 		Time:                      &now,
 		PodName:                   podName,
@@ -45,13 +44,14 @@ func TestNoData(t *testing.T) {
 	}
 }
 
-func TestOneRequestOneBucket(t *testing.T) {
-	s := newTestStats()
+func TestSingleRequestWholeTime(t *testing.T) {
 	now := time.Now()
+	s := newTestStats(now)
 
-	s.requestStart()
-	s.requestEnd()
-	s.quantize(now)
+	s.requestStart(now)
+	now = now.Add(1 * time.Second)
+	s.requestEnd(now)
+
 	got := s.report(now)
 
 	want := &autoscaler.Stat{
@@ -65,123 +65,132 @@ func TestOneRequestOneBucket(t *testing.T) {
 	}
 }
 
-func TestLongRequest(t *testing.T) {
-	s := newTestStats()
+func TestSingleRequestHalfTime(t *testing.T) {
 	now := time.Now()
+	s := newTestStats(now)
 
-	s.requestStart()
-	s.quantize(now)
+	s.requestStart(now)
+	now = now.Add(1 * time.Second)
+	s.requestEnd(now)
+	now = now.Add(1 * time.Second)
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 0.5,
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestVeryShortLivedRequest(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+
+	s.requestStart(now)
+	now = now.Add(10 * time.Millisecond)
+	s.requestEnd(now)
+
+	now = now.Add(990 * time.Millisecond) // make the second full
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: float64(10) / float64(1000),
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestMultipleRequestsWholeTime(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+
+	s.requestStart(now)
+	now = now.Add(300 * time.Millisecond)
+	s.requestEnd(now)
+
+	s.requestStart(now)
+	now = now.Add(300 * time.Millisecond)
+	s.requestEnd(now)
+
+	s.requestStart(now)
+	now = now.Add(400 * time.Millisecond)
+	s.requestEnd(now)
+
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              3,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestMultipleRequestsInterleaved(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+
+	s.requestStart(now)
 	now = now.Add(100 * time.Millisecond)
-	s.quantize(now)
-	s.requestEnd()
+	s.requestStart(now)
+	now = now.Add(500 * time.Millisecond)
+	s.requestEnd(now)
+	now = now.Add(400 * time.Millisecond)
+	s.requestEnd(now)
+
 	got := s.report(now)
 
 	want := &autoscaler.Stat{
 		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.5,
+		RequestCount:              2,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestOneRequestAcrossReportings(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+
+	s.requestStart(now)
+	now = now.Add(1 * time.Second)
+	got1 := s.report(now)
+	want1 := &autoscaler.Stat{
+		Time:                      got1.Time,
 		PodName:                   podName,
 		AverageConcurrentRequests: 1.0,
 		RequestCount:              1,
 	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Unexpected stat (-want +got): %v", diff)
-	}
-}
 
-func TestOneRequestMultipleBuckets(t *testing.T) {
-	s := newTestStats()
-	now := time.Now()
-
-	s.requestStart()
-	s.requestEnd()
-	s.quantize(now)
-	for i := 1; i < 10; i++ {
-		now = now.Add(100 * time.Millisecond)
-		s.quantize(now)
-	}
-	got := s.report(now)
-
-	want := &autoscaler.Stat{
+	now = now.Add(500 * time.Millisecond)
+	s.requestEnd(now)
+	now = now.Add(500 * time.Millisecond)
+	got2 := s.report(now)
+	want2 := &autoscaler.Stat{
 		Time:                      &now,
 		PodName:                   podName,
-		AverageConcurrentRequests: 0.1,
-		RequestCount:              1,
+		AverageConcurrentRequests: 0.5,
+		RequestCount:              0,
 	}
-	if diff := cmp.Diff(want, got); diff != "" {
+
+	if diff := cmp.Diff(want1, got1); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
 	}
-}
-
-func TestManyRequestsOneBucket(t *testing.T) {
-	s := newTestStats()
-	now := time.Now()
-
-	// Since none of these requests interleave, the reported
-	// concurrency should be 1.0
-	for i := 0; i < 10; i++ {
-		s.requestStart()
-		s.requestEnd()
-	}
-	s.quantize(now)
-	got := s.report(now)
-
-	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 1.0,
-		RequestCount:              10,
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Unexpected stat (-want +got): %v", diff)
-	}
-}
-
-func TestManyRequestsOneBucketInterleaved(t *testing.T) {
-	s := newTestStats()
-	now := time.Now()
-
-	s.requestStart() // concurrency == 1
-	s.requestStart() // concurrency == 2
-	s.requestStart() // concurrency == 3
-	s.requestEnd()   // concurrency == 2
-	s.requestStart() // concurrency == 3
-	s.requestStart() // concurrency == 4
-	s.requestEnd()   // concurrency == 3
-	s.requestEnd()   // concurrency == 2
-	s.requestEnd()   // concurrency == 1
-	s.requestEnd()   // concurrency == 0
-	s.quantize(now)
-	got := s.report(now)
-
-	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 4.0,
-		RequestCount:              5,
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Unexpected stat (-want +got): %v", diff)
-	}
-}
-
-func TestOneRequestTwoBuckets(t *testing.T) {
-	s := newTestStats()
-	now := time.Now()
-
-	s.requestStart()
-	s.quantize(now)
-
-	now = now.Add(100 * time.Millisecond)
-	s.requestEnd()
-	s.quantize(now)
-	got := s.report(now)
-
-	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 1.0,
-		RequestCount:              1,
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want2, got2); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
 	}
 }
@@ -189,65 +198,33 @@ func TestOneRequestTwoBuckets(t *testing.T) {
 // Test type to hold the bi-directional time channels
 type testStats struct {
 	Stats
-	quantizationBiChan chan time.Time
-	reportBiChan       chan time.Time
+	reportBiChan chan time.Time
 }
 
-func newTestStats() *testStats {
-	quanitzationBiChan := make(chan time.Time)
+func newTestStats(now time.Time) *testStats {
 	reportBiChan := make(chan time.Time)
 	ch := Channels{
-		ReqChan:          make(chan ReqEvent),
-		QuantizationChan: (<-chan time.Time)(quanitzationBiChan),
-		ReportChan:       (<-chan time.Time)(reportBiChan),
-		StatChan:         make(chan *autoscaler.Stat),
+		ReqChan:    make(chan ReqEvent),
+		ReportChan: (<-chan time.Time)(reportBiChan),
+		StatChan:   make(chan *autoscaler.Stat),
 	}
-	s := NewStats(podName, ch)
+	s := NewStats(podName, ch, now)
 	t := &testStats{
-		Stats:              *s,
-		quantizationBiChan: quanitzationBiChan,
-		reportBiChan:       reportBiChan,
+		Stats:        *s,
+		reportBiChan: reportBiChan,
 	}
 	return t
 }
 
-func (s *testStats) requestStart() {
-	s.ch.ReqChan <- ReqIn
+func (s *testStats) requestStart(now time.Time) {
+	s.ch.ReqChan <- ReqEvent{Time: now, EventType: ReqIn}
 }
 
-func (s *testStats) requestEnd() {
-	s.ch.ReqChan <- ReqOut
+func (s *testStats) requestEnd(now time.Time) {
+	s.ch.ReqChan <- ReqEvent{Time: now, EventType: ReqOut}
 }
 
-func (s *testStats) quantize(now time.Time) {
-	s.quantizationBiChan <- now
-}
-
-func (s *testStats) report(t time.Time) *autoscaler.Stat {
-	s.reportBiChan <- t
+func (s *testStats) report(now time.Time) *autoscaler.Stat {
+	s.reportBiChan <- now
 	return <-s.ch.StatChan
-}
-
-func assertTime(t *testing.T, stat *autoscaler.Stat, expectTime time.Time) {
-	if *stat.Time != expectTime {
-		t.Errorf("Time was incorrect. Expected %v. Got %v.", expectTime, stat.Time)
-	}
-}
-
-func assertPodName(t *testing.T, stat *autoscaler.Stat) {
-	if stat.PodName != podName {
-		t.Errorf("Pod name was incorrect. Expected %v. Got %v.", podName, stat.PodName)
-	}
-}
-
-func assertConcurrency(t *testing.T, stat *autoscaler.Stat, avg float64) {
-	if stat.AverageConcurrentRequests != avg {
-		t.Errorf("Average concurrent requests was incorrect. Expected %v. Got %v.", avg, stat.AverageConcurrentRequests)
-	}
-}
-
-func assertQPS(t *testing.T, stat *autoscaler.Stat, qps int32) {
-	if stat.RequestCount != qps {
-		t.Errorf("Total requests this period was incorrect. Expected %v. Got %v.", qps, stat.RequestCount)
-	}
 }
