@@ -86,6 +86,7 @@ var (
 	namespaceTagKey tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
+	serviceTagKey   tag.Key
 )
 
 func init() {
@@ -96,6 +97,10 @@ func init() {
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
 	namespaceTagKey, err = tag.NewKey("configuration_namespace")
+	if err != nil {
+		panic(err)
+	}
+	serviceTagKey, err = tag.NewKey("service")
 	if err != nil {
 		panic(err)
 	}
@@ -116,49 +121,49 @@ func init() {
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     measurements[DesiredPodCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods autoscaler requested from Kubernetes",
 			Measure:     measurements[RequestedPodCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods that are allocated currently",
 			Measure:     measurements[ActualPodCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods that are observed currently",
 			Measure:     measurements[ObservedPodCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Average of requests count in each 60 second stable window",
 			Measure:     measurements[ObservedStableConcurrencyM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Average of requests count in each 6 second panic window",
 			Measure:     measurements[ObservedPanicConcurrencyM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "The desired number of concurrent requests for each pod",
 			Measure:     measurements[TargetConcurrencyM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "1 if autoscaler is in panic mode, 0 otherwise",
 			Measure:     measurements[PanicM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 	)
 	if err != nil {
@@ -180,7 +185,7 @@ type Reporter struct {
 }
 
 // NewStatsReporter creates a reporter that collects and reports autoscaler metrics
-func NewStatsReporter(podNamespace string, config string, revision string) (*Reporter, error) {
+func NewStatsReporter(podNamespace string, service string, config string, revision string) (*Reporter, error) {
 
 	r := &Reporter{}
 
@@ -189,6 +194,7 @@ func NewStatsReporter(podNamespace string, config string, revision string) (*Rep
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(namespaceTagKey, podNamespace),
+		tag.Insert(serviceTagKey, service),
 		tag.Insert(configTagKey, config),
 		tag.Insert(revisionTagKey, revision))
 	if err != nil {

@@ -84,6 +84,19 @@ func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
 	return ks.autoscalerConfig.DeepCopy()
 }
 
+// pre: 0 <= min <= max && 0 <= x
+func applyBounds(min, max int32) func(int32) int32 {
+	return func(x int32) int32 {
+		if x < min {
+			return min
+		}
+		if max != 0 && x > max {
+			return max
+		}
+		return x
+	}
+}
+
 // Scale attempts to scale the given KPA's target reference to the desired scale.
 func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
 	logger := logging.FromContext(ctx)
@@ -156,6 +169,11 @@ func (rs *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")
 		return nil
+	}
+
+	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
+		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
+		desiredScale = newScale
 	}
 
 	if desiredScale == currentScale {
