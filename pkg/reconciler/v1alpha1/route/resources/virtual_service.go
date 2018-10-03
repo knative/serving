@@ -206,7 +206,6 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	})
 	r.AppendHeaders = map[string]string{
 		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
-		activator.ConfigurationHeader:     maxInactiveTarget.ConfigurationName,
 		activator.RevisionHeaderNamespace: ns,
 	}
 	return r
