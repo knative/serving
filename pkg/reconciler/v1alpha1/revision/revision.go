@@ -263,14 +263,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
-	if rev.Spec.BuildRef == nil {
+	buildRef := rev.BuildRef()
+	if buildRef == nil {
 		return nil
 	}
 
 	logger := commonlogging.FromContext(ctx)
 
-	buildRef := *rev.Spec.BuildRef
-	if err := c.tracker.Track(buildRef, rev); err != nil {
+	if err := c.tracker.Track(*buildRef, rev); err != nil {
 		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
 		return err
 	}

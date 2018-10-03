@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/google/go-cmp/cmp"
@@ -573,5 +574,51 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 	}
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestRevisionBuildRefFromName(t *testing.T) {
+	r := &Revision{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+		Spec: RevisionSpec{
+			BuildName: "bar-build",
+		},
+	}
+	got := *r.BuildRef()
+	want := corev1.ObjectReference{
+		APIVersion: "build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Namespace:  "foo-space",
+		Name:       "bar-build",
+	}
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionBuildRef(t *testing.T) {
+	buildRef := corev1.ObjectReference{
+		APIVersion: "testing.build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Namespace:  "foo-space",
+		Name:       "foo-build",
+	}
+	r := &Revision{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+		Spec: RevisionSpec{
+			BuildName: "bar",
+			BuildRef:  &buildRef,
+		},
+	}
+	got := *r.BuildRef()
+	want := buildRef
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
 	}
 }
