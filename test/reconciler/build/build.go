@@ -128,8 +128,11 @@ func (c *Reconciler) reconcile(ctx context.Context, build *testing.Build) error 
 
 	build.Status.InitializeConditions()
 
-	// TODO(mattmoor): Consider adding something to spec to guide our behavior, but until then just report success.
-	build.Status.MarkDone()
+	if build.Spec.Failure != nil {
+		build.Status.MarkFailure(build.Spec.Failure)
+	} else {
+		build.Status.MarkDone()
+	}
 
 	return nil
 }

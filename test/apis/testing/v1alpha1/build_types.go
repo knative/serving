@@ -49,7 +49,12 @@ var _ = duck.VerifyType(&Build{}, &duckv1alpha1.Conditions{})
 
 // BuildSpec holds the desired state of the Build (from the client).
 type BuildSpec struct {
-	// TODO(mattmoor): ???
+	Failure *FailureInfo `json:"failure,omitempty"`
+}
+
+type FailureInfo struct {
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 const (
@@ -95,6 +100,10 @@ func (rs *BuildStatus) InitializeConditions() {
 
 func (rs *BuildStatus) MarkDone() {
 	podCondSet.Manage(rs).MarkTrue(BuildConditionSucceeded)
+}
+
+func (rs *BuildStatus) MarkFailure(fi *FailureInfo) {
+	podCondSet.Manage(rs).MarkFalse(BuildConditionSucceeded, fi.Reason, fi.Message)
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
