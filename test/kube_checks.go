@@ -22,6 +22,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"go.opencensus.io/trace"
@@ -35,7 +36,7 @@ import (
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForDeploymentState(client *pkgTest.KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string) error {
+func WaitForDeploymentState(client *pkgTest.KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string, timeout time.Duration) error {
 	d := client.Kube.ExtensionsV1beta1().Deployments(ServingNamespace)
 	metricName := fmt.Sprintf("WaitForDeploymentState/%s/%s", name, desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
