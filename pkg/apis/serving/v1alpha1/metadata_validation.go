@@ -17,13 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
+func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
 
 	if strings.Contains(name, ".") {
@@ -39,5 +42,49 @@ func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
 			Paths:   []string{"name"},
 		}
 	}
+
+	if err := validateScaleBoundsAnnotations(meta.GetAnnotations()); err != nil {
+		return err.ViaField("annotations")
+	}
+
+	return nil
+}
+
+func getIntGT0(m map[string]string, k string) (int64, *apis.FieldError) {
+	v, ok := m[k]
+	if ok {
+		i, err := strconv.ParseInt(v, 10, 32)
+		if err != nil || i < 1 {
+			return 0, &apis.FieldError{
+				Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", k),
+				Paths:   []string{k},
+			}
+		}
+		return i, nil
+	}
+	return 0, nil
+}
+
+func validateScaleBoundsAnnotations(annotations map[string]string) *apis.FieldError {
+	if annotations == nil {
+		return nil
+	}
+
+	min, err := getIntGT0(annotations, autoscaling.MinScaleAnnotationKey)
+	if err != nil {
+		return err
+	}
+	max, err := getIntGT0(annotations, autoscaling.MaxScaleAnnotationKey)
+	if err != nil {
+		return err
+	}
+
+	if max != 0 && max < min {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("%s=%v is less than %s=%v", autoscaling.MaxScaleAnnotationKey, max, autoscaling.MinScaleAnnotationKey, min),
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
+		}
+	}
+
 	return nil
 }

@@ -29,7 +29,7 @@ import (
 )
 
 func (rt *Revision) Validate() *apis.FieldError {
-	return validateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
+	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate().ViaField("spec"))
 }
 

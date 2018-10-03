@@ -80,11 +80,12 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
 	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
 	desiredKPA.Spec.Generation = kpa.Spec.Generation
-	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
+	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) && equality.Semantic.DeepEqual(desiredKPA.Annotations, kpa.Annotations) {
 		return kpa, Unchanged, nil
 	}
 	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
 	kpa.Spec = desiredKPA.Spec
+	kpa.Annotations = desiredKPA.Annotations
 	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
 	return kpa, WasChanged, err
 }
