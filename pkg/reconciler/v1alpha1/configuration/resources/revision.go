@@ -58,12 +58,12 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	rev.Spec.BuildName = names.Build(config)
 
 	// Fill in buildRef if build is involved
-	rev.Spec.BuildRef = BuildRef(config)
+	rev.Spec.BuildRef = buildRef(config)
 
 	return rev
 }
 
-func BuildRef(config *v1alpha1.Configuration) *corev1.ObjectReference {
+func buildRef(config *v1alpha1.Configuration) *corev1.ObjectReference {
 	if config.Spec.Build == nil {
 		return nil
 	}
