@@ -61,7 +61,6 @@ func newConfigWatcher() configmap.Watcher {
 				"panic-window":                            "10s",
 				"scale-to-zero-threshold":                 "10m",
 				"scale-to-zero-grace-period":              gracePeriod.String(),
-				"concurrency-quantum-of-time":             "100ms",
 				"tick-interval":                           "2s",
 			},
 		})

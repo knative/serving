@@ -80,8 +80,7 @@ var (
 
 	health *healthServer = &healthServer{alive: true}
 
-	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
-	containerConcurrency     = flag.Int("containerConcurrency", 0, "")
+	containerConcurrency = flag.Int("containerConcurrency", 0, "")
 )
 
 func initEnv() {

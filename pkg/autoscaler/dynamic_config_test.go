@@ -32,7 +32,6 @@ var configMap = map[string]string{"max-scale-up-rate": "1",
 	"panic-window":                            "5s",
 	"scale-to-zero-threshold":                 "60s", // min
 	"scale-to-zero-grace-period":              "30s", // min
-	"concurrency-quantum-of-time":             "7s",
 	"tick-interval":                           "8s"}
 
 func TestNewDynamicConfigFromMap(t *testing.T) {

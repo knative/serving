@@ -216,7 +216,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 				"stable-window":                           "5m",
 				"panic-window":                            "10s",
 				"scale-to-zero-threshold":                 "10m",
-				"concurrency-quantum-of-time":             "100ms",
 				"tick-interval":                           "2s",
 			}},
 	}
