@@ -622,3 +622,17 @@ func TestRevisionBuildRef(t *testing.T) {
 		t.Errorf("got: %#v, want: %#v", got, want)
 	}
 }
+
+func TestRevisionBuildRefNil(t *testing.T) {
+	r := &Revision{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+	}
+	got := r.BuildRef()
+	var want *corev1.ObjectReference = nil
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
