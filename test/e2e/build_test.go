@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	testbuildv1alpha1 "github.com/knative/serving/test/apis/testing/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -91,7 +92,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildName
+	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest ready Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
 	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
@@ -120,16 +121,10 @@ func TestBuildAndServe(t *testing.T) {
 	}
 
 	build := &v1alpha1.RawExtension{
-		Object: &buildv1alpha1.Build{
+		Object: &testbuildv1alpha1.Build{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "build.knative.dev/v1alpha1",
+				APIVersion: testbuildv1alpha1.SchemeGroupVersion.String(),
 				Kind:       "Build",
-			},
-			Spec: buildv1alpha1.BuildSpec{
-				Steps: []corev1.Container{{
-					Image: "ubuntu",
-					Args:  []string{"echo", "built"},
-				}},
 			},
 		},
 	}
@@ -170,10 +165,10 @@ func TestBuildAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildName
+	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest ready Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
-	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
+	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
@@ -197,11 +192,17 @@ func TestBuildFailure(t *testing.T) {
 
 	// Request a build that doesn't succeed.
 	build := &v1alpha1.RawExtension{
-		BuildSpec: &buildv1alpha1.BuildSpec{
-			Steps: []corev1.Container{{
-				Image: "ubuntu",
-				Args:  []string{"false"}, // build will fail.
-			}},
+		Object: &testbuildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: testbuildv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "Build",
+			},
+			Spec: testbuildv1alpha1.BuildSpec{
+				Failure: &testbuildv1alpha1.FailureInfo{
+					Message: "Test build has failed",
+					Reason:  "InjectedFailure",
+				},
+			},
 		},
 	}
 
@@ -232,10 +233,10 @@ func TestBuildFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildName
+	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest created Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
-	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
+	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}

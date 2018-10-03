@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	testbuildtyped "github.com/knative/serving/test/client/clientset/versioned/typed/testing/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
@@ -39,7 +40,8 @@ type Clients struct {
 
 // BuildClient holds instances of interfaces for making requests to build client.
 type BuildClient struct {
-	Builds buildtyped.BuildInterface
+	Builds     buildtyped.BuildInterface
+	TestBuilds testbuildtyped.BuildInterface
 }
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients
@@ -86,7 +88,15 @@ func newBuildClient(cfg *rest.Config, namespace string) (*BuildClient, error) {
 		return nil, err
 	}
 
-	return &BuildClient{Builds: bcs.BuildV1alpha1().Builds(namespace)}, nil
+	tcs, err := testbuildtyped.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BuildClient{
+		Builds:     bcs.BuildV1alpha1().Builds(namespace),
+		TestBuilds: tcs.Builds(namespace),
+	}, nil
 }
 
 // NewServingClients instantiates and returns the serving clientset required to make requests to the
