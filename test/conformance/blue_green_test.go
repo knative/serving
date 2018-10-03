@@ -164,6 +164,7 @@ func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain
 // Also, traffic that targets revisions *directly* will be routed to the correct
 // revision 100% of the time.
 func TestBlueGreenRoute(t *testing.T) {
+	t.Skip("Re-enable this once #1838 is addressed")
 	clients := setup(t)
 
 	// add test case specific name to its own logger
