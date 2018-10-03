@@ -100,7 +100,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	serviceHost := ""
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-		serviceHost = noStderrShell("kubectl", "get", "route", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+		serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
 		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
 			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)
@@ -117,7 +117,13 @@ func TestHelloWorldFromShell(t *testing.T) {
 	outputString := ""
 	timeout = servingTimeout
 	for outputString != helloWorldExpectedOutput && timeout >= 0 {
-		output, err := exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP).Output()
+		var cmd *exec.Cmd
+		if test.ServingFlags.ResolvableDomain {
+			cmd = exec.Command("curl", serviceHost)
+		} else {
+			cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP)
+		}
+		output, err := cmd.Output()
 		errorString := "none"
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval
