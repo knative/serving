@@ -1356,9 +1356,9 @@ func TestReconcile(t *testing.T) {
 		t := &rtesting.NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
-			Base:           reconciler.NewBase(opt, controllerAgentName),
-			revisionLister: listers.GetRevisionLister(),
-			kpaLister:      listers.GetKPALister(),
+			Base:             reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:   listers.GetRevisionLister(),
+			kpaLister:        listers.GetKPALister(),
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
@@ -1621,9 +1621,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:           reconciler.NewBase(opt, controllerAgentName),
-			revisionLister: listers.GetRevisionLister(),
-			kpaLister:      listers.GetKPALister(),
+			Base:             reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:   listers.GetRevisionLister(),
+			kpaLister:        listers.GetKPALister(),
 			imageLister:      listers.GetImageLister(),
 			deploymentLister: listers.GetDeploymentLister(),
 			serviceLister:    listers.GetK8sServiceLister(),
@@ -1655,6 +1655,12 @@ func makeStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha
 
 func addBuild(rev *v1alpha1.Revision, name string) *v1alpha1.Revision {
 	rev.Spec.BuildName = name
+	rev.Spec.BuildRef = &corev1.ObjectReference{
+		APIVersion: "testing.build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Name:       name,
+		Namespace:  rev.Namespace,
+	}
 	return rev
 }
 
@@ -1690,7 +1696,7 @@ func addKPAStatus(kpa *kpav1alpha1.PodAutoscaler, status kpav1alpha1.PodAutoscal
 func build(namespace, name string, conds ...duckv1alpha1.Condition) *unstructured.Unstructured {
 	b := &unstructured.Unstructured{}
 	b.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "build.knative.dev",
+		Group:   "testing.build.knative.dev",
 		Version: "v1alpha1",
 		Kind:    "Build",
 	})
