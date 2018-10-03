@@ -827,22 +827,12 @@ Previous examples demonstrated services created with pre-built
 containers. Revisions can also be created by providing build
 information to the service, which results in a container image built
 by the system. The build information is supplied by inlining the
-BuildSpec of a Build resource in the Configuration. This describes:
+Kubernetes resource definition for a build resource in the Configuration.
+This build resource may be any resource that culminates in a `Succeeded`
+condition as outlined in our [conditions documentation](./errors.md).
 
-* **What** to build (`build.source`): Source can be provided as an
-  archive, manifest file, or repository.
-
-* **How** to build (`build.template`): a
-  [BuildTemplate](https://github.com/knative/build) is referenced,
-  which describes how to build the container via a builder with
-  arguments to the build process.
-
-* **Where** to publish (`build.template.arguments`): Image registry
-  url and other information specific to this build invocation.
-
-The client updates the configuration in the service inlining a build
-spec for an git based source build, and referencing a nodejs build
-template:
+Using knative/build as an examplar build resource, the client updates the
+configuration in the service inlining a build spec:
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/service
@@ -855,18 +845,13 @@ metadata:
 spec:
   runLatest:
     configuration:
-      build:  # build.knative.dev/v1alpha1.BuildTemplateSpec
-        source:
-          # oneof git|gcs|custom:
-          git:
-            url: https://...
-            commit: ...
-        template:  # defines build template
-          name: nodejs_8_9_4 # builder name
-          namespace: build-templates
-          arguments:
-          - name: _IMAGE
-            value: gcr.io/...  # destination for image
+      build:
+        # Example is in terms of knative/build, but this may be any
+        # Kubernetes resource that culminates in a Succeeded condition
+        # as outlined in errors.md
+        apiVersion: build.knative.dev/v1alpha1
+        kind: Build
+        spec: ...
 
       revisionTemplate:  # template for building Revision
         metadata: ...
@@ -888,15 +873,15 @@ updating the `revisionTemplate.spec.container.image` at the completion
 of the build, an update to both source and config could result in the
 creation of two Revisions, one with the config change, and the other
 with the new code deployment. It is expected that Revision will wait
-for the `buildName` to be complete and the
+for the `buildRef` to reach a "Succeeded" state and the
 `revisionTemplate.spec.container.image` to be live before marking the
-Revision as "ready".
+Revision as "Ready".
 
 Upon creating/updating the service's configuration, the contents are
 copied into the corresponding Configuration object. Once updated, the
 configuration controller creates a new revision. The configuration
 controller will also create a build, populating the revision’s
-buildName with a reference to the underlying Build resource. The
+buildRef with a reference to the underlying Build resource. The
 revision controller watches status updates on the build reference, and
 the high-level state of the build is mirrored into conditions in the
 Revision’s status for convenience:
@@ -915,9 +900,12 @@ metadata:
     knative.dev/configurationGeneration: 1234
   ...
 spec:
-  # name of the build.knative.dev/v1alpha1.Build, if built from source.
+  # Reference to the build resource to track.
   # Set by Configuration.
-  buildName: ...
+  buildRef: # K8s core.v1.ObjectReference
+    apiVersion: ...
+    kind: ...
+    name: ...
 
   # spec from the configuration, with container.image containing the
   # newly built container
@@ -937,9 +925,8 @@ status:
   conditions:
   - type: Ready
     status: True
-  - type: BuildComplete
+  - type: BuildSucceeded
     status: True
-  # other conditions indicating build failure details, if applicable
 ```
 
 Rollout operations in the route are identical to the pre-built
@@ -1015,21 +1002,24 @@ metadata:
 spec:
   runLatest:
     configuration:
-      build:  # build.knative.dev/v1alpha1.BuildTemplateSpec
-        source:
-          # oneof git|gcs|custom
-          git:
-            url: https://...
-            commit: ...
-        template:  # defines build template
-          name: go_1_9_fn  # function builder
-          namespace: build-templates
-          arguments:
-          - name: _IMAGE
-            value: gcr.io/...  # destination for image
-          - name: _ENTRY_POINT
-            value: index  # language dependent, function-only entrypoint
-
+      build:
+        # knative/build as an example.
+        apiVersion: build.knative.def/v1alpha1
+        kind: Build
+        spec:
+          source:
+            git:
+              url: https://...
+              commit: ...
+          template:  # defines build template
+            name: go_1_9_fn  # function builder
+            namespace: build-templates
+            arguments:
+            - name: _IMAGE
+              value: gcr.io/...  # destination for image
+            - name: _ENTRY_POINT
+              value: index  # language dependent, function-only entrypoint
+  
       revisionTemplate:  # template for building Revision
         metadata:
           labels:
