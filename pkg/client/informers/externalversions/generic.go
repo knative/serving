@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	networking_v1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	serving_v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -53,6 +54,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=autoscaling.internal.knative.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
+
+		// Group=networking.internal.knative.dev, Version=v1alpha1
+	case networking_v1alpha1.SchemeGroupVersion.WithResource("clusteringresses"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ClusterIngresses().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1alpha1
 	case serving_v1alpha1.SchemeGroupVersion.WithResource("configurations"):
