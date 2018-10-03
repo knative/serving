@@ -122,7 +122,7 @@ func TestBuildAndServe(t *testing.T) {
 	build := &v1alpha1.RawExtension{
 		Object: &buildv1alpha1.Build{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "build.knative.dev",
+				APIVersion: "build.knative.dev/v1alpha1",
 				Kind:       "Build",
 			},
 			Spec: buildv1alpha1.BuildSpec{
