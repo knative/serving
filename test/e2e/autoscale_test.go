@@ -124,11 +124,10 @@ func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 	if err != nil {
 		t.Fatalf("Unable to get autoscaler config map: %v", err)
 	}
-	threshold, err := time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
+	scaleToZeroThreshold, err = time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
 	if err != nil {
 		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
 	}
-	scaleToZeroThreshold = threshold
 
 	return clients
 }
