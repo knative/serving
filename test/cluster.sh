@@ -26,22 +26,11 @@ function create_istio() {
   kubectl apply -f ${ISTIO_YAML}
 }
 
-function create_monitoring() {
-  echo ">> Bringing up Monitoring"
-  kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-}
-
-function create_everything() {
-  create_istio
+function create_serving() {
   echo ">> Bringing up Serving"
+  # We still need this for at least one e2e test
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
-  ko apply -f test/config/
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
   # However, since network configurations may reach different ingress pods at slightly
@@ -54,6 +43,27 @@ function create_everything() {
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
+}
+
+function create_test_resources() {
+  echo ">> Creating test resources (test/config/)"
+  ko apply -f test/config/
+}
+
+function create_monitoring() {
+  echo ">> Bringing up Monitoring"
+  kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+}
+
+function create_everything() {
+  create_istio
+  create_serving
+  create_test_resources
   # TODO(#2122): Re-enable once we have monitoring e2e.
   # create_monitoring
 }
@@ -62,6 +72,17 @@ function delete_istio() {
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete clusterrolebinding cluster-admin-binding
+}
+
+function delete_serving() {
+  echo ">> Bringing down Serving"
+  ko delete --ignore-not-found=true -f config/
+  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
+}
+
+function delete_test_resources() {
+  echo ">> Removing test resources (test/config/)"
+  ko delete --ignore-not-found=true -f test/config/
 }
 
 function delete_monitoring() {
@@ -76,9 +97,8 @@ function delete_monitoring() {
 function delete_everything() {
   # TODO(#2122): Re-enable once we have monitoring e2e.
   # delete_monitoring
-  echo ">> Bringing down Serving"
-  ko delete --ignore-not-found=true -f config/
-  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  delete_test_resources
+  delete_serving
   delete_istio
 }
 
