@@ -19,13 +19,12 @@ limitations under the License.
 package test
 
 import (
-	buildversioned "github.com/knative/build/pkg/client/clientset/versioned"
-	buildtyped "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	testbuildtyped "github.com/knative/serving/test/client/clientset/versioned/typed/testing/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,11 +35,11 @@ type Clients struct {
 	KubeClient    *test.KubeClient
 	ServingClient *ServingClients
 	BuildClient   *BuildClient
+	Dynamic       dynamic.Interface
 }
 
 // BuildClient holds instances of interfaces for making requests to build client.
 type BuildClient struct {
-	Builds     buildtyped.BuildInterface
 	TestBuilds testbuildtyped.BuildInterface
 }
 
@@ -77,24 +76,23 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	clients.Dynamic, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return clients, nil
 }
 
 // NewBuildclient instantiates and returns several clientsets required for making request to the
 // build client specified by the combination of clusterName and configPath. Clients can make requests within namespace.
 func newBuildClient(cfg *rest.Config, namespace string) (*BuildClient, error) {
-	bcs, err := buildversioned.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	tcs, err := testbuildtyped.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BuildClient{
-		Builds:     bcs.BuildV1alpha1().Builds(namespace),
 		TestBuilds: tcs.Builds(namespace),
 	}, nil
 }

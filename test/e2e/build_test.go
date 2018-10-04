@@ -22,9 +22,11 @@ import (
 	"testing"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
 	testbuildv1alpha1 "github.com/knative/serving/test/apis/testing/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
@@ -32,6 +34,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 )
+
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func TestBuildSpecAndServe(t *testing.T) {
 	clients := Setup(t)
@@ -95,11 +99,19 @@ func TestBuildSpecAndServe(t *testing.T) {
 	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest ready Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
-	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
+	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
+		Group:    buildv1alpha1.SchemeGroupVersion.Group,
+		Version:  buildv1alpha1.SchemeGroupVersion.Version,
+		Resource: "builds",
+	}).Namespace(test.ServingNamespace).Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
-	if cond := b.Status.GetCondition(buildv1alpha1.BuildSucceeded); cond == nil {
+	b := &duckv1alpha1.KResource{}
+	if err := duck.FromUnstructured(u, b); err != nil {
+		t.Fatalf("Failed to cast to KResource: %+v", u)
+	}
+	if cond := buildCondSet.Manage(&b.Status).GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
 	} else if cond.Status != corev1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
