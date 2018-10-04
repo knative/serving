@@ -201,6 +201,9 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 Code generation is automatically checked to produce no diffs for each pull request.
 Dependencies are not yet automatically checked (see [issue 1711](https://github.com/knative/serving/issues/1711)).
 
+update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies are required, you
+need to run "dep ensure -update package-name" manually.
+
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 
 ```shell
