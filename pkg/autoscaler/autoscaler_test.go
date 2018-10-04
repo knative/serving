@@ -347,6 +347,47 @@ func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
+func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+
+	now := time.Now()
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName,
+		RequestCount:              0,
+		AverageConcurrentRequests: 100.0,
+	})
+
+	a.expectScale(t, now, 10, true)
+}
+
+func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  30,
+			podCount:         10,
+		})
+
+	a.expectScale(t, now, 10, true)
+
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName,
+		RequestCount:              0,
+		AverageConcurrentRequests: 1000.0,
+	})
+
+	// Scale should not change as the activator metric should
+	// be ignored
+	a.expectScale(t, now, 10, true)
+}
+
 // Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)

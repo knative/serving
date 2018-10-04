@@ -126,7 +126,6 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
-			podsInCalculation++
 		}
 	}
 	if accumulatedConcurrency == 0.0 {
