@@ -19,9 +19,13 @@ package networking
 const (
 	GroupName = "networking.internal.knative.dev"
 
-	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
-	// that a particular resource has opted into. For example,
-	//   networking.knative.dev/class: foo
-	// This uses a different domain because unlike the resource, it is user-facing.
+	// ClassAnnotationKey is the annotation for the explicit class of
+	// ClusterIngress that a particular resource has opted into. For
+	// example,
+	//
+	//    networking.knative.dev/class: foo
+	//
+	// This uses a different domain because unlike the resource, it is
+	// user-facing.
 	ClassAnnotationKey = "networking.knative.dev/class"
 )
