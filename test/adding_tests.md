@@ -21,17 +21,23 @@ so that `go test ./...` can be used to run only [the unit tests](README.md#runni
 In the [`test`](/test/) dir you will find several libraries in the `test` package
 you can use in your tests.
 
-You can:
+This library exists partially in this directory and partially in
+[`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test).
+
+The libs in this dir can:
 
 * [Use common test flags](#use-common-test-flags)
-* [Output logs](#output-logs)
-* [Emit metrics](#emit-metrics)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
 * [Check Knative Serving resources](#check-knative-serving-resources)
 * [Verify resource state transitions](#verify-resource-state-transitions)
 * [Generate boilerplate CRDs](#generate-boilerplate-crds)
-* [Ensure test cleanup](#ensure-test-cleanup)
+
+See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
+
+* Output logs
+* Emit metrics
+* Ensure test cleanup
 
 ### Use common test flags
 
@@ -46,73 +52,6 @@ imagePath := strings.Join([]string{test.ServingFlags.DockerRepo, image}, "/"))
 ```
 
 _See [e2e_flags.go](./e2e_flags.go)._
-
-### Output logs
-
-[When tests are run with `--logverbose`
-option](README.md#output-verbose-logs), debug logs will be emitted to stdout.
-
-We are using the common [e2e logging library](/pkg/test/logging) that uses the [Knative logging library](/pkg/logging/) for structured logging. 
-It is built on top of [zap](https://github.com/uber-go/zap). Tests should initialize the global logger to use a test specifc context with `logging.GetContextLogger`:
-
-```go
-// The convention is for the name of the logger to match the name of the test.
-logging.GetContextLogger("TestHelloWorld")
-```
-
-Logs can then be emitted using the `logger` object which is required by
-many functions in the test library. To emit logs:
-
-```go
-logger.Infof("Creating a new Route %s and Configuration %s", route, configuration)
-logger.Debugf("The LogURL is %s, not yet verifying", logURL)
-```
-
-_See [logging.go](./logging/logging.go)._
-
-### Emit metrics
-
-You can emit metrics from your tests using [the opencensus
-library](https://github.com/census-instrumentation/opencensus-go), which [is being
-used inside Knative as well](/docs/telemetry.md). These metrics will be emitted by
-the test if the test is run with [the `--emitmetrics` option](README.md#emit-metrics).
-
-You can record arbitrary metrics with
-[`stats.Record`](https://github.com/census-instrumentation/opencensus-go#stats) or
-measure latency with [`trace.StartSpan`](https://github.com/census-instrumentation/opencensus-go#traces):
-
-```go
-ctx, span := trace.StartSpan(context.Background(), "MyMetric")
-```
-
-* These traces will be emitted automatically by [the generic crd polling
-  functions](#check-knative-serving-resources).
-* The traces are emitted by [a custom metric exporter](./logging.go)
-  that uses the global logger instance.
-
-#### Metric format
-
-When a `trace` metric is emitted, the format is `metric name startTime endTime duration`. The name
-of the metric is arbitrary and can be any string. The values are:
-
-* "metric" - Indicates this log is a metric
-* name - Arbitrary string indentifying the metric. TODO(#1379) determine metric format
-* startTime - Unix time in nanoseconds when measurement started
-* endTime - Unix time in nanoseconds when measurement ended
-* duration - The difference in ms between the startTime and endTime
-
-For example:
-
-```bash
-metric WaitForConfigurationState/prodxiparjxt/ConfigurationUpdatedWithRevision 1529980772357637397 1529980772431586609 73.949212ms
-```
-
-_The [`Wait` methods](#check-knative-serving-resources) (which poll resources) will
-prefix the metric names with the name of the function, and if applicable, the name of the resource,
-separated by `/`. In the example above, `WaitForConfigurationState` is the name of
-the function, and `prodxiparjxt` is the name of the configuration resource being polled.
-`ConfigurationUpdatedWithRevision` is the string passed to `WaitForConfigurationState` by
-the caller to identify what state is being polled for._
 
 ### Get access to client objects
 
@@ -275,7 +214,7 @@ _See [states.go](./states.go)._
 Your tests will probably need to create `Route` and `Configuration` objects. You can use the
 existing boilerplate to describe them.
 
-You can also use the function `RandomizedName` to create a random name for your `crd` so that
+You can also use the function `AppendRandomString` to create a random name for your `crd` so that
 your tests can use unique names each time they run.
 
 For example to create a `Configuration` object that uses a certain docker image with a
@@ -283,7 +222,7 @@ randomized name:
 
 ```go
 var names test.ResourceNames
-names.Config := test.RandomizedName('hotdog')
+names.Config := test.AppendRandomString('hotdog', logger)
 _, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
@@ -293,15 +232,3 @@ if err != nil {
 Please expand these functions as more use cases are tested.
 
 _See [crd.go](./crd.go)._
-
-### Ensure test cleanup
-
-To ensure your test is cleaned up, you should defer cleanup to execute after your
-test completes and also ensure the cleanup occurs if the test is interrupted:
-
-```go
-defer tearDown(clients)
-test.CleanupOnInterrupt(func() { tearDown(clients) })
-```
-
-_See [cleanup.go](./cleanup.go)._
