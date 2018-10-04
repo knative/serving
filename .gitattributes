@@ -4,6 +4,7 @@
 
 **/zz_generated.*.go linguist-generated=true
 /pkg/client/** linguist-generated=true
+/test/client/** linguist-generated=true
 
 # coverage-excluded is an attribute used to explicitly exclude a path from being included in code
 # coverage. If a path is marked as linguist-generated already, it will be implicitly excluded and
