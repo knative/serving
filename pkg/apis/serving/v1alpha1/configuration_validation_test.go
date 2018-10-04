@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 )
 
@@ -71,6 +72,86 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
+	}, {
+		name: "build is a BuildSpec",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				BuildSpec: &buildv1alpha1.BuildSpec{
+					Steps: []corev1.Container{{
+						Image: "foo",
+					}},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "build is an Object",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Object: &buildv1alpha1.Build{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "build.knative.dev/v1alpha1",
+						Kind:       "Build",
+					},
+					Spec: buildv1alpha1.BuildSpec{
+						Steps: []corev1.Container{{
+							Image: "foo",
+						}},
+					},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "build is missing TypeMeta",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Object: &buildv1alpha1.Build{
+					Spec: buildv1alpha1.BuildSpec{
+						Steps: []corev1.Container{{
+							Image: "foo",
+						}},
+					},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("Object 'Kind' is missing in '{\"metadata\":{\"creationTimestamp\":null},\"spec\":{\"steps\":[{\"name\":\"\",\"image\":\"foo\",\"resources\":{}}],\"timeout\":\"0s\"},\"status\":{\"startTime\":null,\"completionTime\":null,\"stepStates\":null,\"stepsCompleted\":null}}'", "build"),
+	}, {
+		name: "build is not an object",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Raw: []byte(`"foo"`),
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("json: cannot unmarshal string into Go value of type map[string]interface {}", "build"),
 	}}
 
 	for _, test := range tests {
