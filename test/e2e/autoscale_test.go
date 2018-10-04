@@ -219,9 +219,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
 
-	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
-		    faster testing.`)
-
 	logger.Infof("Waiting for scale to zero")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
