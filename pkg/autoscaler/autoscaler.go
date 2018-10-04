@@ -103,7 +103,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
-		podCount += pod.weightedPodCount(now)
+		podCount += pod.usageRatio(now)
 	}
 	if agg.containsActivatorMetrics {
 		// Discount the activator in the pod count
@@ -148,6 +148,7 @@ func (agg *perPodAggregation) aggregate(concurrency float64) {
 	agg.probeCount++
 }
 
+// Registers the earliest lameduck metric received.
 func (agg *perPodAggregation) lameduck(t *time.Time) {
 	if agg.lameduckTime == nil {
 		agg.lameduckTime = t
@@ -162,15 +163,11 @@ func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
 	if agg.probeCount == 0 {
 		return 0.0
 	}
-	avg := agg.accumulatedConcurrency / float64(agg.probeCount)
-	if agg.lameduckTime == nil {
-		return avg
-	}
-	return agg.weightedPodCount(now) * avg
+	return agg.accumulatedConcurrency / float64(agg.probeCount) * agg.usageRatio(now)
 }
 
 // Calculates the weighted pod count
-func (agg *perPodAggregation) weightedPodCount(now time.Time) float64 {
+func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 	if agg.lameduckTime == nil {
 		return float64(1.0)
 	}
@@ -227,16 +224,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
+	config := a.Current()
+
 	// 60 second window
-	stableData := newTotalAggregation(60 * time.Second)
+	stableData := newTotalAggregation(config.StableWindow)
 
 	// 6 second window
-	panicData := newTotalAggregation(6 * time.Second)
+	panicData := newTotalAggregation(config.PanicWindow)
 
 	// Last stat per Pod
 	lastStat := make(map[string]Stat)
-
-	config := a.Current()
 
 	// accumulate stats into their respective buckets
 	for key, stat := range a.stats {

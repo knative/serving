@@ -307,7 +307,7 @@ func TestAutoscaler_LameDuckDoesNotCount(t *testing.T) {
 			endConcurrency:   10,
 			durationSeconds:  60, // 1 pod active
 			podCount:         1,
-			podId:            0,
+			podIdOffset:      0,
 		})
 	a.recordLinearSeries(
 		t,
@@ -317,7 +317,7 @@ func TestAutoscaler_LameDuckDoesNotCount(t *testing.T) {
 			endConcurrency:   10,
 			durationSeconds:  60, // 1 pod lameducked
 			podCount:         1,
-			podId:            1,
+			podIdOffset:      1,
 			lameduck:         true,
 		})
 	a.expectScale(t, end, 1, true) // 2 pods reporting metrics but one doesn't count
@@ -461,7 +461,7 @@ type linearSeries struct {
 	endConcurrency   int
 	durationSeconds  int
 	podCount         int
-	podId            int
+	podIdOffset      int
 	lameduck         bool
 }
 
@@ -513,7 +513,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			}
 			stat := Stat{
 				Time:                      &t,
-				PodName:                   fmt.Sprintf("pod-%v", j+s.podId),
+				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
 				LameDuck:                  s.lameduck,
