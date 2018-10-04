@@ -57,15 +57,16 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	ReportRequest(ns, config, rev, servingState string, v float64) error
-	ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error
-	ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error
+	ReportRequest(ns, service, config, rev, servingState string, v float64) error
+	ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error
+	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
 	initialized     bool
 	namespaceTagKey tag.Key
+	serviceTagKey   tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
 	servingStateKey tag.Key
@@ -84,6 +85,11 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 	r.namespaceTagKey = nsTag
+	serviceTag, err := tag.NewKey("destination_service")
+	if err != nil {
+		return nil, err
+	}
+	r.serviceTagKey = serviceTag
 	configTag, err := tag.NewKey("destination_configuration")
 	if err != nil {
 		return nil, err
@@ -115,19 +121,19 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "The number of requests that are routed to the activator",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
 		},
 		&view.View{
 			Description: "The response count when activator proxy the request",
 			Measure:     measurements[ResponseCountM],
 			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     measurements[ResponseTimeInMsecM],
 			Aggregation: view.Distribution(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
 		},
 	)
 	if err != nil {
@@ -138,8 +144,8 @@ func NewStatsReporter() (*Reporter, error) {
 	return r, nil
 }
 
-// reportRequest captures value v for measurement m.
-func (r *Reporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
+// ReportRequest captures request metrics
+func (r *Reporter) ReportRequest(ns, service, config, rev, servingState string, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -147,6 +153,7 @@ func (r *Reporter) ReportRequest(ns, config, rev, servingState string, v float64
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.serviceTagKey, service),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.servingStateKey, servingState))
@@ -158,8 +165,8 @@ func (r *Reporter) ReportRequest(ns, config, rev, servingState string, v float64
 	return nil
 }
 
-// ReportResponseCount captures ResponseCountM metric with value v.
-func (r *Reporter) ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error {
+// ReportResponseCount captures response count metric with value v.
+func (r *Reporter) ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -167,6 +174,7 @@ func (r *Reporter) ReportResponseCount(ns, config, rev string, responseCode, num
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.serviceTagKey, service),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
@@ -179,7 +187,8 @@ func (r *Reporter) ReportResponseCount(ns, config, rev string, responseCode, num
 	return nil
 }
 
-func (r *Reporter) ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error {
+// ReportResponseTime captures response time requests
+func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -187,6 +196,7 @@ func (r *Reporter) ReportResponseTime(ns, config, rev string, responseCode int, 
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.serviceTagKey, service),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)))

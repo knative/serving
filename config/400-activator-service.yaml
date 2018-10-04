@@ -27,4 +27,8 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 8080
+  - name: metrics
+    protocol: TCP
+    port: 9090
+    targetPort: 9090
   type: NodePort

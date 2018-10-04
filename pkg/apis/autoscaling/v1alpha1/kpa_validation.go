@@ -27,7 +27,7 @@ import (
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
-	return rt.Spec.Validate().ViaField("spec")
+	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").Also(rt.Spec.Validate().ViaField("spec"))
 }
 
 func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {

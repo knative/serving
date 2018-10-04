@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -32,3 +32,9 @@ rm -rf $(find vendor/ -name '*_test.go')
 find vendor/github.com/knative/test-infra -mindepth 1 -maxdepth 1 ! -name scripts -exec rm -fr {} \;
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
+
+# Patch the Kubernetes dynamic client to fix listing. This patch is from
+# https://github.com/kubernetes/kubernetes/pull/68552/files, which is a
+# cherrypick of #66078.  Remove this once that reaches a client version
+# we have pulled in.
+git apply ${REPO_ROOT_DIR}/hack/66078.patch

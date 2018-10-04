@@ -12,28 +12,19 @@ required = [
   "github.com/knative/test-infra",
 ]
 
-
-# Use HEAD (2018-04-21) to pick up:
-# https://github.com/spf13/cobra/pull/662
-[[override]]
-  name = "github.com/spf13/cobra"
-  revision = "615425954c3b0d9485a7027d4d451fdcdfdee84e"
-[[override]]
-  name = "github.com/spf13/pflag"
-  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
-
 [[override]]
   name = "gopkg.in/yaml.v2"
   version = "v2.2.1"
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-09-21
-  revision = "95e3199746a50f0a4e4ba62f1d8760e9a203b30e"
+  # HEAD as of 2018-10-01
+  revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
 
 [[override]]
   name = "github.com/knative/pkg"
-  revision = "e653ef4b1b527e4581929d694a056fd2ab7315ad"
+  # HEAD as of 2018-10-01
+  revision = "f00975a13e4c7284aac5b8d01181590869472291"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -50,19 +41,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.0"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.0"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.11.0"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.11.0"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "github.com/json-iterator/go"

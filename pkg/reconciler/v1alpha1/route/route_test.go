@@ -355,7 +355,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
 				activator.RevisionHeaderName:      "test-rev",
-				activator.ConfigurationHeader:     "test-config",
 				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
@@ -548,7 +547,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
 				activator.RevisionHeaderName:      "test-rev",
-				activator.ConfigurationHeader:     "test-config",
 				activator.RevisionHeaderNamespace: testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,

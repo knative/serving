@@ -21,7 +21,7 @@ import (
 )
 
 func (s *Service) Validate() *apis.FieldError {
-	return validateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
+	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
 		Also(s.Spec.Validate().ViaField("spec"))
 }
 

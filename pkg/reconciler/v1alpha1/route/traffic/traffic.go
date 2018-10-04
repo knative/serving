@@ -58,11 +58,11 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetTrafficTargets returns a list of TrafficTarget.
-func (t *TrafficConfig) GetTrafficTargets() []v1alpha1.TrafficTarget {
+// GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+func (t *TrafficConfig) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := []v1alpha1.TrafficTarget{}
 	for _, tt := range t.Targets[""] {
-		results = append(results, tt.TrafficTarget)
+		results = append(results, v1alpha1.TrafficTarget{ RevisionName:tt.RevisionName, Name:tt.Name, Percent:tt.Percent })
 	}
 	return results
 }

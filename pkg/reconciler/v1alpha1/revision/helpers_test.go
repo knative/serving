@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -33,19 +32,19 @@ import (
 func TestGetBuildDoneCondition(t *testing.T) {
 	tests := []struct {
 		description string
-		build       *buildv1alpha1.Build
+		build       *duckv1alpha1.KResource
 		cond        *duckv1alpha1.Condition
 	}{{
 		// If there are no build conditions, we should get nil.
 		description: "no conditions",
-		build:       &buildv1alpha1.Build{},
+		build:       &duckv1alpha1.KResource{},
 	}, {
 		// If the conditions indicate that things are running, we should get nil.
 		description: "build running",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
 				Conditions: []duckv1alpha1.Condition{{
-					Type:   buildv1alpha1.BuildSucceeded,
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionUnknown,
 				}},
 			},
@@ -53,25 +52,25 @@ func TestGetBuildDoneCondition(t *testing.T) {
 	}, {
 		// If the build succeeded, return the success condition.
 		description: "build succeeded",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
 				Conditions: []duckv1alpha1.Condition{{
-					Type:   buildv1alpha1.BuildSucceeded,
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
 		cond: &duckv1alpha1.Condition{
-			Type:   buildv1alpha1.BuildSucceeded,
+			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 		},
 	}, {
 		// If the build failed, return the failure condition.
 		description: "build failed",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
 				Conditions: []duckv1alpha1.Condition{{
-					Type:    buildv1alpha1.BuildSucceeded,
+					Type:    duckv1alpha1.ConditionSucceeded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "TheReason",
 					Message: "something super descriptive",
@@ -79,7 +78,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 			},
 		},
 		cond: &duckv1alpha1.Condition{
-			Type:    buildv1alpha1.BuildSucceeded,
+			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionTrue,
 			Reason:  "TheReason",
 			Message: "something super descriptive",

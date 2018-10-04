@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
@@ -46,8 +46,9 @@ type Build struct {
 // Check that our resource implements several interfaces.
 var _ kmeta.OwnerRefable = (*Build)(nil)
 
-// Check that Build implements the Conditions duck type.
-var _ = duck.VerifyType(&Build{}, &duckv1alpha1.Conditions{})
+// Check that Build may be validated and defaulted.
+var _ apis.Validatable = (*Build)(nil)
+var _ apis.Defaultable = (*Build)(nil)
 
 // BuildSpec is the spec for a Build resource.
 type BuildSpec struct {
@@ -205,8 +206,6 @@ type BuildStatus struct {
 	// Google provides additional information if the builder is Google.
 	Google *GoogleSpec `json:"google,omitempty"`
 
-	// Creation is the time the build is created.
-	CreationTime metav1.Time `json:"creationTime,omitEmpty"`
 	// StartTime is the time the build is actually started.
 	StartTime metav1.Time `json:"startTime,omitEmpty"`
 	// CompletionTime is the time the build completed.

@@ -29,6 +29,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +40,7 @@ const (
 )
 
 var (
-	initialScaleToZeroThreshold   string
-	initialScaleToZeroGracePeriod string
+	scaleToZeroThreshold time.Duration
 )
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
@@ -56,31 +56,29 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 }
 
 func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
-	totalRequests := 0
-	successfulRequests := 0
-	var mux sync.Mutex
+	var (
+		totalRequests      int
+		successfulRequests int
+		mux                sync.Mutex
+		group              errgroup.Group
+	)
 
 	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		group.Go(func() error {
 			done := time.After(duration)
 			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				logger.Errorf("error creating spoofing client %v", err)
-				return
+				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 			if err != nil {
-				logger.Errorf("error creating request %v", err)
-				return
+				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
 			for {
 				select {
 				case <-done:
-					return
+					return nil
 				default:
 					mux.Lock()
 					totalRequests++
@@ -102,59 +100,39 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					mux.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	logger.Infof("Waiting for all requests to complete.")
-	wg.Wait()
-	logger.Infof("All requests completed. Checking results.")
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("Error making requests for scale up: %v.", err)
+	}
+
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("Error making requests for scale up. Got %v successful requests. Wanted %v.",
+		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
 			successfulRequests, totalRequests)
 	}
-	logger.Infof("Got %v successful responses out of %v.", successfulRequests, totalRequests)
+
+	logger.Infof("All %d requests succeeded.", totalRequests)
 	return nil
-}
-
-func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
-	return test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
-}
-
-func setScaleToZeroThreshold(clients *test.Clients, threshold string, gracePeriod string) error {
-	configMap, err := getAutoscalerConfigMap(clients)
-	if err != nil {
-		return err
-	}
-	configMap.Data["scale-to-zero-threshold"] = threshold
-	configMap.Data["scale-to-zero-grace-period"] = gracePeriod
-	_, err = test.GetConfigMap(clients.KubeClient).Update(configMap)
-	return err
 }
 
 func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 	clients := Setup(t)
 
-	configMap, err := getAutoscalerConfigMap(clients)
+	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
 	if err != nil {
-		logger.Infof("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
-		initialScaleToZeroThreshold = "5m"
-		initialScaleToZeroGracePeriod = "2m"
-	} else {
-		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
-		initialScaleToZeroGracePeriod = configMap.Data["scale-to-zero-grace-period"]
+		t.Fatalf("Unable to get autoscaler config map: %v", err)
 	}
-
-	err = setScaleToZeroThreshold(clients, "1m", "30s")
+	scaleToZeroThreshold, err = time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
 	if err != nil {
-		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
-		          cause the test to time out. Failing fast instead. %v`, err)
+		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
 	}
 
 	return clients
 }
 
 func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
-	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold, initialScaleToZeroGracePeriod)
 	TearDown(clients, names, logger)
 }
 
@@ -230,7 +208,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
-		"DeploymentIsScaledUp")
+		"DeploymentIsScaledUp",
+		2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
@@ -239,15 +218,13 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
 
-	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
-		    faster testing.`)
-
 	logger.Infof("Waiting for scale to zero")
 	err = test.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledToZero(),
-		"DeploymentScaledToZero")
+		"DeploymentScaledToZero",
+		scaleToZeroThreshold+2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
@@ -281,7 +258,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
-		"DeploymentScaledUp")
+		"DeploymentScaledUp",
+		2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)

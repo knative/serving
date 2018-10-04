@@ -27,6 +27,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
+const (
+	// ActivatorPodName defines the pod name of the activator
+	// as defined in the metrics it sends.
+	ActivatorPodName string = "activator"
+)
+
 // Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was collected on the pod.
@@ -68,9 +74,10 @@ func newTotalAggregation(window time.Duration) *totalAggregation {
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window             time.Duration
-	perPodAggregations map[string]*perPodAggregation
-	probeCount         int32
+	window                   time.Duration
+	perPodAggregations       map[string]*perPodAggregation
+	probeCount               int32
+	containsActivatorMetrics bool
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -84,30 +91,51 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
+		if stat.PodName == ActivatorPodName {
+			agg.containsActivatorMetrics = true
+		}
 		agg.probeCount += 1
 	}
 }
 
 // The number of pods that are observable via stats
+// Substracts the activator pod if its not the only pod reporting stats
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
 		podCount += pod.weightedPodCount(now)
+	}
+	if agg.containsActivatorMetrics {
+		// Discount the activator in the pod count
+		if podCount > 1.0 {
+			return podCount - 1.0
+		}
 	}
 	return podCount
 }
 
 // The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
+// Ignores activator sent metrics if its not the only pod reporting stats
 func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	accumulatedConcurrency := float64(0)
-	for _, perPod := range agg.perPodAggregations {
-		accumulatedConcurrency += perPod.calculateAverage(now)
+	activatorConcurrency := float64(0)
+	observedPods := agg.observedPods(now)
+	for podName, perPod := range agg.perPodAggregations {
+		if podName == ActivatorPodName {
+			activatorConcurrency += perPod.calculateAverage(now)
+		} else {
+			accumulatedConcurrency += perPod.calculateAverage(now)
+			podsInCalculation++
+		}
 	}
-	return accumulatedConcurrency / agg.observedPods(now)
+	if accumulatedConcurrency == 0.0 {
+		return activatorConcurrency / observedPods
+	}
+	return accumulatedConcurrency / observedPods
 }
 
-// Hols an aggregation per pod
+// Holds an aggregation per pod
 type perPodAggregation struct {
 	accumulatedConcurrency float64
 	probeCount             int32
@@ -118,7 +146,7 @@ type perPodAggregation struct {
 // Aggregates the given concurrency
 func (agg *perPodAggregation) aggregate(concurrency float64) {
 	agg.accumulatedConcurrency += concurrency
-	agg.probeCount += 1
+	agg.probeCount++
 }
 
 func (agg *perPodAggregation) lameduck(t *time.Time) {

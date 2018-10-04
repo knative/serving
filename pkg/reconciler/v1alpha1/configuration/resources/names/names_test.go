@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -79,7 +79,9 @@ func TestNamer(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 999,
-				Build:      &unstructured.Unstructured{},
+				Build: &v1alpha1.RawExtension{
+					BuildSpec: &buildv1alpha1.BuildSpec{},
+				},
 			},
 		},
 		f:    Build,

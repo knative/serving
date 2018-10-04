@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -166,8 +165,14 @@ type RevisionSpec struct {
 
 	// BuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
+	// DEPRECATED: Use BuildRef instead.
 	// +optional
 	BuildName string `json:"buildName,omitempty"`
+
+	// BuildRef holds the reference to the build (if there is one) responsible
+	// for producing the container image for this Revision. Otherwise, nil
+	// +optional
+	BuildRef *corev1.ObjectReference
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
@@ -199,6 +204,8 @@ var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 	RevisionConditionActive,
 )
+
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -241,6 +248,23 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
 
+func (r *Revision) BuildRef() *corev1.ObjectReference {
+	if r.Spec.BuildRef != nil {
+		return r.Spec.BuildRef
+	}
+
+	if r.Spec.BuildName != "" {
+		return &corev1.ObjectReference{
+			APIVersion: "build.knative.dev/v1alpha1",
+			Kind:       "Build",
+			Namespace:  r.Namespace,
+			Name:       r.Spec.BuildName,
+		}
+	}
+
+	return nil
+}
+
 // IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
@@ -273,8 +297,8 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 	revCondSet.Manage(rs).InitializeCondition(RevisionConditionBuildSucceeded)
 }
 
-func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
-	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
+	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return
 	}

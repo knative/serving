@@ -17,15 +17,14 @@ limitations under the License.
 package testing
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -39,8 +38,7 @@ func MakeFactory(ctor Ctor) Factory {
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-		buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme(), ls.GetBuildObjects()...)
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 
 		// Set up our Controller from the fakes.
@@ -57,7 +55,6 @@ func MakeFactory(ctor Ctor) Factory {
 			kubeClient.PrependReactor("*", "*", reactor)
 			sharedClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
-			buildClient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 		}
@@ -66,6 +63,6 @@ func MakeFactory(ctor Ctor) Factory {
 		client.PrependReactor("create", "*", ValidateCreates)
 		client.PrependReactor("update", "*", ValidateUpdates)
 
-		return c, ActionRecorderList{sharedClient, buildClient, dynamicClient, client, kubeClient, cachingClient}
+		return c, ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
 	}
 }

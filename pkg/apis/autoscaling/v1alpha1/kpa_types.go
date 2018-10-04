@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
 	"time"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -26,6 +27,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -130,6 +132,24 @@ type PodAutoscalerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PodAutoscaler `json:"items"`
+}
+
+func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
+	if s, ok := kpa.Annotations[key]; ok {
+		// no error check: relying on validation
+		i, _ := strconv.ParseInt(s, 10, 32)
+		return int32(i)
+	}
+	return 0
+}
+
+// ScaleBounds returns scale bounds annotations values as a tuple:
+// `(min, max int32)`. The value of 0 for any of min or max means the bound is
+// not set
+func (kpa *PodAutoscaler) ScaleBounds() (min, max int32) {
+	min = kpa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
+	max = kpa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
+	return
 }
 
 // IsReady looks at the conditions and if the Status has a condition

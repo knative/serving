@@ -31,7 +31,7 @@ func TestNewStatsReporterErrors(t *testing.T) {
 	}
 
 	for _, v := range invalidTagValues {
-		_, err := NewStatsReporter(v, v, v)
+		_, err := NewStatsReporter(v, v, v, v)
 		if err == nil {
 			t.Errorf("Expected err to not be nil for value %q, got nil", v)
 		}
@@ -45,9 +45,10 @@ func TestReporter_Report(t *testing.T) {
 		t.Error("Reporter.Report() expected an error for Report call before init. Got success.")
 	}
 
-	r, _ = NewStatsReporter("testns", "testconfig", "testrev")
+	r, _ = NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
 	wantTags := map[string]string{
 		"configuration_namespace": "testns",
+		"service":                 "testsvc",
 		"configuration":           "testconfig",
 		"revision":                "testrev",
 	}

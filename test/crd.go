@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 // ResourceNames holds names of various resources.
@@ -113,7 +113,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 	return config
 }
 
-func ConfigurationWithBuild(namespace string, names ResourceNames, build *unstructured.Unstructured, imagePath string) *v1alpha1.Configuration {
+func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,

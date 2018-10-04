@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: activator
@@ -21,6 +21,10 @@ spec:
   # TODO: Increase the replicas
   # https://github.com/knative/serving/issues/695
   replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
   template:
     metadata:
       annotations:
@@ -38,6 +42,8 @@ spec:
         ports:
         - name: activator-port
           containerPort: 8080
+        - name: metrics-port
+          containerPort: 9090
         args:
           # Disable glog writing into stderr. Our code doesn't use glog
           # and seeing k8s logs in addition to ours is not useful.

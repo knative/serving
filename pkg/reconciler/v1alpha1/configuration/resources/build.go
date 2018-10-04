@@ -17,19 +17,37 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
-	u := WithBuildSpec(config.Spec.Build)
+
+	u := &unstructured.Unstructured{}
+	if err := config.Spec.Build.As(u); err != nil {
+		b := &buildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+			},
+		}
+		if err := config.Spec.Build.As(&b.Spec); err != nil {
+			// TODO(mattmoor): Return errors.
+			panic(err.Error())
+		}
+
+		u = MustToUnstructured(b)
+	}
 
 	u.SetNamespace(config.Namespace)
 	u.SetName(names.Build(config))
@@ -37,23 +55,16 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	return u
 }
 
-func WithBuildSpec(build *unstructured.Unstructured) *unstructured.Unstructured {
+func MustToUnstructured(build *buildv1alpha1.Build) *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
 
-	spec, ok := build.Object["spec"]
-	if !ok {
-		s := build.DeepCopy().Object
-		delete(s, "apiVersion")
-		delete(s, "kind")
-		spec = s
+	b, err := json.Marshal(build)
+	if err != nil {
+		panic(err.Error())
 	}
-	u.SetUnstructuredContent(map[string]interface{}{"spec": spec})
 
-	// Assume {apiVersion: build.knative.dev/v1alpha1, kind: Build} if not set
-	if build.GroupVersionKind().Empty() {
-		u.SetGroupVersionKind(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"})
-	} else {
-		u.SetGroupVersionKind(build.GroupVersionKind())
+	if err := json.Unmarshal(b, u); err != nil {
+		panic(err.Error())
 	}
 
 	return u

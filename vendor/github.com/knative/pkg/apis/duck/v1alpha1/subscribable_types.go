@@ -36,8 +36,6 @@ type Subscribable struct {
 	Channelable corev1.ObjectReference `json:"channelable,omitempty"`
 }
 
-// Implementations can verify that they implement Subscribable via:
-var _ = duck.VerifyType(&Subscription{}, &Subscribable{})
 
 // Subscribable is an Implementable "duck type".
 var _ duck.Implementable = (*Subscribable)(nil)

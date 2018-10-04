@@ -53,6 +53,8 @@ func (l ActionRecorderList) ActionsByVerb() (Actions, error) {
 			case "patch":
 				a.Patches = append(a.Patches,
 					action.(clientgotesting.PatchAction))
+			case "list": // avoid 'unexpected verb list' error
+			case "watch": // avoid 'unexpected verb watch' error
 			default:
 				return a, fmt.Errorf("unexpected verb %v: %+v", action.GetVerb(), action)
 			}

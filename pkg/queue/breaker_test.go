@@ -18,9 +18,11 @@ package queue
 
 import (
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type request struct {
@@ -28,11 +30,18 @@ type request struct {
 	accepted chan bool
 }
 
+func (r *request) wait() {
+	ok := <-r.accepted
+	// Requeue for next usage
+	r.accepted <- ok
+}
+
 func TestBreakerOverload(t *testing.T) {
 	b := NewBreaker(1, 1)             // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
 	locks := b.concurrentRequests(3)
+
 	unlockAll(locks)
 
 	got := accepted(locks)
@@ -107,17 +116,22 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
+// Will wait for request to either be performed, enqueued or rejected.
 func (b *Breaker) concurrentRequest() request {
-
-	// There is a brief window between when capacity is released and
-	// when it becomes available to the next request.  We yield here
-	// to reduce the likelihood that we hit that edge case.  E.g.
-	// without yielding `go test ./pkg/queue/breaker.* -count 10000`
-	// will fail about 3 runs.
-	runtime.Gosched()
-
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
+
+	if len(b.activeRequests) < cap(b.activeRequests) {
+		// Expect request to be performed
+		defer waitForQueue(b.activeRequests, len(b.activeRequests)+1)
+	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
+		// Expect request to be queued
+		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)
+	} else {
+		// Expect request to be rejected
+		defer r.wait()
+	}
+
 	var start sync.WaitGroup
 	start.Add(1)
 	go func() {
@@ -142,6 +156,15 @@ func (b *Breaker) concurrentRequests(n int) []request {
 	return requests
 }
 
+func waitForQueue(queue chan token, size int) {
+	err := wait.PollImmediate(1*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+		return len(queue) == size, nil
+	})
+	if err != nil {
+		panic("timed out waiting for queue")
+	}
+}
+
 func accepted(requests []request) []bool {
 	got := make([]bool, len(requests))
 	for i, r := range requests {
@@ -153,9 +176,7 @@ func accepted(requests []request) []bool {
 func unlock(req request) {
 	req.lock.Unlock()
 	// Verify that function has completed
-	ok := <-req.accepted
-	// Requeue for next usage
-	req.accepted <- ok
+	req.wait()
 }
 
 func unlockAll(requests []request) {
