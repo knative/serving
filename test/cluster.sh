@@ -41,6 +41,7 @@ function create_everything() {
   echo ">> Bringing up Serving"
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  ko apply -f test/config/
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
   # However, since network configurations may reach different ingress pods at slightly
