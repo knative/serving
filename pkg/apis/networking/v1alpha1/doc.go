@@ -17,3 +17,8 @@ limitations under the License.
 // +k8s:deepcopy-gen=package
 // +groupName=networking.internal.knative.dev
 package v1alpha1
+
+// ClusterIngress is heavily based on K8s Ingress
+// https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress which some
+// highlighted modifications.  See clusteringress_types.go for more
+// information about the modifications that we made.

@@ -33,6 +33,9 @@ import (
 // ClusterIngress is a collection of rules that allow inbound connections to reach the
 // endpoints defined by a backend. An ClusterIngress can be configured to give services
 // externally-reachable urls, load balance traffic offer name based virtual hosting etc.
+//
+// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
+// which some highlighted modifications.
 type ClusterIngress struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -167,6 +170,10 @@ type LoadBalancerIngress struct {
 	Domain string `json:"hostname,omitempty" protobuf:"bytes,2,opt,name=hostname"`
 
 	// DomainInternal is set if there is a cluster-local DNS name to access the Ingress.
+	//
+	// NOTE: This differs from K8s Ingress, since we also desire to have a cluster-local
+	//       DNS name to allow routing in case of not having a mesh.
+	//
 	// +optional
 	DomainInternal string `json:"hostname,omitempty"`
 }
@@ -195,6 +202,9 @@ type ClusterIngressRule struct {
 	// just traffic matching the host to the default backend or all traffic to the
 	// default backend, is left to the controller fulfilling the ClusterIngress. Http is
 	// currently the only supported ClusterIngressRuleValue.
+	//
+	// NOTE: We could inline ClusterIngressRuleValue into the parent struct, but grouping things
+	//       here to better highlight the boundary of the "OneOf" restriction.
 	// +optional
 	ClusterIngressRuleValue `json:",inline,omitempty"`
 }
@@ -242,14 +252,20 @@ type HTTPClusterIngressPath struct {
 
 	// AppendHeaders allow specifying additional HTTP headers to add
 	// before forwarding a request to the destination service.
+	//
+	// NOTE: This differs from K8s Ingress which doesn't allow header appending.
 	// +optional
 	AppendHeaders map[string]string `json:"appendHeaders,omitempty"`
 
 	// Timeout for HTTP requests.
+	//
+	// NOTE: This differs from K8s Ingress which doesn't allow setting timeouts.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Retry policy for HTTP requests.
+	//
+	// NOTE: This differs from K8s Ingress which doesn't allow retry settings.
 	// +optional
 	Retries *HTTPRetry `json:"retries,omitempty"`
 }
@@ -266,6 +282,8 @@ type HTTPRetry struct {
 // ClusterIngressBackend describes all endpoints for a given service and port.
 type ClusterIngressBackend struct {
 	// Specifies the namespace of the referenced service.
+	//
+	// NOTE: This differs from K8s Ingress to allow routing to different namespaces.
 	ServiceNamespace string `json:"serviceNamespace"`
 
 	// Specifies the name of the referenced service.
@@ -282,6 +300,8 @@ type ClusterIngressBackendSplit struct {
 
 	// Specifies the split percentage, a number between 0 and 100.  If
 	// only one split is specified, we default to 100.
+	//
+	// NOTE: This differs from K8s Ingress to allow percentage split.
 	Percent int `json:"percent,omitempty"`
 }
 
