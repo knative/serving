@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -307,6 +308,13 @@ type ClusterIngressBackendSplit struct {
 
 var _ apis.Validatable = (*ClusterIngress)(nil)
 var _ apis.Defaultable = (*ClusterIngress)(nil)
+
+// Check that ClusterIngress implements the Conditions duck type.
+var _ = duck.VerifyType(&ClusterIngress{}, &duckv1alpha1.Conditions{})
+
+// Check that ClusterIngress implements the Generation duck type.
+var emptyGen duckv1alpha1.Generation
+var _ = duck.VerifyType(&ClusterIngress{}, &emptyGen)
 
 func (ci *ClusterIngress) GetGeneration() int64 {
 	return ci.Spec.Generation
