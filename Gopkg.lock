@@ -569,7 +569,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6f8e4bd693b7a9c09889aed55fdeb2ce034c0862826fcd40e4929b74a409df6c"
+  digest = "1:dcb89c032286a9c3c5118a1496f8e0e237c1437f5356ac9602f6fdef560a5c21"
   name = "golang.org/x/oauth2"
   packages = [
     ".",
@@ -579,7 +579,7 @@
     "jwt",
   ]
   pruneopts = "NUT"
-  revision = "30785a2c434e431ef7c507b54617d6a951d5f2b4"
+  revision = "c57b0facaced709681d9f90397429b9430a74754"
 
 [[projects]]
   branch = "master"
@@ -591,14 +591,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fdd56a4a6d13b9063fb72c8845b7d553c36480d3f49d949e727479275bd41b04"
+  digest = "1:c84eea70554fcd678159b8c088e12bec7255d43f1c25183455cef7198565fcdd"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NUT"
-  revision = "810d7000345868fc619eb81f46307107118f4ae1"
+  revision = "8469e314837c2e2471561de5c47bbf8bfd0d9099"
 
 [[projects]]
   branch = "master"
