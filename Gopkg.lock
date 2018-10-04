@@ -371,7 +371,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "f00975a13e4c7284aac5b8d01181590869472291"
+  revision = "8e471c3d74eda15fbb9405d076008e2cf2008548"
 
 [[projects]]
   branch = "master"
