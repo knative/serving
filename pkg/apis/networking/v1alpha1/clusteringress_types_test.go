@@ -50,7 +50,7 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
-	r.Status.MarkLoadBalancerReady(LoadBalancerIngress{DomainInternal: "gateway.default.svc"})
+	r.Status.MarkLoadBalancerReady([]LoadBalancerIngress{{DomainInternal: "gateway.default.svc"}})
 	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionLoadBalancerReady, t)
 	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionReady, t)
 	checkIsReady(r.Status, t)

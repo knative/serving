@@ -123,8 +123,8 @@ type ClusterIngressTLS struct {
 
 // ConditionType represents a ClusterIngress condition value
 const (
-	// ClusterIngressConditionReady is set when the clusterIngress is configured
-	// and has a ready VirtualService.
+	// ClusterIngressConditionReady is set when the clusterIngress networking setting is
+	// configured and it has a load balancer address.
 	ClusterIngressConditionReady = duckv1alpha1.ConditionReady
 
 	// ClusterIngressConditionNetworkConfigured is set when the ClusterIngress's underlying
@@ -357,13 +357,13 @@ func (cis *ClusterIngressStatus) MarkNetworkConfigured() {
 }
 
 // MarkLoadBalancerReady marks the Ingress with ClusterIngressConditionLoadBalancerReady,
-// and also populate the address of the load balancer.  We allow multiple load balancers
-// address, but currently our Istio implementation only needs/has one so this signature
-// is better taking []LoadBalancerIngress, as we can make sure exactly one address is
-// provided.
-func (cis *ClusterIngressStatus) MarkLoadBalancerReady(lb LoadBalancerIngress) {
+// and also populate the address of the load balancer.
+func (cis *ClusterIngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngress) {
 	cis.LoadBalancer = &LoadBalancerStatus{
-		Ingress: []LoadBalancerIngress{lb},
+		Ingress: []LoadBalancerIngress{},
+	}
+	for _, lb := range lbs {
+		cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lb)
 	}
 	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionLoadBalancerReady)
 }
