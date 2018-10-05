@@ -242,12 +242,12 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		return r, err
 	}
 
-	// If the only errors are missing traffic target, we need to
-	// update the labels first, so that when these targets recover we
-	// receive an update.
-	if err := c.syncLabels(ctx, r, t); err != nil {
-		return r, err
-	}
+	// // If the only errors are missing traffic target, we need to
+	// // update the labels first, so that when these targets recover we
+	// // receive an update.
+	// if err := c.syncLabels(ctx, r, t); err != nil {
+	// 	return r, err
+	// }
 	if badTarget != nil && isTargetError {
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
