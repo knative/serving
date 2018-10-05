@@ -127,11 +127,17 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 	currentScale := scl.Spec.Replicas
 
-	// Scale to zero.  When scaling to zero, flip the revision's
+	// Scale to zero. When scaling to zero, flip the revision's
 	// ServingState to Reserve (if Active).
 	if desiredScale == 0 {
 		if err := ks.updateServingState(logger, kpa.Namespace, owner.Name, v1alpha1.RevisionServingStateReserve); err != nil {
 			return err
+		}
+
+		// Scale to zero grace period.
+		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
+			logger.Debug("Waiting for Active=False grace period.")
+			return nil
 		}
 	}
 
@@ -143,23 +149,10 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		}
 	}
 
-	// Scale from zero.  When there are no metrics scale to 1.
+	// Scale from zero. When there are no metrics scale to 1.
 	if currentScale == 0 && desiredScale == -1 {
 		logger.Debugf("Scaling up from 0 to 1")
 		desiredScale = 1
-	}
-
-	// Scale to zero grace period.  When revision
-	// ServingState=Reserve (see above) propagates to us,
-	// then actually scale things to zero.
-	// Delay the scale to zero until the LTT of
-	// "Active=False" is some time in the past.
-	if kpa.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
-			logger.Debug("Waiting for Active=False grace period.")
-			return nil
-		}
-		desiredScale = 0
 	}
 
 	if desiredScale < 0 {
@@ -190,7 +183,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 }
 
 func (ks *kpaScaler) updateServingState(logger *zap.SugaredLogger, namespace, name string, state v1alpha1.RevisionServingStateType) error {
-	logger.Debug("Setting revision ServingState to %v.", state)
+	logger.Debugf("Setting revision ServingState to %v.", state)
 	revisionClient := ks.servingClientSet.ServingV1alpha1().Revisions(namespace)
 	rev, err := revisionClient.Get(name, metav1.GetOptions{})
 	if err != nil {
