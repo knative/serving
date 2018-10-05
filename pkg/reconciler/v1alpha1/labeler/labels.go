@@ -14,68 +14,81 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package route
+package labeler
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/knative/pkg/logging"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 )
 
-func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traffic.TrafficConfig) error {
-	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, r, tc.Configurations); err != nil {
+func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
+	configs := make(map[string]struct{})
+	// Walk the revisions in Route's .status.traffic and build a list
+	// of Configurations to label from their OwnerReferences.
+	for _, tt := range r.Status.Traffic {
+		rev, err := c.revisionLister.Revisions(r.Namespace).Get(tt.RevisionName)
+		if err != nil {
+			return err
+		}
+		owner := metav1.GetControllerOf(rev)
+		if owner != nil && owner.Kind == "Configuration" {
+			configs[owner.Name] = struct{}{}
+		}
+	}
+
+	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, r.Namespace, r.Name, configs); err != nil {
 		return err
 	}
-	if err := c.setLabelForGivenConfigurations(ctx, r, tc.Configurations); err != nil {
-		return err
-	}
-	return nil
+	return c.setLabelForGivenConfigurations(ctx, r, configs)
 }
 
 func (c *Reconciler) setLabelForGivenConfigurations(
 	ctx context.Context,
 	route *v1alpha1.Route,
-	configMap map[string]*v1alpha1.Configuration,
+	configs map[string]struct{},
 ) error {
-
 	logger := logging.FromContext(ctx)
-	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
 
-	names := []string{}
+	// The ordered collection of Configurations to which we
+	// should patch our Route label.
+	order := []string{}
+	configMap := make(map[string]*v1alpha1.Configuration)
 
-	// Validate
-	for _, config := range configMap {
-		names = append(names, config.Name)
+	// Lookup Configurations that are missing our Route label.
+	for name, _ := range configs {
+		order = append(order, name)
+
+		config, err := c.configurationLister.Configurations(route.Namespace).Get(name)
+		if err != nil {
+			return err
+		}
+		configMap[name] = config
 		routeName, ok := config.Labels[serving.RouteLabelKey]
 		if !ok {
 			continue
 		}
-		// TODO(yanweiguo): add a condition in status for this error
 		if routeName != route.Name {
-			errMsg := fmt.Sprintf("Configuration %q is already in use by %q, and cannot be used by %q",
+			return fmt.Errorf("Configuration %q is already in use by %q, and cannot be used by %q",
 				config.Name, routeName, route.Name)
-			c.Recorder.Event(route, corev1.EventTypeWarning, "ConfigurationInUse", errMsg)
-			logger.Error(errMsg)
-			return errors.New(errMsg)
 		}
 	}
 	// Sort the names to give things a deterministic ordering.
-	sort.Strings(names)
+	sort.Strings(order)
 
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
 	// Set label for newly added configurations as traffic target.
-	for _, configName := range names {
+	for _, configName := range order {
 		config := configMap[configName]
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)
@@ -94,36 +107,31 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 
 func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context,
-	route *v1alpha1.Route,
-	configMap map[string]*v1alpha1.Configuration,
+	routeNamespace, routeName string,
+	configs map[string]struct{},
 ) error {
 
 	logger := logging.FromContext(ctx)
-	ns := route.Namespace
 
 	// Get Configurations set as traffic target before this sync.
-	selector, err := labels.Parse(fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name))
+	selector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: routeName})
+
+	oldConfigsList, err := c.configurationLister.Configurations(routeNamespace).List(selector)
 	if err != nil {
-		return err
-	}
-	oldConfigsList, err := c.configurationLister.Configurations(ns).List(selector)
-	if err != nil {
-		logger.Errorf("Failed to fetch configurations with label '%s=%s': %s",
-			serving.RouteLabelKey, route.Name, err)
 		return err
 	}
 
 	// Delete label for newly removed configurations as traffic target.
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(routeNamespace)
 	for _, config := range oldConfigsList {
-		if _, ok := configMap[config.Name]; !ok {
+		if _, ok := configs[config.Name]; ok {
+			continue
+		}
+		delete(config.Labels, serving.RouteLabelKey)
 
-			delete(config.Labels, serving.RouteLabelKey)
-
-			configClient := c.ServingClientSet.ServingV1alpha1().Configurations(config.Namespace)
-			if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, nil); err != nil {
-				logger.Errorf("Failed to remove route label to configuration %q: %s", config.Name, err)
-				return err
-			}
+		if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, nil); err != nil {
+			logger.Errorf("Failed to remove route label to configuration %q: %s", config.Name, err)
+			return err
 		}
 	}
 
