@@ -246,11 +246,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 
 	ctx.logger.Infof("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("Error making requests for scale up: %v.", err)
+		return fmt.Errorf("error making requests for scale up: %v", err)
 	}
 
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
+		return fmt.Errorf("error making requests for scale up. Got %d successful requests. Wanted %d",
 			successfulRequests, totalRequests)
 	}
 
