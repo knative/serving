@@ -72,7 +72,7 @@ type ClusterIngressList struct {
 // IngressSpec describes the ClusterIngress the user wishes to exist.
 //
 // In general this follow the same shape as K8s Ingress.  Some notable differences:
-// - Backends now can have namespace/
+// - Backends now can have namespace:
 // - Traffic can be split across multiple backends.
 // - Timeout & Retry can be configured.
 // - Headers can be appended.
@@ -95,6 +95,11 @@ type IngressSpec struct {
 	// A list of host rules used to configure the ClusterIngress.
 	// +optional
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
+
+	// TODO: We need to consider a way to specify if the ClusterIngress address
+	// should be exposed to the Internet, or only exposed privately (cluster local,
+	// VPC, RFC1918).  An example use case is for
+	//   https://github.com/knative/serving/issues/2127.
 }
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
