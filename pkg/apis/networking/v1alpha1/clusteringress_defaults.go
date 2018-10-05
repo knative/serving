@@ -41,10 +41,6 @@ func (t *ClusterIngressTLS) SetDefaults() {
 }
 
 func (r *ClusterIngressRule) SetDefaults() {
-	r.ClusterIngressRuleValue.SetDefaults()
-}
-
-func (r *ClusterIngressRuleValue) SetDefaults() {
 	r.HTTP.SetDefaults()
 }
 

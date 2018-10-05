@@ -38,22 +38,12 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestTypicalFlow(t *testing.T) {
-	r := &ClusterIngress{}
-	r.Status.InitializeConditions()
-
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
-
-	// Then network is configured.
-	r.Status.MarkNetworkConfigured()
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionNetworkConfigured, t)
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
-
-	// Then ingress has address.
-	r.Status.MarkLoadBalancerReady([]LoadBalancerIngress{{DomainInternal: "gateway.default.svc"}})
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionLoadBalancerReady, t)
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionReady, t)
-	checkIsReady(r.Status, t)
+func TestGetGroupVersionKind(t *testing.T) {
+	ci := ClusterIngress{}
+	expected := SchemeGroupVersion.WithKind("ClusterIngress")
+	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
+		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
+	}
 }
 
 func TestGetSpecJSON(t *testing.T) {
@@ -65,21 +55,19 @@ func TestGetSpecJSON(t *testing.T) {
 			}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
-							Retries: &HTTPRetry{
-								Attempts: 3,
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
 							},
 						}},
-					},
+						Retries: &HTTPRetry{
+							Attempts: 3,
+						},
+					}},
 				},
 			}},
 		},
@@ -95,12 +83,22 @@ func TestGetSpecJSON(t *testing.T) {
 	}
 }
 
-func TestGetGroupVersionKind(t *testing.T) {
-	ci := ClusterIngress{}
-	expected := SchemeGroupVersion.WithKind("ClusterIngress")
-	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
-		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
-	}
+func TestTypicalFlow(t *testing.T) {
+	r := &ClusterIngress{}
+	r.Status.InitializeConditions()
+
+	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+
+	// Then network is configured.
+	r.Status.MarkNetworkConfigured()
+	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionNetworkConfigured, t)
+	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+
+	// Then ingress has address.
+	r.Status.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
+	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionLoadBalancerReady, t)
+	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionReady, t)
+	checkIsReady(r.Status, t)
 }
 
 func checkIsReady(cis IngressStatus, t *testing.T) {

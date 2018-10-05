@@ -130,39 +130,19 @@ type ClusterIngressRule struct {
 	// Host is the fully qualified domain name of a network host, as defined
 	// by RFC 3986. Note the following deviations from the "host" part of the
 	// URI as defined in the RFC:
-	// 1. IPs are not allowed. Currently a ClusterIngressRuleV can only apply to the
+	// 1. IPs are not allowed. Currently a rule value can only apply to the
 	//	  IP in the Spec of the parent ClusterIngress.
 	// 2. The `:` delimiter is not respected because ports are not allowed.
 	//	  Currently the port of an ClusterIngress is implicitly :80 for http and
 	//	  :443 for https.
 	// Both these may change in the future.
-	// Incoming requests are matched against the host before the ClusterIngressRuleValue.
 	// If the host is unspecified, the ClusterIngress routes all traffic based on the
 	// specified ClusterIngressRuleValue.
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
 
-	// ClusterIngressRuleValue represents a rule to route requests for this ClusterIngressRule.
-	// If unspecified, the rule defaults to a http catch-all. Whether that sends
-	// just traffic matching the host to the default backend or all traffic to the
-	// default backend, is left to the controller fulfilling the ClusterIngress. Http is
-	// currently the only supported ClusterIngressRuleValue.
-	//
-	// NOTE: We could inline ClusterIngressRuleValue into the parent struct, but grouping things
-	//       here to better highlight the boundary of the "OneOf" restriction.
-	// +optional
-	ClusterIngressRuleValue `json:",inline,omitempty"`
-}
-
-// ClusterIngressRuleValue represents a rule to apply against incoming requests. If the
-// rule is satisfied, the request is routed to the specified backend. Currently
-// mixing different types of rules in a single ClusterIngress is disallowed, so exactly
-// one of the following must be set.
-type ClusterIngressRuleValue struct {
-
-	// HTTP is the only supported ClusterIngressRuleValue currently so
-	// it is not optional.  However, in the future when we have others
-	// we may it will become so.  +optional
+	// HTTP represents a rule to apply against incoming requests. If the
+	// rule is satisfied, the request is routed to the specified backend.
 	HTTP *HTTPClusterIngressRuleValue `json:"http,omitempty"`
 }
 
@@ -173,7 +153,10 @@ type ClusterIngressRuleValue struct {
 // or '#'.
 type HTTPClusterIngressRuleValue struct {
 	// A collection of paths that map requests to backends.
+	//
+	// If they are multiple matching paths, the first match takes precendent.
 	Paths []HTTPClusterIngressPath `json:"paths"`
+
 	// TODO: Consider adding fields for ingress-type specific global
 	// options usable by a loadbalancer, like http keep-alive.
 }
@@ -215,13 +198,16 @@ type HTTPClusterIngressPath struct {
 	Retries *HTTPRetry `json:"retries,omitempty"`
 }
 
-// HTTPRetry describes the retry policy to use when a HTTP request fails.
-type HTTPRetry struct {
-	// Number of retries for a given request.
-	Attempts int `json:"attempts"`
+// ClusterIngressBackend describes all endpoints for a given service and port.
+type ClusterIngressBackendSplit struct {
+	// Specifies the backend receiving the traffic split.
+	Backend *ClusterIngressBackend `json:",inline"`
 
-	// Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
-	PerTryTimeout *metav1.Duration `json:"perTryTimeout"`
+	// Specifies the split percentage, a number between 0 and 100.  If
+	// only one split is specified, we default to 100.
+	//
+	// NOTE: This differs from K8s Ingress to allow percentage split.
+	Percent int `json:"percent,omitempty"`
 }
 
 // ClusterIngressBackend describes all endpoints for a given service and port.
@@ -238,16 +224,13 @@ type ClusterIngressBackend struct {
 	ServicePort intstr.IntOrString `json:"servicePort"`
 }
 
-// ClusterIngressBackend describes all endpoints for a given service and port.
-type ClusterIngressBackendSplit struct {
-	// Specifies the backend receiving the traffic split.
-	Backend *ClusterIngressBackend `json:"backend"`
+// HTTPRetry describes the retry policy to use when a HTTP request fails.
+type HTTPRetry struct {
+	// Number of retries for a given request.
+	Attempts int `json:"attempts"`
 
-	// Specifies the split percentage, a number between 0 and 100.  If
-	// only one split is specified, we default to 100.
-	//
-	// NOTE: This differs from K8s Ingress to allow percentage split.
-	Percent int `json:"percent,omitempty"`
+	// Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
+	PerTryTimeout *metav1.Duration `json:"perTryTimeout"`
 }
 
 // IngressStatus describe the current state of the ClusterIngress.
@@ -264,21 +247,21 @@ type LoadBalancerStatus struct {
 	// Ingress is a list containing ingress points for the load-balancer.
 	// Traffic intended for the service should be sent to these ingress points.
 	// +optional
-	Ingress []LoadBalancerIngress `json:"ingress,omitempty" protobuf:"bytes,1,rep,name=ingress"`
+	Ingress []LoadBalancerIngressStatus `json:"ingress,omitempty"`
 }
 
 // LoadBalancerIngress represents the status of a load-balancer ingress point:
 // traffic intended for the service should be sent to an ingress point.
-type LoadBalancerIngress struct {
+type LoadBalancerIngressStatus struct {
 	// IP is set for load-balancer ingress points that are IP based
 	// (typically GCE or OpenStack load-balancers)
 	// +optional
-	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
+	IP string `json:"ip,omitempty"`
 
 	// Domain is set for load-balancer ingress points that are DNS based
 	// (typically AWS load-balancers)
 	// +optional
-	Domain string `json:"hostname,omitempty" protobuf:"bytes,2,opt,name=hostname"`
+	Domain string `json:"hostname,omitempty"`
 
 	// DomainInternal is set if there is a cluster-local DNS name to access the Ingress.
 	//
@@ -362,9 +345,9 @@ func (cis *IngressStatus) MarkNetworkConfigured() {
 
 // MarkLoadBalancerReady marks the Ingress with ClusterIngressConditionLoadBalancerReady,
 // and also populate the address of the load balancer.
-func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngress) {
+func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus) {
 	cis.LoadBalancer = &LoadBalancerStatus{
-		Ingress: []LoadBalancerIngress{},
+		Ingress: []LoadBalancerIngressStatus{},
 	}
 	for _, lb := range lbs {
 		cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lb)

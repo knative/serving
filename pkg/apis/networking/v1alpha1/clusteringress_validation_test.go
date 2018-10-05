@@ -38,21 +38,19 @@ func TestIngressSpecValidation(t *testing.T) {
 			}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
-							Retries: &HTTPRetry{
-								Attempts: 3,
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
 							},
 						}},
-					},
+						Retries: &HTTPRetry{
+							Attempts: 3,
+						},
+					}},
 				},
 			}},
 		},
@@ -77,26 +75,6 @@ func TestIngressSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("rules[0]"),
 	}, {
-		name: "missing-hosts",
-		cis: &IngressSpec{
-			Rules: []ClusterIngressRule{{
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
-						}},
-					},
-				},
-			}},
-		},
-		want: apis.ErrMissingField("rules[0].hosts"),
-	}, {
 		name: "missing-http",
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
@@ -109,9 +87,7 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{},
-				},
+				HTTP:  &HTTPClusterIngressRuleValue{},
 			}},
 		},
 		want: apis.ErrMissingField("rules[0].http.paths"),
@@ -120,10 +96,8 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{}},
-					},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{}},
 				},
 			}},
 		},
@@ -133,19 +107,17 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								Percent: 199,
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
+							Percent: 199,
 						}},
-					},
+					}},
 				},
 			}},
 		},
@@ -155,15 +127,13 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{},
-							AppendHeaders: map[string]string{
-								"foo": "bar",
-							},
-						}},
-					},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{},
+						AppendHeaders: map[string]string{
+							"foo": "bar",
+						},
+					}},
 				},
 			}},
 		},
@@ -173,15 +143,13 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{}},
-							AppendHeaders: map[string]string{
-								"foo": "bar",
-							},
-						}},
-					},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{}},
+						AppendHeaders: map[string]string{
+							"foo": "bar",
+						},
+					}},
 				},
 			}},
 		},
@@ -191,94 +159,86 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{},
 						}},
-					},
+					}},
 				},
 			}},
 		},
-		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend"),
+		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0]"),
 	}, {
 		name: "missing-backend-name",
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceNamespace: "default",
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
-		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.serviceName"),
+		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].serviceName"),
 	}, {
 		name: "missing-backend-namespace",
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName: "service-name",
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName: "service-name",
+								ServicePort: intstr.FromInt(8080),
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
-		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.serviceNamespace"),
+		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].serviceNamespace"),
 	}, {
 		name: "missing-backend-port",
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "service-name",
-									ServiceNamespace: "default",
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "service-name",
+								ServiceNamespace: "default",
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
-		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.servicePort"),
+		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].servicePort"),
 	}, {
 		name: "split-percent-sum-not-100",
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								Percent: 30,
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
+							Percent: 30,
 						}},
-					},
+					}},
 				},
 			}},
 		},
@@ -291,21 +251,19 @@ func TestIngressSpecValidation(t *testing.T) {
 		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
-							Retries: &HTTPRetry{
-								Attempts: -1,
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
 							},
 						}},
-					},
+						Retries: &HTTPRetry{
+							Attempts: -1,
+						},
+					}},
 				},
 			}},
 		},
@@ -316,18 +274,16 @@ func TestIngressSpecValidation(t *testing.T) {
 			TLS: []ClusterIngressTLS{{}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
@@ -340,18 +296,16 @@ func TestIngressSpecValidation(t *testing.T) {
 			}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
@@ -364,18 +318,16 @@ func TestIngressSpecValidation(t *testing.T) {
 			}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
-				ClusterIngressRuleValue: ClusterIngressRuleValue{
-					HTTP: &HTTPClusterIngressRuleValue{
-						Paths: []HTTPClusterIngressPath{{
-							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-							}},
+				HTTP: &HTTPClusterIngressRuleValue{
+					Paths: []HTTPClusterIngressPath{{
+						Splits: []ClusterIngressBackendSplit{{
+							Backend: &ClusterIngressBackend{
+								ServiceName:      "revision-000",
+								ServiceNamespace: "default",
+								ServicePort:      intstr.FromInt(8080),
+							},
 						}},
-					},
+					}},
 				},
 			}},
 		},
@@ -406,21 +358,19 @@ func TestClusterIngressValidation(t *testing.T) {
 				}},
 				Rules: []ClusterIngressRule{{
 					Hosts: []string{"example.com"},
-					ClusterIngressRuleValue: ClusterIngressRuleValue{
-						HTTP: &HTTPClusterIngressRuleValue{
-							Paths: []HTTPClusterIngressPath{{
-								Splits: []ClusterIngressBackendSplit{{
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-000",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-								}},
-								Retries: &HTTPRetry{
-									Attempts: 3,
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
 								},
 							}},
-						},
+							Retries: &HTTPRetry{
+								Attempts: 3,
+							},
+						}},
 					},
 				}},
 			},

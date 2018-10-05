@@ -81,18 +81,16 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		in: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
-					ClusterIngressRuleValue: ClusterIngressRuleValue{
-						HTTP: &HTTPClusterIngressRuleValue{
-							Paths: []HTTPClusterIngressPath{{
-								Splits: []ClusterIngressBackendSplit{{
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-000",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-								}},
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
 							}},
-						},
+						}},
 					},
 				}},
 			},
@@ -100,20 +98,18 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		want: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
-					ClusterIngressRuleValue: ClusterIngressRuleValue{
-						HTTP: &HTTPClusterIngressRuleValue{
-							Paths: []HTTPClusterIngressPath{{
-								Splits: []ClusterIngressBackendSplit{{
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-000",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-									// Percent is filled in.
-									Percent: 100,
-								}},
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								// Percent is filled in.
+								Percent: 100,
 							}},
-						},
+						}},
 					},
 				}},
 			},
@@ -123,26 +119,24 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		in: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
-					ClusterIngressRuleValue: ClusterIngressRuleValue{
-						HTTP: &HTTPClusterIngressRuleValue{
-							Paths: []HTTPClusterIngressPath{{
-								Splits: []ClusterIngressBackendSplit{{
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-000",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-									Percent: 30,
-								}, {
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-001",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-									Percent: 70,
-								}},
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								Percent: 30,
+							}, {
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-001",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								Percent: 70,
 							}},
-						},
+						}},
 					},
 				}},
 			},
@@ -150,28 +144,26 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		want: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
-					ClusterIngressRuleValue: ClusterIngressRuleValue{
-						HTTP: &HTTPClusterIngressRuleValue{
-							Paths: []HTTPClusterIngressPath{{
-								Splits: []ClusterIngressBackendSplit{{
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-000",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-									// Percent is kept intact.
-									Percent: 30,
-								}, {
-									Backend: &ClusterIngressBackend{
-										ServiceName:      "revision-001",
-										ServiceNamespace: "default",
-										ServicePort:      intstr.FromInt(8080),
-									},
-									// Percent is kept intact.
-									Percent: 70,
-								}},
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								// Percent is kept intact.
+								Percent: 30,
+							}, {
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-001",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								// Percent is kept intact.
+								Percent: 70,
 							}},
-						},
+						}},
 					},
 				}},
 			},
