@@ -256,7 +256,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			// actually contains requests
 			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
 				a.lastRequestTime = *stat.Time
-				a.scaleToZeroThresholdExceeded = false
 			}
 		} else {
 			// Drop metrics after 60 seconds
@@ -271,9 +270,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Scale to zero if the last request is from too long ago
-	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
+	if a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
 		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		a.scaleToZeroThresholdExceeded = true
 		return 0, true
 	}
 
