@@ -57,7 +57,7 @@ function create_everything() {
 
 function delete_istio() {
   echo ">> Bringing down Istio"
-  kubectl delete -f ${ISTIO_YAML}
+  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
