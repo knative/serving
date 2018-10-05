@@ -298,14 +298,11 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:bf90c2ace9ab0f6b499593a9887b61e36c4032aba5dcac77fc90705bbd96b911"
+  digest = "1:aa66aed49f459dd8103eaed406d2203058c05cea8d533021244056e86e17cf5f"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/build/v1alpha1",
   ]
   pruneopts = "NUT"
   revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
@@ -1052,8 +1049,6 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/gorilla/websocket",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
-    "github.com/knative/build/pkg/client/clientset/versioned",
-    "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",

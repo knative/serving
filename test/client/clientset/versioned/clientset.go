@@ -16,7 +16,7 @@ limitations under the License.
 package versioned
 
 import (
-	buildv1alpha1 "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	testingv1alpha1 "github.com/knative/serving/test/client/clientset/versioned/typed/testing/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -24,27 +24,27 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface
+	TestingV1alpha1() testingv1alpha1.TestingV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
-	Build() buildv1alpha1.BuildV1alpha1Interface
+	Testing() testingv1alpha1.TestingV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	buildV1alpha1 *buildv1alpha1.BuildV1alpha1Client
+	testingV1alpha1 *testingv1alpha1.TestingV1alpha1Client
 }
 
-// BuildV1alpha1 retrieves the BuildV1alpha1Client
-func (c *Clientset) BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface {
-	return c.buildV1alpha1
+// TestingV1alpha1 retrieves the TestingV1alpha1Client
+func (c *Clientset) TestingV1alpha1() testingv1alpha1.TestingV1alpha1Interface {
+	return c.testingV1alpha1
 }
 
-// Deprecated: Build retrieves the default version of BuildClient.
+// Deprecated: Testing retrieves the default version of TestingClient.
 // Please explicitly pick a version.
-func (c *Clientset) Build() buildv1alpha1.BuildV1alpha1Interface {
-	return c.buildV1alpha1
+func (c *Clientset) Testing() testingv1alpha1.TestingV1alpha1Interface {
+	return c.testingV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -63,7 +63,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.buildV1alpha1, err = buildv1alpha1.NewForConfig(&configShallowCopy)
+	cs.testingV1alpha1, err = testingv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.buildV1alpha1 = buildv1alpha1.NewForConfigOrDie(c)
+	cs.testingV1alpha1 = testingv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -88,7 +88,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.buildV1alpha1 = buildv1alpha1.New(c)
+	cs.testingV1alpha1 = testingv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

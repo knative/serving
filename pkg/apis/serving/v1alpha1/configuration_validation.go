@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 )
 
@@ -36,6 +38,16 @@ func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
 	if cs.RevisionTemplate.Spec.ServingState != "" {
 		errs = apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
+	}
+
+	if cs.Build == nil {
+		// No build was specified.
+	} else if err := cs.Build.As(&buildv1alpha1.BuildSpec{}); err == nil {
+		// It is a BuildSpec, this is the legacy path.
+	} else if err = cs.Build.As(&unstructured.Unstructured{}); err == nil {
+		// It is an unstructured.Unstructured.
+	} else {
+		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "build"))
 	}
 
 	return errs.Also(cs.RevisionTemplate.Validate().ViaField("revisionTemplate"))

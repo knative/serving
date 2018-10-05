@@ -16,7 +16,3 @@ limitations under the License.
 package v1alpha1
 
 type BuildExpansion interface{}
-
-type BuildTemplateExpansion interface{}
-
-type ClusterBuildTemplateExpansion interface{}

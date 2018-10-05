@@ -42,7 +42,7 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 			},
 		}
 		if err := config.Spec.Build.As(&b.Spec); err != nil {
-			// TODO(mattmoor): Return errors.
+			// This is validated by the webhook.
 			panic(err.Error())
 		}
 
