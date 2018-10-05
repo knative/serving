@@ -172,7 +172,7 @@ type RevisionSpec struct {
 	// BuildRef holds the reference to the build (if there is one) responsible
 	// for producing the container image for this Revision. Otherwise, nil
 	// +optional
-	BuildRef *corev1.ObjectReference
+	BuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
