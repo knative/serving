@@ -40,15 +40,11 @@ func (spec *IngressSpec) Validate() *apis.FieldError {
 	}
 	// Validate each rule.
 	for idx, rule := range spec.Rules {
-		if err := rule.Validate(); err != nil {
-			all = all.Also(err.ViaField(fmt.Sprintf("rules[%d]", idx)))
-		}
+		all = all.Also(rule.Validate().ViaFieldIndex("rules", idx))
 	}
 	// TLS settings are optional.  However, all provided settings should be valid.
 	for idx, tls := range spec.TLS {
-		if err := tls.Validate(); err != nil {
-			all = all.Also(err.ViaField(fmt.Sprintf("tls[%d]", idx)))
-		}
+		all = all.Also(tls.Validate().ViaFieldIndex("tls", idx))
 	}
 	return all
 }
@@ -62,9 +58,7 @@ func (r *ClusterIngressRule) Validate() *apis.FieldError {
 	if r.HTTP == nil {
 		all = all.Also(apis.ErrMissingField("http"))
 	} else {
-		if err := r.HTTP.Validate().ViaField("http"); err != nil {
-			all = all.Also(err)
-		}
+		all = all.Also(r.HTTP.Validate().ViaField("http"))
 	}
 	return all
 }
@@ -75,9 +69,7 @@ func (h *HTTPClusterIngressRuleValue) Validate() *apis.FieldError {
 	}
 	var all *apis.FieldError = nil
 	for idx, path := range h.Paths {
-		if err := path.Validate(); err != nil {
-			all = all.Also(err.ViaField(fmt.Sprintf("paths[%d]", idx)))
-		}
+		all = all.Also(path.Validate().ViaFieldIndex("paths", idx))
 	}
 	return all
 }
@@ -95,7 +87,7 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 		totalPct := 0
 		for idx, split := range h.Splits {
 			if err := split.Validate(); err != nil {
-				return err.ViaField(fmt.Sprintf("splits[%d]", idx))
+				return err.ViaFieldIndex("splits", idx)
 			}
 			totalPct += split.Percent
 		}
@@ -113,9 +105,7 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 		}
 	}
 	if h.Retries != nil {
-		if err := h.Retries.Validate(); err != nil {
-			all = all.Also(err.ViaField("retries"))
-		}
+		all = all.Also(h.Retries.Validate().ViaField("retries"))
 	}
 	return all
 }

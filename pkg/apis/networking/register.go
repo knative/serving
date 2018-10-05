@@ -19,11 +19,11 @@ package networking
 const (
 	GroupName = "networking.internal.knative.dev"
 
-	// ClassAnnotationKey is the annotation for the explicit class of
-	// ClusterIngress that a particular resource has opted into. For
-	// example,
+	// IngressClassAnnotationKey is the annotation for the
+	// explicit class of ClusterIngress that a particular resource has
+	// opted into. For example,
 	//
-	//    networking.knative.dev/class: some-network-impl
+	//    networking.knative.dev/ingress.class: some-network-impl
 	//
 	// This uses a different domain because unlike the resource, it is
 	// user-facing.
@@ -32,5 +32,5 @@ const (
 	// annotation value for the ClusterIngress it uses.  Based on such
 	// value a different reconcilation logic may be used (for examples,
 	// Istio-based ClusterIngress will reconcile into a VirtualService).
-	ClassAnnotationKey = "networking.knative.dev/class"
+	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 )
