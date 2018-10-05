@@ -33,14 +33,15 @@ func DiagnoseMe(clients *test.Clients, logger *logging.BaseLogger) {
 	}
 
 	for _, check := range []func(*test.Clients, *logging.BaseLogger){
-		checkCurrentPodCount,
+		logCurrentPodCount,
 		checkUnschedulablePods,
+		checkControllers,
 	} {
 		check(clients, logger)
 	}
 }
 
-func checkCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
+func logCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
 	revs, err := clients.ServingClient.Revisions.List(metav1.ListOptions{})
 	if err != nil {
 		logger.Errorf(fmt.Sprintf("could not check current pod count: %v", err))
@@ -82,7 +83,24 @@ func checkUnschedulablePods(clients *test.Clients, logger *logging.BaseLogger) {
 		}
 	}
 	if unschedulablePods != 0 {
-		logger.Errorf(fmt.Sprintf("%v out of %v pods are unschedulable. insufficient cluster capacity?",
-			unschedulablePods, totalPods))
+		logger.Errorf("%v out of %v pods are unschedulable. insufficient cluster capacity?", unschedulablePods, totalPods)
+	}
+}
+
+func checkControllers(clients *test.Clients, logger *logging.BaseLogger) {
+	for _, name := range []string{
+		"activator",
+		"autoscaler",
+		"controller",
+		"webhook",
+	} {
+		dep, err := clients.KubeClient.Kube.AppsV1().Deployments("knative-serving").Get(name, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf("Unable to get %v deployment: %v", name, err)
+			continue
+		}
+		if dep.Status.AvailableReplicas != 1 {
+			logger.Infof("have %v available replica for controller %q. Want 1.", dep.Status.AvailableReplicas, name)
+		}
 	}
 }

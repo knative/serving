@@ -33,6 +33,8 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -256,13 +258,78 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 	return nil
 }
 
+func bounceDeployment(ctx *testContext, name string) {
+	ctx.logger.Infof("Bouncing deployment %q", name)
+	dep, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments("knative-serving").Get(name, metav1.GetOptions{})
+	if err != nil {
+		ctx.t.Fatalf("Unable to get %v deployment: %v", name, err)
+	}
+	selector := labels.FormatLabels(dep.Spec.Selector.MatchLabels)
+	originalPods, err := ctx.clients.KubeClient.Kube.CoreV1().Pods("knative-serving").List(metav1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err != nil {
+		ctx.t.Fatalf("Unable to list %v pods: %v", name, err)
+	}
+	if len(originalPods.Items) != 1 {
+		ctx.t.Fatalf("Expected 1 pod. Found %v.", len(originalPods.Items))
+	}
+	originalController := originalPods.Items[0].Name
+	err = ctx.clients.KubeClient.Kube.CoreV1().Pods("knative-serving").Delete(originalController, nil)
+	if err != nil {
+		ctx.t.Fatalf("Unable to delete controller: %v", err)
+	}
+	err = wait.PollImmediate(time.Second, 2*time.Minute, func() (bool, error) {
+		newPods, err := ctx.clients.KubeClient.Kube.CoreV1().Pods("knative-serving").List(metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			return false, err
+		}
+		if len(newPods.Items) != 1 {
+			return false, nil
+		}
+		if newPods.Items[0].Name == originalController {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		ctx.t.Fatalf("Error verifying deployment is bounced: %v", err)
+	}
+	ctx.logger.Infof("Deployment %q has been bounced.", name)
+	time.Sleep(10 * time.Second)
+}
+
 func TestAutoscaleUpDownUp(t *testing.T) {
 	ctx := setup(t)
+	defer tearDown(ctx)
 	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
 	defer close(stopChan)
-	defer tearDown(ctx)
 
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
+	assertScaleUp(ctx)
+}
+
+func TestAutoscalerBounce(t *testing.T) {
+	ctx := setup(t)
+	defer tearDown(ctx)
+	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
+	defer close(stopChan)
+
+	assertScaleDown(ctx)
+	bounceDeployment(ctx, "autoscaler")
+	assertScaleUp(ctx)
+}
+
+func TestActivatorBounce(t *testing.T) {
+	ctx := setup(t)
+	defer tearDown(ctx)
+	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
+	defer close(stopChan)
+
+	assertScaleDown(ctx)
+	bounceDeployment(ctx, "activator")
 	assertScaleUp(ctx)
 }
