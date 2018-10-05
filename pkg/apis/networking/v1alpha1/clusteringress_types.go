@@ -143,6 +143,7 @@ type ClusterIngressRule struct {
 	// Both these may change in the future.
 	// If the host is unspecified, the ClusterIngress routes all traffic based on the
 	// specified ClusterIngressRuleValue.
+	// If multiple matching Hosts were provided, the first rule will take precedent.
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
 
