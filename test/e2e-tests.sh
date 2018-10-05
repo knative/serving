@@ -95,13 +95,24 @@ function dump_extra_cluster_state() {
   kubectl logs $(get_app_pod controller knative-serving)
 }
 
+function publish_test_images() {
+  echo ">>> Publishing test images for $1"
+  image_dirs="$(find ${REPO_ROOT_DIR}/test/$1/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    # This is a bit of a hack, since we don't use $1 (e2e or
+    # conformance) in the path. But, when referencing the repo in
+    # e2e_flags.go we don't have knowledge of that
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
+}
+
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
   kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$1 ${options}
+  report_go_test -v -tags=e2e -count=1 ./test/$1 ${options}
 
   local result=$?
   [[ ${result} -ne 0 ]] && dump_cluster_state
@@ -119,6 +130,8 @@ set -o pipefail
 header "Building and starting Knative Serving"
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 create_everything
+
+publish_test_images
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
