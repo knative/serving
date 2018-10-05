@@ -147,10 +147,10 @@ func newStatMessage(revKey string, podName string, averageConcurrentRequests flo
 	return &autoscaler.StatMessage{
 		revKey,
 		autoscaler.Stat{
-			&now,
-			podName,
-			averageConcurrentRequests,
-			requestCount,
+			Time:                      &now,
+			PodName:                   podName,
+			AverageConcurrentRequests: averageConcurrentRequests,
+			RequestCount:              requestCount,
 		},
 	}
 }
