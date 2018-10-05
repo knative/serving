@@ -171,6 +171,14 @@ func NewController(
 		},
 	})
 
+	kpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		},
+	})
+
 	c.tracker = tracker.New(impl.EnqueueKey, opt.ResyncPeriod*TrackerLeaseFactor)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
