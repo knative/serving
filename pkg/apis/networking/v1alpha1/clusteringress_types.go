@@ -86,8 +86,7 @@ type ClusterIngressSpec struct {
 	// +optional
 	TLS []ClusterIngressTLS `json:"tls,omitempty"`
 
-	// A list of host rules used to configure the ClusterIngress. If unspecified, or
-	// no rule matches, all traffic is sent to the default backend.
+	// A list of host rules used to configure the ClusterIngress.
 	// +optional
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
 }
@@ -128,7 +127,9 @@ const (
 	ClusterIngressConditionReady = duckv1alpha1.ConditionReady
 
 	// ClusterIngressConditionNetworkConfigured is set when the ClusterIngress's underlying
-	// network programming has been configured.
+	// network programming has been configured.  This doesn't include conditions of the
+	// backends, so even if this should remain true when network is configured and backends
+	// are not ready.
 	ClusterIngressConditionNetworkConfigured duckv1alpha1.ConditionType = "NetworkConfigured"
 
 	// ClusterIngressConditionLoadBalancerReady is set when the ClusterIngress has

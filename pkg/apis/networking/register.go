@@ -23,9 +23,14 @@ const (
 	// ClusterIngress that a particular resource has opted into. For
 	// example,
 	//
-	//    networking.knative.dev/class: foo
+	//    networking.knative.dev/class: some-network-impl
 	//
 	// This uses a different domain because unlike the resource, it is
 	// user-facing.
+	//
+	// The parent resource may use its own annotations to choose the
+	// annotation value for the ClusterIngress it uses.  Based on such
+	// value a different reconcilation logic may be used (for examples,
+	// Istio-based ClusterIngress will reconcile into a VirtualService).
 	ClassAnnotationKey = "networking.knative.dev/class"
 )
