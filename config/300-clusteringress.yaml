@@ -27,6 +27,4 @@ spec:
     - all
     - knative-internal
     - networking
-    shortNames:
-    - king
   scope: Cluster

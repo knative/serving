@@ -28,10 +28,10 @@ func (ci *ClusterIngress) Validate() *apis.FieldError {
 	return ci.Spec.Validate().ViaField("spec")
 }
 
-func (spec *ClusterIngressSpec) Validate() *apis.FieldError {
+func (spec *IngressSpec) Validate() *apis.FieldError {
 	fmt.Printf("%#v\n", spec)
 	// Spec must not be empty.
-	if equality.Semantic.DeepEqual(spec, &ClusterIngressSpec{}) {
+	if equality.Semantic.DeepEqual(spec, &IngressSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	// Spec must have at least one rule.

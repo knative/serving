@@ -35,7 +35,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 	}, {
 		name: "tls-defaulting",
 		in: &ClusterIngress{
-			Spec: ClusterIngressSpec{
+			Spec: IngressSpec{
 				TLS: []ClusterIngressTLS{{
 					SecretNamespace: "secret-space",
 					SecretName:      "secret-name",
@@ -43,7 +43,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 		want: &ClusterIngress{
-			Spec: ClusterIngressSpec{
+			Spec: IngressSpec{
 				TLS: []ClusterIngressTLS{{
 					SecretNamespace: "secret-space",
 					SecretName:      "secret-name",
@@ -54,9 +54,32 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "tls-not-defaulting",
+		in: &ClusterIngress{
+			Spec: IngressSpec{
+				TLS: []ClusterIngressTLS{{
+					SecretNamespace:   "secret-space",
+					SecretName:        "secret-name",
+					ServerCertificate: "custom.tls.cert",
+					PrivateKey:        "custom.tls.key",
+				}},
+			},
+		},
+		want: &ClusterIngress{
+			Spec: IngressSpec{
+				TLS: []ClusterIngressTLS{{
+					SecretNamespace: "secret-space",
+					SecretName:      "secret-name",
+					// Default secret keys are kept intact.
+					ServerCertificate: "custom.tls.cert",
+					PrivateKey:        "custom.tls.key",
+				}},
+			},
+		},
+	}, {
 		name: "split-defaulting",
 		in: &ClusterIngress{
-			Spec: ClusterIngressSpec{
+			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
 					ClusterIngressRuleValue: ClusterIngressRuleValue{
 						HTTP: &HTTPClusterIngressRuleValue{
@@ -75,7 +98,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 		want: &ClusterIngress{
-			Spec: ClusterIngressSpec{
+			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
 					ClusterIngressRuleValue: ClusterIngressRuleValue{
 						HTTP: &HTTPClusterIngressRuleValue{
@@ -88,6 +111,64 @@ func TestClusterIngressDefaulting(t *testing.T) {
 									},
 									// Percent is filled in.
 									Percent: 100,
+								}},
+							}},
+						},
+					},
+				}},
+			},
+		},
+	}, {
+		name: "split-not-defaulting",
+		in: &ClusterIngress{
+			Spec: IngressSpec{
+				Rules: []ClusterIngressRule{{
+					ClusterIngressRuleValue: ClusterIngressRuleValue{
+						HTTP: &HTTPClusterIngressRuleValue{
+							Paths: []HTTPClusterIngressPath{{
+								Splits: []ClusterIngressBackendSplit{{
+									Backend: &ClusterIngressBackend{
+										ServiceName:      "revision-000",
+										ServiceNamespace: "default",
+										ServicePort:      intstr.FromInt(8080),
+									},
+									Percent: 30,
+								}, {
+									Backend: &ClusterIngressBackend{
+										ServiceName:      "revision-001",
+										ServiceNamespace: "default",
+										ServicePort:      intstr.FromInt(8080),
+									},
+									Percent: 70,
+								}},
+							}},
+						},
+					},
+				}},
+			},
+		},
+		want: &ClusterIngress{
+			Spec: IngressSpec{
+				Rules: []ClusterIngressRule{{
+					ClusterIngressRuleValue: ClusterIngressRuleValue{
+						HTTP: &HTTPClusterIngressRuleValue{
+							Paths: []HTTPClusterIngressPath{{
+								Splits: []ClusterIngressBackendSplit{{
+									Backend: &ClusterIngressBackend{
+										ServiceName:      "revision-000",
+										ServiceNamespace: "default",
+										ServicePort:      intstr.FromInt(8080),
+									},
+									// Percent is kept intact.
+									Percent: 30,
+								}, {
+									Backend: &ClusterIngressBackend{
+										ServiceName:      "revision-001",
+										ServiceNamespace: "default",
+										ServicePort:      intstr.FromInt(8080),
+									},
+									// Percent is kept intact.
+									Percent: 70,
 								}},
 							}},
 						},

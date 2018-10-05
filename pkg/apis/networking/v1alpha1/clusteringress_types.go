@@ -47,12 +47,12 @@ type ClusterIngress struct {
 	// Spec is the desired state of the ClusterIngress.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
 	// +optional
-	Spec ClusterIngressSpec `json:"spec,omitempty"`
+	Spec IngressSpec `json:"spec,omitempty"`
 
 	// Status is the current state of the ClusterIngress.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
 	// +optional
-	Status ClusterIngressStatus `json:"status,omitempty"`
+	Status IngressStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -69,8 +69,14 @@ type ClusterIngressList struct {
 	Items []ClusterIngress `json:"items"`
 }
 
-// ClusterIngressSpec describes the ClusterIngress the user wishes to exist.
-type ClusterIngressSpec struct {
+// IngressSpec describes the ClusterIngress the user wishes to exist.
+//
+// In general this follow the same shape as K8s Ingress.  Some notable differences:
+// - Backends now can have namespace/
+// - Traffic can be split across multiple backends.
+// - Timeout & Retry can be configured.
+// - Headers can be appended.
+type IngressSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
@@ -99,14 +105,11 @@ type ClusterIngressTLS struct {
 	// ClusterIngress, if left unspecified.
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
+
 	// SecretName is the name of the secret used to terminate SSL traffic.
-	// Field is left optional to allow SSL routing based on SNI hostname alone.
-	// +optional
 	SecretName string `json:"secretName,omitempty"`
 
 	// SecretNamespace is the namespace of the secret used to terminate SSL traffic.
-	// Field is left optional to allow SSL routing based on SNI hostname alone.
-	// +optional
 	SecretNamespace string `json:"secretNamespace,omitempty"`
 
 	// ServerCertificate identifies the certificate filename in the secret.
@@ -118,66 +121,6 @@ type ClusterIngressTLS struct {
 	// Defaults to `tls.key`.
 	// +optional
 	PrivateKey string `json:"privateKey,omitempty"`
-}
-
-// ConditionType represents a ClusterIngress condition value
-const (
-	// ClusterIngressConditionReady is set when the clusterIngress networking setting is
-	// configured and it has a load balancer address.
-	ClusterIngressConditionReady = duckv1alpha1.ConditionReady
-
-	// ClusterIngressConditionNetworkConfigured is set when the ClusterIngress's underlying
-	// network programming has been configured.  This doesn't include conditions of the
-	// backends, so even if this should remain true when network is configured and backends
-	// are not ready.
-	ClusterIngressConditionNetworkConfigured duckv1alpha1.ConditionType = "NetworkConfigured"
-
-	// ClusterIngressConditionLoadBalancerReady is set when the ClusterIngress has
-	// a ready LoadBalancer.
-	ClusterIngressConditionLoadBalancerReady duckv1alpha1.ConditionType = "LoadBalancerReady"
-)
-
-var clusterIngressCondSet = duckv1alpha1.NewLivingConditionSet(
-	ClusterIngressConditionNetworkConfigured,
-	ClusterIngressConditionLoadBalancerReady)
-
-// ClusterIngressStatus describe the current state of the ClusterIngress.
-type ClusterIngressStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-	// LoadBalancer contains the current status of the load-balancer.
-	// +optional
-	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
-}
-
-// LoadBalancerStatus represents the status of a load-balancer.
-type LoadBalancerStatus struct {
-	// Ingress is a list containing ingress points for the load-balancer.
-	// Traffic intended for the service should be sent to these ingress points.
-	// +optional
-	Ingress []LoadBalancerIngress `json:"ingress,omitempty" protobuf:"bytes,1,rep,name=ingress"`
-}
-
-// LoadBalancerIngress represents the status of a load-balancer ingress point:
-// traffic intended for the service should be sent to an ingress point.
-type LoadBalancerIngress struct {
-	// IP is set for load-balancer ingress points that are IP based
-	// (typically GCE or OpenStack load-balancers)
-	// +optional
-	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
-
-	// Domain is set for load-balancer ingress points that are DNS based
-	// (typically AWS load-balancers)
-	// +optional
-	Domain string `json:"hostname,omitempty" protobuf:"bytes,2,opt,name=hostname"`
-
-	// DomainInternal is set if there is a cluster-local DNS name to access the Ingress.
-	//
-	// NOTE: This differs from K8s Ingress, since we also desire to have a cluster-local
-	//       DNS name to allow routing in case of not having a mesh.
-	//
-	// +optional
-	DomainInternal string `json:"hostname,omitempty"`
 }
 
 // ClusterIngressRule represents the rules mapping the paths under a specified host to
@@ -307,6 +250,66 @@ type ClusterIngressBackendSplit struct {
 	Percent int `json:"percent,omitempty"`
 }
 
+// IngressStatus describe the current state of the ClusterIngress.
+type IngressStatus struct {
+	// +optional
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	// LoadBalancer contains the current status of the load-balancer.
+	// +optional
+	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
+}
+
+// LoadBalancerStatus represents the status of a load-balancer.
+type LoadBalancerStatus struct {
+	// Ingress is a list containing ingress points for the load-balancer.
+	// Traffic intended for the service should be sent to these ingress points.
+	// +optional
+	Ingress []LoadBalancerIngress `json:"ingress,omitempty" protobuf:"bytes,1,rep,name=ingress"`
+}
+
+// LoadBalancerIngress represents the status of a load-balancer ingress point:
+// traffic intended for the service should be sent to an ingress point.
+type LoadBalancerIngress struct {
+	// IP is set for load-balancer ingress points that are IP based
+	// (typically GCE or OpenStack load-balancers)
+	// +optional
+	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
+
+	// Domain is set for load-balancer ingress points that are DNS based
+	// (typically AWS load-balancers)
+	// +optional
+	Domain string `json:"hostname,omitempty" protobuf:"bytes,2,opt,name=hostname"`
+
+	// DomainInternal is set if there is a cluster-local DNS name to access the Ingress.
+	//
+	// NOTE: This differs from K8s Ingress, since we also desire to have a cluster-local
+	//       DNS name to allow routing in case of not having a mesh.
+	//
+	// +optional
+	DomainInternal string `json:"hostname,omitempty"`
+}
+
+// ConditionType represents a ClusterIngress condition value
+const (
+	// ClusterIngressConditionReady is set when the clusterIngress networking setting is
+	// configured and it has a load balancer address.
+	ClusterIngressConditionReady = duckv1alpha1.ConditionReady
+
+	// ClusterIngressConditionNetworkConfigured is set when the ClusterIngress's underlying
+	// network programming has been configured.  This doesn't include conditions of the
+	// backends, so even if this should remain true when network is configured and backends
+	// are not ready.
+	ClusterIngressConditionNetworkConfigured duckv1alpha1.ConditionType = "NetworkConfigured"
+
+	// ClusterIngressConditionLoadBalancerReady is set when the ClusterIngress has
+	// a ready LoadBalancer.
+	ClusterIngressConditionLoadBalancerReady duckv1alpha1.ConditionType = "LoadBalancerReady"
+)
+
+var clusterIngressCondSet = duckv1alpha1.NewLivingConditionSet(
+	ClusterIngressConditionNetworkConfigured,
+	ClusterIngressConditionLoadBalancerReady)
+
 var _ apis.Validatable = (*ClusterIngress)(nil)
 var _ apis.Defaultable = (*ClusterIngress)(nil)
 
@@ -335,31 +338,31 @@ func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *ClusterIngressStatus) GetConditions() duckv1alpha1.Conditions {
+func (cis *IngressStatus) GetConditions() duckv1alpha1.Conditions {
 	return cis.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
 // conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *ClusterIngressStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+func (cis *IngressStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	cis.Conditions = conditions
 }
 
-func (cis *ClusterIngressStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (cis *IngressStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return clusterIngressCondSet.Manage(cis).GetCondition(t)
 }
 
-func (cis *ClusterIngressStatus) InitializeConditions() {
+func (cis *IngressStatus) InitializeConditions() {
 	clusterIngressCondSet.Manage(cis).InitializeConditions()
 }
 
-func (cis *ClusterIngressStatus) MarkNetworkConfigured() {
+func (cis *IngressStatus) MarkNetworkConfigured() {
 	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionNetworkConfigured)
 }
 
 // MarkLoadBalancerReady marks the Ingress with ClusterIngressConditionLoadBalancerReady,
 // and also populate the address of the load balancer.
-func (cis *ClusterIngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngress) {
+func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngress) {
 	cis.LoadBalancer = &LoadBalancerStatus{
 		Ingress: []LoadBalancerIngress{},
 	}
@@ -371,6 +374,6 @@ func (cis *ClusterIngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngress
 
 // IsReady looks at the conditions and if the Status has a condition
 // ClusterIngressConditionReady returns true if ConditionStatus is True
-func (cis *ClusterIngressStatus) IsReady() bool {
+func (cis *IngressStatus) IsReady() bool {
 	return clusterIngressCondSet.Manage(cis).IsHappy()
 }

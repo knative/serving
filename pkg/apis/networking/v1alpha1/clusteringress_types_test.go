@@ -58,7 +58,7 @@ func TestTypicalFlow(t *testing.T) {
 
 func TestGetSpecJSON(t *testing.T) {
 	ci := ClusterIngress{
-		Spec: ClusterIngressSpec{
+		Spec: IngressSpec{
 			TLS: []ClusterIngressTLS{{
 				SecretNamespace: "secret-space",
 				SecretName:      "secret-name",
@@ -88,7 +88,7 @@ func TestGetSpecJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Saw %v, wanted: nil", err)
 	}
-	cis := ClusterIngressSpec{}
+	cis := IngressSpec{}
 	json.Unmarshal(bytes, &cis)
 	if diff := cmp.Diff(ci.Spec, cis); diff != "" {
 		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
@@ -103,29 +103,29 @@ func TestGetGroupVersionKind(t *testing.T) {
 	}
 }
 
-func checkIsReady(cis ClusterIngressStatus, t *testing.T) {
+func checkIsReady(cis IngressStatus, t *testing.T) {
 	t.Helper()
 	if !cis.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 }
 
-func checkConditionSucceededClusterIngress(cis ClusterIngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedClusterIngress(cis ClusterIngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingClusterIngress(cis ClusterIngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionUnknown, t)
 }
 
-func checkConditionClusterIngress(cis ClusterIngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	cond := cis.GetCondition(c)
 	if cond == nil {

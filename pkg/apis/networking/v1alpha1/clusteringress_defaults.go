@@ -20,7 +20,7 @@ func (c *ClusterIngress) SetDefaults() {
 	c.Spec.SetDefaults()
 }
 
-func (c *ClusterIngressSpec) SetDefaults() {
+func (c *IngressSpec) SetDefaults() {
 	for i, _ := range c.TLS {
 		c.TLS[i].SetDefaults()
 	}
@@ -31,9 +31,13 @@ func (c *ClusterIngressSpec) SetDefaults() {
 
 func (t *ClusterIngressTLS) SetDefaults() {
 	// Default Secret key for ServerCertificate is `tls.cert`.
-	t.ServerCertificate = "tls.cert"
+	if t.ServerCertificate == "" {
+		t.ServerCertificate = "tls.cert"
+	}
 	// Default Secret key for PrivateKey is `tls.key`.
-	t.PrivateKey = "tls.key"
+	if t.PrivateKey == "" {
+		t.PrivateKey = "tls.key"
+	}
 }
 
 func (r *ClusterIngressRule) SetDefaults() {

@@ -24,14 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestClusterIngressSpecValidation(t *testing.T) {
+func TestIngressSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		cis  *ClusterIngressSpec
+		cis  *IngressSpec
 		want *apis.FieldError
 	}{{
 		name: "valid",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			TLS: []ClusterIngressTLS{{
 				SecretNamespace: "secret-space",
 				SecretName:      "secret-name",
@@ -59,11 +59,11 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: nil,
 	}, {
 		name: "empty",
-		cis:  &ClusterIngressSpec{},
+		cis:  &IngressSpec{},
 		want: apis.ErrMissingField(apis.CurrentField),
 	}, {
 		name: "missing-rule",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			TLS: []ClusterIngressTLS{{
 				SecretName:      "secret-name",
 				SecretNamespace: "secret-namespace",
@@ -72,13 +72,13 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules"),
 	}, {
 		name: "empty-rule",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{}},
 		},
 		want: apis.ErrMissingField("rules[0]"),
 	}, {
 		name: "missing-hosts",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
 					HTTP: &HTTPClusterIngressRuleValue{
@@ -98,7 +98,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].hosts"),
 	}, {
 		name: "missing-http",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 			}},
@@ -106,7 +106,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http"),
 	}, {
 		name: "missing-http-paths",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -117,7 +117,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths"),
 	}, {
 		name: "empty-http-paths",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -130,7 +130,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0]"),
 	}, {
 		name: "backend-wrong-percentage",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -152,7 +152,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrInvalidValue("199", "rules[0].http.paths[0].splits[0].percent"),
 	}, {
 		name: "missing-split",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -170,7 +170,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits"),
 	}, {
 		name: "empty-split",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -188,7 +188,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0]"),
 	}, {
 		name: "missing-split-backend",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -205,7 +205,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend"),
 	}, {
 		name: "missing-backend-name",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -224,7 +224,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.serviceName"),
 	}, {
 		name: "missing-backend-namespace",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -243,7 +243,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.serviceNamespace"),
 	}, {
 		name: "missing-backend-port",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -263,7 +263,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("rules[0].http.paths[0].splits[0].backend.servicePort"),
 	}, {
 		name: "split-percent-sum-not-100",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -288,7 +288,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		},
 	}, {
 		name: "wrong-retry-attempts",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
 				ClusterIngressRuleValue: ClusterIngressRuleValue{
@@ -312,7 +312,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrInvalidValue("-1", "rules[0].http.paths[0].retries.attempts"),
 	}, {
 		name: "empty-tls",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			TLS: []ClusterIngressTLS{{}},
 			Rules: []ClusterIngressRule{{
 				Hosts: []string{"example.com"},
@@ -334,7 +334,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("tls[0]"),
 	}, {
 		name: "missing-tls-secret-namespace",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			TLS: []ClusterIngressTLS{{
 				SecretName: "secret",
 			}},
@@ -358,7 +358,7 @@ func TestClusterIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("tls[0].secretNamespace"),
 	}, {
 		name: "missing-tls-secret-name",
-		cis: &ClusterIngressSpec{
+		cis: &IngressSpec{
 			TLS: []ClusterIngressTLS{{
 				SecretNamespace: "secret-space",
 			}},
@@ -399,7 +399,7 @@ func TestClusterIngressValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		ci: &ClusterIngress{
-			Spec: ClusterIngressSpec{
+			Spec: IngressSpec{
 				TLS: []ClusterIngressTLS{{
 					SecretNamespace: "secret-space",
 					SecretName:      "secret-name",
