@@ -10,6 +10,11 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "github.com/knative/test-infra",
+  "github.com/google/go-containerregistry/cmd/ko",
+]
+
+ignored = [
+  "github.com/knative/serving/sample/grpc-ping*",
 ]
 
 
