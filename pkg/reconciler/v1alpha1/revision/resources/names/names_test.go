@@ -49,15 +49,6 @@ func TestNamer(t *testing.T) {
 		f:    ImageCache,
 		want: "foo-cache",
 	}, {
-		name: "VPA",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "baz",
-			},
-		},
-		f:    VPA,
-		want: "baz-vpa",
-	}, {
 		name: "KPA",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{

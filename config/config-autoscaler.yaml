@@ -65,8 +65,7 @@ data:
   # Scale to zero feature flag
   enable-scale-to-zero: "true"
 
-  # Experimental: enable vertical pod autoscaling.
-  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
+  # This does nothing for now.
   enable-vertical-pod-autoscaling: "false"
 
   # Tick interval is the time between autoscaling calculations.

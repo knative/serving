@@ -766,26 +766,6 @@
   version = "kubernetes-1.11.2"
 
 [[projects]]
-  branch = "vpa-release-0.1"
-  digest = "1:13c57f3f2937ef6c2fcda224e727e3a4a02c58449f4da4d445e9feeb42262a95"
-  name = "k8s.io/autoscaler"
-  packages = [
-    "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/fake",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1/fake",
-    "vertical-pod-autoscaler/pkg/client/informers/externalversions",
-    "vertical-pod-autoscaler/pkg/client/informers/externalversions/internalinterfaces",
-    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io",
-    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1",
-    "vertical-pod-autoscaler/pkg/client/listers/poc.autoscaling.k8s.io/v1alpha1",
-  ]
-  pruneopts = "NUT"
-  revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
-
-[[projects]]
   digest = "1:1f3ae1c6123c71b97f90bb55dc7937d6a3abacdd3fcbd2efc701e91312482fee"
   name = "k8s.io/client-go"
   packages = [
@@ -1113,11 +1093,6 @@
     "k8s.io/apimachinery/pkg/util/validation",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/watch",
-    "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
-    "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned",
-    "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake",
-    "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions",
-    "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/cached",
     "k8s.io/client-go/discovery/fake",
