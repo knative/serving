@@ -24,20 +24,31 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 )
 
-func TestGeneration(t *testing.T) {
-	r := Revision{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty revision generation should be 0 was: %d", a)
-	}
+func TestRevisionDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Revision{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Revision, %T) = %v", test.t, err)
+			}
+		})
 	}
-
 }
 
 func TestIsActivationRequired(t *testing.T) {
