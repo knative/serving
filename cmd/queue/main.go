@@ -68,9 +68,9 @@ var (
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
-	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
-	kubeClient            *kubernetes.Clientset
+	statChan                            = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan                              = make(chan queue.ReqEvent, requestCountingQueueLength)
+	kubeClientSet         *kubernetes.Clientset
 	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
 	breaker               *queue.Breaker
@@ -255,11 +255,11 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))
 	}
-	kc, err := kubernetes.NewForConfig(config)
+	kcs, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		logger.Fatal("Error creating new config", zap.Error(err))
 	}
-	kubeClient = kc
+	kubeClientSet = kcs
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
