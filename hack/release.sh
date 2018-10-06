@@ -14,21 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o pipefail
-
-source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
 # Set default GCS/GCR
-: ${SERVING_RELEASE_GCS:="knative-releases"}
+: ${SERVING_RELEASE_GCS:="knative-releases/serving"}
 : ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 
-# Istio.yaml file to upload
-readonly ISTIO_VERSION=0.8.0
-readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
-
+# istio.yaml file to upload
+# We publish our own istio.yaml, so users don't need to use helm"
+readonly ISTIO_YAML=./third_party/istio-0.8.0/istio.yaml
 # Local generated yaml file.
 readonly OUTPUT_YAML=release.yaml
 # Local generated lite yaml file.
@@ -36,79 +32,16 @@ readonly LITE_YAML=release-lite.yaml
 # Local generated yaml file without the logging and monitoring components.
 readonly NO_MON_YAML=release-no-mon.yaml
 
-function banner() {
-  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-  echo "@@@@ $1 @@@@"
-  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-}
+# Script entry point
 
-# Tag Knative Serving images in the yaml file with a tag.
-# Parameters: $1 - yaml file to parse for images.
-#             $2 - tag to apply.
-function tag_knative_images() {
-  [[ -z $2 ]] && return 0
-  echo "Tagging images with $2"
-  for image in $(grep -o "${SERVING_RELEASE_GCR}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
-    gcloud -q container images add-tag ${image} ${image%%@*}:$2
-  done
-}
+parse_flags $@
 
-# Copy the given yaml file to the release GCS bucket.
-# Parameters: $1 - yaml file to copy.
-function publish_yaml() {
-  gsutil cp $1 gs://${SERVING_RELEASE_GCS}/latest/
-  if (( TAG_RELEASE )); then
-    gsutil cp $1 gs://${SERVING_RELEASE_GCS}/previous/${TAG}/
-  fi
-}
+set -o errexit
+set -o pipefail
 
-# Script entry point.
+run_validation_tests ./test/presubmit-tests.sh
 
-cd ${SERVING_ROOT_DIR}
-
-SKIP_TESTS=0
-TAG_RELEASE=0
-DONT_PUBLISH=0
-KO_FLAGS=""
-
-for parameter in "$@"; do
-  case $parameter in
-    --skip-tests)
-      SKIP_TESTS=1
-      shift
-      ;;
-    --tag-release)
-      TAG_RELEASE=1
-      shift
-      ;;
-    --publish)
-      DONT_PUBLISH=0
-      shift
-      ;;
-    --nopublish)
-      DONT_PUBLISH=1
-      KO_FLAGS="-L"
-      shift
-      ;;
-    *)
-      echo "error: unknown option ${parameter}"
-      exit 1
-      ;;
-  esac
-done
-
-readonly SKIP_TESTS
-readonly TAG_RELEASE
-readonly DONT_PUBLISH
-readonly KO_FLAGS
-
-if (( ! SKIP_TESTS )); then
-  banner "RUNNING RELEASE VALIDATION TESTS"
-  # Run tests.
-  ./test/presubmit-tests.sh
-fi
-
-banner "    BUILDING THE RELEASE   "
+banner "Building the release"
 
 # Set the repository
 export KO_DOCKER_REPO=${SERVING_RELEASE_GCR}
@@ -117,42 +50,35 @@ export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 
-TAG=""
-if (( TAG_RELEASE )); then
-  commit=$(git describe --tags --always --dirty)
-  # Like kubernetes, image tag is vYYYYMMDD-commit
-  TAG="v$(date +%Y%m%d)-${commit}"
-fi
-readonly TAG
-
-if (( ! DONT_PUBLISH )); then
+if (( PUBLISH_RELEASE )); then
   echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
   echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
 fi
 
+# Build the release
+
 echo "Copying Build release"
-cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
+cp ${REPO_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
 echo "Building Knative Serving"
 ko resolve ${KO_FLAGS} -f config/ >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
+echo "Building Monitoring & Logging"
 # Make a copy for the lite version
 cp ${OUTPUT_YAML} ${LITE_YAML}
 # Make a copy for the no monitoring version
 cp ${OUTPUT_YAML} ${NO_MON_YAML}
-
-echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
-ko resolve -R -f config/monitoring/100-common \
+ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
 # Use ko to do the same for the lite version.
-ko resolve -R -f config/monitoring/100-common \
+ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
     -f third_party/config/monitoring/common/istio \
     -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
     -f third_party/config/monitoring/common/prometheus-operator \
@@ -166,23 +92,19 @@ ko resolve -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/300-prometheus \
     -f config/monitoring/200-common/100-istio.yaml >> ${LITE_YAML}
 
-tag_knative_images ${OUTPUT_YAML} ${TAG}
+tag_images_in_yaml ${OUTPUT_YAML} ${SERVING_RELEASE_GCR} ${TAG}
 
-if (( DONT_PUBLISH )); then
-  echo "New release built successfully"
-  exit 0
+echo "New release built successfully"
+
+if (( ! PUBLISH_RELEASE )); then
+ exit 0
 fi
 
-echo "Publishing release.yaml"
-publish_yaml ${OUTPUT_YAML}
+# Publish the release
 
-echo "Publishing release-lite.yaml"
-publish_yaml ${LITE_YAML}
-
-echo "Publishing release-no-mon.yaml"
-publish_yaml ${NO_MON_YAML}
-
-echo "Publishing our istio.yaml, so users don't need to use helm."
-publish_yaml ${ISTIO_DIR}/istio.yaml
+for yaml in ${OUTPUT_YAML} ${LITE_YAML} ${NO_MON_YAML} ${ISTIO_YAML}; do
+  echo "Publishing ${yaml}"
+  publish_yaml ${yaml} ${SERVING_RELEASE_GCS} ${TAG}
+done
 
 echo "New release published successfully"
