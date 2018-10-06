@@ -16,69 +16,42 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestGeneration(t *testing.T) {
-	r := ClusterIngress{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty ClusterIngress generation should be 0 was: %d", a)
-	}
+func TestClusterIngressDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
-	}
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generational",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
 
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&ClusterIngress{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(ClusterIngress, %T) = %v", test.t, err)
+			}
+		})
+	}
 }
 
 func TestGetGroupVersionKind(t *testing.T) {
 	ci := ClusterIngress{}
 	expected := SchemeGroupVersion.WithKind("ClusterIngress")
 	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
-		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
-	}
-}
-
-func TestGetSpecJSON(t *testing.T) {
-	ci := ClusterIngress{
-		Spec: IngressSpec{
-			TLS: []ClusterIngressTLS{{
-				SecretNamespace: "secret-space",
-				SecretName:      "secret-name",
-			}},
-			Rules: []ClusterIngressRule{{
-				Hosts: []string{"example.com"},
-				HTTP: &HTTPClusterIngressRuleValue{
-					Paths: []HTTPClusterIngressPath{{
-						Splits: []ClusterIngressBackendSplit{{
-							Backend: &ClusterIngressBackend{
-								ServiceName:      "revision-000",
-								ServiceNamespace: "default",
-								ServicePort:      intstr.FromInt(8080),
-							},
-						}},
-						Retries: &HTTPRetry{
-							Attempts: 3,
-						},
-					}},
-				},
-			}},
-		},
-	}
-	bytes, err := ci.GetSpecJSON()
-	if err != nil {
-		t.Fatalf("Saw %v, wanted: nil", err)
-	}
-	cis := IngressSpec{}
-	json.Unmarshal(bytes, &cis)
-	if diff := cmp.Diff(ci.Spec, cis); diff != "" {
 		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
 	}
 }

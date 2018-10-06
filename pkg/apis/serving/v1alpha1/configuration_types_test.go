@@ -19,20 +19,32 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func TestConfigurationGeneration(t *testing.T) {
-	config := Configuration{}
-	if e, a := int64(0), config.GetGeneration(); e != a {
-		t.Errorf("empty revision generation should be 0 was: %d", a)
-	}
+func TestConfigurationDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
 
-	config.SetGeneration(5)
-	if e, a := int64(5), config.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Configuration{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Configuration, %T) = %v", test.t, err)
+			}
+		})
 	}
 }
 

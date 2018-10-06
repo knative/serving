@@ -17,10 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -301,25 +298,6 @@ var clusterIngressCondSet = duckv1alpha1.NewLivingConditionSet(
 
 var _ apis.Validatable = (*ClusterIngress)(nil)
 var _ apis.Defaultable = (*ClusterIngress)(nil)
-
-// Check that ClusterIngress implements the Conditions duck type.
-var _ = duck.VerifyType(&ClusterIngress{}, &duckv1alpha1.Conditions{})
-
-// Check that ClusterIngress implements the Generation duck type.
-var emptyGen duckv1alpha1.Generation
-var _ = duck.VerifyType(&ClusterIngress{}, &emptyGen)
-
-func (ci *ClusterIngress) GetGeneration() int64 {
-	return ci.Spec.Generation
-}
-
-func (ci *ClusterIngress) SetGeneration(generation int64) {
-	ci.Spec.Generation = generation
-}
-
-func (ci *ClusterIngress) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(ci.Spec)
-}
 
 func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ClusterIngress")

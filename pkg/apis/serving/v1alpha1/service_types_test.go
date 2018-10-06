@@ -19,10 +19,40 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func TestServiceDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}, {
+		name: "legacy targetable",
+		t:    &duckv1alpha1.LegacyTargetable{},
+	}, {
+		name: "targetable",
+		t:    &duckv1alpha1.Targetable{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Service{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Service, %T) = %v", test.t, err)
+			}
+		})
+	}
+}
 
 func TestServiceGeneration(t *testing.T) {
 	service := Service{}
