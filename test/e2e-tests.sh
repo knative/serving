@@ -96,8 +96,8 @@ function dump_extra_cluster_state() {
 }
 
 function publish_test_images() {
-  echo ">>> Publishing test images for $1"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/$1/test_images -mindepth 1 -maxdepth 1 -type d)"
+  echo ">>> Publishing test images"
+  image_dirs="$(find ${REPO_ROOT_DIR}/test/*/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
     # This is a bit of a hack, since we don't use $1 (e2e or
     # conformance) in the path. But, when referencing the repo in
