@@ -68,8 +68,8 @@ var (
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
-	statChan                            = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan                              = make(chan queue.ReqEvent, requestCountingQueueLength)
+	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClientSet         *kubernetes.Clientset
 	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
