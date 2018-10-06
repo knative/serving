@@ -104,11 +104,11 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
 	}
-	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
+	kubeClientSet, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Error building new kubernetes client", zap.Error(err))
 	}
-	servingClient, err := clientset.NewForConfig(clusterConfig)
+	servingClientSet, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
@@ -126,7 +126,7 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
+	a := activator.NewRevisionActivator(kubeClientSet, servingClientSet, logger, reporter)
 	a = activator.NewDedupingActivator(a)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
@@ -174,7 +174,7 @@ func main() {
 	}()
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)

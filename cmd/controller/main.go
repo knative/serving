@@ -81,49 +81,49 @@ func main() {
 		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
-	sharedClient, err := sharedclientset.NewForConfig(cfg)
+	sharedClientSet, err := sharedclientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building shared clientset: %v", err)
 	}
 
-	servingClient, err := clientset.NewForConfig(cfg)
+	servingClientSet, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
-	dynamicClient, err := dynamic.NewForConfig(cfg)
+	dynamicClientSet, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
 
-	cachingClient, err := cachingclientset.NewForConfig(cfg)
+	cachingClientSet, err := cachingclientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building caching clientset: %v", err)
 	}
 
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
 
 	opt := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		ServingClientSet: servingClient,
-		CachingClientSet: cachingClient,
-		DynamicClientSet: dynamicClient,
+		KubeClientSet:    kubeClientSet,
+		SharedClientSet:  sharedClientSet,
+		ServingClientSet: servingClientSet,
+		CachingClientSet: cachingClientSet,
+		DynamicClientSet: dynamicClientSet,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
 		StopChannel:      stopCh,
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, opt.ResyncPeriod)
-	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
-	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, opt.ResyncPeriod)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClientSet, opt.ResyncPeriod)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, opt.ResyncPeriod)
+	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClientSet, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()

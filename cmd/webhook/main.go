@@ -63,13 +63,13 @@ func main() {
 		logger.Fatal("Failed to get in cluster config", zap.Error(err))
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
+	kubeClientSet, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
@@ -84,7 +84,7 @@ func main() {
 		WebhookName:    "webhook.serving.knative.dev",
 	}
 	controller := webhook.AdmissionController{
-		Client:  kubeClient,
+		Client:  kubeClientSet,
 		Options: options,
 		Handlers: map[schema.GroupVersionKind]webhook.GenericCRD{
 			v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
