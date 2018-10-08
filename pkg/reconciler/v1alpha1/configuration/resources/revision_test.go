@@ -122,7 +122,6 @@ func TestRevisions(t *testing.T) {
 				BuildRef: &corev1.ObjectReference{
 					APIVersion: "build.knative.dev/v1alpha1",
 					Kind:       "Build",
-					Namespace:  "with",
 					Name:       "build-00099",
 				},
 				Container: corev1.Container{

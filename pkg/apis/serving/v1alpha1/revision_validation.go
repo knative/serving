@@ -145,13 +145,13 @@ func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {
 	if len(validation.IsCIdentifier(buildRef.Kind)) != 0 {
 		return apis.ErrInvalidValue(buildRef.Kind, "kind")
 	}
-	if len(validation.IsDNS1123Label(buildRef.Namespace)) != 0 {
-		return apis.ErrInvalidValue(buildRef.Namespace, "namespace")
-	}
 	if len(validation.IsDNS1123Label(buildRef.Name)) != 0 {
 		return apis.ErrInvalidValue(buildRef.Name, "name")
 	}
 	var disallowedFields []string
+	if buildRef.Namespace != "" {
+		disallowedFields = append(disallowedFields, "namespace")
+	}
 	if buildRef.FieldPath != "" {
 		disallowedFields = append(disallowedFields, "fieldPath")
 	}

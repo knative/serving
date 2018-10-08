@@ -199,22 +199,14 @@ func TestBuildRefValidation(t *testing.T) {
 		r: &corev1.ObjectReference{
 			APIVersion: "foo.group/v1alpha1",
 			Kind:       "Bar",
+			Name:       "the-bar-0001",
 		},
-		want: apis.ErrInvalidValue("", "namespace"),
-	}, {
-		name: "bad namespace",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-			Namespace:  "bad namespace",
-		},
-		want: apis.ErrInvalidValue("bad namespace", "namespace"),
+		want: nil,
 	}, {
 		name: "no name",
 		r: &corev1.ObjectReference{
 			APIVersion: "foo.group/v1alpha1",
 			Kind:       "Bar",
-			Namespace:  "foo",
 		},
 		want: apis.ErrInvalidValue("", "name"),
 	}, {
@@ -222,7 +214,6 @@ func TestBuildRefValidation(t *testing.T) {
 		r: &corev1.ObjectReference{
 			APIVersion: "foo.group/v1alpha1",
 			Kind:       "Bar",
-			Namespace:  "foo",
 			Name:       "bad name",
 		},
 		want: apis.ErrInvalidValue("bad name", "name"),
@@ -231,20 +222,19 @@ func TestBuildRefValidation(t *testing.T) {
 		r: &corev1.ObjectReference{
 			APIVersion: "foo.group/v1alpha1",
 			Kind:       "Bar",
-			Namespace:  "foo",
 			Name:       "bar0001",
 
+			Namespace:       "foo",
 			FieldPath:       "some.field.path",
 			ResourceVersion: "234234",
 			UID:             "deadbeefcafebabe",
 		},
-		want: apis.ErrDisallowedFields("fieldPath", "resourceVersion", "uid"),
+		want: apis.ErrDisallowedFields("namespace", "fieldPath", "resourceVersion", "uid"),
 	}, {
 		name: "all good",
 		r: &corev1.ObjectReference{
 			APIVersion: "foo.group/v1alpha1",
 			Kind:       "Bar",
-			Namespace:  "foo",
 			Name:       "bar0001",
 		},
 		want: nil,

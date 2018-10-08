@@ -250,7 +250,11 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 
 func (r *Revision) BuildRef() *corev1.ObjectReference {
 	if r.Spec.BuildRef != nil {
-		return r.Spec.BuildRef
+		buildRef := r.Spec.BuildRef.DeepCopy()
+		if buildRef.Namespace == "" {
+			buildRef.Namespace = r.Namespace
+		}
+		return buildRef
 	}
 
 	if r.Spec.BuildName != "" {
