@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -1542,6 +1543,9 @@ func ReconcilerTestConfig() *config.Config {
 					Selector: map[string]string{"app": "prod"},
 				},
 			},
+		},
+		GC: &gc.Config{
+			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},
 	}
 }

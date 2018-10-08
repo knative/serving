@@ -18,22 +18,16 @@ package config
 
 import (
 	"context"
-	"strconv"
-	"time"
 
 	"github.com/knative/pkg/configmap"
-	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	RevisionGCConfigName = "config-gc"
+	"github.com/knative/serving/pkg/gc"
 )
 
 type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
-	RevisionGC *RevisionGC
+	RevisionGC *gc.Config
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -42,15 +36,6 @@ func FromContext(ctx context.Context) *Config {
 
 func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
-}
-
-type RevisionGC struct {
-	// Delay duration after a revision create before considering it for GC
-	StaleRevisionCreateDelay time.Duration
-	// Timeout since a revision lastPinned before it should be GC'd
-	StaleRevisionTimeout time.Duration
-	// Minimum number of generations of revisions to keep before considering for GC
-	StaleRevisionMinimumGenerations int64
 }
 
 // +k8s:deepcopy-gen=false
@@ -64,7 +49,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 func (s *Store) Load() *Config {
 	return &Config{
-		RevisionGC: s.UntypedLoad(RevisionGCConfigName).(*RevisionGC).DeepCopy(),
+		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
 	}
 }
 
@@ -74,44 +59,8 @@ func NewStore(logger configmap.Logger) *Store {
 			"configuration",
 			logger,
 			configmap.Constructors{
-				RevisionGCConfigName: NewRevisionGCFromConfigMap,
+				gc.ConfigName: gc.NewConfigFromConfigMap,
 			},
 		),
 	}
-}
-
-func NewRevisionGCFromConfigMap(configMap *corev1.ConfigMap) (*RevisionGC, error) {
-	c := RevisionGC{}
-
-	for _, dur := range []struct {
-		key          string
-		field        *time.Duration
-		defaultValue time.Duration
-	}{{
-		key:          "stale-revision-create-delay",
-		field:        &c.StaleRevisionCreateDelay,
-		defaultValue: 5 * time.Minute,
-	}, {
-		key:          "stale-revision-timeout",
-		field:        &c.StaleRevisionTimeout,
-		defaultValue: 5 * time.Minute,
-	}} {
-		if raw, ok := configMap.Data[dur.key]; !ok {
-			*dur.field = dur.defaultValue
-		} else if val, err := time.ParseDuration(raw); err != nil {
-			return nil, err
-		} else {
-			*dur.field = val
-		}
-	}
-
-	if raw, ok := configMap.Data["stale-revision-minimum-generations"]; !ok {
-		c.StaleRevisionMinimumGenerations = 1
-	} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
-		return nil, err
-	} else {
-		c.StaleRevisionMinimumGenerations = val
-	}
-
-	return &c, nil
 }

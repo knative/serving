@@ -37,6 +37,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/gc"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -179,17 +180,25 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	var cms []*corev1.ConfigMap
-	cms = append(cms, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.DomainConfigName,
-			Namespace: system.Namespace,
+	cms := []*corev1.ConfigMap{
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.DomainConfigName,
+				Namespace: system.Namespace,
+			},
+			Data: map[string]string{
+				defaultDomainSuffix: "",
+				prodDomainSuffix:    "selector:\n  app: prod",
+			},
 		},
-		Data: map[string]string{
-			defaultDomainSuffix: "",
-			prodDomainSuffix:    "selector:\n  app: prod",
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      gc.ConfigName,
+				Namespace: system.Namespace,
+			},
+			Data: map[string]string{},
 		},
-	})
+	}
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}

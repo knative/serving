@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"golang.org/x/sync/errgroup"
 	"reflect"
-	"time"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/logging"
@@ -35,6 +34,7 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -141,6 +141,9 @@ func (c *Reconciler) updateStatus(ctx context.Context, route *v1alpha1.Route) (*
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
 func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.TrafficConfig, route *v1alpha1.Route) error {
+	gcConfig := config.FromContext(ctx).GC
+	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
+
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, target := range t.Targets {
 		for _, rt := range target {
@@ -163,8 +166,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Tr
 					}
 				} else {
 					// Enforce a delay before performing an update on lastPinned to avoid excess churn
-					if lastPin.Add(1 * time.Minute).After(c.clock.Now()) {
-						// Skip updating if were not to the decay limit
+					if lastPin.Add(lpDebounce).After(c.clock.Now()) {
 						return nil
 					}
 				}

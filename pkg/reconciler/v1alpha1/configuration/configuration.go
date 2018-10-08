@@ -38,6 +38,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
@@ -282,7 +283,7 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	return nil
 }
 
-func isRevisionStale(cfg *configns.RevisionGC, rev *v1alpha1.Revision, curGeneration int64) (bool, error) {
+func isRevisionStale(cfg *gc.Config, rev *v1alpha1.Revision, curGeneration int64) (bool, error) {
 	// maxGen is the maximum generation number we consider for GC
 	maxGen := curGeneration - cfg.StaleRevisionMinimumGenerations
 

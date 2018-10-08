@@ -23,20 +23,21 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/gc"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	gcConfig := ConfigMapFromTestFile(t, RevisionGCConfigName)
+	gcConfig := ConfigMapFromTestFile(t, "config-gc")
 
 	store.OnConfigChanged(gcConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
 	t.Run("revision-gc", func(t *testing.T) {
-		expected, _ := NewRevisionGCFromConfigMap(gcConfig)
+		expected, _ := gc.NewConfigFromConfigMap(gcConfig)
 		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}

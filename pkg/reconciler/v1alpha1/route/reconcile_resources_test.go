@@ -18,11 +18,14 @@ package route
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,7 +134,13 @@ func TestReconcileTargetRevisions(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := c.reconcileTargetRevisions(TestContextWithLogger(t), &tc.tc, r)
+			ctx := TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, &config.Config{
+				GC: &gc.Config{
+					StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+				},
+			})
+			err := c.reconcileTargetRevisions(ctx, &tc.tc, r)
 			if err != tc.expectErr {
 				t.Fatalf("Expected err %v got %v", tc.expectErr, err)
 			}

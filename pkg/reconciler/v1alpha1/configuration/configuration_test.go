@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
@@ -461,7 +462,7 @@ func TestGCReconcile(t *testing.T) {
 			revisionLister:      listers.GetRevisionLister(),
 			configStore: &testConfigStore{
 				config: &config.Config{
-					RevisionGC: &config.RevisionGC{
+					RevisionGC: &gc.Config{
 						StaleRevisionCreateDelay:        5 * time.Minute,
 						StaleRevisionTimeout:            5 * time.Minute,
 						StaleRevisionMinimumGenerations: 2,
@@ -561,7 +562,7 @@ var _ configStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
-		RevisionGC: &config.RevisionGC{
+		RevisionGC: &gc.Config{
 			StaleRevisionCreateDelay: 5 * time.Minute,
 			StaleRevisionTimeout:     5 * time.Minute,
 		},
@@ -638,7 +639,7 @@ func TestIsRevisionStale(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, _ := isRevisionStale(&config.RevisionGC{
+			got, _ := isRevisionStale(&gc.Config{
 				StaleRevisionCreateDelay:        5 * time.Minute,
 				StaleRevisionTimeout:            5 * time.Minute,
 				StaleRevisionMinimumGenerations: 2,
