@@ -52,6 +52,14 @@ type Options struct {
 	StopChannel  <-chan struct{}
 }
 
+// GetTrackerLease returns a multiple of the resync period to use as the
+// duration for tracker leases. This attempts to ensure that resyncs happen to
+// refresh leases frequently enough that we don't miss updates to tracked
+// objects.
+func (o Options) GetTrackerLease() time.Duration {
+	return o.ResyncPeriod * 3
+}
+
 // Base implements the core controller logic, given a Reconciler.
 type Base struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
