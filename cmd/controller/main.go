@@ -45,6 +45,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
@@ -164,6 +165,12 @@ func main() {
 			revisionInformer,
 			coreServiceInformer,
 			virtualServiceInformer,
+		),
+		labeler.NewRouteToConfigurationController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			revisionInformer,
 		),
 		service.NewController(
 			opt,
