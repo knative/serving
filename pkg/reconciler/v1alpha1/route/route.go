@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"time"
 
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -119,8 +118,7 @@ func NewController(
 		},
 	})
 
-	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
-	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.tracker.OnChanged,
 		UpdateFunc: controller.PassNew(c.tracker.OnChanged),

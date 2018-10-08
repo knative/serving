@@ -18,7 +18,6 @@ package labeler
 
 import (
 	"context"
-	"time"
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -73,8 +72,7 @@ func NewRouteToConfigurationController(
 		DeleteFunc: impl.Enqueue,
 	})
 
-	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
-	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.tracker.OnChanged,
 		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
