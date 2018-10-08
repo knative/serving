@@ -298,14 +298,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:aa66aed49f459dd8103eaed406d2203058c05cea8d533021244056e86e17cf5f"
+  digest = "1:9cfc60d7d1a78a7967137b4ffc344e5449f0c5956c48598ded8e089c4444bcd1"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
+  revision = "cc4451408f52b86fec87f6b7e4bc88848d3b1088"
 
 [[projects]]
   digest = "1:826576a2dbea52eb350ed5c0fd3e53f1f24cd6bdcfaf89ff89239b8cd426cd0d"
