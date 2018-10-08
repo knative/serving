@@ -92,7 +92,7 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					if res.StatusCode != http.StatusOK {
 						logger.Errorf("non 200 response %v", res.StatusCode)
 						logger.Errorf("response headers: %v", res.Header)
-						logger.Errorf("response body: %v", res.Body)
+						logger.Errorf("response body: %v", string(res.Body[:]))
 						continue
 					}
 					mux.Lock()
