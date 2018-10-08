@@ -18,11 +18,11 @@ package activator
 
 const (
 	// K8sServiceName is the name of the activator service
-	K8sServiceName = "activator-service"
+	K8sServiceName          = "activator-service"
 	// ResponseCountHTTPHeader is the header key for number of tries
-	ResponseCountHTTPHeader = "X-Activator-Num-Retries"
+  ResponseCountHTTPHeader = "Knative-Activator-Num-Retries"
 	// RevisionHeaderName is the header key for revision name
-	RevisionHeaderName string = "knative-serving-revision"
+	RevisionHeaderName      string = "knative-serving-revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
