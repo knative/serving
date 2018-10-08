@@ -166,7 +166,7 @@ func main() {
 			coreServiceInformer,
 			virtualServiceInformer,
 		),
-		labeler.NewController(
+		labeler.NewRouteToConfigurationController(
 			opt,
 			routeInformer,
 			configurationInformer,

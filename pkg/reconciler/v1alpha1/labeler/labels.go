@@ -62,12 +62,12 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 
 	// The ordered collection of Configurations to which we
 	// should patch our Route label.
-	order := []string{}
+	configurationOrder := []string{}
 	configMap := make(map[string]*v1alpha1.Configuration)
 
 	// Lookup Configurations that are missing our Route label.
 	for name, _ := range configs {
-		order = append(order, name)
+		configurationOrder = append(configurationOrder, name)
 
 		config, err := c.configurationLister.Configurations(route.Namespace).Get(name)
 		if err != nil {
@@ -84,11 +84,11 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 		}
 	}
 	// Sort the names to give things a deterministic ordering.
-	sort.Strings(order)
+	sort.Strings(configurationOrder)
 
 	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
 	// Set label for newly added configurations as traffic target.
-	for _, configName := range order {
+	for _, configName := range configurationOrder {
 		config := configMap[configName]
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)

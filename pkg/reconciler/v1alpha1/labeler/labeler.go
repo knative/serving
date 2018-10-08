@@ -49,8 +49,9 @@ type Reconciler struct {
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
 
-// NewController wraps a new instance of this Reconciler in a controller.
-func NewController(
+// NewRouteToConfigurationController wraps a new instance of the labeler that labels
+// Configurations with Routes in a controller.
+func NewRouteToConfigurationController(
 	opt reconciler.Options,
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,

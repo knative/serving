@@ -224,7 +224,7 @@ func TestNew(t *testing.T) {
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformer.Serving().V1alpha1().Revisions()
 
-	c := NewController(reconciler.Options{
+	c := NewRouteToConfigurationController(reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
