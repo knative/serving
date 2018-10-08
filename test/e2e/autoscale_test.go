@@ -144,7 +144,7 @@ func assertScaleUp(ctx *testContext) {
 	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
 	err := generateTraffic(ctx, 20, 20*time.Second)
 	if err != nil {
-		ctx.logger.Fatalf("Error during initial scale up: %v", err)
+		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	ctx.logger.Info("Waiting for scale up")
 	err = test.WaitForDeploymentState(
@@ -154,7 +154,7 @@ func assertScaleUp(ctx *testContext) {
 		"DeploymentIsScaledUp",
 		2*time.Minute)
 	if err != nil {
-		ctx.logger.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
 }
 
@@ -169,7 +169,7 @@ func assertScaleDown(ctx *testContext) {
 		"DeploymentScaledToZero",
 		scaleToZeroThreshold+2*time.Minute)
 	if err != nil {
-		ctx.logger.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
@@ -187,7 +187,7 @@ func assertScaleDown(ctx *testContext) {
 		},
 		"WaitForAvailablePods")
 	if err != nil {
-		ctx.logger.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
+		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
 	}
 
 	ctx.logger.Infof("Scaled down.")
