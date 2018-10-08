@@ -81,7 +81,8 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					return nil
 				default:
 					mux.Lock()
-					totalRequests++
+					requestId := totalRequests + 1
+					totalRequests = requestId
 					mux.Unlock()
 					res, err := client.Do(req)
 					if err != nil {
@@ -90,6 +91,7 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					}
 
 					if res.StatusCode != http.StatusOK {
+						logger.Errorf("request %d failed", requestId)
 						logger.Errorf("non 200 response %v", res.StatusCode)
 						logger.Errorf("response headers: %v", res.Header)
 						logger.Errorf("response body: %v", string(res.Body[:]))
