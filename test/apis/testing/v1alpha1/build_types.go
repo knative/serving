@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 )
 
@@ -43,9 +42,6 @@ type Build struct {
 
 // Check that ConfigurationStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*BuildStatus)(nil)
-
-// Check that Build implements the Conditions duck type.
-var _ = duck.VerifyType(&Build{}, &duckv1alpha1.Conditions{})
 
 // BuildSpec holds the desired state of the Build (from the client).
 type BuildSpec struct {

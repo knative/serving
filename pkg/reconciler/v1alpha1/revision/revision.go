@@ -45,8 +45,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
@@ -92,9 +90,6 @@ type configStore interface {
 type Reconciler struct {
 	*reconciler.Base
 
-	// VpaClientSet allows us to configure VPA objects
-	vpaClient vpa.Interface
-
 	// lister indexes properties about Revision
 	revisionLister   listers.RevisionLister
 	kpaLister        kpalisters.PodAutoscalerLister
@@ -121,7 +116,6 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
 	opt reconciler.Options,
-	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	kpaInformer kpainformers.PodAutoscalerInformer,
 	imageInformer cachinginformers.ImageInformer,
@@ -129,13 +123,11 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
-	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	c := &Reconciler{
 		Base:             reconciler.NewBase(opt, controllerAgentName),
-		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
 		kpaLister:        kpaInformer.Lister(),
 		imageLister:      imageInformer.Lister(),
@@ -343,9 +335,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}, {
 			name: "KPA",
 			f:    c.reconcileKPA,
-		}, {
-			name: "vertical pod autoscaler",
-			f:    c.reconcileVPA,
 		}}
 
 		for _, phase := range phases {
