@@ -16,8 +16,20 @@ limitations under the License.
 
 package system
 
-const (
+import (
+	"os"
+)
+
+var (
 	// Namespace holds the K8s namespace where our serving system
 	// components run.
-	Namespace = "knative-serving"
+	Namespace string
 )
+
+func init() {
+	Namespace = os.Getenv("SYSTEM_NAMESPACE")
+	if Namespace == "" {
+		// Default to the knative-serving namespace.
+		Namespace = "knative-serving"
+	}
+}
