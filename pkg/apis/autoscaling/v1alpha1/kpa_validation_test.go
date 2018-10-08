@@ -17,12 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -142,12 +145,25 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "multi invalid, bad concurrency model and missing ref kind",
+		rs: &PodAutoscalerSpec{
+			ContainerConcurrency: -0,
+			ServiceName:          "foo",
+			ConcurrencyModel:     "super-bogus",
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Name:       "bar",
+			},
+		},
+		want: apis.ErrMissingField("scaleTargetRef.kind").
+			Also(apis.ErrInvalidValue("super-bogus", "concurrencyModel")),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rs.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -162,6 +178,11 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Annotations: map[string]string{
+					"minScale": "2",
+				},
+			},
 			Spec: PodAutoscalerSpec{
 				ConcurrencyModel: "Multi",
 				ServiceName:      "foo",
@@ -173,6 +194,28 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "bad scale bounds",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "FOO",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MinScaleAnnotationKey),
+			Paths:   []string{autoscaling.MinScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "empty spec",
 		r:    &PodAutoscaler{},
@@ -196,7 +239,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -398,7 +441,7 @@ func TestImmutableFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.new.CheckImmutableFields(test.old)
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

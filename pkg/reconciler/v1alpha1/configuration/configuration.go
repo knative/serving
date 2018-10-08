@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -196,12 +197,13 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := resources.MakeBuild(config)
-		created, err := c.BuildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
+		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())
+		created, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("Created Build:\n%+v", created.Name)
-		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
+		logger.Infof("Created Build:\n%+v", created.GetName())
+		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.GetName())
 	}
 
 	rev := resources.MakeRevision(config)

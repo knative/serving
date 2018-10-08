@@ -17,9 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -34,19 +31,25 @@ import (
 	"github.com/knative/serving/pkg/reconciler/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
+var buildAddToScheme = func(scheme *runtime.Scheme) {
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &unstructured.Unstructured{})
+}
+
 var clientSetSchemes = []func(*runtime.Scheme){
 	fakekubeclientset.AddToScheme,
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
-	fakebuildclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
+	buildAddToScheme,
 }
 
 type Listers struct {
@@ -77,16 +80,16 @@ func (l *Listers) GetKubeObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakekubeclientset.AddToScheme)
 }
 
-func (l *Listers) GetBuildObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakebuildclientset.AddToScheme)
-}
-
 func (l *Listers) GetCachingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakecachingclientset.AddToScheme)
 }
 
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
+}
+
+func (l *Listers) GetBuildObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(buildAddToScheme)
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {
@@ -115,10 +118,6 @@ func (l *Listers) GetKPALister() kpalisters.PodAutoscalerLister {
 
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
-}
-
-func (l *Listers) GetBuildLister() buildlisters.BuildLister {
-	return buildlisters.NewBuildLister(l.indexerFor(&buildv1alpha1.Build{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {

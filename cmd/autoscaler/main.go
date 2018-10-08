@@ -57,8 +57,8 @@ const (
 )
 
 var (
-	masterURL  string
-	kubeconfig string
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 func main() {
@@ -80,7 +80,7 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
 		logger.Fatal("Error building kubeconfig.", zap.Error(err))
 	}
@@ -220,7 +220,8 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 
 func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	// Create a stats reporter which tags statistics by KPA namespace, configuration name, and KPA name.
-	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, configurationName(kpa), kpa.Name)
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace,
+		labelValueOrEmpty(kpa, serving.ServiceLabelKey), labelValueOrEmpty(kpa, serving.ConfigurationLabelKey), kpa.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -228,17 +229,11 @@ func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicC
 	return autoscaler.New(dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
 }
 
-func configurationName(kpa *kpa.PodAutoscaler) string {
-	// Get the name of the configuration. If the KPA has no controller, use the empty string.
+func labelValueOrEmpty(kpa *kpa.PodAutoscaler, labelKey string) string {
 	if kpa.Labels != nil {
-		if value, ok := kpa.Labels[serving.ConfigurationLabelKey]; ok {
+		if value, ok := kpa.Labels[labelKey]; ok {
 			return value
 		}
 	}
 	return ""
-}
-
-func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

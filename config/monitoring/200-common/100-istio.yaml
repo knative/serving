@@ -29,12 +29,13 @@ spec:
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"
-    sourceService: source.service | "unknown"
+    sourceK8sService: source.service | "unknown"
     sourceNamespace: source.namespace | "unknown"
-    destinationService: destination.service | ""
+    destinationK8sService: destination.service | ""
     destinationNamespace: destination.namespace | ""
     destinationRevision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destinationConfiguration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destinationService: destination.labels["serving.knative.dev/service"] | "unknown"
     traceId: request.headers["x-b3-traceid"] | "unknown"
     userAgent: request.useragent | "unknown"
     referer: request.referer | "unknown"
@@ -46,7 +47,7 @@ metadata:
   name: requestloghandler
   namespace: istio-system
 spec:
-  address: "fluentd-ds.monitoring:24224"
+  address: "fluentd-ds.knative-monitoring:24224"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -68,11 +69,12 @@ metadata:
 spec:
   value: "1"
   dimensions:
-    source_service: source.service | "unknown"
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
-    destination_service: destination.service | "unknown"
     destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -84,11 +86,12 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
-    source_service: source.service | "unknown"
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
-    destination_service: destination.service | "unknown"
     destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -100,11 +103,12 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    source_service: source.service | "unknown"
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
-    destination_service: destination.service | "unknown"
     destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -116,11 +120,12 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
-    source_service: source.service | "unknown"
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
-    destination_service: destination.service | "unknown"
     destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -135,21 +140,23 @@ spec:
     instance_name: revisionrequestcount.metric.istio-system
     kind: COUNTER
     label_names:
-    - source_service
+    - source_k8s_service
+    - destination_k8s_service
     - destination_namespace
-    - destination_service
     - destination_revision
     - destination_configuration
+    - destination_service
     - response_code
   - name: revision_request_duration
     instance_name: revisionrequestduration.metric.istio-system
     kind: DISTRIBUTION
     label_names:
-    - source_service
+    - source_k8s_service
+    - destination_k8s_service
     - destination_namespace
-    - destination_service
     - destination_revision
     - destination_configuration
+    - destination_service
     - response_code
     buckets:
       explicit_buckets:
@@ -158,11 +165,12 @@ spec:
     instance_name: revisionrequestsize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
-    - source_service
+    - source_k8s_service
+    - destination_k8s_service
     - destination_namespace
-    - destination_service
     - destination_revision
     - destination_configuration
+    - destination_service
     - response_code
     buckets:
       exponentialBuckets:
@@ -173,11 +181,12 @@ spec:
     instance_name: revisionresponsesize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
-    - source_service
+    - source_k8s_service
+    - destination_k8s_service
     - destination_namespace
-    - destination_service
     - destination_revision
     - destination_configuration
+    - destination_service
     - response_code
     buckets:
       exponentialBuckets:

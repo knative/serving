@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -32,7 +33,7 @@ func TestBuilds(t *testing.T) {
 	tests := []struct {
 		name          string
 		configuration *v1alpha1.Configuration
-		want          *buildv1alpha1.Build
+		want          *unstructured.Unstructured
 	}{{
 		name: "no build",
 		configuration: &v1alpha1.Configuration{
@@ -60,11 +61,11 @@ func TestBuilds(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 31,
-				Build: &buildv1alpha1.BuildSpec{
+				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
 					}},
-				},
+				}},
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -74,24 +75,37 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 		},
-		want: &buildv1alpha1.Build{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "simple",
-				Name:      "build-00031",
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "build",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-00031",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
 				}},
+				"creationTimestamp": nil,
 			},
-			Spec: buildv1alpha1.BuildSpec{
-				Steps: []corev1.Container{{
-					Image: "busybox",
+			"spec": map[string]interface{}{
+				"steps": []interface{}{map[string]interface{}{
+					"name":      "",
+					"image":     "busybox",
+					"resources": map[string]interface{}{},
 				}},
+				"timeout": "0s",
 			},
-		},
+			"status": map[string]interface{}{
+				"startTime":      nil,
+				"completionTime": nil,
+				"stepStates":     nil,
+				"stepsCompleted": nil,
+			},
+		}),
 	}, {
 		name: "simple build with template",
 		configuration: &v1alpha1.Configuration{
@@ -101,7 +115,7 @@ func TestBuilds(t *testing.T) {
 			},
 			Spec: v1alpha1.ConfigurationSpec{
 				Generation: 42,
-				Build: &buildv1alpha1.BuildSpec{
+				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Template: &buildv1alpha1.TemplateInstantiationSpec{
 						Name: "buildpacks",
 						Arguments: []buildv1alpha1.ArgumentSpec{{
@@ -109,7 +123,7 @@ func TestBuilds(t *testing.T) {
 							Value: "bar",
 						}},
 					},
-				},
+				}},
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -119,28 +133,39 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 		},
-		want: &buildv1alpha1.Build{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "simple",
-				Name:      "build-template-00042",
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "build-template",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+		want: UnstructuredWithContent(map[string]interface{}{
+			"apiVersion": "build.knative.dev/v1alpha1",
+			"kind":       "Build",
+			"metadata": map[string]interface{}{
+				"namespace": "simple",
+				"name":      "build-template-00042",
+				"ownerReferences": []interface{}{map[string]interface{}{
+					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
+					"kind":               "Configuration",
+					"name":               "build-template",
+					"uid":                "",
+					"controller":         true,
+					"blockOwnerDeletion": true,
 				}},
+				"creationTimestamp": nil,
 			},
-			Spec: buildv1alpha1.BuildSpec{
-				Template: &buildv1alpha1.TemplateInstantiationSpec{
-					Name: "buildpacks",
-					Arguments: []buildv1alpha1.ArgumentSpec{{
-						Name:  "foo",
-						Value: "bar",
+			"spec": map[string]interface{}{
+				"template": map[string]interface{}{
+					"name": "buildpacks",
+					"arguments": []interface{}{map[string]interface{}{
+						"name":  "foo",
+						"value": "bar",
 					}},
 				},
+				"timeout": "0s",
 			},
-		},
+			"status": map[string]interface{}{
+				"startTime":      nil,
+				"completionTime": nil,
+				"stepStates":     nil,
+				"stepsCompleted": nil,
+			},
+		}),
 	}}
 
 	for _, test := range tests {

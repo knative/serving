@@ -52,7 +52,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/type: ...  # +optional convention: function|app
+    knative.dev/service: ...  # name of the Service automatically filled in   
 
   # system generated meta
   uid: ...
@@ -78,9 +78,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: my-service.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: my-service.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   traffic:
   # current rollout status list. configurationName references
@@ -113,7 +117,9 @@ kind: Configuration
 metadata:
   name: my-service
   namespace: default
-
+  labels:
+    knative.dev/service: ...  # name of the Service automatically filled in
+    knative.dev/route: ...  # name of the Route automatically filled in
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -122,55 +128,41 @@ metadata:
   selfLink: ...
   ...
 spec:
-  # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a build.knative.dev/v1alpha1.BuildTemplateSpec
-    source:
-      # oneof git|gcs|custom:
-
-      # +optional.
-      git:
-        url: https://github.com/jrandom/myrepo
-        commit: deadbeef  # Or branch, tag, ref
-
-      # +optional. A zip archive or a manifest file in Google Cloud
-      # Storage. A manifest file is a file containing a list of file
-      # paths, backing URLs, and sha checksums. Manifest may be a more
-      # efficient mechanism for a client to perform partial upload.
-      gcs:
-        location: https://...
-        type: 'archive'  # Or 'manifest'
-
-      # +optional. Custom specifies a container which will be run as
-      # the first build step to fetch the source.
-      custom:  # is a core.v1.Container
-        image: gcr.io/cloud-builders/git:latest
-        args: [ "clone", "https://...", "other-place" ]
-
-    template:  # build template reference and arguments.
-      name: go_1_9_fn  # builder name. Functions may have custom builders
-      namespace: build-templates
-      arguments:
-      - name: _IMAGE
-        value: gcr.io/...  # destination for image
-      - name: _ENTRY_POINT
-        value: index  # if function, language dependent entrypoint
-
+  # +optional. a complete definition of the build resource to create.
+  # For back-compat, this may also be a build.knative.dev/v1alpha1.BuildSpec
+  build:
+    # This inlines an example with knative/build, but may be any kubernetes
+    # resource that completes with a Succeeded condition as outlined in our
+    # errors.md
+    apiVersion: build.knative.dev
+    kind: Build
+    metadata:
+      annotations: ...
+      labels: ...
+    spec: ...
+  
   revisionTemplate:  # template for building Revision
     metadata: ...
       labels:
         knative.dev/type: "function"  # One of "function" or "app"
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
-      # +optional. if rolling back, the client may set this to the
-      #   previous  revision's build to avoid triggering a rebuild
+      # +optional. DEPRECATED, use buildRef
       buildName: ...
+
+      # +optional. if rolling back, the client may set this to the
+      #   previous revision's build to avoid triggering a rebuild
+      buildRef:  # corev1.ObjectReference
+        apiVersion: build.knative.dev/v1alpha1
+        kind: Build
+        name: foo-bar-00001
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container:
         # image either provided as pre-built container, or built by Knative Serving from
         # source. When built by knative, set to the same as build template, e.g.
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
-        # If buildName is provided, it is expected that this image will be
+        # If buildRef is provided, it is expected that this image will be
         # present when the referenced build is complete.
         image: gcr.io/...
         command: ['run']
@@ -222,10 +214,8 @@ metadata:
   name: myservice-a1e34  # system generated
   namespace: default
   labels:
-    knative.dev/configuration: ...  # to list configurations/revisions by service
-    knative.dev/type: "function"  # convention, one of "function" or "app"
-    knative.dev/revision: ... # generated revision name
-    knative.dev/revisionUID: ... # generated revision UID
+    knative.dev/configuration: ...  # name of the Configuration automatically filled in 
+    knative.dev/service: ...  # name of the Service automatically filled in
   annotations:
     knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
@@ -238,8 +228,16 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
+  # +optional. DEPRECATED use buildRef
   buildName: ...
+
+  # +optional. a reference to the Kubernetes resource that is responsible
+  # for producing this Revision's image. This resource is expected to
+  # terminate with a "Succeeded" condition as outlined in errors.md
+  buildRef:  # corev1.ObjectReference
+    apiVersion: build.knative.dev/v1alpha1
+    kind: Build
+    name: foo-bar-00001
 
   container:  # corev1.Container
     # We disallow the following fields from corev1.Container:
@@ -292,10 +290,9 @@ status:
    - type: Ready
      status: False
      message: "Starting Instances"
-  # If spec.buildName is provided
-  - type: BuildComplete
+  # If spec.buildRef is provided
+  - type: BuildSucceeded
     status: True
-  # other conditions indicating build failure, if applicable
   - ...
 
   # URL for accessing the logs generated by this specific revision.
@@ -326,19 +323,19 @@ metadata:
     knative.dev/type: "function"  # convention, one of "function" or "app"
   # system generated meta
   uid: ...
-  resourceVersion: ...  # used for optimistic concurrency control
-  creationTimestamp: ...
-  generation: ...
-  selfLink: ...
+  resourceVersion: ...  # used for optimistic concurrency control
+  creationTimestamp: ...
+  generation: ...
+  selfLink: ...
   ...
 
 # spec contains one of several possible rollout styles
 spec:  # One of "runLatest" or "pinned"
   # Example, only one of runLatest or pinned can be set in practice.
   runLatest:
-    configuration:  # serving.knative.dev/v1alpha1.Configuration
-      # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
-      buildName: ...
+    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
+      # +optional. The build resource to instantiate to produce the container.
+      build: ...
 
       container:  # core.v1.Container
         image: gcr.io/...
@@ -355,12 +352,13 @@ spec:  # One of "runLatest" or "pinned"
       containerConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
+
   # Example, only one of runLatest or pinned can be set in practice.
   pinned:
     revisionName: myservice-00013  # Auto-generated revision name
-    configuration:  # serving.knative.dev/v1alpha1.Configuration
-      # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
-      buildName: ...
+    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
+      # +optional. The build resource to instantiate to produce the container.
+      build: ...
 
       container:  # core.v1.Container
         image: gcr.io/...
@@ -377,6 +375,7 @@ spec:  # One of "runLatest" or "pinned"
       containerConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
+
 status:
   # This information is copied from the owned Configuration and Route.
 
@@ -390,9 +389,13 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
 
-  # domainInternal: A DNS name for the default (traffic-split) route which can
-  # be accessed without leaving the cluster environment.
-  domainInternal: myservice.default.svc.cluster.local
+  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
+    # domainInternal: A DNS name for the default (traffic-split) route which can
+    # be accessed without leaving the cluster environment.
+    domainInternal: myservice.default.svc.cluster.local
+
+  # DEPRECATED: see targetable.domainInternal (above)
+  domainInternal: ...
 
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision
@@ -410,7 +413,7 @@ status:
   - type: ConfigurationsReady
     status: False
     reason: ContainerMissing
-    message: "Unable to start because container is missing and build failed."
+    message: "Unable to start because container is missing failed."
   - type: RoutesReady
     status: False
     reason: RevisionMissing

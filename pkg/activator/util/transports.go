@@ -21,7 +21,7 @@ import (
 
 	"github.com/knative/serving/pkg/activator"
 
-	h2cutil "github.com/knative/serving/pkg/h2c"
+	h2cutil "github.com/knative/serving/pkg/http/h2c"
 	"go.uber.org/zap"
 )
 

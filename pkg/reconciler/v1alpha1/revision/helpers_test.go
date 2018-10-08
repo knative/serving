@@ -21,9 +21,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,19 +32,19 @@ import (
 func TestGetBuildDoneCondition(t *testing.T) {
 	tests := []struct {
 		description string
-		build       *buildv1alpha1.Build
-		cond        *buildv1alpha1.BuildCondition
+		build       *duckv1alpha1.KResource
+		cond        *duckv1alpha1.Condition
 	}{{
 		// If there are no build conditions, we should get nil.
 		description: "no conditions",
-		build:       &buildv1alpha1.Build{},
+		build:       &duckv1alpha1.KResource{},
 	}, {
 		// If the conditions indicate that things are running, we should get nil.
 		description: "build running",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:   buildv1alpha1.BuildSucceeded,
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionUnknown,
 				}},
 			},
@@ -53,33 +52,33 @@ func TestGetBuildDoneCondition(t *testing.T) {
 	}, {
 		// If the build succeeded, return the success condition.
 		description: "build succeeded",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:   buildv1alpha1.BuildSucceeded,
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
-		cond: &buildv1alpha1.BuildCondition{
-			Type:   buildv1alpha1.BuildSucceeded,
+		cond: &duckv1alpha1.Condition{
+			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 		},
 	}, {
 		// If the build failed, return the failure condition.
 		description: "build failed",
-		build: &buildv1alpha1.Build{
-			Status: buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:    buildv1alpha1.BuildSucceeded,
+		build: &duckv1alpha1.KResource{
+			Status: duckv1alpha1.KResourceStatus{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:    duckv1alpha1.ConditionSucceeded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "TheReason",
 					Message: "something super descriptive",
 				}},
 			},
 		},
-		cond: &buildv1alpha1.BuildCondition{
-			Type:    buildv1alpha1.BuildSucceeded,
+		cond: &duckv1alpha1.Condition{
+			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionTrue,
 			Reason:  "TheReason",
 			Message: "something super descriptive",
@@ -153,7 +152,7 @@ func TestGetRevisionLastTransitionTime(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: duck.Conditions{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:               v1alpha1.RevisionConditionReady,
 					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{metav1.NewTime(expectedTime)},

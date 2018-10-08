@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
+	"strconv"
 	"time"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -25,7 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -56,7 +57,7 @@ var _ apis.Defaultable = (*PodAutoscaler)(nil)
 var _ apis.Immutable = (*PodAutoscaler)(nil)
 
 // Check that ConfigurationStatus may have its conditions managed.
-var _ duck.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
+var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
@@ -99,12 +100,12 @@ type PodAutoscalerSpec struct {
 const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	PodAutoscalerConditionReady = duck.ConditionReady
+	PodAutoscalerConditionReady = duckv1alpha1.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
-	PodAutoscalerConditionActive duck.ConditionType = "Active"
+	PodAutoscalerConditionActive duckv1alpha1.ConditionType = "Active"
 )
 
-var podCondSet = duck.NewLivingConditionSet(PodAutoscalerConditionActive)
+var podCondSet = duckv1alpha1.NewLivingConditionSet(PodAutoscalerConditionActive)
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
@@ -112,7 +113,7 @@ type PodAutoscalerStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions duck.Conditions `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -125,16 +126,22 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-func (r *PodAutoscaler) GetGeneration() int64 {
-	return r.Spec.Generation
+func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
+	if s, ok := kpa.Annotations[key]; ok {
+		// no error check: relying on validation
+		i, _ := strconv.ParseInt(s, 10, 32)
+		return int32(i)
+	}
+	return 0
 }
 
-func (r *PodAutoscaler) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *PodAutoscaler) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
+// ScaleBounds returns scale bounds annotations values as a tuple:
+// `(min, max int32)`. The value of 0 for any of min or max means the bound is
+// not set
+func (kpa *PodAutoscaler) ScaleBounds() (min, max int32) {
+	min = kpa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
+	max = kpa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
+	return
 }
 
 // IsReady looks at the conditions and if the Status has a condition
@@ -143,20 +150,8 @@ func (rs *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t duck.ConditionType) *duck.Condition {
-	for _, cond := range rs.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
-}
-
-// This is kept for unit test integration.
-func (rs *PodAutoscalerStatus) setCondition(new *duck.Condition) {
-	if new != nil {
-		podCondSet.Manage(rs).SetCondition(*new)
-	}
+func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return podCondSet.Manage(rs).GetCondition(t)
 }
 
 func (rs *PodAutoscalerStatus) InitializeConditions() {
@@ -190,13 +185,13 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *PodAutoscalerStatus) GetConditions() duck.Conditions {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *PodAutoscalerStatus) GetConditions() duckv1alpha1.Conditions {
 	return rs.Conditions
 }
 
 // SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duck.Conditions interface.
-func (rs *PodAutoscalerStatus) SetConditions(conditions duck.Conditions) {
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *PodAutoscalerStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }

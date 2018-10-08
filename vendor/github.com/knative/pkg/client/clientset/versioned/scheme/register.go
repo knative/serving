@@ -19,7 +19,6 @@ limitations under the License.
 package scheme
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	authenticationv1alpha1 "github.com/knative/pkg/apis/istio/authentication/v1alpha1"
 	networkingv1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +52,5 @@ func init() {
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
 	authenticationv1alpha1.AddToScheme(scheme)
-	duckv1alpha1.AddToScheme(scheme)
 	networkingv1alpha3.AddToScheme(scheme)
 }

@@ -31,7 +31,7 @@ func CleanupOnInterrupt(cleanup func(), logger *logging.BaseLogger) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
-		for _ = range c {
+		for range c {
 			logger.Infof("Test interrupted, cleaning up.")
 			cleanup()
 			os.Exit(1)

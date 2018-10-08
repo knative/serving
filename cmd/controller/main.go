@@ -29,8 +29,7 @@ import (
 
 	"github.com/knative/serving/pkg/system"
 
-	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -38,8 +37,6 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
@@ -48,6 +45,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
@@ -59,8 +57,8 @@ const (
 )
 
 var (
-	masterURL  string
-	kubeconfig string
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 func main() {
@@ -79,7 +77,7 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
 		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
@@ -99,7 +97,7 @@ func main() {
 		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
-	buildClient, err := buildclientset.NewForConfig(cfg)
+	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
@@ -109,20 +107,6 @@ func main() {
 		logger.Fatalf("Error building caching clientset: %v", err)
 	}
 
-	vpaClient, err := vpa.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building VPA clientset: %v", err)
-	}
-
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
-	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
-	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
-	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, time.Second*30)
-	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
-		time.Minute*5, system.Namespace, nil)
-	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
-
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 
 	opt := reconciler.Options{
@@ -130,24 +114,30 @@ func main() {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		CachingClientSet: cachingClient,
-		BuildClientSet:   buildClient,
+		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
+		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
+		StopChannel:      stopCh,
 	}
+
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, opt.ResyncPeriod)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
-	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
@@ -159,16 +149,14 @@ func main() {
 		),
 		revision.NewController(
 			opt,
-			vpaClient,
 			revisionInformer,
 			kpaInformer,
-			buildInformer,
 			imageInformer,
 			deploymentInformer,
 			coreServiceInformer,
 			endpointsInformer,
 			configMapInformer,
-			vpaInformer,
+			buildInformerFactory,
 		),
 		route.NewController(
 			opt,
@@ -177,6 +165,12 @@ func main() {
 			revisionInformer,
 			coreServiceInformer,
 			virtualServiceInformer,
+		),
+		labeler.NewRouteToConfigurationController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			revisionInformer,
 		),
 		service.NewController(
 			opt,
@@ -193,10 +187,7 @@ func main() {
 	kubeInformerFactory.Start(stopCh)
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
-	buildInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
-	servingSystemInformerFactory.Start(stopCh)
-	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
@@ -209,7 +200,6 @@ func main() {
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
 		kpaInformer.Informer().HasSynced,
-		buildInformer.Informer().HasSynced,
 		imageInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,
@@ -234,9 +224,4 @@ func main() {
 	}
 
 	<-stopCh
-}
-
-func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

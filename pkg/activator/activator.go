@@ -13,36 +13,43 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package activator
 
 const (
-	// The name of the activator service.
+	// K8sServiceName is the name of the activator service
 	K8sServiceName          = "activator-service"
-	ResponseCountHTTPHeader = "Knative-Activator-Num-Retries"
-	// Knative service header names
+	// ResponseCountHTTPHeader is the header key for number of tries
+  ResponseCountHTTPHeader = "Knative-Activator-Num-Retries"
+	// RevisionHeaderName is the header key for revision name
 	RevisionHeaderName      string = "knative-serving-revision"
-	ConfigurationHeader     string = "knative-serving-configuration"
+	// RevisionHeaderNamespace is the header key for revision's namespace
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
-
-// Status is an HTTP status code.
-type Status int
 
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
-	ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error)
+	ActiveEndpoint(namespace, name string) ActivationResult
 	Shutdown()
 }
 
 type revisionID struct {
-	namespace     string
-	configuration string
-	name          string
+	namespace string
+	name      string
 }
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.
 type Endpoint struct {
 	FQDN string
 	Port int32
+}
+
+// ActivationResult is used to return the result of an ActivateEndpoint call
+type ActivationResult struct {
+	Status            int
+	Endpoint          Endpoint
+	ServiceName       string
+	ConfigurationName string
+	Error             error
 }

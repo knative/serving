@@ -354,9 +354,8 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"knative-serving-revision":      "revision",
-			"knative-serving-configuration": "config",
-			"knative-serving-namespace":     "test-ns",
+			"knative-serving-revision":  "revision",
+			"knative-serving-namespace": "test-ns",
 		},
 		Timeout: DefaultRouteTimeout,
 		Retries: &v1alpha3.HTTPRetry{
@@ -401,9 +400,8 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"knative-serving-revision":      "revision",
-			"knative-serving-configuration": "config",
-			"knative-serving-namespace":     "test-ns",
+			"knative-serving-revision":  "revision",
+			"knative-serving-namespace": "test-ns",
 		},
 		Timeout: DefaultRouteTimeout,
 		Retries: &v1alpha3.HTTPRetry{

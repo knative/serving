@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -33,7 +33,13 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
-  "serving:v1alpha1 autoscaling:v1alpha1" \
+  "serving:v1alpha1 autoscaling:v1alpha1 networking:v1alpha1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# Generate the same for our test resources.
+${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+  github.com/knative/serving/test/client github.com/knative/serving/test/apis \
+  "testing:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
@@ -41,6 +47,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/route/config \
   -i github.com/knative/serving/pkg/autoscaler \
   -i github.com/knative/serving/pkg/logging
 

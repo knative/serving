@@ -17,11 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,7 +157,7 @@ func TestContainerValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := validateContainer(test.c)
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})
@@ -192,7 +194,7 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -248,7 +250,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidateContainerConcurrency(test.cc, test.cm)
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -289,7 +291,7 @@ func TestServingStateValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.ss.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -313,6 +315,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "has bad serving state",
 		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
 			ServingState: "blah",
 		},
 		want: apis.ErrInvalidValue("blah", "servingState"),
@@ -339,7 +344,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rs.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -383,7 +388,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rts.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -428,13 +433,46 @@ func TestRevisionValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "do.not.use.dots",
 			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+	}, {
+		name: "invalid metadata.annotations - scale bounds",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "scale-bounds",
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "2",
+				},
+			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf("%s=%v is less than %s=%v", autoscaling.MaxScaleAnnotationKey, 2, autoscaling.MinScaleAnnotationKey, 5),
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "invalid name - too long",
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("a", 65),
+			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
 			},
 		},
 		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
@@ -443,7 +481,7 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -609,7 +647,7 @@ func TestImmutableFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.new.CheckImmutableFields(test.old)
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

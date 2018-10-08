@@ -33,8 +33,9 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
+	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
@@ -77,6 +78,8 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
+	health *healthServer = &healthServer{alive: true}
+
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	containerConcurrency     = flag.Int("containerConcurrency", 0, "")
 )
@@ -90,7 +93,7 @@ func initEnv() {
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
-	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
+	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
 }
 
 func statReporter() {
@@ -99,6 +102,9 @@ func statReporter() {
 		if statSink == nil {
 			logger.Warn("Stat sink not (yet) connected.")
 			continue
+		}
+		if !health.isAlive() {
+			s.LameDuck = true
 		}
 		sm := autoscaler.StatMessage{
 			Stat: *s,
@@ -208,12 +214,9 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 
 // Sets up /health and /quitquitquit endpoints.
 func setupAdminHandlers(server *http.Server) {
-	h := healthServer{
-		alive: true,
-	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), h.healthHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), h.quitHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
 	server.Handler = mux
 	server.ListenAndServe()
 }
@@ -238,6 +241,9 @@ func main() {
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
 
+	activatorutil.SetupHeaderPruning(httpProxy)
+	activatorutil.SetupHeaderPruning(h2cProxy)
+
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if *containerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency.
@@ -256,7 +262,7 @@ func main() {
 	kubeClient = kc
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()

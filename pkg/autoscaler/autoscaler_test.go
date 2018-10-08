@@ -32,6 +32,23 @@ func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, false)
 }
 
+func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			durationSeconds:  300, // 5 minutes
+			podCount:         1,
+		})
+
+	a.expectScale(t, now, 0, true)
+	now = now.Add(2 * time.Minute)
+	a.expectScale(t, now, 0, false) // do nothing
+}
+
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -255,6 +272,122 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
+func TestAutoscaler_NoScaleOnLessThanOnePod(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  10, // 10 seconds of 2 pods
+			podCount:         2,
+		})
+	now = a.recordLinearSeries(
+		t,
+		now,
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  50, // 50 seconds of 0 pods (lameducked)
+			podCount:         2,
+			lameduck:         true,
+		})
+	a.expectScale(t, now, 0, false)
+}
+
+func TestAutoscaler_LameDuckDoesNotCount(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	start := time.Now()
+	end := a.recordLinearSeries(
+		t,
+		start,
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  60, // 1 pod active
+			podCount:         1,
+			podIdOffset:      0,
+		})
+	a.recordLinearSeries(
+		t,
+		start,
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  60, // 1 pod lameducked
+			podCount:         1,
+			podIdOffset:      1,
+			lameduck:         true,
+		})
+	a.expectScale(t, end, 1, true) // 2 pods reporting metrics but one doesn't count
+}
+
+func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  30,
+			podCount:         10,
+		})
+	now = a.recordLinearSeries(
+		t,
+		now,
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  31, // one extra second because float and ceiling
+			podCount:         10,
+			lameduck:         true,
+		})
+	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
+}
+
+func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+
+	now := time.Now()
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName,
+		RequestCount:              0,
+		AverageConcurrentRequests: 100.0,
+	})
+
+	a.expectScale(t, now, 10, true)
+}
+
+func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  30,
+			podCount:         10,
+		})
+
+	a.expectScale(t, now, 10, true)
+
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName,
+		RequestCount:              0,
+		AverageConcurrentRequests: 1000.0,
+	})
+
+	// Scale should not change as the activator metric should
+	// be ignored
+	a.expectScale(t, now, 10, true)
+}
+
 // Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)
@@ -278,11 +411,58 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	}
 }
 
+func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	stat := Stat{
+		Time:                      nil,
+		PodName:                   "pod-1",
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              5,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+
+	if len(a.stats) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	}
+	a.expectScale(t, time.Now(), 0, false)
+}
+
+func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         1,
+		})
+
+	// Need 100 pods but only scale x10
+	a.expectScale(t, now, 10, true)
+
+	now = a.recordLinearSeries(
+		t,
+		now,
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         10,
+		})
+
+	// Scale x10 again
+	a.expectScale(t, now, 100, true)
+}
+
 type linearSeries struct {
 	startConcurrency int
 	endConcurrency   int
 	durationSeconds  int
 	podCount         int
+	podIdOffset      int
+	lameduck         bool
 }
 
 type mockReporter struct{}
@@ -333,14 +513,21 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			}
 			stat := Stat{
 				Time:                      &t,
-				PodName:                   fmt.Sprintf("pod-%v", j),
+				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
+				LameDuck:                  s.lameduck,
 			}
 			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
 	return now
+}
+
+// Record a single datapoint
+func (a *Autoscaler) recordMetric(test *testing.T, stat Stat) time.Time {
+	a.Record(TestContextWithLogger(test), stat)
+	return *stat.Time
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {

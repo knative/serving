@@ -19,14 +19,14 @@ package revision
 import (
 	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // TODO(mattmoor): This should be a helper on Build (upstream)
-func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
+func getBuildDoneCondition(build *duckv1alpha1.KResource) *duckv1alpha1.Condition {
 	for _, cond := range build.Status.Conditions {
 		if cond.Status == corev1.ConditionUnknown {
 			continue

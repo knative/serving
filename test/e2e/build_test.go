@@ -21,16 +21,23 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	testbuildv1alpha1 "github.com/knative/serving/test/apis/testing/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 )
 
-func TestBuildAndServe(t *testing.T) {
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
+
+func TestBuildSpecAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
@@ -44,11 +51,13 @@ func TestBuildAndServe(t *testing.T) {
 		Route:  test.AppendRandomString(routeName, logger),
 	}
 
-	build := &buildv1alpha1.BuildSpec{
-		Steps: []v1.Container{{
-			Image: "ubuntu",
-			Args:  []string{"echo", "built"},
-		}},
+	build := &v1alpha1.RawExtension{
+		BuildSpec: &buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Image: "ubuntu",
+				Args:  []string{"echo", "built"},
+			}},
+		},
 	}
 
 	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
@@ -87,16 +96,97 @@ func TestBuildAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildName
+	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest ready Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
-	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
+	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
+		Group:    buildv1alpha1.SchemeGroupVersion.Group,
+		Version:  buildv1alpha1.SchemeGroupVersion.Version,
+		Resource: "builds",
+	}).Namespace(test.ServingNamespace).Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
-	if cond := b.Status.GetCondition(buildv1alpha1.BuildSucceeded); cond == nil {
+	b := &duckv1alpha1.KResource{}
+	if err := duck.FromUnstructured(u, b); err != nil {
+		t.Fatalf("Failed to cast to KResource: %+v", u)
+	}
+	if cond := buildCondSet.Manage(&b.Status).GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
-	} else if cond.Status != v1.ConditionTrue {
+	} else if cond.Status != corev1.ConditionTrue {
+		t.Fatalf("Build %q was not successful", buildName)
+	}
+}
+
+func TestBuildAndServe(t *testing.T) {
+	clients := Setup(t)
+
+	// Add test case specific name to its own logger.
+	logger := logging.GetContextLogger("TestBuildAndServe")
+
+	imagePath := test.ImagePath("helloworld")
+
+	logger.Infof("Creating a new Route and Configuration with build")
+	names := test.ResourceNames{
+		Config: test.AppendRandomString(configName, logger),
+		Route:  test.AppendRandomString(routeName, logger),
+	}
+
+	build := &v1alpha1.RawExtension{
+		Object: &testbuildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: testbuildv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "Build",
+			},
+		},
+	}
+
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
+		t.Fatalf("Failed to create Configuration: %v", err)
+	}
+	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer TearDown(clients, names, logger)
+
+	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	}
+
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+	}
+	domain := route.Status.Domain
+
+	endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
+	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
+	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
+	logger.Infof("Revision is ready and serving, checking Build status.")
+	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
+	}
+	rev, err := clients.ServingClient.Revisions.Get(config.Status.LatestReadyRevisionName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get latest Revision: %v", err)
+	}
+	buildName := rev.Spec.BuildRef.Name
+	logger.Infof("Latest ready Revision is %q", rev.Name)
+	logger.Infof("Revision's Build is %q", buildName)
+	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get build for latest revision: %v", err)
+	}
+	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
+		t.Fatalf("Condition for build %q was nil", buildName)
+	} else if cond.Status != corev1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
 	}
 }
@@ -113,11 +203,19 @@ func TestBuildFailure(t *testing.T) {
 	}
 
 	// Request a build that doesn't succeed.
-	build := &buildv1alpha1.BuildSpec{
-		Steps: []v1.Container{{
-			Image: "ubuntu",
-			Args:  []string{"false"}, // build will fail.
-		}},
+	build := &v1alpha1.RawExtension{
+		Object: &testbuildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: testbuildv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "Build",
+			},
+			Spec: testbuildv1alpha1.BuildSpec{
+				Failure: &testbuildv1alpha1.FailureInfo{
+					Message: "Test build has failed",
+					Reason:  "InjectedFailure",
+				},
+			},
+		},
 	}
 
 	imagePath := test.ImagePath("helloworld")
@@ -147,16 +245,16 @@ func TestBuildFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildName
+	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest created Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
-	b, err := clients.BuildClient.Builds.Get(buildName, metav1.GetOptions{})
+	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
 	}
-	if cond := b.Status.GetCondition(buildv1alpha1.BuildSucceeded); cond == nil {
+	if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 		t.Fatalf("Condition for build %q was nil", buildName)
-	} else if cond.Status != v1.ConditionFalse {
+	} else if cond.Status != corev1.ConditionFalse {
 		t.Fatalf("Build %q was not unsuccessful", buildName)
 	}
 }

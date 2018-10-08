@@ -28,10 +28,6 @@ func ImageCache(rev *v1alpha1.Revision) string {
 	return rev.Name + "-cache"
 }
 
-func VPA(rev *v1alpha1.Revision) string {
-	return rev.Name + "-vpa"
-}
-
 func KPA(rev *v1alpha1.Revision) string {
 	// We want the KPA's "key" to match the revision,
 	// to simplify the transition to the KPA.

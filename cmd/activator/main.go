@@ -18,10 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -32,7 +34,7 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	"go.opencensus.io/exporter/prometheus"
@@ -40,6 +42,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/knative/serving/pkg/websocket"
 )
 
 const (
@@ -49,7 +53,37 @@ const (
 	maxRetries             = 18 // the sum of all retries would add up to 1 minute
 	minRetryInterval       = 100 * time.Millisecond
 	exponentialBackoffBase = 1.3
+
+	// Add a little buffer space between request handling and stat
+	// reporting so that latency in the stat pipeline doesn't
+	// interfere with request handling.
+	statReportingQueueLength = 10
+
+	// Add enough buffer to not block request serving on stats collection
+	requestCountingQueueLength = 100
 )
+
+var (
+	logger *zap.SugaredLogger
+
+	statSink *websocket.ManagedConnection
+	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+)
+
+func statReporter() {
+	for {
+		sm := <-statChan
+		if statSink == nil {
+			logger.Error("Stat sink not connected.")
+			continue
+		}
+		err := statSink.Send(sm)
+		if err != nil {
+			logger.Error("Error while sending stat", zap.Error(err))
+		}
+	}
+}
 
 func main() {
 	flag.Parse()
@@ -61,9 +95,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	defer logger.Sync()
-	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	defer createdLogger.Sync()
+	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -72,24 +106,24 @@ func main() {
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building new config", zap.Error(err))
+		logger.Fatal("Error building new kubernetes client", zap.Error(err))
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
+		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
 
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "activator"})
 	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(10 * time.Second)
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter: %v", zap.Error(err))
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
@@ -106,18 +140,30 @@ func main() {
 	}
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
+	// Open a websocket connection to the autoscaler
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace, "8080")
+	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	go statReporter()
+
+	activatorhandler.NewConcurrencyReporter(autoscaler.ActivatorPodName, activatorhandler.Channels{
+		ReqChan:    reqChan,
+		StatChan:   statChan,
+		ReportChan: time.NewTicker(time.Second).C,
+	})
+
 	ah := &activatorhandler.FilteringHandler{
-		NextHandler: &activatorhandler.ReportingHTTPHandler{
-			Reporter: reporter,
-			NextHandler: &activatorhandler.EnforceMaxContentLengthHandler{
+		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
+			&activatorhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &activatorhandler.ActivationHandler{
 					Activator: a,
 					Transport: rt,
 					Logger:    logger,
+					Reporter:  reporter,
 				},
 			},
-		},
+		),
 	}
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -135,8 +181,11 @@ func main() {
 	}
 
 	// Start the endpoint for Prometheus scraping
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", ah.ServeHTTP)
-	mux.Handle("/metrics", promExporter)
-	h2c.ListenAndServe(":8080", mux)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
+
+	h2c.ListenAndServe(":8080", ah)
 }

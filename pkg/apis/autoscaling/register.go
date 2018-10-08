@@ -17,15 +17,20 @@ limitations under the License.
 package autoscaling
 
 const (
-	GroupName = "autoscaling.internal.knative.dev"
+	InternalGroupName = "autoscaling.internal.knative.dev"
+
+	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
 	// that a particular resource has opted into. For example,
 	//   autoscaling.knative.dev/class: foo
 	// This uses a different domain because unlike the resource, it is user-facing.
-	ClassAnnotationKey = "autoscaling.knative.dev/class"
+	ClassAnnotationKey = GroupName + "/class"
+
+	MinScaleAnnotationKey = GroupName + "/minScale"
+	MaxScaleAnnotationKey = GroupName + "/maxScale"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
-	KPALabelKey = "autoscaling.knative.dev/kpa"
+	KPALabelKey = GroupName + "/kpa"
 )

@@ -26,13 +26,16 @@ spec:
   selector:
     app: zipkin
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zipkin
   namespace: istio-system
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
   template:
     metadata:
       labels:
@@ -55,9 +58,9 @@ spec:
         - name: STORAGE_TYPE
           value: elasticsearch
         - name: ES_HOSTS
-          value: elasticsearch-logging.monitoring.svc.cluster.local:9200
+          value: elasticsearch-logging.knative-monitoring.svc.cluster.local:9200
         - name: ES_INDEX
           value: zipkin
         - name: ZIPKIN_UI_LOGS_URL
-          value: http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana#/
+          value: http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/
 ---

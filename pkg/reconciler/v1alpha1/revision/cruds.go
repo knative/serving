@@ -22,30 +22,33 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/logging"
-	commonlogging "github.com/knative/pkg/logging"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
-
-	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
+	cfgs := config.FromContext(ctx)
 
-	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
-		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig())
+	deployment := resources.MakeDeployment(
+		rev,
+		cfgs.Logging,
+		cfgs.Network,
+		cfgs.Observability,
+		cfgs.Autoscaler,
+		cfgs.Controller,
+	)
 
 	// Resolve tag image references to digests.
-	if err := c.getResolver().Resolve(deployment); err != nil {
+	if err := c.resolver.Resolve(deployment, cfgs.Controller.RegistriesSkippingTagResolving); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
@@ -76,11 +79,12 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
 	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
 	desiredKPA.Spec.Generation = kpa.Spec.Generation
-	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) {
+	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) && equality.Semantic.DeepEqual(desiredKPA.Annotations, kpa.Annotations) {
 		return kpa, Unchanged, nil
 	}
 	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
 	kpa.Spec = desiredKPA.Spec
+	kpa.Annotations = desiredKPA.Annotations
 	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
 	return kpa, WasChanged, err
 }
@@ -112,46 +116,4 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 
 	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(service)
 	return d, WasChanged, err
-}
-
-func (c *Reconciler) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
-	vpa := resources.MakeVPA(rev)
-
-	return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
-}
-
-func (c *Reconciler) getNetworkConfig() *config.Network {
-	c.networkConfigMutex.Lock()
-	defer c.networkConfigMutex.Unlock()
-	return c.networkConfig.DeepCopy()
-}
-
-func (c *Reconciler) getResolver() resolver {
-	c.resolverMutex.Lock()
-	defer c.resolverMutex.Unlock()
-	return c.resolver
-}
-
-func (c *Reconciler) getControllerConfig() *config.Controller {
-	c.controllerConfigMutex.Lock()
-	defer c.controllerConfigMutex.Unlock()
-	return c.controllerConfig.DeepCopy()
-}
-
-func (c *Reconciler) getLoggingConfig() *commonlogging.Config {
-	c.loggingConfigMutex.Lock()
-	defer c.loggingConfigMutex.Unlock()
-	return c.loggingConfig.DeepCopy()
-}
-
-func (c *Reconciler) getObservabilityConfig() *config.Observability {
-	c.observabilityConfigMutex.Lock()
-	defer c.observabilityConfigMutex.Unlock()
-	return c.observabilityConfig.DeepCopy()
-}
-
-func (c *Reconciler) getAutoscalerConfig() *autoscaler.Config {
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	return c.autoscalerConfig.DeepCopy()
 }

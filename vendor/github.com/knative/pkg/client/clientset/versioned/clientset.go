@@ -20,7 +20,6 @@ package versioned
 
 import (
 	authenticationv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/authentication/v1alpha1"
-	duckv1alpha1 "github.com/knative/pkg/client/clientset/versioned/typed/duck/v1alpha1"
 	networkingv1alpha3 "github.com/knative/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -32,9 +31,6 @@ type Interface interface {
 	AuthenticationV1alpha1() authenticationv1alpha1.AuthenticationV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Authentication() authenticationv1alpha1.AuthenticationV1alpha1Interface
-	DuckV1alpha1() duckv1alpha1.DuckV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Duck() duckv1alpha1.DuckV1alpha1Interface
 	NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Networking() networkingv1alpha3.NetworkingV1alpha3Interface
@@ -45,7 +41,6 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	authenticationV1alpha1 *authenticationv1alpha1.AuthenticationV1alpha1Client
-	duckV1alpha1           *duckv1alpha1.DuckV1alpha1Client
 	networkingV1alpha3     *networkingv1alpha3.NetworkingV1alpha3Client
 }
 
@@ -58,17 +53,6 @@ func (c *Clientset) AuthenticationV1alpha1() authenticationv1alpha1.Authenticati
 // Please explicitly pick a version.
 func (c *Clientset) Authentication() authenticationv1alpha1.AuthenticationV1alpha1Interface {
 	return c.authenticationV1alpha1
-}
-
-// DuckV1alpha1 retrieves the DuckV1alpha1Client
-func (c *Clientset) DuckV1alpha1() duckv1alpha1.DuckV1alpha1Interface {
-	return c.duckV1alpha1
-}
-
-// Deprecated: Duck retrieves the default version of DuckClient.
-// Please explicitly pick a version.
-func (c *Clientset) Duck() duckv1alpha1.DuckV1alpha1Interface {
-	return c.duckV1alpha1
 }
 
 // NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
@@ -102,10 +86,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.duckV1alpha1, err = duckv1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	cs.networkingV1alpha3, err = networkingv1alpha3.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -123,7 +103,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.authenticationV1alpha1 = authenticationv1alpha1.NewForConfigOrDie(c)
-	cs.duckV1alpha1 = duckv1alpha1.NewForConfigOrDie(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -134,7 +113,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.authenticationV1alpha1 = authenticationv1alpha1.New(c)
-	cs.duckV1alpha1 = duckv1alpha1.New(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

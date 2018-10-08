@@ -17,12 +17,38 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestPodAutoscalerDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generations",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&PodAutoscaler{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(PodAutoscaler, %T) = %v", test.t, err)
+			}
+		})
+	}
+}
 
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
@@ -37,6 +63,75 @@ func TestGeneration(t *testing.T) {
 
 }
 
+func TestCanScaleToZero(t *testing.T) {
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result bool
+		grace  time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				// No LTT = beginning of time, so for sure we can.
+			}},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (LTT longer than grace period ago)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+				},
+				// LTT = 30 seconds ago.
+			}},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (LTT less than grace period ago)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionFalse,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+				},
+				// LTT = 10 seconds ago.
+			}},
+		},
+		result: false,
+		grace:  30 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -49,7 +144,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -58,7 +153,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -67,7 +162,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -76,7 +171,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type: PodAutoscalerConditionReady,
 			}},
 		},
@@ -84,7 +179,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -93,7 +188,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -105,7 +200,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -120,69 +215,6 @@ func TestIsReady(t *testing.T) {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
-	}
-}
-
-func TestGetCondition(t *testing.T) {
-	rs := PodAutoscalerStatus{}
-	if a := rs.GetCondition(PodAutoscalerConditionReady); a != nil {
-		t.Errorf("empty PodAutoscalerStatus returned %v when expected nil", a)
-	}
-
-	rc := &duck.Condition{
-		Type:   PodAutoscalerConditionActive,
-		Status: corev1.ConditionTrue,
-	}
-	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
-
-	ignoreFields := cmpopts.IgnoreFields(duck.Condition{}, "LastTransitionTime")
-	if diff := cmp.Diff(rc, rs.GetCondition(PodAutoscalerConditionActive), ignoreFields); diff != "" {
-		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-	}
-
-	if a := rs.GetCondition(PodAutoscalerConditionReady); a != nil {
-		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-}
-
-func TestPodAutoscalerConditions(t *testing.T) {
-	rev := &PodAutoscaler{}
-	foo := &duck.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &duck.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
 
@@ -220,22 +252,22 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
 }
 
-func checkConditionSucceededPodAutoscaler(rs PodAutoscalerStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionSucceededPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedPodAutoscaler(rs PodAutoscalerStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionFailedPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingPodAutoscaler(rs PodAutoscalerStatus, rct duck.ConditionType, t *testing.T) *duck.Condition {
+func checkConditionOngoingPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionPodAutoscaler(rs PodAutoscalerStatus, rct duck.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duck.Condition {
+func checkConditionPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

@@ -16,9 +16,9 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-system
@@ -36,11 +36,11 @@ rules:
   - configmaps
   verbs: ["get"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -54,7 +54,7 @@ rules:
   - configmaps
   verbs: ["get"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-system
@@ -67,7 +67,7 @@ rules:
   - pods
   verbs: ["get", "list", "watch"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-system
@@ -86,11 +86,11 @@ rules:
   - configmaps
   verbs: ["get"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -108,7 +108,7 @@ rules:
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prometheus-system
@@ -120,13 +120,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -134,9 +134,9 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prometheus-system
@@ -148,9 +148,9 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prometheus-system
@@ -162,9 +162,9 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prometheus-system
@@ -175,13 +175,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-system-np
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   type: NodePort
   selector:
@@ -194,7 +194,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: prometheus-system
-  namespace: monitoring
+  namespace: knative-monitoring
 spec:
   replicas: 2
   podManagementPolicy: Parallel

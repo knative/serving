@@ -21,10 +21,8 @@ import (
 )
 
 func (s *Service) Validate() *apis.FieldError {
-	if err := validateObjectMetadata(s.GetObjectMeta()); err != nil {
-		return err.ViaField("metadata")
-	}
-	return s.Spec.Validate().ViaField("spec")
+	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
+		Also(s.Spec.Validate().ViaField("spec"))
 }
 
 func (ss *ServiceSpec) Validate() *apis.FieldError {
@@ -48,10 +46,11 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 }
 
 func (pt *PinnedType) Validate() *apis.FieldError {
+	var errs *apis.FieldError
 	if pt.RevisionName == "" {
-		return apis.ErrMissingField("revisionName")
+		errs = apis.ErrMissingField("revisionName")
 	}
-	return pt.Configuration.Validate().ViaField("configuration")
+	return errs.Also(pt.Configuration.Validate().ViaField("configuration"))
 }
 
 func (rlt *RunLatestType) Validate() *apis.FieldError {

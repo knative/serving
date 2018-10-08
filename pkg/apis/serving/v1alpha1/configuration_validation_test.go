@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 )
 
@@ -71,12 +72,92 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
+	}, {
+		name: "build is a BuildSpec",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				BuildSpec: &buildv1alpha1.BuildSpec{
+					Steps: []corev1.Container{{
+						Image: "foo",
+					}},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "build is an Object",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Object: &buildv1alpha1.Build{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "build.knative.dev/v1alpha1",
+						Kind:       "Build",
+					},
+					Spec: buildv1alpha1.BuildSpec{
+						Steps: []corev1.Container{{
+							Image: "foo",
+						}},
+					},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "build is missing TypeMeta",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Object: &buildv1alpha1.Build{
+					Spec: buildv1alpha1.BuildSpec{
+						Steps: []corev1.Container{{
+							Image: "foo",
+						}},
+					},
+				},
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("Object 'Kind' is missing in '{\"metadata\":{\"creationTimestamp\":null},\"spec\":{\"steps\":[{\"name\":\"\",\"image\":\"foo\",\"resources\":{}}],\"timeout\":\"0s\"},\"status\":{\"startTime\":null,\"completionTime\":null,\"stepStates\":null,\"stepsCompleted\":null}}'", "build"),
+	}, {
+		name: "build is not an object",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				Raw: []byte(`"foo"`),
+			},
+			RevisionTemplate: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("json: cannot unmarshal string into Go value of type map[string]interface {}", "build"),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.c.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})
@@ -128,7 +209,8 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "do.not.use.dots",
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+		want: (&apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}}).
+			Also(apis.ErrMissingField("spec")),
 	}, {
 		name: "invalid name - too long",
 		c: &Configuration{
@@ -136,13 +218,14 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: strings.Repeat("a", 65),
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
+		want: (&apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}}).
+			Also(apis.ErrMissingField("spec")),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.c.Validate()
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})

@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -39,8 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
@@ -49,7 +47,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
+func (r *nopResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
 	return nil
 }
 
@@ -132,110 +130,116 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
-	vpaClient *fakevpaclientset.Clientset,
+	dynamicClient *fakedynamicclientset.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher,
-	vpaInformer vpainformers.SharedInformerFactory) {
+	configMapWatcher *configmap.ManualWatcher,
+	buildInformerFactory duck.InformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 	cachingClient = fakecachingclientset.NewSimpleClientset()
-	vpaClient = fakevpaclientset.NewSimpleClientset()
+	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
 
-	configMapWatcher = configmap.NewStaticWatcher(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      config.NetworkConfigName,
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      logging.ConfigName,
-		},
-		Data: map[string]string{
-			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
-			"loglevel.queueproxy": "info",
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      config.ObservabilityConfigName,
-		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         testFluentdImage,
-			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      autoscaler.ConfigName,
-		},
-		Data: map[string]string{
-			"max-scale-up-rate":                       "1.0",
-			"container-concurrency-target-percentage": "0.5",
-			"container-concurrency-target-default":    "10.0",
-			"stable-window":                           "5m",
-			"panic-window":                            "10s",
-			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
-			"tick-interval":                           "2s",
-		},
-	}, getTestControllerConfigMap())
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+
+	opt := rclr.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		CachingClientSet: cachingClient,
+		ConfigMapWatcher: configMapWatcher,
+		Logger:           TestLogger(t),
+		ResyncPeriod:     0,
+		StopChannel:      stopCh,
+	}
+	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
-	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, 0)
-	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
 
 	controller = NewController(
-		rclr.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: servingClient,
-			CachingClientSet: cachingClient,
-			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
-		},
-		vpaClient,
+		opt,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		buildInformer.Build().V1alpha1().Builds(),
 		cachingInformer.Caching().V1alpha1().Images(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
-		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
+		buildInformerFactory,
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	configs := []*corev1.ConfigMap{
+		getTestControllerConfigMap(),
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      config.NetworkConfigName,
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      logging.ConfigName,
+			},
+			Data: map[string]string{
+				"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+				"loglevel.queueproxy": "info",
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         testFluentdImage,
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      autoscaler.ConfigName,
+			},
+			Data: map[string]string{
+				"max-scale-up-rate":                       "1.0",
+				"container-concurrency-target-percentage": "0.5",
+				"container-concurrency-target-default":    "10.0",
+				"stable-window":                           "5m",
+				"panic-window":                            "10s",
+				"scale-to-zero-threshold":                 "10m",
+				"concurrency-quantum-of-time":             "100ms",
+				"tick-interval":                           "2s",
+			}},
+	}
+
+	for _, configMap := range configs {
+		configMapWatcher.OnChange(configMap)
+	}
 
 	return
 }
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	rev := getTestRevision()
 	// TODO(grantr): inserting the route at client creation is necessary
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, controller, kubeInformer, buildInformer,
-		servingInformer, _, servingSystemInformer, vpaInformer :=
-		newTestController(t, rev)
+	kubeClient, _, _, _, controller, kubeInformer,
+		servingInformer, _, servingSystemInformer, _ :=
+		newTestController(t, stopCh, rev)
 
 	h := NewHooks()
 
@@ -247,14 +251,9 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
 	kubeInformer.Start(stopCh)
-	buildInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
-	vpaInformer.Start(stopCh)
 
 	go func() {
 		if err := controller.Run(2, stopCh); err != nil {

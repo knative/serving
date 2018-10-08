@@ -26,10 +26,8 @@ import (
 )
 
 func (r *Route) Validate() *apis.FieldError {
-	if err := validateObjectMetadata(r.GetObjectMeta()); err != nil {
-		return err.ViaField("metadata")
-	}
-	return r.Spec.Validate().ViaField("spec")
+	return ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata").
+		Also(r.Spec.Validate().ViaField("spec"))
 }
 
 func (rs *RouteSpec) Validate() *apis.FieldError {
@@ -47,11 +45,11 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]namedTarget)
 
+	var errs *apis.FieldError
 	percentSum := 0
 	for i, tt := range rs.Traffic {
-		if err := tt.Validate(); err != nil {
-			return err.ViaField(fmt.Sprintf("traffic[%d]", i))
-		}
+		errs = errs.Also(tt.Validate().ViaFieldIndex("traffic", i))
+
 		percentSum += tt.Percent
 
 		if tt.Name == "" {
@@ -67,42 +65,43 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 			// No entry exists, so add ours
 			trafficMap[tt.Name] = nt
 		} else if ent.r != nt.r || ent.c != nt.c {
-			return &apis.FieldError{
+			errs = errs.Also(&apis.FieldError{
 				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
 				Paths: []string{
 					fmt.Sprintf("traffic[%d].name", ent.i),
 					fmt.Sprintf("traffic[%d].name", nt.i),
 				},
-			}
+			})
 		}
 	}
 
 	if percentSum != 100 {
-		return &apis.FieldError{
+		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("Traffic targets sum to %d, want 100", percentSum),
 			Paths:   []string{"traffic"},
-		}
+		})
 	}
-	return nil
+	return errs
 }
 
 func (tt *TrafficTarget) Validate() *apis.FieldError {
+	var errs *apis.FieldError
 	switch {
 	case tt.RevisionName != "" && tt.ConfigurationName != "":
-		return apis.ErrMultipleOneOf("revisionName", "configurationName")
+		errs = apis.ErrMultipleOneOf("revisionName", "configurationName")
 	case tt.RevisionName != "":
-		if errs := validation.IsQualifiedName(tt.RevisionName); len(errs) > 0 {
-			return apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", errs...)
+		if verrs := validation.IsQualifiedName(tt.RevisionName); len(verrs) > 0 {
+			errs = apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", verrs...)
 		}
 	case tt.ConfigurationName != "":
-		if errs := validation.IsQualifiedName(tt.ConfigurationName); len(errs) > 0 {
-			return apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", errs...)
+		if verrs := validation.IsQualifiedName(tt.ConfigurationName); len(verrs) > 0 {
+			errs = apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", verrs...)
 		}
 	default:
-		return apis.ErrMissingOneOf("revisionName", "configurationName")
+		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
 	if tt.Percent < 0 || tt.Percent > 100 {
-		return apis.ErrInvalidValue(fmt.Sprintf("%d", tt.Percent), "percent")
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%d", tt.Percent), "percent"))
 	}
-	return nil
+	return errs
 }

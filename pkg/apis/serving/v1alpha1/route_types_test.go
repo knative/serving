@@ -18,20 +18,38 @@ package v1alpha1
 import (
 	"testing"
 
-	duck "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func TestRouteGeneration(t *testing.T) {
-	r := Route{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty route generation should be 0 was: %d", a)
-	}
+func TestRouteDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}, {
+		name: "legacy targetable",
+		t:    &duckv1alpha1.LegacyTargetable{},
+	}, {
+		name: "targetable",
+		t:    &duckv1alpha1.Targetable{},
+	}}
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Route{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Route, %T) = %v", test.t, err)
+			}
+		})
 	}
 }
 
@@ -47,7 +65,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}},
@@ -56,7 +74,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -65,7 +83,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -74,7 +92,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type: RouteConditionReady,
 			}},
 		},
@@ -82,7 +100,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -91,7 +109,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -103,7 +121,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Conditions: duck.Conditions{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -120,46 +138,6 @@ func TestRouteIsReady(t *testing.T) {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
-	}
-}
-
-func TestRouteConditions(t *testing.T) {
-	svc := &Route{}
-	foo := &duck.Condition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &duck.Condition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	svc.Status.setCondition(foo)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	svc.Status.setCondition(bar)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
 
@@ -245,22 +223,22 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
-func checkConditionSucceededRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
+func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
+func checkConditionFailedRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRoute(rs RouteStatus, rct duck.ConditionType, t *testing.T) {
+func checkConditionOngoingRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRoute(rs RouteStatus, rct duck.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
+func checkConditionRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

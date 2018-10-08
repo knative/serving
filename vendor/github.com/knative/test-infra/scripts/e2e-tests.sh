@@ -103,7 +103,7 @@ function download_k8s() {
     local gke_versions=(`echo -n ${versions//;/ /}`)
     # Get first (latest) version, excluding the "-gke.#" suffix
     version="${gke_versions[0]%-*}"
-    echo "Latest GKE is ${version}, from [${versions//;/, /}]"
+    echo "Latest GKE is ${version}, from [${versions//;/, }]"
   elif [[ "${version}" == "default" ]]; then
     echo "ERROR: `default` GKE version is not supported yet"
     return 1
@@ -152,10 +152,14 @@ function dump_cluster_state() {
 
 # Create a test cluster with kubetest and call the current script again.
 function create_test_cluster() {
+  # Fail fast during setup.
+  set -o errexit
+  set -o pipefail
+
   header "Creating test cluster"
   # Smallest cluster required to run the end-to-end-tests
   local CLUSTER_CREATION_ARGS=(
-    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform"
+    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate"
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
@@ -171,6 +175,7 @@ function create_test_cluster() {
   fi
   # SSH keys are not used, but kubetest checks for their existence.
   # Touch them so if they don't exist, empty files are create to satisfy the check.
+  mkdir -p $HOME/.ssh
   touch $HOME/.ssh/google_compute_engine.pub
   touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
@@ -187,6 +192,9 @@ function create_test_cluster() {
   (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   echo "Test script is ${E2E_SCRIPT}"
   download_k8s || return 1
+  # Don't fail test for kubetest, as it might incorrectly report test failure
+  # if teardown fails (for details, see success() below)
+  set +o errexit
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
@@ -195,6 +203,8 @@ function create_test_cluster() {
     --test-cmd "${E2E_SCRIPT}" \
     --test-cmd-args "${test_cmd_args}"
   echo "Test subprocess exited with code $?"
+  # Ignore any errors below, this is a best-effort cleanup and shouldn't affect the test result.
+  set +o errexit
   # Delete target pools and health checks that might have leaked.
   # See https://github.com/knative/serving/issues/959 for details.
   # TODO(adrcunha): Remove once the leak issue is resolved.
