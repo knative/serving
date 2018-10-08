@@ -68,7 +68,6 @@ func TestMakeKPA(t *testing.T) {
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
-				ServingState:         "Active",
 				ContainerConcurrency: 1,
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
@@ -111,7 +110,6 @@ func TestMakeKPA(t *testing.T) {
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
-				ServingState:         "Reserve",
 				ContainerConcurrency: 0,
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",

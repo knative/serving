@@ -376,53 +376,9 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "deactivate", "Active", "busybox"),
 			image("foo", "deactivate", "Active", "busybox"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "deactivate", "Reserve", "busybox"),
-		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{},
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/deactivate",
-	}, {
-		Name: "failure updating kpa",
-		// Induce a failure updating the kpa
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "podautoscalers"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-kpa-failure", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-kpa-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "update-kpa-failure", "Active", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "update-kpa-failure", "Reserve", "busybox"),
-			svc("foo", "update-kpa-failure", "Reserve", "busybox"),
-			image("foo", "update-kpa-failure", "Reserve", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "update-kpa-failure", "Reserve", "busybox"),
-		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/update-kpa-failure",
 	}, {
 		Name: "deactivated revision is stable",
 		// Test a simple stable reconciliation of a Reserve Revision.
@@ -501,8 +457,6 @@ func TestReconcile(t *testing.T) {
 			image("foo", "activate-revision", "Reserve", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "activate-revision", "Active", "busybox"),
-		}, {
 			Object: makeStatus(
 				rev("foo", "activate-revision", "Active", "busybox"),
 				// After activating the Revision status looks like this.
