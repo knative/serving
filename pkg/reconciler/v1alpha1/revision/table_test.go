@@ -1659,7 +1659,6 @@ func addBuild(rev *v1alpha1.Revision, name string) *v1alpha1.Revision {
 		APIVersion: "testing.build.knative.dev/v1alpha1",
 		Kind:       "Build",
 		Name:       name,
-		Namespace:  rev.Namespace,
 	}
 	return rev
 }
