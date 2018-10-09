@@ -120,6 +120,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.Lifecycle = userLifecycle
 	userContainer.Env = append(userContainer.Env, userEnv)
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+	// Prefer imageDigest from revision if available
+	if rev.Status.ImageDigest != "" {
+		userContainer.Image = rev.Status.ImageDigest
+	}
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe)

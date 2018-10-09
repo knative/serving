@@ -34,7 +34,6 @@ import (
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/system"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,8 +46,8 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
-	return nil
+func (r *nopResolver) Resolve(_ string, _ string, _ string, _ map[string]struct{}) (string, error) {
+	return "", nil
 }
 
 const (

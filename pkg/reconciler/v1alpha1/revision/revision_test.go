@@ -348,20 +348,16 @@ type fixedResolver struct {
 	digest string
 }
 
-func (r *fixedResolver) Resolve(deploy *appsv1.Deployment, _ map[string]struct{}) error {
-	pod := deploy.Spec.Template.Spec
-	for i := range pod.Containers {
-		pod.Containers[i].Image = r.digest
-	}
-	return nil
+func (r *fixedResolver) Resolve(_ string, _ string, _ string, _ map[string]struct{}) (string, error) {
+	return r.digest, nil
 }
 
 type errorResolver struct {
 	error string
 }
 
-func (r *errorResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
-	return errors.New(r.error)
+func (r *errorResolver) Resolve(_ string, _ string, _ string, _ map[string]struct{}) (string, error) {
+	return "", errors.New(r.error)
 }
 
 func TestResolutionFailed(t *testing.T) {

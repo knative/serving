@@ -39,7 +39,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -71,7 +70,7 @@ const (
 )
 
 type resolver interface {
-	Resolve(*appsv1.Deployment, map[string]struct{}) error
+	Resolve(string, string, string, map[string]struct{}) (string, error)
 }
 
 type configStore interface {
@@ -299,6 +298,19 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 	return nil
 }
 
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {
+	if rev.Spec.Container.Image != "" && rev.Status.ImageDigest == "" {
+		cfgs := config.FromContext(ctx)
+		digest, err := c.resolver.Resolve(rev.Spec.Container.Image, rev.Namespace, rev.Spec.ServiceAccountName, cfgs.Controller.RegistriesSkippingTagResolving)
+		if err != nil {
+			rev.Status.MarkContainerMissing(err.Error())
+			return err
+		}
+		rev.Status.ImageDigest = digest
+	}
+	return nil
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
 
@@ -317,6 +329,9 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name string
 			f    func(context.Context, *v1alpha1.Revision) error
 		}{{
+			name: "image digest",
+			f:    c.reconcileDigest,
+		}, {
 			name: "user deployment",
 			f:    c.reconcileDeployment,
 		}, {
