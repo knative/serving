@@ -16,6 +16,8 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -62,6 +64,117 @@ func (r *mockReporter) ReportResponseCount(ns, service, config, rev string, resp
 
 func (r *mockReporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
 	return nil
+}
+
+func TestActivator(t *testing.T) {
+	cases := []struct {
+		name             string
+		servingState     v1alpha1.RevisionServingStateType
+		revisionLabels   map[string]string
+		want             ActivationResult
+		wantServingState v1alpha1.RevisionServingStateType
+	}{
+		{
+			name:           "active stays active",
+			servingState:   v1alpha1.RevisionServingStateActive,
+			revisionLabels: defaultRevisionLabels,
+			want: ActivationResult{
+				Endpoint:          Endpoint{testServiceFQDN, 8080},
+				Status:            http.StatusOK,
+				ServiceName:       "test-service",
+				ConfigurationName: "test-config",
+				Error:             nil,
+			},
+			wantServingState: v1alpha1.RevisionServingStateActive,
+		},
+		{
+			name:           "nil revision labels",
+			servingState:   v1alpha1.RevisionServingStateActive,
+			revisionLabels: nil,
+			want: ActivationResult{
+				Endpoint:          Endpoint{testServiceFQDN, 8080},
+				Status:            http.StatusOK,
+				ServiceName:       "",
+				ConfigurationName: "",
+				Error:             nil,
+			},
+			wantServingState: v1alpha1.RevisionServingStateActive,
+		},
+		{
+			name:           "one missing revision label",
+			servingState:   v1alpha1.RevisionServingStateActive,
+			revisionLabels: map[string]string{serving.ConfigurationLabelKey: "test-config"},
+			want: ActivationResult{
+				Endpoint:          Endpoint{testServiceFQDN, 8080},
+				Status:            http.StatusOK,
+				ServiceName:       "",
+				ConfigurationName: "test-config",
+				Error:             nil,
+			},
+			wantServingState: v1alpha1.RevisionServingStateActive,
+		},
+		{
+			name:           "reserve becomes active",
+			servingState:   v1alpha1.RevisionServingStateReserve,
+			revisionLabels: defaultRevisionLabels,
+			want: ActivationResult{
+				Endpoint:          Endpoint{testServiceFQDN, 8080},
+				Status:            http.StatusOK,
+				ServiceName:       "test-service",
+				ConfigurationName: "test-config",
+				Error:             nil,
+			},
+			wantServingState: v1alpha1.RevisionServingStateActive,
+		},
+		{
+			name:           "retired stays retired with error",
+			servingState:   v1alpha1.RevisionServingStateRetired,
+			revisionLabels: defaultRevisionLabels,
+			want: ActivationResult{
+				Endpoint:          Endpoint{},
+				Status:            http.StatusInternalServerError,
+				ServiceName:       "",
+				ConfigurationName: "",
+				Error:             errors.New("error"),
+			},
+			wantServingState: v1alpha1.RevisionServingStateRetired,
+		}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			k8s, kna := fakeClients()
+			kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder(c.revisionLabels).
+				withServingState(c.servingState).build())
+			k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+			a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+			ar := a.ActiveEndpoint(testNamespace, testRevision)
+
+			if ar.Endpoint != c.want.Endpoint {
+				t.Errorf("Wrong endpoint. Want %+v. Got %+v.", c.want.Endpoint, ar.Endpoint)
+			}
+			if ar.Status != c.want.Status {
+				t.Errorf("Unexpected status. Want %v. Got %v.", c.want.Status, ar.Status)
+			}
+			if ar.ServiceName != c.want.ServiceName {
+				t.Errorf("Unexpected service name. Want %v. Got %v.", c.want.ServiceName, ar.ServiceName)
+			}
+			if ar.ConfigurationName != c.want.ConfigurationName {
+				t.Errorf("Unexpected configuration name. Want %v. Got %v.", c.want.ConfigurationName, ar.ConfigurationName)
+			}
+			if ar.Error != nil && c.want.Error == nil {
+				t.Errorf("Unexpected error. Want no error. Got %v.", ar.Error)
+			}
+			if ar.Error == nil && c.want.Error != nil {
+				t.Errorf("Unexpected error. Want error. Got nil.")
+			}
+
+			fmt.Printf("%v, %v", testNamespace, testRevision)
+			rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+			if rev.Spec.ServingState != c.wantServingState {
+				t.Errorf("Unexpected serving state. Want %v. Got %v.", c.wantServingState, rev.Spec.ServingState)
+			}
+		})
+	}
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
