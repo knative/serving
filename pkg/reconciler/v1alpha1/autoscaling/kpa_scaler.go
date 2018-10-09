@@ -190,10 +190,15 @@ func (ks *kpaScaler) updateServingState(logger *zap.SugaredLogger, namespace, na
 		logger.Error("Unable to fetch Revision.", zap.Error(err))
 		return err
 	}
-	rev.Spec.ServingState = state
-	if _, err := revisionClient.Update(rev); err != nil {
-		logger.Error("Error updating revision serving state.", zap.Error(err))
-		return err
+
+	if rev.Spec.ServingState != state {
+		rev.Spec.ServingState = state
+		if _, err := revisionClient.Update(rev); err != nil {
+			logger.Error("Error updating revision serving state.", zap.Error(err))
+			return err
+		}
+	} else {
+		logger.Debugf("Revision's ServingState was already %v", state)
 	}
 	return nil
 }
