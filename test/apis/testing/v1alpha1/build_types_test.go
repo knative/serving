@@ -16,9 +16,28 @@ limitations under the License.
 
 package v1alpha1
 
-import "github.com/knative/pkg/apis"
+import (
+	"testing"
 
-// Validate ClusterBuildTemplate
-func (b *ClusterBuildTemplate) Validate() *apis.FieldError {
-	return validateObjectMetadata(b.GetObjectMeta()).ViaField("metadata").Also(b.Spec.Validate().ViaField("spec"))
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+)
+
+func TestBuildDuckTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Build{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Build, %T) = %v", test.t, err)
+			}
+		})
+	}
 }

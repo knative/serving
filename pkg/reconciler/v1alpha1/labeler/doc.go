@@ -14,11 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
-
-import "github.com/knative/pkg/apis"
-
-// Validate ClusterBuildTemplate
-func (b *ClusterBuildTemplate) Validate() *apis.FieldError {
-	return validateObjectMetadata(b.GetObjectMeta()).ViaField("metadata").Also(b.Spec.Validate().ViaField("spec"))
-}
+// Package labeler holds the logic that applies Route labels to
+// Configurations to implement knative/serving#226.  We run this
+// as a separate reconciliation because we may choose to relax the
+// 1:N relationship between Route:Configuration in the future.
+package labeler

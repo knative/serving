@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"time"
 
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -119,8 +118,7 @@ func NewController(
 		},
 	})
 
-	// TODO(mattmoor): We should have a ResyncPeriod in reconciler.Options
-	c.tracker = tracker.New(impl.EnqueueKey, 30*time.Minute)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.tracker.OnChanged,
 		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
@@ -239,13 +237,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
 		r.Status.MarkUnknownTrafficError(err.Error())
-		return r, err
-	}
-
-	// If the only errors are missing traffic target, we need to
-	// update the labels first, so that when these targets recover we
-	// receive an update.
-	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
 	if badTarget != nil && isTargetError {

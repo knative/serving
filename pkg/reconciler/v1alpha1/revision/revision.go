@@ -68,12 +68,6 @@ type Changed bool
 const (
 	WasChanged Changed = true
 	Unchanged  Changed = false
-
-	// TrackerLeaseFactor is the multiple of the controller resync period to use
-	// as the duration for tracker leases. This attempts to ensure that resyncs
-	// happen to refresh leases frequently enough that we don't miss updates to
-	// tracked objects.
-	TrackerLeaseFactor = 3
 )
 
 type resolver interface {
@@ -171,7 +165,7 @@ func NewController(
 		},
 	})
 
-	c.tracker = tracker.New(impl.EnqueueKey, opt.ResyncPeriod*TrackerLeaseFactor)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
