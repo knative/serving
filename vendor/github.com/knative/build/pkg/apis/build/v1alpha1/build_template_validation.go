@@ -1,16 +1,24 @@
+/*
+Copyright 2018 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
-	"strings"
-
 	"github.com/knative/pkg/apis"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	maxLength = 63
 )
 
 // Validate build template
@@ -23,7 +31,7 @@ func (b *BuildTemplateSpec) Validate() *apis.FieldError {
 	if err := validateSteps(b.Steps); err != nil {
 		return err
 	}
-	if err := validateVolumes(b.Volumes); err != nil {
+	if err := ValidateVolumes(b.Volumes); err != nil {
 		return err
 	}
 	if err := validateParameters(b.Parameters); err != nil {
@@ -32,38 +40,9 @@ func (b *BuildTemplateSpec) Validate() *apis.FieldError {
 	return nil
 }
 
-func validateObjectMetadata(meta metav1.Object) *apis.FieldError {
-	name := meta.GetName()
-
-	if strings.Contains(name, ".") {
-		return &apis.FieldError{
-			Message: "Invalid resource name: special character . must not be present",
-			Paths:   []string{"name"},
-		}
-	}
-
-	if len(name) > maxLength {
-		return &apis.FieldError{
-			Message: "Invalid resource name: length must be no more than 63 characters",
-			Paths:   []string{"name"},
-		}
-	}
-	return nil
-}
-
-func validateParameters(params []ParameterSpec) *apis.FieldError {
-	// Template must not duplicate parameter names.
-	seen := map[string]struct{}{}
-	for _, p := range params {
-		if _, ok := seen[p.Name]; ok {
-			return apis.ErrInvalidKeyName("ParamName", "b.spec.params")
-		}
-		seen[p.Name] = struct{}{}
-	}
-	return nil
-}
-
-func validateVolumes(volumes []corev1.Volume) *apis.FieldError {
+//ValidateVolumes validates collection of volumes that are available to mount into the
+// steps of the build ot build template.
+func ValidateVolumes(volumes []corev1.Volume) *apis.FieldError {
 	// Build must not duplicate volume names.
 	vols := map[string]struct{}{}
 	for _, v := range volumes {
@@ -90,6 +69,18 @@ func validateSteps(steps []corev1.Container) *apis.FieldError {
 			return apis.ErrMultipleOneOf("stepName")
 		}
 		names[s.Name] = struct{}{}
+	}
+	return nil
+}
+
+func validateParameters(params []ParameterSpec) *apis.FieldError {
+	// Template must not duplicate parameter names.
+	seen := map[string]struct{}{}
+	for _, p := range params {
+		if _, ok := seen[p.Name]; ok {
+			return apis.ErrInvalidKeyName("ParamName", "b.spec.params")
+		}
+		seen[p.Name] = struct{}{}
 	}
 	return nil
 }

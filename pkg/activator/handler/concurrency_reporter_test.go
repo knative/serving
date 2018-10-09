@@ -45,7 +45,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 				Time:                      &now,
 				PodName:                   autoscaler.ActivatorPodName,
 				AverageConcurrentRequests: 2.0,
-				RequestCount:              0,
+				RequestCount:              2,
 			},
 		},
 		&autoscaler.StatMessage{
@@ -54,7 +54,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 				Time:                      &now,
 				PodName:                   autoscaler.ActivatorPodName,
 				AverageConcurrentRequests: 1.0,
-				RequestCount:              0,
+				RequestCount:              1,
 			},
 		},
 	})
@@ -70,7 +70,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 				Time:                      &now,
 				PodName:                   autoscaler.ActivatorPodName,
 				AverageConcurrentRequests: 1.0,
-				RequestCount:              0,
+				RequestCount:              0, // no new request arrived after reporting
 			},
 		},
 	})

@@ -246,9 +246,14 @@ func main() {
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if *containerConcurrency > 0 {
-		// We set the queue depth to be equal to the container concurrency.
-		breaker = queue.NewBreaker(int32(*containerConcurrency), int32(*containerConcurrency))
-		logger.Infof("Queue container is starting with queueDepth and containerConcurrency: %s", *containerConcurrency)
+		// We set the queue depth to be equal to the container concurrency but at least 10 to
+		// allow the autoscaler to get a strong enough signal.
+		queueDepth := *containerConcurrency
+		if queueDepth < 10 {
+			queueDepth = 10
+		}
+		breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
+		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, *containerConcurrency)
 	}
 
 	config, err := rest.InClusterConfig()

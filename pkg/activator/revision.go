@@ -77,21 +77,6 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 
 	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
 	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, string(revision.Spec.ServingState), 1.0)
-	switch revision.Spec.ServingState {
-	default:
-		return nil, fmt.Errorf("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
-	case v1alpha1.RevisionServingStateRetired:
-		return nil, errors.New("Disregarding activation request for retired revision")
-	case v1alpha1.RevisionServingStateActive:
-		// Revision is already active. Nothing to do
-	case v1alpha1.RevisionServingStateReserve:
-		// Activate the revision
-		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		if _, err := revisionClient.Update(revision); err != nil {
-			return nil, errors.Wrap(err, "Failed to activate revision")
-		}
-		logger.Info("Activated revision")
-	}
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {
