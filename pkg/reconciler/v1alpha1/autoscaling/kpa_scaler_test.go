@@ -138,11 +138,18 @@ func TestKPAScaler(t *testing.T) {
 	}, {
 		label:         "scale up inactive revision",
 		startState:    v1alpha1.RevisionServingStateReserve,
-		startReplicas: 0,
+		startReplicas: 1,
 		scaleTo:       10,
-		wantState:     v1alpha1.RevisionServingStateActive,
-		wantReplicas:  10,
+		wantState:     v1alpha1.RevisionServingStateReserve,
+		wantReplicas:  0,
 		wantScaling:   true,
+		kpaMutation: func(k *kpa.PodAutoscaler) {
+			k.Status.Conditions = duckv1alpha1.Conditions{{
+				Type:   "Active",
+				Status: "False",
+				// No LTT == a long long time ago
+			}}
+		},
 	}, {
 		label:         "scales up from zero with no metrics",
 		startState:    v1alpha1.RevisionServingStateActive,
