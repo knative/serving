@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -70,7 +71,7 @@ const (
 )
 
 type resolver interface {
-	Resolve(string, string, string, map[string]struct{}) (string, error)
+	Resolve(string, k8schain.Options, map[string]struct{}) (string, error)
 }
 
 type configStore interface {
@@ -305,7 +306,13 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	}
 
 	cfgs := config.FromContext(ctx)
-	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, rev.Namespace, rev.Spec.ServiceAccountName, cfgs.Controller.RegistriesSkippingTagResolving)
+	opt := k8schain.Options{
+		Namespace:          rev.Namespace,
+		ServiceAccountName: rev.Spec.ServiceAccountName,
+		// ImagePullSecrets: Not possible via RevisionSpec, since we
+		// don't expose such a field.
+	}
+	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
 		rev.Status.MarkContainerMissing(err.Error())
 		return err

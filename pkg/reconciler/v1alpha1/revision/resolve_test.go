@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -155,7 +156,11 @@ func TestResolve(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	resolvedDigest, err := dr.Resolve(tag.String(), ns, svcacct, emptyRegistrySet)
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+	resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
 	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
@@ -180,8 +185,11 @@ func TestResolveWithDigest(t *testing.T) {
 	})
 	originalDigest := "ubuntu@sha256:e7def0d56013d50204d73bb588d99e0baa7d69ea1bc1157549b898eb67287612"
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-
-	resolvedDigest, err := dr.Resolve(originalDigest, ns, svcacct, emptyRegistrySet)
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+	resolvedDigest, err := dr.Resolve(originalDigest, opt, emptyRegistrySet)
 	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
@@ -201,9 +209,14 @@ func TestResolveWithBadTag(t *testing.T) {
 	})
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
 
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+
 	// Invalid character
 	invalidImage := "ubuntu%latest"
-	if resolvedDigest, err := dr.Resolve(invalidImage, ns, svcacct, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(invalidImage, opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -236,7 +249,11 @@ func TestResolveWithPingFailure(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	if resolvedDigest, err := dr.Resolve(tag.String(), ns, svcacct, emptyRegistrySet); err == nil {
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -269,7 +286,11 @@ func TestResolveWithManifestFailure(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	if resolvedDigest, err := dr.Resolve(tag.String(), ns, svcacct, emptyRegistrySet); err == nil {
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -278,8 +299,12 @@ func TestResolveNoAccess(t *testing.T) {
 	ns, svcacct := "foo", "default"
 	client := fakeclient.NewSimpleClientset()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
 	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if resolvedDigest, err := dr.Resolve("ubuntu:latest", ns, svcacct, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve("ubuntu:latest", opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -319,7 +344,12 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		"localhost:5000": {},
 	}
 
-	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", ns, svcacct, registriesToSkip)
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+
+	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", opt, registriesToSkip)
 	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}

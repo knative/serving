@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -46,7 +47,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ string, _ string, _ string, _ map[string]struct{}) (string, error) {
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
 	return "", nil
 }
 

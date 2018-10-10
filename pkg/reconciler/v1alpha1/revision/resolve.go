@@ -35,16 +35,9 @@ type digestResolver struct {
 // Resolve resolves the image references that use tags to digests.
 func (r *digestResolver) Resolve(
 	image string,
-	namespace string,
-	serviceAccountName string,
+	opt k8schain.Options,
 	registriesToSkip map[string]struct{},
 ) (string, error) {
-	opt := k8schain.Options{
-		Namespace:          namespace,
-		ServiceAccountName: serviceAccountName,
-		// ImagePullSecrets: Not possible via RevisionSpec, since we
-		// don't expose such a field.
-	}
 	kc, err := k8schain.New(r.client, opt)
 	if err != nil {
 		return "", err
