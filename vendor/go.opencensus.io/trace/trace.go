@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"go.opencensus.io/internal"
+	"go.opencensus.io/trace/tracestate"
 )
 
 // Span represents a span of a trace.  It has an associated SpanContext, and
@@ -43,7 +44,9 @@ type Span struct {
 	spanContext SpanContext
 	// spanStore is the spanStore this span belongs to, if any, otherwise it is nil.
 	*spanStore
-	exportOnce sync.Once
+	endOnce sync.Once
+
+	executionTracerTaskEnd func() // ends the execution tracer span
 }
 
 // IsRecordingEvents returns true if events are being recorded for this span.
@@ -86,6 +89,7 @@ type SpanContext struct {
 	TraceID      TraceID
 	SpanID       SpanID
 	TraceOptions TraceOptions
+	Tracestate   *tracestate.Tracestate
 }
 
 type contextKey struct{}
@@ -96,8 +100,8 @@ func FromContext(ctx context.Context) *Span {
 	return s
 }
 
-// WithSpan returns a new context with the given Span attached.
-func WithSpan(parent context.Context, s *Span) context.Context {
+// NewContext returns a new context with the given Span attached.
+func NewContext(parent context.Context, s *Span) context.Context {
 	return context.WithValue(parent, contextKey{}, s)
 }
 
@@ -125,34 +129,61 @@ type StartOptions struct {
 	SpanKind int
 }
 
+// StartOption apply changes to StartOptions.
+type StartOption func(*StartOptions)
+
+// WithSpanKind makes new spans to be created with the given kind.
+func WithSpanKind(spanKind int) StartOption {
+	return func(o *StartOptions) {
+		o.SpanKind = spanKind
+	}
+}
+
+// WithSampler makes new spans to be be created with a custom sampler.
+// Otherwise, the global sampler is used.
+func WithSampler(sampler Sampler) StartOption {
+	return func(o *StartOptions) {
+		o.Sampler = sampler
+	}
+}
+
 // StartSpan starts a new child span of the current span in the context. If
 // there is no span in the context, creates a new trace and span.
 //
-// This is provided as a convenience for WithSpan(ctx, NewSpan(...)). Use it
-// if you require custom spans in addition to the default spans provided by
-// ocgrpc, ochttp or similar framework integration.
-func StartSpan(ctx context.Context, name string) (context.Context, *Span) {
-	parentSpan, _ := ctx.Value(contextKey{}).(*Span)
-	span := NewSpan(name, parentSpan, StartOptions{})
-	return WithSpan(ctx, span), span
-}
-
-// NewSpan returns a new span.
-//
-// If parent is not nil, created span will be a child of the parent.
-func NewSpan(name string, parent *Span, o StartOptions) *Span {
-	hasParent := false
-	var parentSpanContext SpanContext
-	if parent != nil {
-		hasParent = true
-		parentSpanContext = parent.SpanContext()
+// Returned context contains the newly created span. You can use it to
+// propagate the returned span in process.
+func StartSpan(ctx context.Context, name string, o ...StartOption) (context.Context, *Span) {
+	var opts StartOptions
+	var parent SpanContext
+	if p := FromContext(ctx); p != nil {
+		parent = p.spanContext
 	}
-	return startSpanInternal(name, hasParent, parentSpanContext, false, o)
+	for _, op := range o {
+		op(&opts)
+	}
+	span := startSpanInternal(name, parent != SpanContext{}, parent, false, opts)
+
+	ctx, end := startExecutionTracerTask(ctx, name)
+	span.executionTracerTaskEnd = end
+	return NewContext(ctx, span), span
 }
 
-// NewSpanWithRemoteParent returns a new span with the given parent SpanContext.
-func NewSpanWithRemoteParent(name string, parent SpanContext, o StartOptions) *Span {
-	return startSpanInternal(name, true, parent, true, o)
+// StartSpanWithRemoteParent starts a new child span of the span from the given parent.
+//
+// If the incoming context contains a parent, it ignores. StartSpanWithRemoteParent is
+// preferred for cases where the parent is propagated via an incoming request.
+//
+// Returned context contains the newly created span. You can use it to
+// propagate the returned span in process.
+func StartSpanWithRemoteParent(ctx context.Context, name string, parent SpanContext, o ...StartOption) (context.Context, *Span) {
+	var opts StartOptions
+	for _, op := range o {
+		op(&opts)
+	}
+	span := startSpanInternal(name, parent != SpanContext{}, parent, true, opts)
+	ctx, end := startExecutionTracerTask(ctx, name)
+	span.executionTracerTaskEnd = end
+	return NewContext(ctx, span), span
 }
 
 func startSpanInternal(name string, hasParent bool, parent SpanContext, remoteParent bool, o StartOptions) *Span {
@@ -215,20 +246,23 @@ func (s *Span) End() {
 	if !s.IsRecordingEvents() {
 		return
 	}
-	s.exportOnce.Do(func() {
-		// TODO: optimize to avoid this call if sd won't be used.
-		sd := s.makeSpanData()
-		sd.EndTime = internal.MonotonicEndTime(sd.StartTime)
-		if s.spanStore != nil {
-			s.spanStore.finished(s, sd)
+	s.endOnce.Do(func() {
+		if s.executionTracerTaskEnd != nil {
+			s.executionTracerTaskEnd()
 		}
-		if s.spanContext.IsSampled() {
-			// TODO: consider holding exportersMu for less time.
-			exportersMu.Lock()
-			for e := range exporters {
-				e.ExportSpan(sd)
+		exp, _ := exporters.Load().(exportersMap)
+		mustExport := s.spanContext.IsSampled() && len(exp) > 0
+		if s.spanStore != nil || mustExport {
+			sd := s.makeSpanData()
+			sd.EndTime = internal.MonotonicEndTime(sd.StartTime)
+			if s.spanStore != nil {
+				s.spanStore.finished(s, sd)
 			}
-			exportersMu.Unlock()
+			if mustExport {
+				for e := range exp {
+					e.ExportSpan(sd)
+				}
+			}
 		}
 	})
 }
@@ -255,6 +289,16 @@ func (s *Span) SpanContext() SpanContext {
 		return SpanContext{}
 	}
 	return s.spanContext
+}
+
+// SetName sets the name of the span, if it is recording events.
+func (s *Span) SetName(name string) {
+	if !s.IsRecordingEvents() {
+		return
+	}
+	s.mu.Lock()
+	s.data.Name = name
+	s.mu.Unlock()
 }
 
 // SetStatus sets the status of the span, if it is recording events.
@@ -428,22 +472,28 @@ func init() {
 
 type defaultIDGenerator struct {
 	sync.Mutex
-	traceIDRand *rand.Rand
+
+	// Please keep these as the first fields
+	// so that these 8 byte fields will be aligned on addresses
+	// divisible by 8, on both 32-bit and 64-bit machines when
+	// performing atomic increments and accesses.
+	// See:
+	// * https://github.com/census-instrumentation/opencensus-go/issues/587
+	// * https://github.com/census-instrumentation/opencensus-go/issues/865
+	// * https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	nextSpanID uint64
+	spanIDInc  uint64
+
 	traceIDAdd  [2]uint64
-	nextSpanID  uint64
-	spanIDInc   uint64
+	traceIDRand *rand.Rand
 }
 
 // NewSpanID returns a non-zero span ID from a randomly-chosen sequence.
-// mu should be held while this function is called.
 func (gen *defaultIDGenerator) NewSpanID() [8]byte {
-	gen.Lock()
-	id := gen.nextSpanID
-	gen.nextSpanID += gen.spanIDInc
-	if gen.nextSpanID == 0 {
-		gen.nextSpanID += gen.spanIDInc
+	var id uint64
+	for id == 0 {
+		id = atomic.AddUint64(&gen.nextSpanID, gen.spanIDInc)
 	}
-	gen.Unlock()
 	var sid [8]byte
 	binary.LittleEndian.PutUint64(sid[:], id)
 	return sid
