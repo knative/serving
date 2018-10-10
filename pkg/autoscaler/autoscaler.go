@@ -105,11 +105,15 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	for _, pod := range agg.perPodAggregations {
 		podCount += pod.usageRatio(now)
 	}
+
+	// Discount the activator in the pod count.
 	if agg.containsActivatorMetrics {
-		// Discount the activator in the pod count
-		if podCount > 1.0 {
-			return podCount - 1.0
+		discountedPodCount := podCount - 1.0
+		// Report a minimum of 1 pod if the activator is sending metrics.
+		if discountedPodCount < 1.0 {
+			return 1.0
 		}
+		return discountedPodCount
 	}
 	return podCount
 }
