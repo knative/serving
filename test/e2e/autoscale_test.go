@@ -84,11 +84,14 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					requestID := totalRequests + 1
 					totalRequests = requestID
 					mux.Unlock()
+					start := time.Now()
 					res, err := client.Do(req)
 					if err != nil {
 						logger.Errorf("error making request %v", err)
 						continue
 					}
+					duration := time.Now().Sub(start)
+					logger.Infof("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
 						logger.Errorf("request %d failed", requestID)
