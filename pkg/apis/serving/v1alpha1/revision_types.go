@@ -226,7 +226,7 @@ type RevisionStatus struct {
 	LogURL string `json:"logUrl,omitempty"`
 
 	// ImageDigest holds the resolved digest for the image specified
-	// within .Spec.Container. The digest is resolved during the creation
+	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.

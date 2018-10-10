@@ -299,15 +299,20 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 }
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {
-	if rev.Spec.Container.Image != "" && rev.Status.ImageDigest == "" {
-		cfgs := config.FromContext(ctx)
-		digest, err := c.resolver.Resolve(rev.Spec.Container.Image, rev.Namespace, rev.Spec.ServiceAccountName, cfgs.Controller.RegistriesSkippingTagResolving)
-		if err != nil {
-			rev.Status.MarkContainerMissing(err.Error())
-			return err
-		}
-		rev.Status.ImageDigest = digest
+	// The image digest has already been resolved.
+	if rev.Status.ImageDigest != "" {
+		return nil
 	}
+
+	cfgs := config.FromContext(ctx)
+	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, rev.Namespace, rev.Spec.ServiceAccountName, cfgs.Controller.RegistriesSkippingTagResolving)
+	if err != nil {
+		rev.Status.MarkContainerMissing(err.Error())
+		return err
+	}
+
+	rev.Status.ImageDigest = digest
+
 	return nil
 }
 
