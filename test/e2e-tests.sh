@@ -192,6 +192,7 @@ if (( ! RUN_TESTS )); then
   fi
   # SSH keys are not used, but kubetest checks for their existence.
   # Touch them so if they don't exist, empty files are create to satisfy the check.
+  mkdir -p $HOME/.ssh
   touch $HOME/.ssh/google_compute_engine.pub
   touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
