@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -38,7 +37,6 @@ func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
 	if rs.ServiceName == "" {
 		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-	errs = errs.Also(rs.ServingState.Validate().ViaField("servingState"))
 	if err := rs.ConcurrencyModel.Validate(); err != nil {
 		errs = errs.Also(err.ViaField("concurrencyModel"))
 	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
@@ -70,9 +68,7 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
 	}
 
-	// The autoscaler is allowed to change ServingState, but consider the rest.
-	ignoreServingState := cmpopts.IgnoreFields(PodAutoscalerSpec{}, "ServingState")
-	if diff := cmp.Diff(original.Spec, current.Spec, ignoreServingState); diff != "" {
+	if diff := cmp.Diff(original.Spec, current.Spec); diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
