@@ -43,11 +43,10 @@ type Config struct {
 	ContainerConcurrencyTargetDefault    float64
 
 	// General autoscaler algorithm configuration.
-	MaxScaleUpRate           float64
-	StableWindow             time.Duration
-	PanicWindow              time.Duration
-	TickInterval             time.Duration
-	ConcurrencyQuantumOfTime time.Duration
+	MaxScaleUpRate float64
+	StableWindow   time.Duration
+	PanicWindow    time.Duration
+	TickInterval   time.Duration
 
 	ScaleToZeroThreshold   time.Duration
 	ScaleToZeroGracePeriod time.Duration
@@ -137,9 +136,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field:        &lc.ScaleToZeroGracePeriod,
 		optional:     true,
 		defaultValue: 2 * time.Minute,
-	}, {
-		key:   "concurrency-quantum-of-time",
-		field: &lc.ConcurrencyQuantumOfTime,
 	}, {
 		key:   "tick-interval",
 		field: &lc.TickInterval,

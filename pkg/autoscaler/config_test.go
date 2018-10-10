@@ -78,7 +78,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
@@ -90,7 +89,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
 			ScaleToZeroIdlePeriod:                8 * time.Minute,
-			ConcurrencyQuantumOfTime:             100 * time.Millisecond,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -104,7 +102,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
@@ -118,7 +115,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
 			ScaleToZeroIdlePeriod:                8 * time.Minute,
-			ConcurrencyQuantumOfTime:             100 * time.Millisecond,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -132,7 +128,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
@@ -146,7 +141,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
 			ScaleToZeroIdlePeriod:                8 * time.Minute,
-			ConcurrencyQuantumOfTime:             100 * time.Millisecond,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -160,7 +154,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
@@ -172,7 +165,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
 			ScaleToZeroIdlePeriod:                8 * time.Minute,
-			ConcurrencyQuantumOfTime:             100 * time.Millisecond,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -187,7 +179,6 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "60s",
 			"scale-to-zero-grace-period":              "30s",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
@@ -199,7 +190,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroThreshold:                 60 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			ScaleToZeroIdlePeriod:                30 * time.Second,
-			ConcurrencyQuantumOfTime:             100 * time.Millisecond,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -210,7 +200,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		wantErr: true,
@@ -222,7 +211,6 @@ func TestNewConfig(t *testing.T) {
 			"container-concurrency-target-default":    "10.0",
 			"stable-window":                           "5m",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		wantErr: true,
@@ -235,7 +223,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		wantErr: true,
@@ -248,7 +235,6 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "not a duration",
 			"panic-window":                            "10s",
 			"scale-to-zero-threshold":                 "10m",
-			"concurrency-quantum-of-time":             "100ms",
 			"tick-interval":                           "2s",
 		},
 		wantErr: true,
