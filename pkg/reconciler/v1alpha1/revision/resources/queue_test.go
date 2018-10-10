@@ -65,7 +65,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+			Args: []string{"-containerConcurrency=1"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
@@ -120,7 +120,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
-			Args:  []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+			Args:  []string{"-containerConcurrency=1"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
@@ -179,7 +179,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+			Args: []string{"-containerConcurrency=0"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "baz", // matches namespace
@@ -236,7 +236,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+			Args: []string{"-containerConcurrency=0"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "log", // matches namespace
@@ -288,7 +288,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=10"},
+			Args: []string{"-containerConcurrency=10"},
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
