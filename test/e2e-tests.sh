@@ -133,13 +133,20 @@ function dump_stack_info() {
   echo "***************************************"
 }
 
+function publish_test_images() {
+  local image_dirs="$(find ${SERVING_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
+}
+
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
   kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$3 ${options}
+  report_go_test -v -tags=e2e -count=1 -timeout=20m ./test/$1 ${options}
 
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
@@ -178,7 +185,7 @@ if (( ! RUN_TESTS )); then
   header "Creating test cluster"
   # Smallest cluster required to run the end-to-end-tests
   CLUSTER_CREATION_ARGS=(
-    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform"
+    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate"
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
@@ -192,6 +199,7 @@ if (( ! RUN_TESTS )); then
   fi
   # SSH keys are not used, but kubetest checks for their existence.
   # Touch them so if they don't exist, empty files are create to satisfy the check.
+  mkdir -p $HOME/.ssh
   touch $HOME/.ssh/google_compute_engine.pub
   touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
@@ -279,6 +287,7 @@ if (( USING_EXISTING_CLUSTER )); then
 fi
 
 create_everything
+publish_test_images
 
 # Handle failures ourselves, so we can dump useful info.
 set +o errexit
@@ -291,9 +300,9 @@ abort_if_failed
 
 # Run the tests
 
-run_e2e_tests conformance pizzaplanet conformance
+run_e2e_tests conformance pizzaplanet
 result=$?
-run_e2e_tests e2e noodleburg e2e
+run_e2e_tests e2e noodleburg
 [[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the
