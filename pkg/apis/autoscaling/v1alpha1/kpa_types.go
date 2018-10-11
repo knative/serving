@@ -68,12 +68,6 @@ type PodAutoscalerSpec struct {
 	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
-	// ServingState holds a value describing the desired state the Kubernetes
-	// resources should be in for this PodAutoscaler.
-	// TODO(josephburnett): Remove this when the metrics pipeline is sufficient.
-	// +optional
-	ServingState servingv1alpha1.RevisionServingStateType `json:"servingState,omitempty"`
-
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the scale target. Defaults to Multi.
 	// Deprecated in favor of ContainerConcurrency.
