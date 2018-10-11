@@ -332,8 +332,8 @@ func TestNoEndpointsReserve(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "False" {
-		t.Errorf("GetCondition(Ready) = %v, wanted False", cond)
+	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
+		t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
 	}
 }
 
@@ -393,8 +393,8 @@ func TestReserveWithEndpoints(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "False" {
-		t.Errorf("GetCondition(Ready) = %v, wanted False", cond)
+	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
+		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
 	}
 }
 
