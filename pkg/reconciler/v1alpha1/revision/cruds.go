@@ -72,21 +72,6 @@ func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kp
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
 }
 
-func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revision, kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, Changed, error) {
-	logger := logging.FromContext(ctx)
-
-	desiredKPA := resources.MakeKPA(rev)
-	desiredKPA.Spec.Generation = kpa.Spec.Generation
-	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) && equality.Semantic.DeepEqual(desiredKPA.Annotations, kpa.Annotations) {
-		return kpa, Unchanged, nil
-	}
-	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
-	kpa.Spec = desiredKPA.Spec
-	kpa.Annotations = desiredKPA.Annotations
-	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
-	return kpa, WasChanged, err
-}
-
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
 
 func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory) (*corev1.Service, error) {
