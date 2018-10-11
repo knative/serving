@@ -337,49 +337,6 @@ func TestReconcile(t *testing.T) {
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
 	}, {
-		Name: "deactivate a revision",
-		// Test the transition that's made when Reserve is set.
-		// We initialize the world to a stable Active state, but make the
-		// Revision's ServingState Reserve.  We then looks for the expected
-		// mutations, which should include reducing the Deployments to 0 replicas
-		// and deleting the Kubernetes Service resources.
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
-				rev("foo", "deactivate", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			kpa("foo", "deactivate", "Active", "busybox"),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "deactivate", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "deactivate", "Active", "busybox"),
-			image("foo", "deactivate", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/deactivate",
-	}, {
 		Name: "deactivated revision is stable",
 		// Test a simple stable reconciliation of a Reserve Revision.
 		// We feed in a Revision and the resources it controls in a steady
