@@ -18,8 +18,10 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -77,7 +79,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "split-defaulting",
+		name: "split-timeout-retry-defaulting",
 		in: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
@@ -109,13 +111,19 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								// Percent is filled in.
 								Percent: 100,
 							}},
+							// Timeout and Retries are filled in.
+							Timeout: &metav1.Duration{Duration: DefaultTimeout},
+							Retries: &HTTPRetry{
+								PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
+								Attempts:      DefaultRetryCount,
+							},
 						}},
 					},
 				}},
 			},
 		},
 	}, {
-		name: "split-not-defaulting",
+		name: "split-timeout-retry-not-defaulting",
 		in: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
@@ -136,6 +144,11 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								},
 								Percent: 70,
 							}},
+							Timeout: &metav1.Duration{Duration: 10 * time.Second},
+							Retries: &HTTPRetry{
+								PerTryTimeout: &metav1.Duration{Duration: 10 * time.Second},
+								Attempts:      2,
+							},
 						}},
 					},
 				}},
@@ -163,6 +176,77 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								// Percent is kept intact.
 								Percent: 70,
 							}},
+							// Timeout and Retries are kept intact.
+							Timeout: &metav1.Duration{Duration: 10 * time.Second},
+							Retries: &HTTPRetry{
+								PerTryTimeout: &metav1.Duration{Duration: 10 * time.Second},
+								Attempts:      2,
+							},
+						}},
+					},
+				}},
+			},
+		},
+	}, {
+		name: "perTryTimeout-in-retry-defaulting",
+		in: &ClusterIngress{
+			Spec: IngressSpec{
+				Rules: []ClusterIngressRule{{
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								Percent: 30,
+							}, {
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-001",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								Percent: 70,
+							}},
+							Timeout: &metav1.Duration{Duration: 10 * time.Second},
+							Retries: &HTTPRetry{
+								Attempts: 2,
+							},
+						}},
+					},
+				}},
+			},
+		},
+		want: &ClusterIngress{
+			Spec: IngressSpec{
+				Rules: []ClusterIngressRule{{
+					HTTP: &HTTPClusterIngressRuleValue{
+						Paths: []HTTPClusterIngressPath{{
+							Splits: []ClusterIngressBackendSplit{{
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								// Percent is kept intact.
+								Percent: 30,
+							}, {
+								Backend: &ClusterIngressBackend{
+									ServiceName:      "revision-001",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+								// Percent is kept intact.
+								Percent: 70,
+							}},
+							// Timeout and Retries are kept intact.
+							Timeout: &metav1.Duration{Duration: 10 * time.Second},
+							Retries: &HTTPRetry{
+								// PerTryTimeout is filled in.
+								PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
+								Attempts:      2,
+							},
 						}},
 					},
 				}},
