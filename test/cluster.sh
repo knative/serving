@@ -61,11 +61,13 @@ function create_monitoring() {
 }
 
 function create_everything() {
-  create_istio
-  create_serving
-  create_test_resources
+  if [[ -z $USING_EXISTING_SERVING ]]; then
+    create_istio
+    create_serving     
+  fi
   # TODO(#2122): Re-enable once we have monitoring e2e.
   # create_monitoring
+  create_test_resources
 }
 
 function delete_istio() {
@@ -98,8 +100,10 @@ function delete_everything() {
   # TODO(#2122): Re-enable once we have monitoring e2e.
   # delete_monitoring
   delete_test_resources
-  delete_serving
-  delete_istio
+  if [[ -z $USING_EXISTING_SERVING ]]; then
+    delete_serving
+    delete_istio
+  fi  
 }
 
 function wait_until_cluster_up() {
