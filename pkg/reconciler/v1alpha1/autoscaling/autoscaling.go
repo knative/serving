@@ -209,19 +209,17 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 		}
 	}
 	want := metric.DesiredScale
-	logger.Infof("KPA got=%v, want=%v (%v)", got, want, kpa.Spec.ServingState)
+	logger.Infof("KPA got=%v, want=%v", got, want)
 
-	// TODO(josephburnett): Remove ServingState once scale to
-	// zero decisions don't bounce off of zero.
 	switch {
-	case want == 0 || kpa.Spec.ServingState != "Active":
+	case want == 0 || want == -1:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
 	case got == 0 && want > 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0 && (kpa.Spec.ServingState == "Active"):
+	case got > 0:
 		kpa.Status.MarkActive()
 	}
 
