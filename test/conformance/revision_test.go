@@ -90,7 +90,7 @@ func TestRevisionCreation(t *testing.T) {
 	logger.Infof("The Revision will be updated with the digest of the image once it is created")
 	imageDigest, err := getImageDigest(clients, names)
 	if err != nil {
-		t.Fatalf("Revision %s was not updated with the image digest: %v, names.Config", names.Revision, err)
+		t.Fatalf("Revision %s was not updated with the image digest: %v", names.Revision, err)
 	}
 
 	logger.Infof("The image digest should be for the given image")
