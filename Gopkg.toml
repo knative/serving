@@ -61,6 +61,10 @@ required = [
   # It seems to be broken at HEAD.
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
+[[override]]
+  name = "github.com/census-ecosystem/opencensus-go-exporter-stackdriver"
+  version = "0.6.0"
+
 [prune]
   go-tests = true
   unused-packages = true
