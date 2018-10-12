@@ -62,13 +62,15 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `serving-tests`:
+2. The `knative-testing` resources:
+    ```bash
+    ko apply -f test/config
+    ```
+3. The namespace `serving-tests`:
     ```bash
     kubectl create namespace serving-tests
-
-    kubectl label namespace serving-tests istio-injection=enabled    
     ```
-3. A docker repo containing [the test images](#test-images)
+4. A docker repo containing [the test images](#test-images)
 
 ### Common Flags
 
