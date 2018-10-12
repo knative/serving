@@ -75,6 +75,24 @@ func (o *ObjectSorter) ObjectsForSchemeFunc(funcs ...func(scheme *runtime.Scheme
 	return o.ObjectsForScheme(scheme)
 }
 
+func (o *ObjectSorter) ObjectsOfType(obj runtime.Object) []runtime.Object {
+	objType := reflect.TypeOf(obj).Elem()
+
+	indexer, ok := o.cache[objType]
+
+	if !ok {
+		panic(fmt.Sprintf("objects for type %v doesn't exist", objType.Name()))
+	}
+
+	var objs []runtime.Object
+
+	for _, obj := range indexer.List() {
+		objs = append(objs, obj.(runtime.Object))
+	}
+
+	return objs
+}
+
 func (o *ObjectSorter) IndexerForObjectType(obj runtime.Object) cache.Indexer {
 	objType := reflect.TypeOf(obj).Elem()
 
