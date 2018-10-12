@@ -574,13 +574,15 @@ func TestIsRevisionStale(t *testing.T) {
 	staleTime := curTime.Add(-10 * time.Minute)
 
 	tests := []struct {
-		name string
-		rev  *v1alpha1.Revision
-		want bool
+		name      string
+		rev       *v1alpha1.Revision
+		latestRev string
+		want      bool
 	}{{
 		name: "new no lastPinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
 				CreationTimestamp: metav1.Time{curTime},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "1",
@@ -592,6 +594,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "old no lastPinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "1",
@@ -603,6 +606,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "stale lastPinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "1",
@@ -615,6 +619,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "not stale lastPinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "1",
@@ -627,6 +632,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "stale within miniumGenerations",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
 				Annotations: map[string]string{
 					serving.ConfigurationGenerationAnnotationKey: "2",
@@ -635,15 +641,45 @@ func TestIsRevisionStale(t *testing.T) {
 			},
 		},
 		want: false,
+	}, {
+		name: "stale latest ready revision",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		latestRev: "myrev",
+		want:      false,
 	}}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, _ := isRevisionStale(&gc.Config{
+	cfgStore := testConfigStore{
+		config: &config.Config{
+			RevisionGC: &gc.Config{
 				StaleRevisionCreateDelay:        5 * time.Minute,
 				StaleRevisionTimeout:            5 * time.Minute,
 				StaleRevisionMinimumGenerations: 2,
-			}, test.rev, 3)
+			},
+		},
+	}
+	ctx := cfgStore.ToContext(context.TODO())
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := &v1alpha1.Configuration{
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 3,
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestReadyRevisionName: test.latestRev,
+				},
+			}
+
+			got := isRevisionStale(ctx, test.rev, cfg)
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
 			}

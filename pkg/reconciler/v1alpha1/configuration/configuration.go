@@ -38,7 +38,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
@@ -265,14 +264,7 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	}
 
 	for _, rev := range revs {
-		gcConfig := configns.FromContext(ctx).RevisionGC
-
-		if isStale, err := isRevisionStale(gcConfig, rev, config.Spec.Generation); err != nil {
-			logger.Errorf("Failed to determine staleness of revision: %v", err)
-			continue
-		} else if isStale {
-			lastPinStr, _ := rev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
-			logger.Infof("Removing stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPinStr)
+		if isRevisionStale(ctx, rev, config) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.Errorf("Failed to delete stale revision: %v", err)
@@ -283,31 +275,42 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	return nil
 }
 
-func isRevisionStale(cfg *gc.Config, rev *v1alpha1.Revision, curGeneration int64) (bool, error) {
+func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+	cfg := configns.FromContext(ctx).RevisionGC
+	logger := logging.FromContext(ctx)
+
 	// maxGen is the maximum generation number we consider for GC
-	maxGen := curGeneration - cfg.StaleRevisionMinimumGenerations
+	maxGen := config.Spec.Generation - cfg.StaleRevisionMinimumGenerations
+
+	if config.Status.LatestReadyRevisionName == rev.Name {
+		return false
+	}
 
 	// Check if rev is within "MinimumGenerations" of latest
 	if gen, err := rev.GetConfigurationGeneration(); err != nil {
-		return false, err
+		logger.Errorf("Failed to determine revision configuration generation: %v", err)
+		return false
 	} else if gen > maxGen {
-		return false, nil
+		return false
 	}
 
 	curTime := time.Now()
 	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
 		// Revision was created sooner than staleRevisionCreateDelay. Ignore it
-		return false, nil
+		return false
 	}
 
 	lastPin, err := rev.GetLastPinned()
 	if err != nil {
-		if err.(v1alpha1.LastPinnedParseError).Type == v1alpha1.AnnotationParseErrorTypeMissing {
-			return false, nil
-		} else {
-			return false, err
+		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+			logger.Errorf("Failed to determine revision last pinned: %v", err)
 		}
+		return false
 	}
 
-	return lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime), nil
+	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	if ret {
+		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
+	}
+	return ret
 }
