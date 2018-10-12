@@ -29,25 +29,16 @@ import (
 
 	"github.com/knative/serving/pkg/system"
 
-	"k8s.io/client-go/dynamic"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
-	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/signals"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	v1alpha1reconciler "github.com/knative/serving/pkg/reconciler/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/routephase"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 )
 
@@ -82,62 +73,56 @@ func main() {
 		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	resync := 10 * time.Hour // Based on controller-runtime default.
+	trackerLease := 3 * resync
+
+	deps, err := v1alpha1reconciler.NewDependencyFactory(cfg, resync)
+
 	if err != nil {
-		logger.Fatalf("Error building kubernetes clientset: %v", err)
+		logger.Fatalf("Error initializing: %v", err)
 	}
 
-	sharedClient, err := sharedclientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building shared clientset: %v", err)
-	}
-
-	servingClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building serving clientset: %v", err)
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building build clientset: %v", err)
-	}
-
-	cachingClient, err := cachingclientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building caching clientset: %v", err)
-	}
-
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(deps.Kubernetes.Client, system.Namespace)
 
 	opt := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		ServingClientSet: servingClient,
-		CachingClientSet: cachingClient,
-		DynamicClientSet: dynamicClient,
+		KubeClientSet:    deps.Kubernetes.Client,
+		SharedClientSet:  deps.Shared.Client,
+		ServingClientSet: deps.Serving.Client,
+		CachingClientSet: deps.Caching.Client,
+		DynamicClientSet: deps.Dynamic.Client,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
-		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
+		ResyncPeriod:     resync,
 		StopChannel:      stopCh,
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, opt.ResyncPeriod)
-	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
-	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
-	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
-	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
-	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
-	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
-	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
-	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
+	serviceInformer := deps.Serving.InformerFactory.Serving().V1alpha1().Services()
+	routeInformer := deps.Serving.InformerFactory.Serving().V1alpha1().Routes()
+	configurationInformer := deps.Serving.InformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := deps.Serving.InformerFactory.Serving().V1alpha1().Revisions()
+	kpaInformer := deps.Serving.InformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+
+	deploymentInformer := deps.Kubernetes.InformerFactory.Apps().V1().Deployments()
+	coreServiceInformer := deps.Kubernetes.InformerFactory.Core().V1().Services()
+	endpointsInformer := deps.Kubernetes.InformerFactory.Core().V1().Endpoints()
+	configMapInformer := deps.Kubernetes.InformerFactory.Core().V1().ConfigMaps()
+	imageInformer := deps.Caching.InformerFactory.Caching().V1alpha1().Images()
+
+	routeController, err := v1alpha1reconciler.NewController(
+		logger,
+		routephase.New,
+		"route-controller",
+		"Routes",
+		configMapWatcher,
+		deps,
+		trackerLease,
+	)
+
+	if err != nil {
+		logger.Fatalf("unable to initialize route controller - %v", err)
+	}
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
@@ -158,20 +143,13 @@ func main() {
 			configMapInformer,
 			buildInformerFactory,
 		),
-		route.NewController(
-			opt,
-			routeInformer,
-			configurationInformer,
-			revisionInformer,
-			coreServiceInformer,
-			virtualServiceInformer,
-		),
 		labeler.NewRouteToConfigurationController(
 			opt,
 			routeInformer,
 			configurationInformer,
 			revisionInformer,
 		),
+		routeController,
 		service.NewController(
 			opt,
 			serviceInformer,
@@ -184,32 +162,16 @@ func main() {
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 
 	// These are non-blocking.
-	kubeInformerFactory.Start(stopCh)
-	sharedInformerFactory.Start(stopCh)
-	servingInformerFactory.Start(stopCh)
-	cachingInformerFactory.Start(stopCh)
+	deps.StartInformers(stopCh)
+
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
-	for i, synced := range []cache.InformerSynced{
-		serviceInformer.Informer().HasSynced,
-		routeInformer.Informer().HasSynced,
-		configurationInformer.Informer().HasSynced,
-		revisionInformer.Informer().HasSynced,
-		kpaInformer.Informer().HasSynced,
-		imageInformer.Informer().HasSynced,
-		deploymentInformer.Informer().HasSynced,
-		coreServiceInformer.Informer().HasSynced,
-		endpointsInformer.Informer().HasSynced,
-		configMapInformer.Informer().HasSynced,
-		virtualServiceInformer.Informer().HasSynced,
-	} {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %v to sync", i)
-		}
+	if err := deps.WaitForInformerCacheSync(stopCh); err != nil {
+		logger.Fatalf(err.Error())
 	}
 
 	// Start all of the controllers.

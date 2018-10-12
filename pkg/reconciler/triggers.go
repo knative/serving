@@ -17,7 +17,12 @@ limitations under the License.
 package reconciler
 
 import (
+	"fmt"
+
+	"github.com/knative/pkg/controller"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -62,3 +67,70 @@ type (
 		Triggers() []Trigger
 	}
 )
+
+type (
+	// informerFactory is a consumer interface type for SetupTriggers
+	informerFactory interface {
+		InformerFor(schema.GroupVersionKind) (cache.SharedIndexInformer, error)
+	}
+
+	// tracker is a consumer interface type for SetupTriggers
+	objectTracker interface {
+		OnChanged(obj interface{})
+	}
+)
+
+// SetupTriggers will setup the correct informers and callbacks if the
+// provided object conforms to WithTriggers interface.
+//
+// It returns no error if the object does not conform to the WithTriggers interface.
+func SetupTriggers(obj interface{}, queue WorkQueue, tracker objectTracker, factory informerFactory) error {
+	holder, ok := obj.(WithTriggers)
+
+	if !ok {
+		return nil
+	}
+
+	for _, trigger := range holder.Triggers() {
+
+		if trigger.ObjectKind.Empty() {
+			return errors.New("trigger ObjectKind must not be empty")
+		}
+
+		informer, err := factory.InformerFor(trigger.ObjectKind)
+		if err != nil {
+			return err
+		}
+
+		var enqueue func(obj interface{})
+
+		switch trigger.EnqueueType {
+		case EnqueueObject:
+			enqueue = queue.Enqueue
+			break
+		case EnqueueOwner:
+			enqueue = queue.EnqueueControllerOf
+		case EnqueueTracker:
+			enqueue = tracker.OnChanged
+		default:
+			return fmt.Errorf("unknown trigger enqueue type %q", trigger.EnqueueType)
+		}
+
+		var handler cache.ResourceEventHandler = cache.ResourceEventHandlerFuncs{
+			AddFunc:    enqueue,
+			UpdateFunc: controller.PassNew(enqueue),
+			DeleteFunc: enqueue,
+		}
+
+		if !trigger.OwnerKind.Empty() {
+			handler = cache.FilteringResourceEventHandler{
+				FilterFunc: controller.Filter(trigger.OwnerKind),
+				Handler:    handler,
+			}
+		}
+
+		informer.AddEventHandler(handler)
+	}
+
+	return nil
+}
