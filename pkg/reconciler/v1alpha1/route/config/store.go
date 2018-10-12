@@ -42,7 +42,7 @@ type Store struct {
 	*config.UntypedStore
 }
 
-func NewStore(logger config.Logger) *Store {
+func NewStore(logger config.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: config.NewUntypedStore(
 			"route",
@@ -50,6 +50,7 @@ func NewStore(logger config.Logger) *Store {
 			config.Constructors{
 				DomainConfigName: NewDomainFromConfigMap,
 			},
+			onAfterStore...,
 		),
 	}
 

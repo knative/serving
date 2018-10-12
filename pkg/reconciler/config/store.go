@@ -53,6 +53,8 @@ type UntypedStore struct {
 
 	storages     map[string]*atomic.Value
 	constructors map[string]reflect.Value
+
+	onAfterStore []func(name string, value interface{})
 }
 
 // NewUntypedStore creates an UntypedStore with given name,
@@ -71,13 +73,15 @@ type UntypedStore struct {
 func NewUntypedStore(
 	name string,
 	logger Logger,
-	constructors Constructors) *UntypedStore {
+	constructors Constructors,
+	onAfterStore ...func(name string, value interface{})) *UntypedStore {
 
 	store := &UntypedStore{
 		name:         name,
 		logger:       logger,
 		storages:     make(map[string]*atomic.Value),
 		constructors: make(map[string]reflect.Value),
+		onAfterStore: onAfterStore,
 	}
 
 	for configName, constructor := range constructors {
@@ -155,4 +159,10 @@ func (s *UntypedStore) OnConfigChanged(c *corev1.ConfigMap) {
 
 	s.logger.Infof("%s config %q config was added or updated: %v", s.name, name, result)
 	storage.Store(result)
+
+	go func() {
+		for _, f := range s.onAfterStore {
+			f(name, result)
+		}
+	}()
 }
