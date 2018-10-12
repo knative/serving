@@ -209,11 +209,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		logger.Fatalf("Error during initial scale up: %v", err)
 	}
 	logger.Info("Waiting for scale up")
-	err = test.WaitForDeploymentState(
+	err = pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
+		test.ServingNamespace,
 		2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
@@ -224,11 +225,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    traffic.`)
 
 	logger.Infof("Waiting for scale to zero")
-	err = test.WaitForDeploymentState(
+	err = pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
+		test.ServingNamespace,
 		scaleToZeroThreshold+2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
@@ -238,7 +240,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	// Account for the case where scaling up uses all available pods.
 	logger.Infof("Wait for all pods to terminate.")
 
-	err = test.WaitForPodListState(
+	err = pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
@@ -248,7 +250,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods")
+		"WaitForAvailablePods",
+		test.ServingNamespace)
 	if err != nil {
 		logger.Fatalf(`Waiting for Pod.List to have no non-Evicted pods: %v`, err)
 	}
@@ -259,11 +262,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error during final scale up: %v", err)
 	}
-	err = test.WaitForDeploymentState(
+	err = pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentScaledUp",
+		test.ServingNamespace,
 		2*time.Minute)
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling

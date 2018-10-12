@@ -134,9 +134,10 @@ func getAPIServerExtensionCACert(cl kubernetes.Interface) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pem, ok := c.Data["requestheader-client-ca-file"]
+	const caFileName = "requestheader-client-ca-file"
+	pem, ok := c.Data[caFileName]
 	if !ok {
-		return nil, fmt.Errorf("cannot find ca.crt in %v: ConfigMap.Data is %#v", name, c.Data)
+		return nil, fmt.Errorf("cannot find %s in ConfigMap %s: ConfigMap.Data is %#v", caFileName, name, c.Data)
 	}
 	return []byte(pem), nil
 }
