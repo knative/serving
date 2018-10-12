@@ -38,3 +38,16 @@ func CleanupOnInterrupt(cleanup func(), logger *logging.BaseLogger) {
 		}
 	}()
 }
+
+func doNothing(){
+
+}
+
+func uncoveredFunc(){
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+}
