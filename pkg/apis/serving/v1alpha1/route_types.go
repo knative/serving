@@ -17,12 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"fmt"
+	"reflect"
 
+	"github.com/imdario/mergo"
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -223,4 +226,60 @@ func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
 // conditions by implementing the duckv1alpha1.Conditions interface.
 func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
+}
+
+// MergePartial will take non-zero attributes from 'partial' and
+// apply them
+//
+// For Conditions the merge uses a ConditionManager for setting
+// the partial's conditions to the receiving status.
+//
+// For TrafficTargets if the partial's targets are set it will replace
+// the receiving status's traffic targets
+func (rs *RouteStatus) MergePartial(partial *RouteStatus) error {
+	err := mergo.Merge(rs, partial,
+		mergo.WithOverride,
+		mergo.WithAppendSlice,
+		mergo.WithTransformers(routeStatusSkipTransformer{}),
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to merge route status: %v", err)
+	}
+
+	// We manually merge conditions since we want to use the condition manager
+	rsManager := routeCondSet.Manage(rs)
+	for _, cond := range partial.Conditions {
+		rsManager.SetCondition(cond)
+	}
+
+	// If the partial has traffic targets this should override the
+	// destination's targets
+	if len(partial.Traffic) != 0 {
+		// deep copy
+		rs.Traffic = make([]TrafficTarget, 0, len(partial.Traffic))
+
+		for _, traffic := range partial.Traffic {
+			rs.Traffic = append(rs.Traffic, traffic)
+		}
+	}
+
+	return nil
+}
+
+// This transformer skips merging a RouteStatus's Conditions and TrafficTargets
+type routeStatusSkipTransformer struct{}
+
+func (ct routeStatusSkipTransformer) Transformer(t reflect.Type) func(dst, src reflect.Value) error {
+	switch t {
+	case reflect.TypeOf(duckv1alpha1.Conditions{}):
+		fallthrough
+	case reflect.TypeOf([]TrafficTarget{}):
+		return func(dst, src reflect.Value) error {
+			return nil
+		}
+	default:
+		return nil
+	}
+
 }

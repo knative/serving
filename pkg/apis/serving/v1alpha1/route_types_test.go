@@ -16,8 +16,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -221,6 +223,88 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	r.Status.MarkRevisionFailed("cannot-find-image")
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestRouteStatusMerge(t *testing.T) {
+
+	// A condition set may ignore the last transition time when
+	// determining if it should set a condition.
+	//
+	// Someone of the tests below should ignore the last transition time
+	// during comparisions to match the condition set behaviour
+	ignoreLastTransitionTime := cmp.FilterPath(func(p cmp.Path) bool {
+		return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
+	}, cmp.Ignore())
+
+	t.Run("conditions merge", func(t *testing.T) {
+		status := &RouteStatus{}
+		status.InitializeConditions()
+		status.MarkTrafficAssigned()
+
+		partial := &RouteStatus{}
+		partial.MarkRevisionFailed("revision-name")
+
+		err := status.MergePartial(partial)
+
+		if err != nil {
+			t.Fatalf("unexpected error merging route status: %v", err)
+		}
+
+		if got, want := len(status.GetConditions()), 2; got != want {
+			t.Errorf("unexpected route status condition count: got %d want %d", got, want)
+		}
+
+		expected := &RouteStatus{}
+		expected.InitializeConditions()
+		expected.MarkRevisionFailed("revision-name")
+
+		if diff := cmp.Diff(expected, status, ignoreLastTransitionTime); diff != "" {
+			t.Errorf("unexpected diff (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("empty traffic targets is a no-op", func(t *testing.T) {
+		status := &RouteStatus{}
+		status.Traffic = []TrafficTarget{{
+			Name: "some-target",
+		}}
+
+		expected := status.DeepCopy()
+
+		partial := &RouteStatus{}
+		partial.Traffic = []TrafficTarget{}
+
+		err := status.MergePartial(partial)
+
+		if err != nil {
+			t.Fatalf("unexpected error merging route status: %v", err)
+		}
+
+		if diff := cmp.Diff(expected, status, ignoreLastTransitionTime); diff != "" {
+			t.Errorf("unexpected diff (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("traffic target overwrite", func(t *testing.T) {
+		status := &RouteStatus{}
+		status.Traffic = []TrafficTarget{{Name: "some-target"}}
+
+		partial := &RouteStatus{}
+		partial.Traffic = []TrafficTarget{{Name: "some-other-target"}}
+
+		expected := partial
+
+		err := status.MergePartial(partial)
+
+		if err != nil {
+			t.Fatalf("unexpected error merging route status: %v", err)
+		}
+
+		if diff := cmp.Diff(expected, status, ignoreLastTransitionTime); diff != "" {
+			t.Errorf("unexpected diff (-want, +got)\n%s", diff)
+		}
+
+	})
 }
 
 func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {

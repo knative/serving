@@ -44,6 +44,10 @@ const (
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
 // which Gateways and Hosts that it applies to, as well as the routing rules.
 func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.VirtualService {
+	return MakeVirtualService2(u.Status.Domain, u, tc)
+}
+
+func MakeVirtualService2(domain string, u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.VirtualService {
 	return &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.VirtualService(u),
@@ -51,7 +55,7 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 			Labels:          map[string]string{"route": u.Name},
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(u)},
 		},
-		Spec: makeVirtualServiceSpec(u, tc.Targets),
+		Spec: makeVirtualServiceSpec(domain, u, tc.Targets),
 	}
 }
 
@@ -67,8 +71,7 @@ func dedup(strs []string) []string {
 	return unique
 }
 
-func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha3.VirtualServiceSpec {
-	domain := u.Status.Domain
+func makeVirtualServiceSpec(domain string, u *v1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha3.VirtualServiceSpec {
 	spec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Knative shared
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -105,7 +108,8 @@ func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []stri
 		// Nameless traffic targets correspond to many domains: the
 		// Route.Status.Domain, and also various names of the Route's
 		// headless Service.
-		domains = []string{domain,
+		domains = []string{
+			domain,
 			names.K8sServiceFullname(u),
 			fmt.Sprintf("%s.%s.svc", u.Name, u.Namespace),
 			fmt.Sprintf("%s.%s", u.Name, u.Namespace),
