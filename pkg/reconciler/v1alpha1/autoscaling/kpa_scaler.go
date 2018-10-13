@@ -38,7 +38,7 @@ import (
 // kpaScaler scales the target of a KPA up or down including scaling to zero.
 type kpaScaler struct {
 	servingClientSet clientset.Interface
-	scalesGetter     scale.ScalesGetter
+	scaleClientSet   scale.ScalesGetter
 	logger           *zap.SugaredLogger
 
 	// autoscalerConfig could change over time and access to it
@@ -52,7 +52,7 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) KPAScaler {
 	ks := &kpaScaler{
 		servingClientSet: servingClientSet,
-		scalesGetter:     scaleClientSet,
+		scaleClientSet:   scaleClientSet,
 		logger:           logger,
 	}
 
