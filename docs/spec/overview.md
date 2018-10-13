@@ -45,7 +45,6 @@ over time, and enables users to easily rollback to a prior revision.
 Revisions that are addressable via a Route will have resource
 utilization proportional to the load they are under.
 
-
 ## Configuration
 
 A **Configuration** describes the desired latest Revision state, and
@@ -78,8 +77,7 @@ The owned Configurations' Ready conditions are surfaced as the Service's
 ConfigurationsReady condition. The owned Routes' Ready conditions are
 surfaced as the Service's RoutesReady condition.
 
-
-# Orchestration
+## Orchestration
 
 The system will be configured to disallow users from creating
 ([NYI](https://github.com/knative/serving/issues/664)) or changing

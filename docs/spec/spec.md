@@ -7,13 +7,13 @@ schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 Resource paths in the Knative Serving API have the following standard k8s form:
 
-```
+```http
 /apis/{apiGroup}/{apiVersion}/namespaces/{metadata.namespace}/{kind}/{metadata.name}
 ```
 
 For example:
 
-```
+```http
 /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
@@ -23,13 +23,13 @@ cluster-wide DNS name. While no particular URL scheme is mandated
 mapping), a common implementation would be to use the kubernetes
 namespace mechanism to produce a URL like the following:
 
-```
+```http
 [$revisionname].$route.$namespace.<common knative cluster suffix>
 ```
 
 For example:
 
-```
+```http
 prod.my-service.default.mydomain.com
 ```
 
@@ -52,7 +52,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the Service automatically filled in   
+    knative.dev/service: ...  # name of the Service automatically filled in
 
   # system generated meta
   uid: ...
@@ -104,12 +104,10 @@ status:
   observedGeneration: ...  # last generation being reconciled
 ```
 
-
 ### Configuration
 
 For a high-level description of Configurations,
 [see the overview](overview.md#configuration).
-
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -140,7 +138,7 @@ spec:
       annotations: ...
       labels: ...
     spec: ...
-  
+
   revisionTemplate:  # template for building Revision
     metadata: ...
       labels:
@@ -200,7 +198,6 @@ status:
     message: "Unable to start because container is missing and build failed."
   observedGeneration: ...  # last generation being reconciled
 ```
-
 
 ### Revision
 
@@ -310,16 +307,14 @@ status:
   imageDigest: gcr.io/my-project/...@sha256:60ab5...
 ```
 
-
 ## Service
 
 For a high-level description of Services,
 [see the overview](overview.md#service).
 
-
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
-kind: Service	
+kind: Service
 metadata:
   name: myservice
   namespace: default

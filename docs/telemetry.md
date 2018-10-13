@@ -163,7 +163,7 @@ config/monitoring/200-common/300-prometheus/100-scrape-config.yaml:
 
 5.Redeploy prometheus and its configuration:
 
-```sh
+```shell
 kubectl delete -f config/monitoring/200-common/300-prometheus
 kubectl apply -f config/monitoring/200-common/300-prometheus
 ```
@@ -178,7 +178,7 @@ Troubleshooting section above to enable Prometheus UI)
 
 ## Distributed tracing with Zipkin
 
-Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go) 
+Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go)
 as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
 
 ## Delete monitoring components
