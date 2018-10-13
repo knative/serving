@@ -38,7 +38,7 @@ import (
 // kpaScaler scales the target of a KPA up or down including scaling to zero.
 type kpaScaler struct {
 	servingClientSet clientset.Interface
-	scaleClientSet   scale.ScalesGetter
+	scalesGetter     scale.ScalesGetter
 	logger           *zap.SugaredLogger
 
 	// autoscalerConfig could change over time and access to it
@@ -52,7 +52,7 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) KPAScaler {
 	ks := &kpaScaler{
 		servingClientSet: servingClientSet,
-		scaleClientSet:   scaleClientSet,
+		scalesGetter:     scaleClientSet,
 		logger:           logger,
 	}
 
@@ -120,7 +120,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	resourceName := kpa.Spec.ScaleTargetRef.Name
 
 	// Identify the current scale.
-	scl, err := ks.scaleClientSet.Scales(kpa.Namespace).Get(resource, resourceName)
+	scl, err := ks.scalesGetter.Scales(kpa.Namespace).Get(resource, resourceName)
 	if err != nil {
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
 		return err
@@ -172,7 +172,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
-	_, err = ks.scaleClientSet.Scales(kpa.Namespace).Update(resource, scl)
+	_, err = ks.scalesGetter.Scales(kpa.Namespace).Update(resource, scl)
 	if err != nil {
 		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
 		return err
