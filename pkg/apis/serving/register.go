@@ -29,6 +29,8 @@ const (
 
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
+	// The key can also be attached to ClusterIngress resources to indicate
+	// which Route triggered their creation.
 	RouteLabelKey = GroupName + "/route"
 
 	// RevisionLabelKey is the label key attached to k8s resources to indicate
