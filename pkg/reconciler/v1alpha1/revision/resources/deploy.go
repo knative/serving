@@ -93,15 +93,15 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 
-	userPort, bIsFind := getUserPort(userContainer.Ports)
-	if !bIsFind {
+	userPort, found := getUserPort(userContainer.Ports)
+	if !found {
 		userPort = &corev1.ContainerPort{
 			Name:          userPortName,
 			ContainerPort: int32(defaultUserPort),
 		}
 		userContainer.Ports = append(userContainer.Ports, *userPort)
 	}
-	userPortEnv := getUserPortEnv(userPort)
+	userPortEnv := buildUserPortEnv(userPort)
 	userContainer.Env = append(userContainer.Env, userPortEnv)
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 	// Prefer imageDigest from revision if available
@@ -116,7 +116,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig, &userPortEnv),
+			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig, buildQueueProxyExtraEnv(userPort)),
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -141,13 +141,24 @@ func getUserPort(ports []corev1.ContainerPort) (*corev1.ContainerPort, bool) {
 	return nil, false
 }
 
-func getUserPortEnv(userPort *corev1.ContainerPort) corev1.EnvVar {
+func buildUserPortEnv(userPort *corev1.ContainerPort) corev1.EnvVar {
 	// Expose containerPort as env PORT.
 	userPortEnv := corev1.EnvVar{
 		Name:  userPortEnvName,
 		Value: strconv.Itoa(int(userPort.ContainerPort)),
 	}
 	return userPortEnv
+}
+
+func buildQueueProxyExtraEnv(userPort *corev1.ContainerPort) []corev1.EnvVar {
+	queueContainerExtraEnv := []corev1.EnvVar{
+		{
+			Name:  "USER_PORT",
+			Value:  strconv.Itoa(int(userPort.ContainerPort)),
+		},
+	}
+
+	return queueContainerExtraEnv
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,

@@ -149,7 +149,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8888", // match user port
 				}},
 			}},
@@ -309,7 +309,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -396,7 +396,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -492,7 +492,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -586,7 +586,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -682,7 +682,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -774,7 +774,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},
@@ -857,7 +857,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}, {
@@ -992,7 +992,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
 				}, {
-					Name:  "PORT",
+					Name:  "USER_PORT",
 					Value: "8080",
 				}},
 			}},

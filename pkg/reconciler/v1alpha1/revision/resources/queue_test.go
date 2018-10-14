@@ -42,7 +42,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc       *logging.Config
 		ac       *autoscaler.Config
 		cc       *config.Controller
-		userport *corev1.EnvVar
+		userport *corev1.ContainerPort
 		want     *corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
@@ -59,9 +59,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.EnvVar{
+		userport: &corev1.ContainerPort{
 			Name:  userPortEnvName,
-			Value: strconv.Itoa(defaultUserPort),
+			ContainerPort: defaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -99,7 +99,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
 			}, {
-				Name: "PORT",
+				Name: "USER_PORT",
 				Value: strconv.Itoa(defaultUserPort),
 			}},
 		},
@@ -120,9 +120,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
 		},
-		userport: &corev1.EnvVar{
+		userport: &corev1.ContainerPort{
 			Name:  userPortEnvName,
-			Value: strconv.Itoa(defaultUserPort),
+			ContainerPort: defaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -161,7 +161,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
 			}, {
-				Name: "PORT",
+				Name: "USER_PORT",
 				Value: strconv.Itoa(defaultUserPort),
 			}},
 		},
@@ -187,9 +187,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.EnvVar{
+		userport: &corev1.ContainerPort{
 			Name:  userPortEnvName,
-			Value: strconv.Itoa(defaultUserPort),
+			ContainerPort: defaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -227,7 +227,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
 			}, {
-				Name: "PORT",
+				Name: "USER_PORT",
 				Value: strconv.Itoa(defaultUserPort),
 			}},
 		},
@@ -251,9 +251,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.EnvVar{
+		userport: &corev1.ContainerPort{
 			Name:  userPortEnvName,
-			Value: strconv.Itoa(defaultUserPort),
+			ContainerPort: defaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -291,7 +291,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_LOGGING_LEVEL",
 				Value: "error", // from logging config
 			}, {
-				Name: "PORT",
+				Name: "USER_PORT",
 				Value: strconv.Itoa(defaultUserPort),
 			}},
 		},
@@ -310,9 +310,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.EnvVar{
+		userport: &corev1.ContainerPort{
 			Name:  userPortEnvName,
-			Value: strconv.Itoa(defaultUserPort),
+			ContainerPort: defaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -350,7 +350,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
 			}, {
-				Name: "PORT",
+				Name: "USER_PORT",
 				Value: strconv.Itoa(defaultUserPort),
 			}},
 		},
@@ -358,7 +358,7 @@ func TestMakeQueueContainer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makeQueueContainer(test.rev, test.lc, test.ac, test.cc, test.userport)
+			got := makeQueueContainer(test.rev, test.lc, test.ac, test.cc, buildQueueProxyExtraEnv(test.userport))
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
