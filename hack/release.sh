@@ -34,7 +34,7 @@ readonly MONITORING_LEAN_YAML=monitoring-lean.yaml
 
 # Script entry point
 
-parse_flags $@
+initialize $@
 
 set -o errexit
 set -o pipefail
@@ -132,5 +132,7 @@ for yaml in "${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" 
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
+
+branch_release "Knative Serving" "${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML}"
 
 echo "New release published successfully"
