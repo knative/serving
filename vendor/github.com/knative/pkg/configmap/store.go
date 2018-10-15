@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package configmap
 
 import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/knative/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -115,7 +114,7 @@ func (s *UntypedStore) registerConfig(name string, constructor interface{}) {
 // WatchConfigs uses the provided configmap.Watcher
 // to setup watches for the config names provided in the
 // Constructors map
-func (s *UntypedStore) WatchConfigs(w configmap.Watcher) {
+func (s *UntypedStore) WatchConfigs(w Watcher) {
 	for configMapName := range s.constructors {
 		w.Watch(configMapName, s.OnConfigChanged)
 	}

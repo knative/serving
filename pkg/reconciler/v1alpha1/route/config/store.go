@@ -19,7 +19,7 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/reconciler/config"
+	"github.com/knative/pkg/configmap"
 )
 
 type cfgKey struct{}
@@ -39,15 +39,15 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 
 // +k8s:deepcopy-gen=false
 type Store struct {
-	*config.UntypedStore
+	*configmap.UntypedStore
 }
 
-func NewStore(logger config.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
-		UntypedStore: config.NewUntypedStore(
+		UntypedStore: configmap.NewUntypedStore(
 			"route",
 			logger,
-			config.Constructors{
+			configmap.Constructors{
 				DomainConfigName: NewDomainFromConfigMap,
 			},
 			onAfterStore...,

@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -130,27 +129,11 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), c.enqueueRoutes(impl))
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+		impl.GlobalResync(routeInformer.Informer())
+	}))
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
-}
-
-func (c *Reconciler) enqueueRoutes(impl *controller.Impl) func(string, interface{}) {
-	return func(_ string, value interface{}) {
-		_, ok := value.(*config.Domain)
-		if !ok {
-			c.Logger.Debugf("not a *config.Domain: '%#v'", value)
-			return
-		}
-		routes, err := c.routeLister.List(labels.Everything())
-		if err != nil {
-			c.Logger.Error("failed to list routes after config-domain update")
-			return
-		}
-		for _, route := range routes {
-			impl.Enqueue(route)
-		}
-	}
 }
 
 /////////////////////////////////////////
