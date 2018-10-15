@@ -54,7 +54,7 @@ const (
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 	// Number of seconds the /quitquitquit handler should wait before
-	// returning.  The purpose is to kill the container alive a little
+	// returning.  The purpose is to keep the container alive a little
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
