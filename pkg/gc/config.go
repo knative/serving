@@ -31,6 +31,7 @@ type Config struct {
 	// Delay duration after a revision create before considering it for GC
 	StaleRevisionCreateDelay time.Duration
 	// Timeout since a revision lastPinned before it should be GC'd
+	// This must be longer than the controller resync period
 	StaleRevisionTimeout time.Duration
 	// Minimum number of generations of revisions to keep before considering for GC
 	StaleRevisionMinimumGenerations int64
@@ -48,15 +49,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	}{{
 		key:          "stale-revision-create-delay",
 		field:        &c.StaleRevisionCreateDelay,
-		defaultValue: 5 * time.Minute,
+		defaultValue: 24 * time.Hour,
 	}, {
 		key:          "stale-revision-timeout",
 		field:        &c.StaleRevisionTimeout,
-		defaultValue: 5 * time.Minute,
+		defaultValue: 15 * time.Hour,
 	}, {
 		key:          "stale-revision-lastpinned-debounce",
 		field:        &c.StaleRevisionLastpinnedDebounce,
-		defaultValue: 1 * time.Minute,
+		defaultValue: 5 * time.Hour,
 	}} {
 		if raw, ok := configMap.Data[dur.key]; !ok {
 			*dur.field = dur.defaultValue

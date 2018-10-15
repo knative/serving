@@ -35,20 +35,20 @@ func TestOurConfig(t *testing.T) {
 			"Standard config",
 			false,
 			Config{
-				StaleRevisionCreateDelay:        5 * time.Minute,
-				StaleRevisionTimeout:            5 * time.Minute,
+				StaleRevisionCreateDelay:        24 * time.Hour,
+				StaleRevisionTimeout:            15 * time.Hour,
 				StaleRevisionMinimumGenerations: 1,
-				StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+				StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 			},
 			"config-gc",
 		}, {
 			"Defaulted config",
 			false,
 			Config{
-				StaleRevisionCreateDelay:        5 * time.Minute,
-				StaleRevisionTimeout:            5 * time.Minute,
+				StaleRevisionCreateDelay:        24 * time.Hour,
+				StaleRevisionTimeout:            15 * time.Hour,
 				StaleRevisionMinimumGenerations: 1,
-				StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+				StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 			},
 			"config-gc-defaults",
 		}, {
