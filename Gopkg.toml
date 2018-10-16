@@ -24,7 +24,7 @@ required = [
 [[override]]
   name = "github.com/knative/pkg"
   # HEAD as of 2018-10-09
-  revision = "481b2dbb997c4d213ee54e9c02e0e6e1da9ba5e8"
+  revision = "a1a797639e05ca40a620d7a9524908d11fa83e2a"
   source = "https://github.com/imikushin/pkg.git"
 
 [[override]]
