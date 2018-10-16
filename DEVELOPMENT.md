@@ -62,7 +62,10 @@ export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
 export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
-export K8S_USER_OVERRIDE='my-k8s-user'
+# When using GKE, the K8s user is your GCP user.
+export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
+# When using Minikube, the K8s user is your local user.
+export K8S_USER_OVERRIDE=$USER
 ```
 
 Make sure to configure [authentication](
