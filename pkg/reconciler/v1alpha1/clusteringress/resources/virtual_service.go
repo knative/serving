@@ -54,6 +54,7 @@ func MakeVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
 
 	ingressLabels := ci.Labels
 	vs.Labels[serving.RouteLabelKey] = ingressLabels[serving.RouteLabelKey]
+	vs.Labels[serving.RouteNamespaceLabelKey] = ingressLabels[serving.RouteNamespaceLabelKey]
 
 	return vs
 }

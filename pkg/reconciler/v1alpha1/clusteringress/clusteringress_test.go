@@ -78,7 +78,7 @@ func TestReconcile(t *testing.T) {
 		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "create VirtualService matching ClisterIngress",
+		Name:                    "create VirtualService matching ClusterIngress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingress("no-virtualservice-yet", 1234),
@@ -118,8 +118,9 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice",
 					Namespace: system.Namespace,
 					Labels: map[string]string{
-						networking.IngressLabelKey: "reconcile-virtualservice",
-						serving.RouteLabelKey:      "test-route",
+						networking.IngressLabelKey:     "reconcile-virtualservice",
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-virtualservice", 1234))},
 				},
@@ -164,8 +165,11 @@ func TestReconcile(t *testing.T) {
 func ingressWithStatus(name string, generation int64, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
 	return &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{serving.RouteLabelKey: "test-route"},
+			Name: name,
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
 		},
 		Spec: v1alpha1.IngressSpec{
 			Generation: generation,

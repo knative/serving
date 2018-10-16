@@ -35,8 +35,11 @@ import (
 func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "test-ingress",
-			Labels: map[string]string{serving.RouteLabelKey: "test-route"},
+			Name: "test-ingress",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
@@ -44,8 +47,9 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 		Name:      "test-ingress",
 		Namespace: system.Namespace,
 		Labels: map[string]string{
-			networking.IngressLabelKey: "test-ingress",
-			serving.RouteLabelKey:      "test-route",
+			networking.IngressLabelKey:     "test-ingress",
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: "test-ns",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			*kmeta.NewControllerRef(ci),
