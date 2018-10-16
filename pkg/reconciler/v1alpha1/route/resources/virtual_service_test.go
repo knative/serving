@@ -159,48 +159,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}
 }
 
-func TestGetRouteDomains_NamelessTarget(t *testing.T) {
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-	base := "domain.com"
-	expected := []string{base,
-		"test-route.test-ns.svc.cluster.local",
-		"test-route.test-ns.svc",
-		"test-route.test-ns",
-		"test-route",
-	}
-	domains := getRouteDomains("", r, base)
-	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want +got): %v", diff)
-	}
-}
-
-func TestGetRouteDomains_NamedTarget(t *testing.T) {
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-	name := "v1"
-	base := "domain.com"
-	expected := []string{"v1.domain.com"}
-	domains := getRouteDomains(name, r, base)
-	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want +got): %v", diff)
-	}
-}
-
 // One active target.
 func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
