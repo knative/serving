@@ -21,8 +21,6 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.s
 # Location of istio for the test cluster
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-
 function create_istio() {
   echo ">> Bringing up Istio"
   kubectl apply -f ${ISTIO_YAML}
@@ -30,6 +28,7 @@ function create_istio() {
 
 function create_serving() {
   echo ">> Bringing up Serving"
+
   # We still need this for at least one e2e test
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
@@ -63,6 +62,7 @@ function create_monitoring() {
 }
 
 function create_everything() {
+  export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_istio
   create_serving
   create_test_resources
