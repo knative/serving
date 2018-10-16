@@ -21,6 +21,8 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.s
 # Location of istio for the test cluster
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+
 function create_istio() {
   echo ">> Bringing up Istio"
   kubectl apply -f ${ISTIO_YAML}

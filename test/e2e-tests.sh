@@ -65,7 +65,6 @@ set -o errexit
 set -o pipefail
 
 header "Setting up environment"
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 create_everything
 publish_test_images
 
