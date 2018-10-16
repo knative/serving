@@ -41,9 +41,6 @@ import (
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/websocket"
 	"go.uber.org/zap"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -63,14 +60,12 @@ const (
 var (
 	podName               string
 	servingNamespace      string
-	servingConfiguration  string
 	servingRevision       string
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
-	kubeClient            *kubernetes.Clientset
 	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
 	breaker               *queue.Breaker
@@ -86,7 +81,6 @@ var (
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
-	servingConfiguration = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
@@ -254,16 +248,6 @@ func main() {
 		breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, *containerConcurrency)
 	}
-
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		logger.Fatal("Error getting in cluster config", zap.Error(err))
-	}
-	kc, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		logger.Fatal("Error creating new config", zap.Error(err))
-	}
-	kubeClient = kc
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
