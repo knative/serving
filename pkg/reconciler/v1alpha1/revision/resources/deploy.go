@@ -51,17 +51,6 @@ var (
 		MountPath: "/var/log",
 	}
 
-	fluentdConfigMapVolume = corev1.Volume{
-		Name: fluentdConfigMapVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "fluentd-varlog-config",
-				},
-			},
-		},
-	}
-
 	userPorts = []corev1.ContainerPort{{
 		Name:          userPortName,
 		ContainerPort: int32(userPort),
@@ -109,6 +98,19 @@ func rewriteUserProbe(p *corev1.Probe) {
 	}
 }
 
+func getFluentdConfigMapVolume(name string) *corev1.Volume {
+	return &corev1.Volume{
+		Name: fluentdConfigMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: name,
+				},
+			},
+		},
+	}
+}
+
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
@@ -137,7 +139,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {
 		podSpec.Containers = append(podSpec.Containers, *makeFluentdContainer(rev, observabilityConfig))
-		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
+		podSpec.Volumes = append(podSpec.Volumes, *getFluentdConfigMapVolume(names.FluentdConfigMap(rev)))
 	}
 
 	return podSpec
