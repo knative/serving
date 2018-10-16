@@ -54,6 +54,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "no",
 				Name:      "build-00012",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -100,6 +101,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "with",
 				Name:      "build-00099",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -153,6 +155,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "with",
 				Name:      "labels-00099",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",

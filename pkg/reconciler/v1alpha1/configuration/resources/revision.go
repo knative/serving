@@ -50,7 +50,6 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
 	}
-	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
