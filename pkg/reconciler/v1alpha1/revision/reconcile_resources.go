@@ -137,7 +137,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if apierrs.IsNotFound(err) {
 		// If it does not exist, then create it.
 		rev.Status.MarkDeploying("Deploying")
-		service, err = c.createService(ctx, rev, resources.MakeK8sService)
+		_, err = c.createService(ctx, rev, resources.MakeK8sService)
 		if err != nil {
 			logger.Errorf("Error creating Service %q: %v", serviceName, err)
 			return err
@@ -152,7 +152,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// should not allow, or if our expectations of how the service should look
 		// changes (e.g. we update our controller with new sidecars).
 		var changed Changed
-		service, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
+		_, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
 		if err != nil {
 			logger.Errorf("Error updating Service %q: %v", serviceName, err)
 			return err
