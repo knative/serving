@@ -34,13 +34,13 @@ func TestFilteringHandler(t *testing.T) {
 	},
 		{
 			label:          "filter a request containing retry header",
-			headers:        http.Header{activator.ResponseCountHTTPHeader: {"4"}},
+			headers:        http.Header{http.CanonicalHeaderKey(activator.RequestCountHTTPHeader): {"4"}},
 			passed:         false,
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
 			label:          "forward a request containing empty retry header",
-			headers:        http.Header{activator.ResponseCountHTTPHeader: {""}},
+			headers:        http.Header{http.CanonicalHeaderKey(activator.RequestCountHTTPHeader): {""}},
 			passed:         true,
 			expectedStatus: http.StatusOK,
 		},

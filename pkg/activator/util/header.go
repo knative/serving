@@ -24,6 +24,7 @@ import (
 )
 
 var headersToRemove = []string{
+	activator.RequestCountHTTPHeader,
 	activator.RevisionHeaderName,
 	activator.RevisionHeaderNamespace,
 }
