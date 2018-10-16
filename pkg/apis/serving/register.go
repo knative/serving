@@ -56,4 +56,8 @@ const (
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
+
+	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
+	// generation of the Configuration that created this revision
+	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
 )

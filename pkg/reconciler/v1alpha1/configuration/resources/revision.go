@@ -44,6 +44,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 
 	configLabels := config.Labels
 	rev.Labels[serving.ServiceLabelKey] = configLabels[serving.ServiceLabelKey]
+	rev.Labels[serving.ConfigurationGenerationLabelKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {

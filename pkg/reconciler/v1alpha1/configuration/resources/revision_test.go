@@ -63,10 +63,8 @@ func TestMakeRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "build",
+					serving.ConfigurationGenerationLabelKey: "12",
 					serving.ServiceLabelKey:       "",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "12",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -111,10 +109,8 @@ func TestMakeRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "build",
+					serving.ConfigurationGenerationLabelKey: "99",
 					serving.ServiceLabelKey:       "",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -166,13 +162,11 @@ func TestMakeRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "labels",
+					serving.ConfigurationGenerationLabelKey: "99",
 					serving.ServiceLabelKey:       "",
 
 					"foo": "bar",
 					"baz": "blah",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -218,10 +212,10 @@ func TestMakeRevisions(t *testing.T) {
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey: "annotations",
+					serving.ConfigurationGenerationLabelKey: "99",
 					serving.ServiceLabelKey:       "",
 				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
 					"foo": "bar",
 					"baz": "blah",
 				},
