@@ -68,7 +68,7 @@ This is a helper script for Knative release scripts. To use it:
 
 1. Source the script.
 
-1. Call the `parse_flags()` function passing `$@` (without quotes).
+1. Call the `initialize()` function passing `$@` (without quotes).
 
 1. Call the `run_validation_tests()` function passing the script or executable that
 runs the release validation tests. It will call the script to run the tests unless
@@ -102,7 +102,7 @@ variable `KO_FLAGS` will be updated with the `-L` option.
 ```bash
 source vendor/github.com/knative/test-infra/scripts/release.sh
 
-parse_flags $@
+initialize $@
 
 run_validation_tests ./test/presubmit-tests.sh
 

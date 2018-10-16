@@ -235,13 +235,8 @@ function report_go_test() {
   echo "Finished run, return code is ${failed}"
   # Tests didn't run.
   [[ ! -s ${report} ]] && return 1
-  # Create WORKSPACE file, required to use bazel, if necessary
-  local has_workspace=0
-  if [[ -e WORKSPACE ]]; then
-    has_workspace=1
-  else
-    touch WORKSPACE
-  fi
+  # Create WORKSPACE file, required to use bazel, if necessary.
+  touch WORKSPACE
   local targets=""
   local last_run=""
   local test_files=""
@@ -328,9 +323,6 @@ function report_go_test() {
   fi
   # Always generate the junit summary.
   bazel test ${targets} > /dev/null 2>&1 || true
-  # Cleanup bazel stuff we created.
-  rm -fr knative
-  (( ! has_workspace )) && rm -fr WORKSPACE bazel-*
   return ${failed}
 }
 
