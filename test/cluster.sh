@@ -28,7 +28,6 @@ function create_istio() {
 
 function create_serving() {
   echo ">> Bringing up Serving"
-
   # We still need this for at least one e2e test
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
