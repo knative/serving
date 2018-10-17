@@ -21,7 +21,7 @@ import "reflect"
 // TypeFilter accepts instances of types to check against and returns a function transformer that would only let
 // the call to f through if value is assignable to any one of types of ts. Example:
 //
-// F := config.TypeFilter(&config.Domain{})(f)
+// F := configmap.TypeFilter(&config.Domain{})(f)
 //
 // The result is a function F(name string, value interface{}) that will call the underlying function
 // f(name, value) iff value is a *config.Domain
