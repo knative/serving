@@ -24,6 +24,7 @@ readonly SERVING_RELEASE_GCR
 
 # istio.yaml file to upload
 # We publish our own istio.yaml, so users don't need to use helm
+readonly ISTIO_CRD_YAML=./third_party/istio-1.0.2/istio-crds.yaml
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio.yaml
 readonly ISTIO_LEAN_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
@@ -127,7 +128,7 @@ fi
 
 # Publish the release
 
-readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
+readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
 for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
