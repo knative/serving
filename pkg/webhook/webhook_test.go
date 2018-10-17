@@ -236,6 +236,31 @@ func TestValidRouteNoChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
+func TestInvalidOldRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	new := createRoute(1, testRouteName)
+	new.Spec = v1alpha1.RouteSpec{}
+	newBytes, err := json.Marshal(new)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", new, err)
+	}
+	oldBytes := []byte(`{"bad": "field"}`)
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `missing field(s): spec`)
+}
+
+func TestInvalidNewRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	old := createRoute(1, testRouteName)
+	oldBytes, err := json.Marshal(old)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", old, err)
+	}
+	newBytes := []byte(`{"sepc": {}}`)
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `missing field(s): spec`)
+}
+
 func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1, testRouteName)
