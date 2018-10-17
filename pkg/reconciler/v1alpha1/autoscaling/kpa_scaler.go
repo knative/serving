@@ -30,6 +30,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -127,6 +128,20 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 	currentScale := scl.Spec.Replicas
 
+	var serviceLabel string
+	var configLabel string
+	if kpa.Labels != nil {
+		serviceLabel = kpa.Labels[serving.ServiceLabelKey]
+		configLabel = kpa.Labels[serving.ConfigurationLabelKey]
+	}
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, serviceLabel, configLabel, kpa.Name)
+	if err != nil {
+		return err
+	}
+
+	reporter.Report(autoscaler.ActualPodCountM, float64(currentScale))
+	reporter.Report(autoscaler.RequestedPodCountM, float64(currentScale))
+
 	if desiredScale == 0 {
 		// Scale to zero grace period.
 		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
@@ -155,6 +170,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return desiredScale, nil
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
+	reporter.Report(autoscaler.DesiredPodCountM, float64(desiredScale))
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
