@@ -239,13 +239,14 @@ func TestValidRouteNoChanges(t *testing.T) {
 func TestInvalidOldRoute(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	new := createRoute(1, testRouteName)
+	new.Spec = v1alpha1.RouteSpec{}
 	newBytes, err := json.Marshal(new)
 	if err != nil {
 		t.Errorf("Marshal(%v) = %v", new, err)
 	}
 	oldBytes := []byte(`{"bad": "field"}`)
 	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
-	expectFailsWith(t, resp, `unknown field "bad"`)
+	expectFailsWith(t, resp, `missing field(s): spec`)
 }
 
 func TestInvalidNewRoute(t *testing.T) {
@@ -257,7 +258,7 @@ func TestInvalidNewRoute(t *testing.T) {
 	}
 	newBytes := []byte(`{"sepc": {}}`)
 	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
-	expectFailsWith(t, resp, `unknown field "sepc"`)
+	expectFailsWith(t, resp, `missing field(s): spec`)
 }
 
 func TestValidRouteChanges(t *testing.T) {
