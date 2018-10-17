@@ -48,6 +48,7 @@ type BuildTemplate struct {
 // Check that our resource implements several interfaces.
 var _ kmeta.OwnerRefable = (*BuildTemplate)(nil)
 var _ Template = (*BuildTemplate)(nil)
+var _ BuildTemplateInterface = (*BuildTemplate)(nil)
 
 // Check that BuildTemplate may be validated and defaulted.
 var _ apis.Validatable = (*BuildTemplate)(nil)
@@ -117,6 +118,7 @@ func (bt *BuildTemplate) Copy() BuildTemplateInterface {
 	return bt.DeepCopy()
 }
 
+// GetGroupVersionKind gives kind
 func (bt *BuildTemplate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("BuildTemplate")
 }

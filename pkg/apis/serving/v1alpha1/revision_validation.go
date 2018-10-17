@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/knative/pkg/apis"
 )
@@ -42,7 +43,8 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	errs := rs.ServingState.Validate().ViaField("servingState").
-		Also(validateContainer(rs.Container).ViaField("container"))
+		Also(validateContainer(rs.Container).ViaField("container")).
+		Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
 	if err := rs.ConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
@@ -131,6 +133,38 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		errs = errs.Also(err)
 	}
 	return errs
+}
+
+func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {
+	if buildRef == nil {
+		return nil
+	}
+	if len(validation.IsQualifiedName(buildRef.APIVersion)) != 0 {
+		return apis.ErrInvalidValue(buildRef.APIVersion, "apiVersion")
+	}
+	if len(validation.IsCIdentifier(buildRef.Kind)) != 0 {
+		return apis.ErrInvalidValue(buildRef.Kind, "kind")
+	}
+	if len(validation.IsDNS1123Label(buildRef.Name)) != 0 {
+		return apis.ErrInvalidValue(buildRef.Name, "name")
+	}
+	var disallowedFields []string
+	if buildRef.Namespace != "" {
+		disallowedFields = append(disallowedFields, "namespace")
+	}
+	if buildRef.FieldPath != "" {
+		disallowedFields = append(disallowedFields, "fieldPath")
+	}
+	if buildRef.ResourceVersion != "" {
+		disallowedFields = append(disallowedFields, "resourceVersion")
+	}
+	if buildRef.UID != "" {
+		disallowedFields = append(disallowedFields, "uid")
+	}
+	if len(disallowedFields) != 0 {
+		return apis.ErrDisallowedFields(disallowedFields...)
+	}
+	return nil
 }
 
 func validateProbe(p *corev1.Probe) *apis.FieldError {

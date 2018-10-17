@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -109,14 +108,6 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if getKPAErr != nil {
 		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
 		return getKPAErr
-	} else {
-		// KPA exists. Update the replica count based on the serving state if necessary
-		var err error
-		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
-		if err != nil {
-			logger.Errorf("Error updating kpa %q: %v", kpaName, err)
-			return err
-		}
 	}
 
 	// Reflect the KPA status in our own.
@@ -248,38 +239,5 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 			}
 		}
 	}
-	return nil
-}
-
-// TODO(#1876): Move this into the KPA's scope.
-func (c *Reconciler) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	cfgs := config.FromContext(ctx)
-
-	if !cfgs.Autoscaler.EnableVPA {
-		return nil
-	}
-
-	ns := rev.Namespace
-	vpaName := resourcenames.VPA(rev)
-
-	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
-	_, err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Get(vpaName, metav1.GetOptions{})
-	// When Active, the VPA should exist and have a particular specification.
-	if apierrs.IsNotFound(err) {
-		// If it does not exist, then create it.
-		_, err = c.createVPA(ctx, rev)
-		if err != nil {
-			logger.Errorf("Error creating VPA %q: %v", vpaName, err)
-			return err
-		}
-		logger.Infof("Created VPA %q", vpaName)
-	} else if err != nil {
-		logger.Errorf("Error reconciling Active VPA %q: %v", vpaName, err)
-		return err
-	}
-	// TODO(mattmoor): Consider reconciling the VPA spec to make sure it matches
-	// what we expect.
-
 	return nil
 }

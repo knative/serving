@@ -1,3 +1,19 @@
+/*
+Copyright 2018 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -5,7 +21,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Validate Build
@@ -28,17 +43,16 @@ func (bs *BuildSpec) Validate() *apis.FieldError {
 
 	// If a build specifies a template, all the template's parameters without
 	// defaults must be satisfied by the build's parameters.
-	//var volumes []corev1.Volume
-	//var tmpl BuildTemplateInterface
 	if bs.Template != nil {
 		return bs.Template.Validate()
 	}
-	if err := validateVolumes(bs.Volumes); err != nil {
+	if err := ValidateVolumes(bs.Volumes); err != nil {
 		return err
 	}
-	if err := validateTimeout(bs.Timeout); err != nil {
+	if err := bs.validateTimeout(); err != nil {
 		return err
 	}
+
 	if err := validateSteps(bs.Steps); err != nil {
 		return err
 	}
@@ -47,6 +61,9 @@ func (bs *BuildSpec) Validate() *apis.FieldError {
 
 // Validate templateKind
 func (b *TemplateInstantiationSpec) Validate() *apis.FieldError {
+	if b == nil {
+		return nil
+	}
 	if b.Name == "" {
 		return apis.ErrMissingField("build.spec.template.name")
 	}
@@ -62,13 +79,16 @@ func (b *TemplateInstantiationSpec) Validate() *apis.FieldError {
 	return nil
 }
 
-func validateTimeout(timeout metav1.Duration) *apis.FieldError {
+func (bt *BuildSpec) validateTimeout() *apis.FieldError {
+	if bt.Timeout == nil {
+		return nil
+	}
 	maxTimeout := time.Duration(24 * time.Hour)
 
-	if timeout.Duration > maxTimeout {
-		return apis.ErrInvalidValue(fmt.Sprintf("%s should be < 24h", timeout), "b.spec.timeout")
-	} else if timeout.Duration < 0 {
-		return apis.ErrInvalidValue(fmt.Sprintf("%s should be > 0", timeout), "b.spec.timeout")
+	if bt.Timeout.Duration > maxTimeout {
+		return apis.ErrInvalidValue(fmt.Sprintf("%s should be < 24h", bt.Timeout), "b.spec.timeout")
+	} else if bt.Timeout.Duration < 0 {
+		return apis.ErrInvalidValue(fmt.Sprintf("%s should be > 0", bt.Timeout), "b.spec.timeout")
 	}
 	return nil
 }

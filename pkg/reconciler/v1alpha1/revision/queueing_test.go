@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -34,12 +35,9 @@ import (
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/system"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -49,8 +47,8 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
-	return nil
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return "", nil
 }
 
 const (
@@ -136,21 +134,18 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
-	vpaClient *fakevpaclientset.Clientset,
 	dynamicClient *fakedynamicclientset.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher,
-	vpaInformer vpainformers.SharedInformerFactory,
 	buildInformerFactory duck.InformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 	cachingClient = fakecachingclientset.NewSimpleClientset()
-	vpaClient = fakevpaclientset.NewSimpleClientset()
 	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
@@ -172,11 +167,9 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
 	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
-	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, opt.ResyncPeriod)
 
 	controller = NewController(
 		opt,
-		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		cachingInformer.Caching().V1alpha1().Images(),
@@ -184,7 +177,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
-		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 		buildInformerFactory,
 	)
 
@@ -224,7 +216,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 				"stable-window":                           "5m",
 				"panic-window":                            "10s",
 				"scale-to-zero-threshold":                 "10m",
-				"concurrency-quantum-of-time":             "100ms",
 				"tick-interval":                           "2s",
 			}},
 	}
@@ -245,8 +236,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, controller, kubeInformer,
-	servingInformer, _, servingSystemInformer, vpaInformer, _ :=
+	kubeClient, _, _, _, controller, kubeInformer,
+		servingInformer, _, servingSystemInformer, _ :=
 		newTestController(t, stopCh, rev)
 
 	h := NewHooks()
@@ -262,7 +253,6 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
-	vpaInformer.Start(stopCh)
 
 	go func() {
 		if err := controller.Run(2, stopCh); err != nil {

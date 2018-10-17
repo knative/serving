@@ -29,8 +29,6 @@ import (
 
 	"github.com/knative/serving/pkg/system"
 
-	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -47,6 +45,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
@@ -108,11 +107,6 @@ func main() {
 		logger.Fatalf("Error building caching clientset: %v", err)
 	}
 
-	vpaClient, err := vpa.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building VPA clientset: %v", err)
-	}
-
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 
 	opt := reconciler.Options{
@@ -123,7 +117,7 @@ func main() {
 		DynamicClientSet: dynamicClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
-		ResyncPeriod:     time.Second * 30,
+		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
 		StopChannel:      stopCh,
 	}
 
@@ -131,7 +125,6 @@ func main() {
 	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
-	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
@@ -145,7 +138,6 @@ func main() {
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
-	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
@@ -157,7 +149,6 @@ func main() {
 		),
 		revision.NewController(
 			opt,
-			vpaClient,
 			revisionInformer,
 			kpaInformer,
 			imageInformer,
@@ -165,7 +156,6 @@ func main() {
 			coreServiceInformer,
 			endpointsInformer,
 			configMapInformer,
-			vpaInformer,
 			buildInformerFactory,
 		),
 		route.NewController(
@@ -175,6 +165,12 @@ func main() {
 			revisionInformer,
 			coreServiceInformer,
 			virtualServiceInformer,
+		),
+		labeler.NewRouteToConfigurationController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			revisionInformer,
 		),
 		service.NewController(
 			opt,
@@ -192,7 +188,6 @@ func main() {
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
-	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}

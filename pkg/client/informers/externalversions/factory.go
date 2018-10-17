@@ -23,6 +23,7 @@ import (
 	versioned "github.com/knative/serving/pkg/client/clientset/versioned"
 	autoscaling "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling"
 	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
+	networking "github.com/knative/serving/pkg/client/informers/externalversions/networking"
 	serving "github.com/knative/serving/pkg/client/informers/externalversions/serving"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -171,11 +172,16 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Autoscaling() autoscaling.Interface
+	Networking() networking.Interface
 	Serving() serving.Interface
 }
 
 func (f *sharedInformerFactory) Autoscaling() autoscaling.Interface {
 	return autoscaling.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Networking() networking.Interface {
+	return networking.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Serving() serving.Interface {

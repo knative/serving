@@ -18,13 +18,13 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-10-01
-  revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
+  # HEAD as of 2018-10-08
+  revision = "cc4451408f52b86fec87f6b7e4bc88848d3b1088"
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-10-01
-  revision = "f00975a13e4c7284aac5b8d01181590869472291"
+  # HEAD as of 2018-10-09
+  revision = "ba1a828cd571f605684f9a4506e85bc13cb65b8d"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -41,19 +41,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.11.3"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.11.3"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.11.3"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.11.3"
 
 [[override]]
   name = "github.com/json-iterator/go"

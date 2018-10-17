@@ -59,6 +59,70 @@ func tearDown(ctx *testContext) {
 	TearDown(ctx.clients, ctx.names, ctx.logger)
 }
 
+func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
+	var (
+		totalRequests      int
+		successfulRequests int
+		mux                sync.Mutex
+		group              errgroup.Group
+	)
+
+	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	for i := 0; i < concurrency; i++ {
+		group.Go(func() error {
+			done := time.After(duration)
+			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+			if err != nil {
+				return fmt.Errorf("error creating spoofing client: %v", err)
+			}
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			if err != nil {
+				return fmt.Errorf("error creating spoofing client: %v", err)
+			}
+			for {
+				select {
+				case <-done:
+					return nil
+				default:
+					mux.Lock()
+					requestID := totalRequests + 1
+					totalRequests = requestID
+					mux.Unlock()
+					start := time.Now()
+					res, err := client.Do(req)
+					if err != nil {
+						logger.Errorf("error making request %v", err)
+						continue
+					}
+					duration := time.Now().Sub(start)
+					logger.Infof("Request took: %v", duration)
+
+					if res.StatusCode != http.StatusOK {
+						logger.Errorf("request %d failed", requestID)
+						logger.Errorf("non 200 response %v", res.StatusCode)
+						logger.Errorf("response headers: %v", res.Header)
+						logger.Errorf("response body: %v", string(res.Body))
+						continue
+					}
+					mux.Lock()
+					successfulRequests++
+					mux.Unlock()
+				}
+			}
+		})
+	}
+
+	logger.Infof("Waiting for all requests to complete.")
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("Error making requests for scale up: %v.", err)
+	}
+
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
+			successfulRequests, totalRequests)
+	}
+}
+
 type testContext struct {
 	t              *testing.T
 	clients        *test.Clients
@@ -188,58 +252,6 @@ func assertScaleDown(ctx *testContext) {
 		"WaitForAvailablePods")
 	if err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
-	}
-
-	ctx.logger.Infof("Scaled down.")
-}
-
-func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) error {
-	var (
-		totalRequests      int
-		successfulRequests int
-		mux                sync.Mutex
-		group              errgroup.Group
-	)
-
-	ctx.logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	for i := 0; i < concurrency; i++ {
-		group.Go(func() error {
-			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
-			}
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
-			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
-			}
-			// ctx.logger.Infof( /* DO NOT SUBMIT */ "sending request to %v", fmt.Sprintf("http://%s", ctx.domain))
-			for {
-				select {
-				case <-done:
-					return nil
-				default:
-					mux.Lock()
-					totalRequests++
-					mux.Unlock()
-					res, err := client.Do(req)
-					if err != nil {
-						ctx.logger.Debugf("error making request %v", err)
-						continue
-					}
-
-					if res.StatusCode != http.StatusOK {
-						ctx.logger.Debugf("non 200 response %v", res.StatusCode)
-						ctx.logger.Debugf("response headers: %v", res.Header)
-						ctx.logger.Debugf("response body: %v", res.Body)
-						continue
-					}
-					mux.Lock()
-					successfulRequests++
-					mux.Unlock()
-				}
-			}
-		})
 	}
 
 	ctx.logger.Infof("Waiting for all requests to complete.")

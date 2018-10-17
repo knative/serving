@@ -92,7 +92,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		Lifecycle:      queueLifecycle,
 		ReadinessProbe: queueReadinessProbe,
 		Args: []string{
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
 			fmt.Sprintf("-containerConcurrency=%v", rev.Spec.ContainerConcurrency),
 		},
 		Env: []corev1.EnvVar{{

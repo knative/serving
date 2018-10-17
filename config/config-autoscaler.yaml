@@ -55,18 +55,10 @@ data:
   # observed pods.
   max-scale-up-rate: "10"
 
-  # Concurrency quantum of time is the minimum time is the quantum in
-  # which concurrency will be measured by the queue-proxy.
-  # The maximum concurrency in each of the "buckets" (of the duration
-  # defined here) is taken and the average over all buckets is
-  # reported.
-  concurrency-quantum-of-time: "100ms"
-
   # Scale to zero feature flag
   enable-scale-to-zero: "true"
 
-  # Experimental: enable vertical pod autoscaling.
-  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
+  # This does nothing for now.
   enable-vertical-pod-autoscaling: "false"
 
   # Tick interval is the time between autoscaling calculations.
