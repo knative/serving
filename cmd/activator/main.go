@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -64,6 +65,8 @@ const (
 )
 
 var (
+	podName string
+
 	logger *zap.SugaredLogger
 
 	statSink *websocket.ManagedConnection
@@ -85,6 +88,10 @@ func statReporter() {
 	}
 }
 
+func initEnv() {
+	podName = util.GetRequiredEnvOrFatal("POD_NAME", logger)
+}
+
 func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
@@ -96,9 +103,12 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	defer createdLogger.Sync()
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	defer logger.Sync()
+
 	logger.Info("Starting the knative activator")
+
+	initEnv()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -146,7 +156,7 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	activatorhandler.NewConcurrencyReporter(autoscaler.ActivatorPodName, activatorhandler.Channels{
+	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
 		ReqChan:    reqChan,
 		StatChan:   statChan,
 		ReportChan: time.NewTicker(time.Second).C,
