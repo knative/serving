@@ -47,12 +47,17 @@ fi
 
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
+  --enable-basic-auth \
+  --no-issue-client-certificate \
+  --no-enable-autoupgrade \
   --cluster-version=${SERVING_GKE_VERSION} \
   --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
-  --enable-autoscaling --min-nodes=1 --max-nodes=${K8S_CLUSTER_NODES} \
+  --enable-autoscaling \
+  --min-nodes=1 \
+  --max-nodes=${K8S_CLUSTER_NODES} \
   ${K8S_CLUSTER_NAME}
 
 header "Setting cluster admin"
