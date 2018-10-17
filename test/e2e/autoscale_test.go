@@ -300,8 +300,6 @@ func bounceDeployment(ctx *testContext, name string) {
 		ctx.t.Fatalf("Error verifying deployment is bounced: %v", err)
 	}
 	ctx.logger.Infof("Deployment %q has been bounced.", name)
-	ctx.logger.Infof("Giving the deployment 10 seconds to start.")
-	time.Sleep(10 * time.Second)
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
