@@ -16,15 +16,28 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// DefaultTimeout will be set if timeout not specified.
+	DefaultTimeout = 60 * time.Second
+	// DefaultRetryCount will be set if Attempts not specified.
+	DefaultRetryCount = 3
+)
+
 func (c *ClusterIngress) SetDefaults() {
 	c.Spec.SetDefaults()
 }
 
 func (c *IngressSpec) SetDefaults() {
-	for i, _ := range c.TLS {
+	for i := range c.TLS {
 		c.TLS[i].SetDefaults()
 	}
-	for i, _ := range c.Rules {
+	for i := range c.Rules {
 		c.Rules[i].SetDefaults()
 	}
 }
@@ -45,7 +58,7 @@ func (r *ClusterIngressRule) SetDefaults() {
 }
 
 func (r *HTTPClusterIngressRuleValue) SetDefaults() {
-	for i, _ := range r.Paths {
+	for i := range r.Paths {
 		r.Paths[i].SetDefaults()
 	}
 }
@@ -54,5 +67,19 @@ func (p *HTTPClusterIngressPath) SetDefaults() {
 	// If only one split is specified, we default to 100.
 	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
 		p.Splits[0].Percent = 100
+	}
+
+	if p.Timeout == nil {
+		p.Timeout = &metav1.Duration{Duration: DefaultTimeout}
+	}
+
+	if p.Retries == nil {
+		p.Retries = &HTTPRetry{
+			PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
+			Attempts:      DefaultRetryCount,
+		}
+	}
+	if p.Retries.PerTryTimeout == nil {
+		p.Retries.PerTryTimeout = &metav1.Duration{Duration: DefaultTimeout}
 	}
 }

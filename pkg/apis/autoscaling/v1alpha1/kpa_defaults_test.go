@@ -32,9 +32,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in:   &PodAutoscaler{},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				// In the context of a PodAutoscaler we initialize ServingState.
 				ContainerConcurrency: 0,
-				ServingState:         "Active",
 			},
 		},
 	}, {
@@ -42,13 +40,11 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 1,
-				ServingState:         "Reserve",
 			},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 1,
-				ServingState:         "Reserve",
 			},
 		},
 	}, {
@@ -59,7 +55,6 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 0,
-				ServingState:         "Active",
 			},
 		},
 	}, {
@@ -68,14 +63,12 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			Spec: PodAutoscalerSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 0, // unspecified
-				ServingState:         "Active",
 			},
 		},
 		want: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 1,
-				ServingState:         "Active",
 			},
 		},
 	}}

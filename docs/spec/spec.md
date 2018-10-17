@@ -304,6 +304,10 @@ status:
   #   revision. Typically, the name will be the same as the name of the
   #   revision.
   serviceName: myservice-a1e34
+
+  # imageDigest: The imageDigest is the spec.container.image field resolved
+  #   to a particular digest at revision creation.
+  imageDigest: gcr.io/my-project/...@sha256:60ab5...
 ```
 
 

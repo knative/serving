@@ -72,7 +72,6 @@ func buildRef(config *v1alpha1.Configuration) *corev1.ObjectReference {
 	return &corev1.ObjectReference{
 		APIVersion: b.GetAPIVersion(),
 		Kind:       b.GetKind(),
-		Namespace:  b.GetNamespace(),
 		Name:       b.GetName(),
 	}
 }

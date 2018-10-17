@@ -87,7 +87,8 @@ type BuildSpec struct {
 	// Time after which the build times out. Defaults to 10 minutes.
 	// Specified build timeout should be less than 24h.
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
-	Timeout metav1.Duration `json:"timeout,omitempty"`
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// If specified, the pod's scheduling constraints
 	// +optional

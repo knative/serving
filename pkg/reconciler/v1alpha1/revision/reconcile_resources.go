@@ -108,14 +108,6 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if getKPAErr != nil {
 		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
 		return getKPAErr
-	} else {
-		// KPA exists. Update the replica count based on the serving state if necessary
-		var err error
-		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
-		if err != nil {
-			logger.Errorf("Error updating kpa %q: %v", kpaName, err)
-			return err
-		}
 	}
 
 	// Reflect the KPA status in our own.

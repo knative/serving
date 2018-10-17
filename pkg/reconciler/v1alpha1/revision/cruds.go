@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -28,14 +27,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
 	deployment := resources.MakeDeployment(
@@ -46,13 +43,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		cfgs.Autoscaler,
 		cfgs.Controller,
 	)
-
-	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment, cfgs.Controller.RegistriesSkippingTagResolving); err != nil {
-		logger.Error("Error resolving deployment", zap.Error(err))
-		rev.Status.MarkContainerMissing(err.Error())
-		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
-	}
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
@@ -70,23 +60,6 @@ func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kp
 	kpa := resources.MakeKPA(rev)
 
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
-}
-
-func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revision, kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, Changed, error) {
-	logger := logging.FromContext(ctx)
-
-	desiredKPA := resources.MakeKPA(rev)
-	// TODO(mattmoor): Preserve the serving state on the KPA (once it is the source of truth)
-	// desiredKPA.Spec.ServingState = kpa.Spec.ServingState
-	desiredKPA.Spec.Generation = kpa.Spec.Generation
-	if equality.Semantic.DeepEqual(desiredKPA.Spec, kpa.Spec) && equality.Semantic.DeepEqual(desiredKPA.Annotations, kpa.Annotations) {
-		return kpa, Unchanged, nil
-	}
-	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", cmp.Diff(desiredKPA.Spec, kpa.Spec))
-	kpa.Spec = desiredKPA.Spec
-	kpa.Annotations = desiredKPA.Annotations
-	kpa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(kpa)
-	return kpa, WasChanged, err
 }
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service

@@ -61,6 +61,71 @@ func tearDown(ctx *testContext) {
 	TearDown(ctx.clients, ctx.names, ctx.logger)
 }
 
+func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) error {
+	var (
+		totalRequests      int
+		successfulRequests int
+		mux                sync.Mutex
+		group              errgroup.Group
+	)
+
+	ctx.logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	for i := 0; i < concurrency; i++ {
+		group.Go(func() error {
+			done := time.After(duration)
+			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
+			if err != nil {
+				return fmt.Errorf("error creating spoofing client: %v", err)
+			}
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
+			if err != nil {
+				return fmt.Errorf("error creating spoofing client: %v", err)
+			}
+			for {
+				select {
+				case <-done:
+					return nil
+				default:
+					mux.Lock()
+					requestID := totalRequests + 1
+					totalRequests = requestID
+					mux.Unlock()
+					start := time.Now()
+					res, err := client.Do(req)
+					if err != nil {
+						ctx.logger.Infof("error making request %v", err)
+						continue
+					}
+					duration := time.Now().Sub(start)
+					ctx.logger.Infof("Request took: %v", duration)
+
+					if res.StatusCode != http.StatusOK {
+						ctx.logger.Infof("request %d failed", requestID)
+						ctx.logger.Infof("non 200 response %v", res.StatusCode)
+						ctx.logger.Infof("response headers: %v", res.Header)
+						ctx.logger.Infof("response body: %v", string(res.Body))
+						continue
+					}
+					mux.Lock()
+					successfulRequests++
+					mux.Unlock()
+				}
+			}
+		})
+	}
+
+	ctx.logger.Infof("Waiting for all requests to complete.")
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("Error making requests for scale up: %v.", err)
+	}
+
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
+			successfulRequests, totalRequests)
+	}
+	return nil
+}
+
 type testContext struct {
 	t              *testing.T
 	clients        *test.Clients
@@ -72,7 +137,7 @@ type testContext struct {
 
 func setup(t *testing.T) *testContext {
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
+	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
 	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
@@ -193,69 +258,6 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.logger.Infof("Scaled down.")
-}
-
-func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) error {
-	var (
-		totalRequests      int
-		successfulRequests int
-		mux                sync.Mutex
-		group              errgroup.Group
-	)
-
-	ctx.logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	for i := 0; i < concurrency; i++ {
-		group.Go(func() error {
-			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
-			}
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
-			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
-			}
-			// ctx.logger.Infof( /* DO NOT SUBMIT */ "sending request to %v", fmt.Sprintf("http://%s", ctx.domain))
-			for {
-				select {
-				case <-done:
-					return nil
-				default:
-					mux.Lock()
-					totalRequests++
-					mux.Unlock()
-					res, err := client.Do(req)
-					if err != nil {
-						ctx.logger.Debugf("error making request %v", err)
-						continue
-					}
-
-					if res.StatusCode != http.StatusOK {
-						ctx.logger.Debugf("non 200 response %v", res.StatusCode)
-						ctx.logger.Debugf("response headers: %v", res.Header)
-						ctx.logger.Debugf("response body: %v", res.Body)
-						continue
-					}
-					mux.Lock()
-					successfulRequests++
-					mux.Unlock()
-				}
-			}
-		})
-	}
-
-	ctx.logger.Infof("Waiting for all requests to complete.")
-	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v", err)
-	}
-
-	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. Got %d successful requests. Wanted %d",
-			successfulRequests, totalRequests)
-	}
-
-	ctx.logger.Infof("All %d requests succeeded.", totalRequests)
-	return nil
 }
 
 func bounceDeployment(ctx *testContext, name string) {
