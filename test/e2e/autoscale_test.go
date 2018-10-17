@@ -134,7 +134,7 @@ type testContext struct {
 
 func setup(t *testing.T) *testContext {
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
+	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
 	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
