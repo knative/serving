@@ -96,7 +96,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
 			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
-		agg.probeCount += 1
+		agg.probeCount++
 	}
 }
 
@@ -108,7 +108,7 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 		podCount += pod.usageRatio(now)
 	}
 
-	activatorsCount := float64(len(agg.activatorsContained))
+	activatorsCount := len(agg.activatorsContained)
 	// Discount the activators in the pod count.
 	if activatorsCount > 0 {
 		discountedPodCount := podCount - float64(activatorsCount)
