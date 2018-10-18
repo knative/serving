@@ -44,6 +44,7 @@ import (
 	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
@@ -913,19 +914,36 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	go controller.Run(1, stopCh)
 
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-	route.Labels = map[string]string{"app": "prod"}
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
+	routeWatcher, err := routeClient.Watch(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("Could not create route watcher")
+	}
+	defer routeWatcher.Stop()
+
+	routeModifiedCh := make(chan struct{})
+	defer close(routeModifiedCh)
+
+	go func() {
+		for event := range routeWatcher.ResultChan() {
+			if event.Type == watch.Modified {
+				routeModifiedCh <- struct{}{}
+			}
+		}
+	}()
 
 	// Create a route.
+	route.Labels = map[string]string{"app": "prod"}
 	routeClient.Create(route)
 
 	// Test changes in domain config map. Routes should get updated appropriately.
+	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
 		doThings             func()
 		expectedDomainSuffix string
 	}{{
 		expectedDomainSuffix: prodDomainSuffix,
-		doThings:             func() {},
+		doThings:             func() {}, // The update will still happen: status will be updated to match the route labels
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
 		doThings: func() {
@@ -975,7 +993,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
 			test.doThings()
 
-			time.Sleep(20 * time.Millisecond)
+			<-routeModifiedCh
 
 			route, err := routeClient.Get(route.Name, metav1.GetOptions{})
 			if err != nil {
