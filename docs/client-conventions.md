@@ -75,7 +75,7 @@ If an unconventional client neglects to reset this value, the label selector
 query could result in more than one revision; the client should pick the one
 with the lowest `configurationGeneration` in this case.
 
-## Forcing creation of a new Revision
+## Force creation of a new Revision
 
 The way to deploy new code with a previously-used tag is to make a new Revision,
 which the Revision controller will re-pull and lock it to the current image at
@@ -86,7 +86,7 @@ The same `client.knative.dev/nonce` annotation can help in forcing the creation
 of a new Revision; if the nonce is changed, the Configuration controller must
 make one even if nothing else has changed.
 
-## Changing non-code attributes
+## Change non-code attributes
 
 When the user specifies they'd like to change an environment variable (or a
 memory allocation, or a concurrency setting...), and does not specify that
@@ -119,7 +119,7 @@ intent in an annotation.
  6. Add the nonce label, as usual.
  7. Post the resulting Service to create a new Revision.
 
-### Displaying images
+### Display images
 
 Since we're now filling in the `image` field with a URL the user may never have
 specified by hand, a client can display the image for human-readability as the
