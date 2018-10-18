@@ -682,7 +682,16 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				VolumeMounts: fluentdVolumeMounts,
 			}},
-			Volumes: []corev1.Volume{varLogVolume,  *getFluentdConfigMapVolume("bar-fluentd")},
+			Volumes: []corev1.Volume{varLogVolume, corev1.Volume{
+				Name: fluentdConfigMapVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "bar-fluentd",
+						},
+					},
+				},
+			}},
 		},
 	}, {
 		name: "complex pod spec",

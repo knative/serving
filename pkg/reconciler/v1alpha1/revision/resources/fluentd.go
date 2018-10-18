@@ -65,6 +65,8 @@ const fluentdSidecarPreOutputConfig = `
 
 `
 
+const fluentdConfigMapVolumeName = "configmap"
+
 var (
 	fluentdResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -93,6 +95,19 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 		},
 		Data: map[string]string{
 			"varlog.conf": varlogConf,
+		},
+	}
+}
+
+func makeFluentdConfigMapVolume(rev *v1alpha1.Revision) *corev1.Volume {
+	return &corev1.Volume{
+		Name: fluentdConfigMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: names.FluentdConfigMap(rev),
+				},
+			},
 		},
 	}
 }
