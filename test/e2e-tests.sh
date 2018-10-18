@@ -35,7 +35,7 @@ readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/knative-e2e-result
-readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_VERSION=1.0.2
 readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # This script.
