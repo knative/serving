@@ -85,8 +85,7 @@ ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f config/monitoring/logging/elasticsearch >> "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
 # Traces via Zipkin
-ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    -f config/monitoring/tracing/zipkin >> "${MONITORING_TRACE_ZIPKIN_YAML}"
+ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin >> "${MONITORING_TRACE_ZIPKIN_YAML}"
 
 echo "Building Release Bundles."
 
