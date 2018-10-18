@@ -368,8 +368,8 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "375da0da85460d1bef0120dc70c9b341d90bee81"
-  source = "https://github.com/imikushin/pkg.git"
+  revision = "62bcfe912f72225fdd6ac1405639c17e55ac8dc8"
+  source = "https://github.com/knative/pkg.git"
 
 [[projects]]
   branch = "master"
