@@ -92,6 +92,10 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 		for {
 			select {
 			case <-time.After(r.readyTimout):
+				// last chance to check
+				if revision.Status.IsReady() {
+					break RevisionReady
+				}
 				return nil, errors.New("Timeout waiting for revision to become ready")
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
