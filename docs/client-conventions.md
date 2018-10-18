@@ -126,3 +126,39 @@ specified by hand, a client can display the image for human-readability as the
 contents of the `client.knative.dev/user-image` annotation, combined with the
 note that it is "at digest <digest>", fetched from the `imageDigest` of the
 revision (or the `image` field iteself of the Service).
+
+For example, the displayed value for the image may be the same when:
+
+ * `container.image` is `gcr.io/veggies/eggplant:purple` and
+   `status.imageDigest` of the relevant revision is
+   `gcr.io/veggies/eggplant@sha256:45b23dee08af...`
+ * `container.image` is `gcr.io/veggies/eggplant@sha256:45b23dee08af...` and the
+   `client.knative.dev/user-image` annotation is
+   `gcr.io/veggies/eggplant:purple`
+
+In both cases the client may tell the user the image is
+"`gcr.io/veggies/eggplant:purple` at `sha256:45b23dee...`"
+
+### In the presence of non-conventional clients
+
+Non-convention-following clients can mess with this in the following ways:
+
+ * Not set a nonce (the label selector query returns 0 items), or fail to change
+   the nonce (the label selector query returns >1 items)
+   - In this case, we fall back to using the race-prone
+     `latestCreatedRevisionName` field to determine the base revision. This will
+     be almost-always correct, but may sometimes result in a situation where an
+     unaware client changing code and a well-behaved client changing
+     configuration race with each other, and the code change is not reflected in
+     the revision that becomes live.
+ * Not set the user-image annotation.
+   - Clients should display the contents of the `image` field if the
+     `user-image` annotation is unspecified or implausible (an implausible value
+     is one that does not share the same path prefix before the sha/tag).
+
+Furthermore, *before* a user has used a well-behaved client to change an env var
+or something, using an unaware client like kubectl to change an env var will
+re-resolve the image if the user deployed an image by tag. (This would only be
+avoidable if the server were to create new by-digest revisions for the user.)
+After the user uses a well-behaved client, the image is by-digest anyway so
+using kubectl won't mess anything up.
