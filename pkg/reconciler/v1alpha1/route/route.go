@@ -129,9 +129,10 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+	resyncRoutesOnConfigDomainChange := configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
-	}))
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncRoutesOnConfigDomainChange)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }

@@ -37,11 +37,23 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
+// Store is based on configmap.UntypedStore and is used to store and watch for
+// updates to configuration related to routes (currently only config-domain).
+//
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }
 
+// NewStore creates a configmap.UntypedStore based config store.
+//
+// logger must be non-nil implementation of configmap.Logger (commonly used
+// loggers conform)
+//
+// onAfterStore is a variadic list of callbacks to run
+// after the ConfigMap has been processed and stored.
+//
+// See also: configmap.NewUntypedStore().
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
