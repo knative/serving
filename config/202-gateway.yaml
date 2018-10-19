@@ -110,6 +110,10 @@ metadata:
     knative: ingressgateway
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: knative-ingressgateway
+      knative: ingressgateway
   template:
     metadata:
       labels:
