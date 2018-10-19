@@ -100,7 +100,7 @@ func TestSingleConcurrency(t *testing.T) {
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 			if err != nil {
-				return fmt.Errorf("Error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %v", err)
 			}
 
 			for {
@@ -110,12 +110,12 @@ func TestSingleConcurrency(t *testing.T) {
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						return fmt.Errorf("Error making request %v", err)
+						return fmt.Errorf("error making request %v", err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
-						return fmt.Errorf("Detected concurrent requests")
+						return fmt.Errorf("detected concurrent requests")
 					} else if res.StatusCode != http.StatusOK {
-						return fmt.Errorf("Non 200 response %v", res.StatusCode)
+						return fmt.Errorf("non 200 response %v", res.StatusCode)
 					}
 				}
 			}
