@@ -26,6 +26,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,15 +141,19 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	})
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
-	kubeInformer.Start(stopCh)
-	servingInformer.Start(stopCh)
-
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
 	}()
+	kubeInformer.Start(stopCh)
+	servingInformer.Start(stopCh)
+
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

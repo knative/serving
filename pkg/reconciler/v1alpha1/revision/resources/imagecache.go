@@ -30,7 +30,7 @@ import (
 
 func MakeImageCache(rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
 	for _, container := range deploy.Spec.Template.Spec.Containers {
-		if container.Name != UserContainerName {
+		if container.Name != userContainerName {
 			// The sidecars are cached once separately.
 			continue
 		}
@@ -53,5 +53,5 @@ func MakeImageCache(rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching
 
 		return img, nil
 	}
-	return nil, fmt.Errorf("user container %q not found: %v", UserContainerName, deploy)
+	return nil, fmt.Errorf("user container %q not found: %v", userContainerName, deploy)
 }
