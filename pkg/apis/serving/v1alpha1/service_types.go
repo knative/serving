@@ -99,11 +99,15 @@ type ServiceSpec struct {
 	Release *ReleaseType `json:"release,omitempty"`
 }
 
+// ManualType contains the options for configuring a manual service. See ServiceSpec for
+// more details.
 type ManualType struct {
 	// Manual type does not contain a configuration as this type provides the
 	// user complete control over the configuration and route.
 }
 
+// ReleaseType contains the options for slowly releasing revisions. See ServiceSpec for
+// more details.
 type ReleaseType struct {
 	// Revisions is An ordered list of 1 or 2 revisions. The first will
 	// have a TrafficTarget with a name of "current" and the second will have
@@ -122,12 +126,16 @@ type ReleaseType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
+// RunLatestType contains the options for always having a route to the latest configuration. See
+// ServiceSpec for more details.
 type RunLatestType struct {
 	// The configuration for this service.
 	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
+// PinnedType is DEPRECATED. ReleaseType should be used instead. To get the behavior of PinnedType set
+// ReleaseType.Revisions to []string{PinnedType.RevisionName} and ReleaseType.RolloutPercent to 0.
 type PinnedType struct {
 	// The revision name to pin this service to until changed
 	// to a different service type.

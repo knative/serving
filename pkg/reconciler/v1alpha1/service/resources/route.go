@@ -86,7 +86,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)
 	} else {
-		return nil, errors.New("malformed Service: one of runLatest, pinned, or release must be present.")
+		return nil, errors.New("malformed Service: one of runLatest, pinned, or release must be present")
 	}
 
 	return c, nil

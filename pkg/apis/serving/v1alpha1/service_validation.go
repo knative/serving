@@ -21,11 +21,13 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
+// Validate validates the fields beloning to Service
 func (s *Service) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
 		Also(s.Spec.Validate().ViaField("spec"))
 }
 
+// Validate validates the fields beloning to ServiceSpec recursively
 func (ss *ServiceSpec) Validate() *apis.FieldError {
 	// We would do this semantic DeepEqual, but the spec is comprised
 	// entirely of a oneof, the validation for which produces a clearer
@@ -62,6 +64,7 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 	return errs
 }
 
+// Validate validates the fields beloning to PinnedType
 func (pt *PinnedType) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 	if pt.RevisionName == "" {
@@ -70,14 +73,17 @@ func (pt *PinnedType) Validate() *apis.FieldError {
 	return errs.Also(pt.Configuration.Validate().ViaField("configuration"))
 }
 
+// Validate validates the fields beloning to RunLatestType
 func (rlt *RunLatestType) Validate() *apis.FieldError {
 	return rlt.Configuration.Validate().ViaField("configuration")
 }
 
+// Validate validates the fields beloning to ManualType
 func (m *ManualType) Validate() *apis.FieldError {
 	return nil
 }
 
+// Validate validates the fields beloning to ReleaseType
 func (rt *ReleaseType) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 
