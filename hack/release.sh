@@ -26,7 +26,7 @@ readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 
 # Istio.yaml file to upload
-readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_VERSION=1.0.2
 readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # Local generated yaml file.

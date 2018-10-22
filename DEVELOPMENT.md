@@ -122,7 +122,7 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-0.8.0/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 Optionally label namespaces with `istio-injection=enabled`:
@@ -131,7 +131,7 @@ Optionally label namespaces with `istio-injection=enabled`:
 kubectl label namespace default istio-injection=enabled
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need 
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
 to set up static IP for Ingresses in the cluster.
 
 ### Deploy Build
@@ -144,7 +144,7 @@ kubectl apply -f ./third_party/config/build/release.yaml
 
 This step includes building Knative Serving, creating and pushing developer images and deploying them to your Kubernetes cluster.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file. 
+First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file.
 If this file is edited and deployed after Knative Serving installation, the changes in it will be
 effective only for newly created revisions.
 
@@ -227,7 +227,7 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-0.8.0/istio.yaml
+  -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 ## Telemetry
