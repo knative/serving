@@ -128,11 +128,12 @@ fi
 
 # Publish the release
 
-for yaml in "${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" "${BUILD_YAML}" "${MONITORING_YAML}" "${MONITORING_LEAN_YAML}" "${ISTIO_YAML}" "${ISTIO_LEAN_YAML}"; do
+realonly YAMLS_TO_PUBLISH="${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" "${BUILD_YAML}" "${MONITORING_YAML}" "${MONITORING_LEAN_YAML}" "${ISTIO_YAML}" "${ISTIO_LEAN_YAML}"
+for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
 
-branch_release "Knative Serving" "${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML}"
+branch_release "Knative Serving" ${YAMLS_TO_PUBLISH}
 
 echo "New release published successfully"
