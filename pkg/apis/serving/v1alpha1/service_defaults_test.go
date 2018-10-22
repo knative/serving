@@ -30,8 +30,21 @@ func TestServiceDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Service{},
-		// If neither RunLatest or Pinned is provided, then we do nothing.
+		// Do nothing when no type is provided
 		want: &Service{},
+	}, {
+		name: "manual",
+		in: &Service{
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
+			},
+		},
+		// Manual does not take a configuration so do nothing
+		want: &Service{
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
+			},
+		},
 	}, {
 		name: "run latest",
 		in: &Service{
@@ -114,6 +127,52 @@ func TestServiceDefaulting(t *testing.T) {
 		want: &Service{
 			Spec: ServiceSpec{
 				Pinned: &PinnedType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								ContainerConcurrency: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "release",
+		in: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "release - no overwrite",
+		in: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								ContainerConcurrency: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{

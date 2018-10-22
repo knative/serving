@@ -121,9 +121,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	// Reconcile this copy of the service and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, service)
+	if service.Spec.Manual != nil {
+		// Do not reconcile in manual mode. Just propogate changes
+		c.propogateStatus(ctx, service)
+	} else {
+		// Reconcile this copy of the service and then write back any status
+		// updates regardless of whether the reconciliation errored out.
+		err = c.reconcile(ctx, service)
+	}
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -134,6 +139,24 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	return err
+}
+
+// propogateStatus attempts to propogate changes from configuration and route
+// up to the status on the service, but does not attempt to reconcile state
+func (c *Reconciler) propogateStatus(ctx context.Context, service *v1alpha1.Service) {
+	service.Status.InitializeConditions()
+
+	configName := resourcenames.Configuration(service)
+	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
+	if err == nil {
+		service.Status.PropagateConfigurationStatus(config.Status)
+	}
+	routeName := resourcenames.Route(service)
+	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
+	if err == nil {
+		service.Status.PropagateRouteStatus(route.Status)
+	}
+	service.Status.ObservedGeneration = service.Spec.Generation
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
@@ -238,12 +261,19 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 }
 
 func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(resources.MakeRoute(service))
+	route, err := resources.MakeRoute(service)
+	if err != nil {
+		return nil, err
+	}
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
-	desiredRoute := resources.MakeRoute(service)
+	desiredRoute, err := resources.MakeRoute(service)
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation

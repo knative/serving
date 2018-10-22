@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"github.com/knative/pkg/apis"
 )
 
@@ -33,16 +34,32 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	switch {
-	case ss.RunLatest != nil && ss.Pinned != nil:
-		return apis.ErrMultipleOneOf("runLatest", "pinned")
-	case ss.RunLatest != nil:
-		return ss.RunLatest.Validate().ViaField("runLatest")
-	case ss.Pinned != nil:
-		return ss.Pinned.Validate().ViaField("pinned")
-	default:
-		return apis.ErrMissingOneOf("runLatest", "pinned")
+	var errs *apis.FieldError
+	set := []string{}
+
+	if ss.RunLatest != nil {
+		set = append(set, "runLatest")
+		errs = errs.Also(ss.RunLatest.Validate().ViaField("runLatest"))
 	}
+	if ss.Release != nil {
+		set = append(set, "release")
+		errs = errs.Also(ss.Release.Validate().ViaField("release"))
+	}
+	if ss.Manual != nil {
+		set = append(set, "manual")
+		errs = errs.Also(ss.Manual.Validate().ViaField("manual"))
+	}
+	if ss.Pinned != nil {
+		set = append(set, "pinned")
+		errs = errs.Also(ss.Pinned.Validate().ViaField("pinned"))
+	}
+
+	if len(set) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(set...))
+	} else if len(set) == 0 {
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual", "pinned"))
+	}
+	return errs
 }
 
 func (pt *PinnedType) Validate() *apis.FieldError {
@@ -55,4 +72,27 @@ func (pt *PinnedType) Validate() *apis.FieldError {
 
 func (rlt *RunLatestType) Validate() *apis.FieldError {
 	return rlt.Configuration.Validate().ViaField("configuration")
+}
+
+func (m *ManualType) Validate() *apis.FieldError {
+	return nil
+}
+
+func (rt *ReleaseType) Validate() *apis.FieldError {
+	var errs *apis.FieldError
+
+	numRevisions := len(rt.Revisions)
+	if numRevisions < 1 || numRevisions > 2 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", numRevisions), "revisions.length"))
+	}
+
+	if numRevisions < 2 && rt.RolloutPercent != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", rt.RolloutPercent), "rolloutPercent"))
+	}
+
+	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", rt.RolloutPercent), "rolloutPercent"))
+	}
+
+	return errs.Also(rt.Configuration.Validate().ViaField("configuration"))
 }

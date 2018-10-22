@@ -81,8 +81,45 @@ type ServiceSpec struct {
 
 	// Pins this service to a specific revision name. The revision must
 	// be owned by the configuration provided.
+	// PinnedType is DEPRECATED in favor of ReleaseType
 	// +optional
 	Pinned *PinnedType `json:"pinned,omitempty"`
+
+	// Manual creates a serivce in which the service controller does not
+	// attempt to reconcile the configuration or route. This type is used
+	// for advanced functionality that requires direct access to the route
+	// and configuration objects
+	// +optional
+	Manual *ManualType `json:"manual,omitempty"`
+
+	// Release enables gradual promotion of new revisions by allowing traffic
+	// to be split between the previous revision and the new revision. This type
+	// replaced the deprecated Pinned type.
+	// +optional
+	Release *ReleaseType `json:"release,omitempty"`
+}
+
+type ManualType struct {
+	// Manual type does not contain a configuration as this type provides the
+	// user complete control over the configuration and route.
+}
+
+type ReleaseType struct {
+	// Revisions is An ordered list of 1 or 2 revisions. The first will
+	// have a TrafficTarget with a name of "current" and the second will have
+	// a name of "candidate".
+	// +optional
+	Revisions []string `json:"revisions,omitempty"`
+
+	// RolloutPercent is the percent of traffic that should be sent to the "candidate"
+	// revision. Valid values are between 0 and 99 inclusive.
+	// +optional
+	RolloutPercent int `json:"rolloutPercent,omitempty"`
+
+	// The configuration for this service. All revisions from this service must
+	// come from a single configuration.
+	// +optional
+	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
 type RunLatestType struct {
