@@ -117,6 +117,15 @@ func TestReconcile(t *testing.T) {
 			Object: svcRelease("release", "foo", initialConditions...),
 		}},
 	}, {
+		Name: "manual- no creates",
+		Objects: []runtime.Object{
+			svcManual("manual", "foo"),
+		},
+		Key: "foo/manual",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcManual("manual", "foo", initialConditions...),
+		}},
+	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
 			svcRL("no-updates", "foo", initialConditions...),
@@ -149,6 +158,29 @@ func TestReconcile(t *testing.T) {
 			mutateRoute(mustMakeRoute(t, svcRL("bad-config-update", "foo", initialConditions...))),
 		},
 		Key:     "foo/bad-config-update",
+		WantErr: true,
+	}, {
+		Name: "runLatest - bad route create",
+		Objects: []runtime.Object{
+			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
+			// path updating Route.
+			svc("bad-route-create", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
+			// Create the configuration so it doesn't fail before route
+			mustMakeConfig(t, svcRL("bad-route-create", "foo", initialConditions...)),
+		},
+		Key:     "foo/bad-route-create",
+		WantErr: true,
+	}, {
+		Name: "runLatest - bad route update",
+		Objects: []runtime.Object{
+			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
+			// path updating Route.
+			svc("bad-route-update", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
+			// Create the configuration so it doesn't fail before route
+			mustMakeConfig(t, svcRL("bad-route-update", "foo", initialConditions...)),
+			mutateRoute(mustMakeRoute(t, svcRL("bad-route-update", "foo", initialConditions...))),
+		},
+		Key:     "foo/bad-route-update",
 		WantErr: true,
 	}, {
 		Name: "runLatest - route creation failure",
@@ -334,6 +366,80 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/route-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("route-fails", "foo", duckv1alpha1.Conditions{{
+				Type:   v1alpha1.ServiceConditionConfigurationsReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   v1alpha1.ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionRoutesReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}}...),
+		}},
+	}, {
+		Name: "manual - config fails, propagate failure",
+		// When config fails, the service should fail even in manual mode
+		Objects: []runtime.Object{
+			svcManual("manual-config-fails", "foo", initialConditions...),
+			// Create route and config with RL as they cannot be created in manual mode
+			routeWithStatus(mustMakeRoute(t, svcRL("manual-config-fails", "foo", initialConditions...)),
+				v1alpha1.RouteStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.RouteConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+			cfgWithStatus(mustMakeConfig(t, svcRL("manual-config-fails", "foo", initialConditions...)),
+				v1alpha1.ConfigurationStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionFalse,
+						Reason: "Propagate me, please",
+					}},
+				}),
+		},
+		Key: "foo/manual-config-fails",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcManual("manual-config-fails", "foo", duckv1alpha1.Conditions{{
+				Type:   v1alpha1.ServiceConditionConfigurationsReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionRoutesReady,
+				Status: corev1.ConditionTrue,
+			}}...),
+		}},
+	}, {
+		Name: "runLatest - route fails, propagate failure",
+		// When route fails, the service should fail.
+		Objects: []runtime.Object{
+			svcManual("manual-route-fails", "foo", initialConditions...),
+			// Create route and config with RL as they cannot be created in manual mode
+			routeWithStatus(mustMakeRoute(t, svcRL("manual-route-fails", "foo", initialConditions...)),
+				v1alpha1.RouteStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.RouteConditionReady,
+						Status: corev1.ConditionFalse,
+						Reason: "Propagate me, please",
+					}},
+				}),
+			cfgWithStatus(mustMakeConfig(t, svcRL("manual-route-fails", "foo", initialConditions...)),
+				v1alpha1.ConfigurationStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+		},
+		Key: "foo/manual-route-fails",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcManual("manual-route-fails", "foo", duckv1alpha1.Conditions{{
 				Type:   v1alpha1.ServiceConditionConfigurationsReady,
 				Status: corev1.ConditionTrue,
 			}, {
