@@ -14,18 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package configmap
 
 import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/knative/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// The UntypedStore expects a logger that conforms to this interface
-// The store will log when updates succeed or fail
+// Logger is the interface that UntypedStore expects its logger to conform to.
+// UntypedStore will log when updates succeed or fail.
 type Logger interface {
 	Infof(string, ...interface{})
 	Fatalf(string, ...interface{})
@@ -53,6 +52,8 @@ type UntypedStore struct {
 
 	storages     map[string]*atomic.Value
 	constructors map[string]reflect.Value
+
+	onAfterStore []func(name string, value interface{})
 }
 
 // NewUntypedStore creates an UntypedStore with given name,
@@ -68,16 +69,25 @@ type UntypedStore struct {
 // These functions can return any type along with an error.
 // If the function definition differs then NewUntypedStore
 // will panic.
+//
+// onAfterStore is a variadic list of callbacks to run
+// after the ConfigMap has been transformed (via the appropriate Constructor)
+// and stored. These callbacks run sequentially (in the argument order) in a
+// separate go-routine and are of type func(name string, value interface{})
+// where name is the config-map name and value is the object that has been
+// constructed from the config-map and stored.
 func NewUntypedStore(
 	name string,
 	logger Logger,
-	constructors Constructors) *UntypedStore {
+	constructors Constructors,
+	onAfterStore ...func(name string, value interface{})) *UntypedStore {
 
 	store := &UntypedStore{
 		name:         name,
 		logger:       logger,
 		storages:     make(map[string]*atomic.Value),
 		constructors: make(map[string]reflect.Value),
+		onAfterStore: onAfterStore,
 	}
 
 	for configName, constructor := range constructors {
@@ -111,7 +121,7 @@ func (s *UntypedStore) registerConfig(name string, constructor interface{}) {
 // WatchConfigs uses the provided configmap.Watcher
 // to setup watches for the config names provided in the
 // Constructors map
-func (s *UntypedStore) WatchConfigs(w configmap.Watcher) {
+func (s *UntypedStore) WatchConfigs(w Watcher) {
 	for configMapName := range s.constructors {
 		w.Watch(configMapName, s.OnConfigChanged)
 	}
@@ -155,4 +165,10 @@ func (s *UntypedStore) OnConfigChanged(c *corev1.ConfigMap) {
 
 	s.logger.Infof("%s config %q config was added or updated: %v", s.name, name, result)
 	storage.Store(result)
+
+	go func() {
+		for _, f := range s.onAfterStore {
+			f(name, result)
+		}
+	}()
 }
