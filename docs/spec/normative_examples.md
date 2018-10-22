@@ -11,7 +11,7 @@ Examples in this section illustrate:
 * [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
 * [Configuration changes and managed rollout
   options](#3-managed-release-of-a-new-revision---config-change-only)
-* [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)  
+* [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)
 * [Creating a revision from source](#5-deploy-a-revision-from-source)
 * [Creating a function from source](#6-deploy-a-function)
 
@@ -534,7 +534,7 @@ current,latest  100%     def   2018-01-18 20:34    user1         a6f92d1
 $ knative deploy --service my-service --env HELLO="blurg"
 [...]
 Deployed revision ghi to https://latest.my-service.default.mydomain.com
-You can begin rolling out this revision with [knative rollout begin ghi]
+You can begin rolling out this revision with [knative release begin ghi]
 
 $ knative revisions list --service my-service
 Route           Traffic  Id    Date                Deployer     Git SHA
@@ -556,7 +556,7 @@ $ knative release percent 5
 $ knative revisions list --service my-service
 Route           Traffic  Id    Date                Deployer     Git SHA
 next,latest     5%       ghi   2018-01-19 12:16    user1        a6f92d1
-current         100%     def   2018-01-18 20:34    user1        a6f92d1
+current         95%     def   2018-01-18 20:34    user1        a6f92d1
                          abc   2018-01-17 10:32    user1        33643fc
 
 $ knative release --service my-service percent 50
@@ -593,7 +593,7 @@ current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
   percentage is manually ramped up. Upon completing the rollout, the next
   revision is now the current revision.
 
-![Release mode](images/manual_rollout.png)
+![Release mode](images/release_mode.png)
 
 
 In the previous examples, the Service automatically made changes to the
