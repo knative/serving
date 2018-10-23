@@ -33,10 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	fluentdConfigMapVolumeName = "configmap"
-	varLogVolumeName           = "varlog"
-)
+const varLogVolumeName = "varlog"
 
 var (
 	varLogVolume = corev1.Volume{
@@ -49,17 +46,6 @@ var (
 	varLogVolumeMount = corev1.VolumeMount{
 		Name:      varLogVolumeName,
 		MountPath: "/var/log",
-	}
-
-	fluentdConfigMapVolume = corev1.Volume{
-		Name: fluentdConfigMapVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "fluentd-varlog-config",
-				},
-			},
-		},
 	}
 
 	userPorts = []corev1.ContainerPort{{
@@ -113,7 +99,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = UserContainerName
+	userContainer.Name = userContainerName
 	userContainer.Resources = userResources
 	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
@@ -141,7 +127,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {
 		podSpec.Containers = append(podSpec.Containers, *makeFluentdContainer(rev, observabilityConfig))
-		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
+		podSpec.Volumes = append(podSpec.Volumes, *makeFluentdConfigMapVolume(rev))
 	}
 
 	return podSpec

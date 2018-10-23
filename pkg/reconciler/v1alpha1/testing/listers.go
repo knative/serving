@@ -24,9 +24,11 @@ import (
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	networking "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/testing"
 	appsv1 "k8s.io/api/apps/v1"
@@ -114,6 +116,11 @@ func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
 
 func (l *Listers) GetKPALister() kpalisters.PodAutoscalerLister {
 	return kpalisters.NewPodAutoscalerLister(l.indexerFor(&kpa.PodAutoscaler{}))
+}
+
+// GetClusterIngressLister get lister for ClusterIngress resource.
+func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
+	return networkinglisters.NewClusterIngressLister(l.indexerFor(&networking.ClusterIngress{}))
 }
 
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {

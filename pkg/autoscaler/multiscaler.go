@@ -60,13 +60,13 @@ type scalerRunner struct {
 	stopCh chan struct{}
 
 	// lsm guards access to latestScale
-	lsm         sync.Mutex
+	lsm         sync.RWMutex
 	latestScale int32
 }
 
 func (sr *scalerRunner) getLatestScale() int32 {
-	sr.lsm.Lock()
-	defer sr.lsm.Unlock()
+	sr.lsm.RLock()
+	defer sr.lsm.RUnlock()
 	return sr.latestScale
 }
 
@@ -114,8 +114,8 @@ func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerF
 }
 
 func (m *MultiScaler) Get(ctx context.Context, key string) (*Metric, error) {
-	m.scalersMutex.Lock()
-	defer m.scalersMutex.Unlock()
+	m.scalersMutex.RLock()
+	defer m.scalersMutex.RUnlock()
 	scaler, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.

@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,17 +68,18 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:             window,
-		perPodAggregations: make(map[string]*perPodAggregation),
+		window:              window,
+		perPodAggregations:  make(map[string]*perPodAggregation),
+		activatorsContained: make(map[string]struct{}),
 	}
 }
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window                   time.Duration
-	perPodAggregations       map[string]*perPodAggregation
-	probeCount               int32
-	containsActivatorMetrics bool
+	window              time.Duration
+	perPodAggregations  map[string]*perPodAggregation
+	probeCount          int32
+	activatorsContained map[string]struct{}
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -91,10 +93,11 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
-		if stat.PodName == ActivatorPodName {
-			agg.containsActivatorMetrics = true
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
+			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
-		agg.probeCount += 1
+		agg.probeCount++
 	}
 }
 
@@ -106,10 +109,11 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 		podCount += pod.usageRatio(now)
 	}
 
-	// Discount the activator in the pod count.
-	if agg.containsActivatorMetrics {
-		discountedPodCount := podCount - 1.0
-		// Report a minimum of 1 pod if the activator is sending metrics.
+	activatorsCount := len(agg.activatorsContained)
+	// Discount the activators in the pod count.
+	if activatorsCount > 0 {
+		discountedPodCount := podCount - float64(activatorsCount)
+		// Report a minimum of 1 pod if the activators are sending metrics.
 		if discountedPodCount < 1.0 {
 			return 1.0
 		}
@@ -126,7 +130,8 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		if podName == ActivatorPodName {
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(podName, ActivatorPodName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
