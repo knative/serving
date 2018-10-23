@@ -16,8 +16,8 @@ use any Docker registry.
 
 Install the following tools:
 
-1.  [`gcloud`](https://cloud.google.com/sdk/downloads)
-1.  [`docker-credential-gcr`](https://github.com/GoogleCloudPlatform/docker-credential-gcr)
+1. [`gcloud`](https://cloud.google.com/sdk/downloads)
+1. [`docker-credential-gcr`](https://github.com/GoogleCloudPlatform/docker-credential-gcr)
 
     If you installed `gcloud` using the archive or installer, you can install
     `docker-credential-gcr` like this:
@@ -42,7 +42,7 @@ Install the following tools:
 
 ### Setup
 
-1.  If you haven't already set up a GCP project, create one and export its name
+1. If you haven't already set up a GCP project, create one and export its name
     for use in later commands.
 
     ```shell
@@ -50,21 +50,21 @@ Install the following tools:
     gcloud projects create "${PROJECT_ID}"
     ```
 
-1.  Enable the GCR API.
+1. Enable the GCR API.
 
     ```shell
     gcloud --project="${PROJECT_ID}" services enable \
     containerregistry.googleapis.com
     ```
 
-1.  Hook up your GCR credentials. Note that this may complain if you don't have
+1. Hook up your GCR credentials. Note that this may complain if you don't have
     the docker CLI installed, but it is not necessary and should still work.
 
     ```shell
     docker-credential-gcr configure-docker
     ```
 
-1.  If you need to, update your `KO_DOCKER_REPO` and/or `DOCKER_REPO_OVERRIDE`
+1. If you need to, update your `KO_DOCKER_REPO` and/or `DOCKER_REPO_OVERRIDE`
     in your `.bashrc`. It should now be
 
     ```shell

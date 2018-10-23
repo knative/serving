@@ -163,7 +163,7 @@ config/monitoring/200-common/300-prometheus/100-scrape-config.yaml:
 
 5.Redeploy prometheus and its configuration:
 
-```sh
+```shell
 kubectl delete -f config/monitoring/200-common/300-prometheus
 kubectl apply -f config/monitoring/200-common/300-prometheus
 ```
