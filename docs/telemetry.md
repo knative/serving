@@ -8,12 +8,12 @@ First, deploy monitoring components.
 
 You can use two different setups:
 
-1. **150-elasticsearch-prod**: This configuration collects logs & metrics from
+1. **150-elasticsearch**: This configuration collects logs & metrics from
 user containers, build controller and Istio requests.
 
 	```shell
 	kubectl apply -R -f config/monitoring/100-common \
-	    -f config/monitoring/150-elasticsearch-prod \
+	    -f config/monitoring/150-elasticsearch \
 	    -f third_party/config/monitoring/common \
 	    -f third_party/config/monitoring/elasticsearch \
 	    -f config/monitoring/200-common \

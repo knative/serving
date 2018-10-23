@@ -50,7 +50,7 @@ function create_istio() {
 
 function create_monitoring() {
   kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
@@ -71,7 +71,7 @@ function delete_istio() {
 
 function delete_monitoring() {
   kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common
