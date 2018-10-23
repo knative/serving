@@ -212,7 +212,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("0", "spec.release.revisions.length"),
+		want: apis.ErrMissingField("spec.release.revisions"),
 	}, {
 		name: "invalid release -- too few revisions; empty slice",
 		s: &Service{
@@ -231,7 +231,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("0", "spec.release.revisions.length"),
+		want: apis.ErrMissingField("spec.release.revisions"),
 	}, {
 		name: "invalid release -- too many revisions",
 		s: &Service{

@@ -160,29 +160,6 @@ func TestReconcile(t *testing.T) {
 		Key:     "foo/bad-config-update",
 		WantErr: true,
 	}, {
-		Name: "runLatest - bad route create",
-		Objects: []runtime.Object{
-			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
-			// path updating Route.
-			svc("bad-route-create", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
-			// Create the configuration so it doesn't fail before route
-			mustMakeConfig(t, svcRL("bad-route-create", "foo", initialConditions...)),
-		},
-		Key:     "foo/bad-route-create",
-		WantErr: true,
-	}, {
-		Name: "runLatest - bad route update",
-		Objects: []runtime.Object{
-			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
-			// path updating Route.
-			svc("bad-route-update", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
-			// Create the configuration so it doesn't fail before route
-			mustMakeConfig(t, svcRL("bad-route-update", "foo", initialConditions...)),
-			mutateRoute(mustMakeRoute(t, svcRL("bad-route-update", "foo", initialConditions...))),
-		},
-		Key:     "foo/bad-route-update",
-		WantErr: true,
-	}, {
 		Name: "runLatest - route creation failure",
 		// Induce a failure during route creation
 		WantErr: true,

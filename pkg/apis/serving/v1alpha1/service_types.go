@@ -85,16 +85,14 @@ type ServiceSpec struct {
 	// +optional
 	Pinned *PinnedType `json:"pinned,omitempty"`
 
-	// Manual creates a serivce in which the service controller does not
-	// attempt to reconcile the configuration or route. This type is used
-	// for advanced functionality that requires direct access to the route
-	// and configuration objects
+	// Manual mode enables users to start managing the underlying Route and Configuration
+	// resources directly.  This advanced usage is intended as a path for users to graduate
+	// from the limited capabilities of Service to the full power of Route.
 	// +optional
 	Manual *ManualType `json:"manual,omitempty"`
 
 	// Release enables gradual promotion of new revisions by allowing traffic
-	// to be split between the previous revision and the new revision. This type
-	// replaced the deprecated Pinned type.
+	// to be split between two revisions. This type replaces the deprecated Pinned type.
 	// +optional
 	Release *ReleaseType `json:"release,omitempty"`
 }
@@ -109,7 +107,7 @@ type ManualType struct {
 // ReleaseType contains the options for slowly releasing revisions. See ServiceSpec for
 // more details.
 type ReleaseType struct {
-	// Revisions is An ordered list of 1 or 2 revisions. The first will
+	// Revisions is an ordered list of 1 or 2 revisions. The first will
 	// have a TrafficTarget with a name of "current" and the second will have
 	// a name of "candidate".
 	// +optional

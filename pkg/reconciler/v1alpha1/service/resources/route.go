@@ -45,15 +45,13 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		numRevisions := len(service.Spec.Release.Revisions)
 
 		// Configure the 'current' route
-		if numRevisions >= 1 {
-			currentRevisionName := service.Spec.Release.Revisions[0]
-			ttCurrent := v1alpha1.TrafficTarget{
-				Name:         "current",
-				Percent:      100 - rolloutPercent,
-				RevisionName: currentRevisionName,
-			}
-			c.Spec.Traffic = append(c.Spec.Traffic, ttCurrent)
+		currentRevisionName := service.Spec.Release.Revisions[0]
+		ttCurrent := v1alpha1.TrafficTarget{
+			Name:         "current",
+			Percent:      100 - rolloutPercent,
+			RevisionName: currentRevisionName,
 		}
+		c.Spec.Traffic = append(c.Spec.Traffic, ttCurrent)
 
 		// Configure the 'candidate' route
 		if numRevisions == 2 {
@@ -86,7 +84,8 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)
 	} else {
-		return nil, errors.New("malformed Service: one of runLatest, pinned, or release must be present")
+		// manual does not have a route and should not reach this path
+		return nil, errors.New("malformed Service: MakeRoute requires one of runLatest, pinned, or release must be present")
 	}
 
 	return c, nil

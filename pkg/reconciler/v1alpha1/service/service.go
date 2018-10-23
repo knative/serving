@@ -122,8 +122,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	service := original.DeepCopy()
 
 	if service.Spec.Manual != nil {
-		// Do not reconcile in manual mode. Just propogate changes
-		c.propogateStatus(ctx, service)
+		// Do not reconcile in manual mode. Just propagate changes
+		c.propagateStatus(ctx, service)
 	} else {
 		// Reconcile this copy of the service and then write back any status
 		// updates regardless of whether the reconciliation errored out.
@@ -141,20 +141,25 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-// propogateStatus attempts to propogate changes from configuration and route
+// propagateStatus attempts to propagate changes from configuration and route
 // up to the status on the service, but does not attempt to reconcile state
-func (c *Reconciler) propogateStatus(ctx context.Context, service *v1alpha1.Service) {
+func (c *Reconciler) propagateStatus(ctx context.Context, service *v1alpha1.Service) {
+	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if err == nil {
 		service.Status.PropagateConfigurationStatus(config.Status)
+	} else {
+		logger.Errorf("Failed to propagate configuration status: %q; %v", configName, zap.Error(err))
 	}
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if err == nil {
 		service.Status.PropagateRouteStatus(route.Status)
+	} else {
+		logger.Errorf("Failed to propagate route status: %q; %v", routeName, zap.Error(err))
 	}
 	service.Status.ObservedGeneration = service.Spec.Generation
 }
@@ -263,6 +268,8 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	route, err := resources.MakeRoute(service)
 	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
 		return nil, err
 	}
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
@@ -272,6 +279,8 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	logger := logging.FromContext(ctx)
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
 		return nil, err
 	}
 
