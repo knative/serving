@@ -218,7 +218,7 @@ func assertScaleUp(ctx *testContext) {
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
 		2*time.Minute)
-	if err != nil {
+	if err == nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
 }
