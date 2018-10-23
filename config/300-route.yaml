@@ -30,3 +30,13 @@ spec:
     shortNames:
     - rt
   scope: Namespaced
+  additionalPrinterColumns:
+  - name: Domain
+    type: string
+    JSONPath: .status.domain
+  - name: Ready
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"
+  - name: Reason
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
