@@ -30,14 +30,6 @@ import (
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/types"
-
-	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-)
-
-const (
-	image1 = "pizzaplanetv1"
-	image2 = "pizzaplanetv2"
 )
 
 func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
@@ -143,20 +135,6 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 	return domain, err
 }
 
-func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
-	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
-	}
-	return clients
-}
-
-func tearDown(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
@@ -164,8 +142,8 @@ func TestRouteCreation(t *testing.T) {
 	logger := logging.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(image1))
-	imagePaths = append(imagePaths, test.ImagePath(image2))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
@@ -208,7 +186,7 @@ func TestRouteCreation(t *testing.T) {
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	revisionName, err = getNextRevisionName(clients, names)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, pizzaPlanet2, err)
 	}
 	names.Revision = revisionName
 

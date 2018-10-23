@@ -19,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"encoding/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"testing"
@@ -29,28 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/mattbaird/jsonpatch"
-	"k8s.io/apimachinery/pkg/types"
 )
-
-func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, imagePath string) error {
-	patches := []jsonpatch.JsonPatchOperation{
-		{
-			Operation: "replace",
-			Path:      "/spec/runLatest/configuration/revisionTemplate/spec/container/image",
-			Value:     imagePath,
-		},
-	}
-	patchBytes, err := json.Marshal(patches)
-	if err != nil {
-		return err
-	}
-	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
@@ -129,8 +107,8 @@ func TestRunLatestService(t *testing.T) {
 	logger := logging.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(image1))
-	imagePaths = append(imagePaths, test.ImagePath(image2))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
@@ -169,14 +147,14 @@ func TestRunLatestService(t *testing.T) {
 	routeProberErrorChan := test.RunRouteProber(logger, clients, routeDomain)
 
 	logger.Info("Updating the Service to use a different image")
-	if err := updateServiceWithImage(clients, names, imagePaths[1]); err != nil {
+	if err := test.UpdateServiceImage(clients, svc, imagePaths[1]); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
 
 	logger.Info("Since the Service was updated a new Revision will be created and the Service will be updated")
 	revisionName, err = waitForServiceLatestCreatedRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, image2, err)
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, pizzaPlanet2, err)
 	}
 	names.Revision = revisionName
 
@@ -205,7 +183,7 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, test.ImagePath(image1))
+	svc, err := test.CreateLatestService(logger, clients, names, test.ImagePath(pizzaPlanet1))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -269,6 +247,150 @@ func reloadService(service string, clients *test.Clients, t *testing.T) *v1alpha
 		t.Fatalf("Failed to reload service %s: %v", service, err)
 	}
 	return svc
+}
+
+func TestReleaseService(t *testing.T) {
+	clients := setup(t)
+	logger := logging.GetContextLogger("TestReleaseService")
+	releaseImagePath1 := test.ImagePath(pizzaPlanet1)
+	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
+	releaseImagePath3 := test.ImagePath(helloworld)
+
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("pizzaplanet-service", logger),
+	}
+
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+
+	logger.Info("Creating a new Service in runLatest")
+	svc, err := test.CreateLatestService(logger, clients, names, releaseImagePath1)
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+	names.Revision = revisionName
+	firstRevision := revisionName
+
+	logger.Info("The Service will be updated with the domain of the Route once it is created")
+	routeDomain, err := waitForServiceDomain(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
+
+	// Everything above here is setup to get us into a good state to test release mode
+	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
+	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision}, 0)
+	if err != nil {
+		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+
+	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets, 'current' and 'latest'")
+	// TODO(dangerd): Validate traffic still points to firstRevision and route now has two traffic targets: current and latest
+
+	logger.Info("Updating the Service Spec with a new image")
+	if err := test.UpdateServiceImage(clients, svc, releaseImagePath2); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
+	}
+
+	logger.Info("Since the Service was updated a new Revision will be created")
+	revisionName, err = waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, releaseImagePath2, err)
+	}
+	names.Revision = revisionName
+	secondRevision := revisionName
+
+	logger.Info("Since the Service is using release the Route will not be updated")
+	// TODO(dangerd): Validate service and route still serving previous revision. Should be 2 traffic targets.
+
+	logger.Info("Updating Service to split traffic between two revisions using Release mode")
+	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision, secondRevision}, 42)
+	if err != nil {
+		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+
+	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'next', and 'latest'")
+	// TODO(dangerd): Validate that traffic is going between the two revisions
+
+	logger.Info("Updating the Service Spec with a new image")
+	if err := test.UpdateServiceImage(clients, svc, releaseImagePath3); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
+	}
+
+	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
+	// TODO(dangerd): Validate latest pointer updated, but traffic stays the same. Should be 3 traffic targets.
+}
+
+func TestManualService(t *testing.T) {
+	clients := setup(t)
+	logger := logging.GetContextLogger("TestManualService")
+	imagePath := test.ImagePath(pizzaPlanet1)
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("empty-manual-service", logger),
+	}
+
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+
+	logger.Info("Creating a new Service in runLatest")
+	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+	names.Revision = revisionName
+
+	logger.Info("The Service will be updated with the domain of the Route once it is created")
+	routeDomain, err := waitForServiceDomain(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
+
+	logger.Info("Creating a new Manual Service")
+	_, err = test.UpdateManualService(logger, clients, svc)
+	if err != nil {
+		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
+	}
+
+	//TODO(dangerd): Additional service object validation
+	//TODO(dangerd): Update Route and Configuration out of band
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.

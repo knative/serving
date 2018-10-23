@@ -154,8 +154,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(image1))
-	imagePaths = append(imagePaths, test.ImagePath(image2))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
@@ -189,7 +189,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	green.Revision, err = getNextRevisionName(clients, names)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, pizzaPlanet2, err)
 	}
 
 	// We should only need to wait until the Revision is routable,
