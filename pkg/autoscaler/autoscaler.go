@@ -93,6 +93,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
+		// TODO(#2282): This can cause naming collisions.
 		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
 			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
@@ -129,6 +130,7 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
+		// TODO(#2282): This can cause naming collisions.
 		if strings.HasPrefix(podName, ActivatorPodName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
