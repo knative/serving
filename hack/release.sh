@@ -34,7 +34,7 @@ readonly MONITORING_LEAN_YAML=monitoring-lean.yaml
 
 # Script entry point
 
-parse_flags $@
+initialize $@
 
 set -o errexit
 set -o pipefail
@@ -128,9 +128,12 @@ fi
 
 # Publish the release
 
-for yaml in "${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" "${BUILD_YAML}" "${MONITORING_YAML}" "${MONITORING_LEAN_YAML}" "${ISTIO_YAML}" "${ISTIO_LEAN_YAML}"; do
+readonly YAMLS_TO_PUBLISH="${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" "${BUILD_YAML}" "${MONITORING_YAML}" "${MONITORING_LEAN_YAML}" "${ISTIO_YAML}" "${ISTIO_LEAN_YAML}"
+for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
+
+branch_release "Knative Serving" ${YAMLS_TO_PUBLISH}
 
 echo "New release published successfully"
