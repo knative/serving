@@ -65,8 +65,6 @@ const (
 )
 
 var (
-	podName string
-
 	logger *zap.SugaredLogger
 
 	statSink *websocket.ManagedConnection
@@ -88,10 +86,6 @@ func statReporter() {
 	}
 }
 
-func initEnv() {
-	podName = util.GetRequiredEnvOrFatal("POD_NAME", logger)
-}
-
 func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
@@ -107,8 +101,6 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")
-
-	initEnv()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -156,6 +148,7 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
+	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
 	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
 		ReqChan:    reqChan,
 		StatChan:   statChan,
