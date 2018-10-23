@@ -217,16 +217,18 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	return created, nil
 }
 
-func (c *Reconciler) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	newu, err := c.configurationLister.Configurations(u.Namespace).Get(u.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+	u, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(newu.Status, u.Status) {
-		newu.Status = u.Status
+	if !reflect.DeepEqual(u.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := u.DeepCopy()
+		existing.Status = desired.Status
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
+		return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
 		//	return configClient.UpdateStatus(newu)
 	}
-	return newu, nil
+	return u, nil
 }
