@@ -13,6 +13,25 @@
 # limitations under the License.
 
 apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-system-discovery
+  namespace: knative-monitoring
+  labels:
+    app: prometheus
+spec:
+  clusterIP: None
+  ports:
+  - name: web
+    port: 9090
+    protocol: TCP
+    targetPort: web
+  selector:
+    app: prometheus
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus-system
