@@ -145,6 +145,14 @@
   version = "v1.36.0"
 
 [[projects]]
+  digest = "1:acaf854c7e302a7e13a665d00e6579fb72ead2ecd4932286deeac94ad3070fe7"
+  name = "github.com/gobuffalo/envy"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "047ecc927cd0b7d27bab83eb948e120fb7d1ea68"
+  version = "v1.6.5"
+
+[[projects]]
   digest = "1:93344b9d2c6f6c951d852e753e09c7d433a222e3c0ac952ff86f6e2527873b37"
   name = "github.com/gogo/protobuf"
   packages = [
@@ -291,6 +299,14 @@
   revision = "0b12d6b5"
 
 [[projects]]
+  digest = "1:da62aa6632d04e080b8a8b85a59ed9ed1550842a0099a55f3ae3a20d02a3745a"
+  name = "github.com/joho/godotenv"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "23d116af351c84513e1946b527c88823e476be13"
+  version = "v1.3.0"
+
+[[projects]]
   digest = "1:0243cffa4a3410f161ee613dfdd903a636d07e838a42d341da95d81f42cd1d41"
   name = "github.com/json-iterator/go"
   packages = ["."]
@@ -328,7 +344,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:b545b9094c6fc1feec82e7855d66db97d247c79dc235dd880c10dd1cfff8fd51"
+  digest = "1:59ed9d21a70d4276231fbfdda1ffcbafd37460a2d8453990fbdbada261ed3b90"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -368,8 +384,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "62bcfe912f72225fdd6ac1405639c17e55ac8dc8"
-  source = "https://github.com/knative/pkg.git"
+  revision = "3c11bc6a2f8f530c23711bab62e046b0befecb27"
 
 [[projects]]
   branch = "master"
@@ -378,6 +393,14 @@
   packages = ["."]
   pruneopts = "T"
   revision = "e7ddaaf7b3c285a538c6dfe061d59b73ace965cf"
+
+[[projects]]
+  digest = "1:6abc0ac0adf962ae786cde04327a7207fe3dd0a7c48d9c5584b75f4c542eb5a0"
+  name = "github.com/markbates/inflect"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0eb8590873c6b42bf0e685d8fca260c1e872c4ea"
+  version = "v1.0.3"
 
 [[projects]]
   branch = "master"

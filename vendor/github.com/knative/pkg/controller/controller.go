@@ -34,6 +34,11 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 )
 
+const (
+	falseString = "false"
+	trueString  = "true"
+)
+
 // Reconciler is the interface that controller implementations are expected
 // to implement, so that the shared controller.Impl can drive work through it.
 type Reconciler interface {
@@ -85,18 +90,22 @@ type Impl struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	logger *zap.SugaredLogger
+
+	// StatsReporter is used to send common controller metrics.
+	statsReporter StatsReporter
 }
 
 // NewImpl instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
+func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
 	return &Impl{
 		Reconciler: r,
 		WorkQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			workQueueName,
 		),
-		logger: logger,
+		logger:        logger,
+		statsReporter: reporter,
 	}
 }
 
@@ -169,6 +178,10 @@ func (c *Impl) processNextWorkItem() bool {
 
 	// We wrap this block in a func so we can defer c.base.WorkQueue.Done.
 	err := func(obj interface{}) error {
+		startTime := time.Now()
+		// Send the metrics for the current queue depth
+		c.statsReporter.ReportQueueDepth(int64(c.WorkQueue.Len()))
+
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -189,8 +202,18 @@ func (c *Impl) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.WorkQueue.Forget(obj)
 			c.logger.Errorf("expected string in workqueue but got %#v", obj)
+			c.statsReporter.ReportReconcile(time.Now().Sub(startTime), "[InvalidKeyType]", falseString)
 			return nil
 		}
+
+		var err error
+		defer func() {
+			status := trueString
+			if err != nil {
+				status = falseString
+			}
+			c.statsReporter.ReportReconcile(time.Now().Sub(startTime), key, status)
+		}()
 
 		// Embed the key into the logger and attach that to the context we pass
 		// to the Reconciler.
@@ -199,9 +222,10 @@ func (c *Impl) processNextWorkItem() bool {
 
 		// Run Reconcile, passing it the namespace/name string of the
 		// resource to be synced.
-		if err := c.Reconciler.Reconcile(ctx, key); err != nil {
+		if err = c.Reconciler.Reconcile(ctx, key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
+
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.WorkQueue.Forget(obj)

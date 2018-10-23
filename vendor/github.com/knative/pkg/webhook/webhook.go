@@ -38,6 +38,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 
+	"github.com/markbates/inflect"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -325,8 +326,7 @@ func (ac *AdmissionController) register(
 
 	var rules []admissionregistrationv1beta1.RuleWithOperations
 	for gvk := range ac.Handlers {
-		// Lousy pluralizer
-		plural := strings.ToLower(gvk.Kind) + "s"
+		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
 
 		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
 			Operations: []admissionregistrationv1beta1.OperationType{
@@ -503,7 +503,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 
 	if len(newBytes) != 0 {
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
-		newDecoder.DisallowUnknownFields()
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
@@ -514,7 +513,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 
 	if len(oldBytes) != 0 {
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
-		oldDecoder.DisallowUnknownFields()
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
