@@ -44,7 +44,9 @@ import (
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
@@ -131,6 +133,7 @@ func main() {
 	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	clusterIngressInformer := servingInformerFactory.Networking().V1alpha1().ClusterIngresses()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
@@ -165,11 +168,22 @@ func main() {
 			coreServiceInformer,
 			virtualServiceInformer,
 		),
+		labeler.NewRouteToConfigurationController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			revisionInformer,
+		),
 		service.NewController(
 			opt,
 			serviceInformer,
 			configurationInformer,
 			routeInformer,
+		),
+		clusteringress.NewController(
+			opt,
+			clusterIngressInformer,
+			virtualServiceInformer,
 		),
 	}
 
@@ -193,6 +207,7 @@ func main() {
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
 		kpaInformer.Informer().HasSynced,
+		clusterIngressInformer.Informer().HasSynced,
 		imageInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,

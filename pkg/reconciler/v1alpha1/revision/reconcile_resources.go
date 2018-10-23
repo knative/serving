@@ -108,14 +108,6 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if getKPAErr != nil {
 		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
 		return getKPAErr
-	} else {
-		// KPA exists. Update the replica count based on the serving state if necessary
-		var err error
-		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
-		if err != nil {
-			logger.Errorf("Error updating kpa %q: %v", kpaName, err)
-			return err
-		}
 	}
 
 	// Reflect the KPA status in our own.
@@ -145,7 +137,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if apierrs.IsNotFound(err) {
 		// If it does not exist, then create it.
 		rev.Status.MarkDeploying("Deploying")
-		service, err = c.createService(ctx, rev, resources.MakeK8sService)
+		_, err = c.createService(ctx, rev, resources.MakeK8sService)
 		if err != nil {
 			logger.Errorf("Error creating Service %q: %v", serviceName, err)
 			return err
@@ -160,7 +152,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// should not allow, or if our expectations of how the service should look
 		// changes (e.g. we update our controller with new sidecars).
 		var changed Changed
-		service, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
+		_, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
 		if err != nil {
 			logger.Errorf("Error updating Service %q: %v", serviceName, err)
 			return err

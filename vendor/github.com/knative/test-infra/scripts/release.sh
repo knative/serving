@@ -14,27 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a helper script for Knative release scripts. To use it:
-# 1. Source this script.
-# 2. Call the parse_flags() function passing $@ (without quotes).
-# 3. Call the run_validation_tests() passing the script or executable that
-#    runs the release validation tests.
-# 4. Write logic for the release process. Use the following boolean (0 is
-#    false, 1 is true) environment variables for the logic:
-#    SKIP_TESTS: true if --skip-tests is passed. This is handled automatically
-#                by the run_validation_tests() function.
-#    TAG_RELEASE: true if --tag-release is passed. In this case, the
-#                 environment variable TAG will contain the release tag in the
-#                 form vYYYYMMDD-<commit_short_hash>.
-#    PUBLISH_RELEASE: true if --publish is passed. In this case, the environment
-#                     variable KO_FLAGS will be updated with the -L option.
-#    SKIP_TESTS, TAG_RELEASE and PUBLISH_RELEASE default to false for safety.
-#    All environment variables above, except KO_FLAGS, are marked read-only once
-#    parse_flags() is called.
+# This is a helper script for Knative release scripts.
+# See README.md for instructions on how to use it.
 
 source $(dirname ${BASH_SOURCE})/library.sh
 
 # Simple banner for logging purposes.
+# Parameters: $1 - message to display.
 function banner() {
     make_banner "@" "$1"
 }
@@ -57,19 +43,35 @@ function tag_images_in_yaml() {
 #             $3 - tag to apply (optional).
 function publish_yaml() {
   gsutil cp $1 gs://$2/latest/
-  [[ -n $3 ]] && gsutil cp $1 gs://$2/previous/$3/
+  [[ -n $3 ]] && gsutil cp $1 gs://$2/previous/$3/ || true
 }
 
+# These are global environment variables.
 SKIP_TESTS=0
 TAG_RELEASE=0
 PUBLISH_RELEASE=0
+BRANCH_RELEASE=0
 TAG=""
-KO_FLAGS="-P -L"
+RELEASE_VERSION=""
+RELEASE_NOTES=""
+RELEASE_BRANCH=""
+KO_FLAGS=""
+
+function abort() {
+  echo "error: $@"
+  exit 1
+}
 
 # Parses flags and sets environment variables accordingly.
 function parse_flags() {
+  TAG=""
+  RELEASE_VERSION=""
+  RELEASE_NOTES=""
+  RELEASE_BRANCH=""
+  KO_FLAGS="-P -L"
   cd ${REPO_ROOT_DIR}
-  for parameter in $@; do
+  while [[ $# -ne 0 ]]; do
+    local parameter=$1
     case $parameter in
       --skip-tests) SKIP_TESTS=1 ;;
       --tag-release) TAG_RELEASE=1 ;;
@@ -83,17 +85,30 @@ function parse_flags() {
         PUBLISH_RELEASE=0
         # Add -L to ko flags
         KO_FLAGS="-L ${KO_FLAGS}"
+        ;;
+      --version)
         shift
+        [[ $# -ge 1 ]] || abort "missing version after --version"
+        [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+        RELEASE_VERSION=$1
         ;;
-      *)
-        echo "error: unknown option ${parameter}"
-        exit 1
+      --branch)
+        shift
+        [[ $# -ge 1 ]] || abort "missing branch after --commit"
+        [[ $1 =~ ^release-[0-9]+\.[0-9]+$ ]] || abort "branch name must be 'release-[0-9].[0-9]'"
+        RELEASE_BRANCH=$1
         ;;
+      --release-notes)
+        shift
+        [[ $# -ge 1 ]] || abort "missing release notes file after --release-notes"
+        [[ ! -f "$1" ]] && abort "file $1 doesn't exist"
+        RELEASE_NOTES=$1
+        ;;
+      *) abort "unknown option ${parameter}" ;;
     esac
     shift
   done
 
-  TAG=""
   if (( TAG_RELEASE )); then
     # Currently we're not considering the tags in refs/tags namespace.
     commit=$(git describe --always --dirty)
@@ -101,10 +116,20 @@ function parse_flags() {
     TAG="v$(date +%Y%m%d)-${commit}"
   fi
 
+  if [[ -n "${RELEASE_VERSION}" ]]; then
+    TAG="v${RELEASE_VERSION}"
+  fi
+
+  [[ -n "${RELEASE_VERSION}" ]] && (( PUBLISH_RELEASE )) && BRANCH_RELEASE=1
+
   readonly SKIP_TESTS
   readonly TAG_RELEASE
   readonly PUBLISH_RELEASE
+  readonly BRANCH_RELEASE
   readonly TAG
+  readonly RELEASE_VERSION
+  readonly RELEASE_NOTES
+  readonly RELEASE_BRANCH
 }
 
 # Run tests (unless --skip-tests was passed). Conveniently displays a banner indicating so.
@@ -115,4 +140,36 @@ function run_validation_tests() {
     # Run tests.
     $1
   fi
+}
+
+# Initialize everything (flags, workspace, etc) for a release.
+function initialize() {
+  parse_flags $@
+  # Checkout specific branch, if necessary
+  if (( BRANCH_RELEASE )); then
+    git checkout --track upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
+  fi
+}
+
+# Create a new release on GitHub, also git tagging it (unless this is not a versioned release).
+# Parameters: $1 - Module name (e.g., "Knative Serving").
+#             $2 - YAML files to add to the release, space separated.
+function branch_release() {
+  (( BRANCH_RELEASE )) || return 0
+  local title="$1 release ${TAG}"
+  local yamls="$2"
+  local attach="--attach=${yamls// / --attach=}"
+  local description="$(mktemp)"
+  echo -e "${title}\n" > ${description}
+  if [[ -n "${RELEASE_NOTES}" ]]; then
+    cat ${RELEASE_NOTES} >> ${description}
+  fi
+  git tag -a ${TAG} -m "${title}"
+  git push $(git remote get-url upstream) tag ${TAG}
+  run_go_tool hub github.com/github/hub release create \
+      --prerelease \
+      ${attach} \
+      --file=${description} \
+      --commitish=${RELEASE_BRANCH} \
+      ${TAG}
 }

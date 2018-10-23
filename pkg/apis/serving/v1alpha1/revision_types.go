@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 )
@@ -57,13 +56,6 @@ var _ apis.Immutable = (*Revision)(nil)
 
 // Check that RevisionStatus may have its conditions managed.
 var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
-
-// Check that Revision implements the Conditions duck type.
-var _ = duck.VerifyType(&Revision{}, &duckv1alpha1.Conditions{})
-
-// Check that Revision implements the Generation duck type.
-var emptyGenRev duckv1alpha1.Generation
-var _ = duck.VerifyType(&Revision{}, &emptyGenRev)
 
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
@@ -232,6 +224,14 @@ type RevisionStatus struct {
 	// based on the revision url template specified in the controller's config.
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
+
+	// ImageDigest holds the resolved digest for the image specified
+	// within .Spec.Container.Image. The digest is resolved during the creation
+	// of Revision. This field holds the digest value regardless of whether
+	// a tag or digest was originally specified in the Container object. It
+	// may be empty if the image comes from a registry listed to skip resolution.
+	// +optional
+	ImageDigest string `json:"imageDigest,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -250,7 +250,11 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 
 func (r *Revision) BuildRef() *corev1.ObjectReference {
 	if r.Spec.BuildRef != nil {
-		return r.Spec.BuildRef
+		buildRef := r.Spec.BuildRef.DeepCopy()
+		if buildRef.Namespace == "" {
+			buildRef.Namespace = r.Namespace
+		}
+		return buildRef
 	}
 
 	if r.Spec.BuildName != "" {

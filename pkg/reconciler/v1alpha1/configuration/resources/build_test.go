@@ -97,7 +97,6 @@ func TestBuilds(t *testing.T) {
 					"image":     "busybox",
 					"resources": map[string]interface{}{},
 				}},
-				"timeout": "0s",
 			},
 			"status": map[string]interface{}{
 				"startTime":      nil,
@@ -157,7 +156,6 @@ func TestBuilds(t *testing.T) {
 						"value": "bar",
 					}},
 				},
-				"timeout": "0s",
 			},
 			"status": map[string]interface{}{
 				"startTime":      nil,

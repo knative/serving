@@ -41,26 +41,32 @@ func NewConcurrencyReporter(podName string, channels Channels) {
 
 	go func() {
 		outstandingRequestsPerKey := make(map[string]int32)
+
+		// Contains the number of incoming requests in the current
+		// reporting period, per key.
+		incomingRequestsPerKey := make(map[string]int32)
 		for {
 			select {
 			case event := <-channels.ReqChan:
 				switch event.EventType {
 				case ReqIn:
+					incomingRequestsPerKey[event.Key]++
 					outstandingRequestsPerKey[event.Key]++
 				case ReqOut:
 					outstandingRequestsPerKey[event.Key]--
-
 				}
 			case now := <-channels.ReportChan:
 				for key, concurrency := range outstandingRequestsPerKey {
 					if concurrency == 0 {
 						delete(outstandingRequestsPerKey, key)
 					} else {
+						requestCount := incomingRequestsPerKey[key]
+
 						stat := autoscaler.Stat{
 							Time:                      &now,
 							PodName:                   podName,
 							AverageConcurrentRequests: float64(concurrency),
-							RequestCount:              0,
+							RequestCount:              requestCount,
 						}
 
 						// Send the stat to another goroutine to transmit
@@ -71,6 +77,8 @@ func NewConcurrencyReporter(podName string, channels Channels) {
 						}
 					}
 				}
+
+				incomingRequestsPerKey = make(map[string]int32)
 			}
 		}
 	}()

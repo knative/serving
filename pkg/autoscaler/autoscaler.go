@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,17 +68,18 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:             window,
-		perPodAggregations: make(map[string]*perPodAggregation),
+		window:              window,
+		perPodAggregations:  make(map[string]*perPodAggregation),
+		activatorsContained: make(map[string]struct{}),
 	}
 }
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window                   time.Duration
-	perPodAggregations       map[string]*perPodAggregation
-	probeCount               int32
-	containsActivatorMetrics bool
+	window              time.Duration
+	perPodAggregations  map[string]*perPodAggregation
+	probeCount          int32
+	activatorsContained map[string]struct{}
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -91,10 +93,11 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
-		if stat.PodName == ActivatorPodName {
-			agg.containsActivatorMetrics = true
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
+			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
-		agg.probeCount += 1
+		agg.probeCount++
 	}
 }
 
@@ -105,11 +108,16 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	for _, pod := range agg.perPodAggregations {
 		podCount += pod.usageRatio(now)
 	}
-	if agg.containsActivatorMetrics {
-		// Discount the activator in the pod count
-		if podCount > 1.0 {
-			return podCount - 1.0
+
+	activatorsCount := len(agg.activatorsContained)
+	// Discount the activators in the pod count.
+	if activatorsCount > 0 {
+		discountedPodCount := podCount - float64(activatorsCount)
+		// Report a minimum of 1 pod if the activators are sending metrics.
+		if discountedPodCount < 1.0 {
+			return 1.0
 		}
+		return discountedPodCount
 	}
 	return podCount
 }
@@ -122,7 +130,8 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		if podName == ActivatorPodName {
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(podName, ActivatorPodName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
@@ -256,7 +265,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			// actually contains requests
 			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
 				a.lastRequestTime = *stat.Time
-				a.scaleToZeroThresholdExceeded = false
 			}
 		} else {
 			// Drop metrics after 60 seconds
@@ -271,9 +279,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Scale to zero if the last request is from too long ago
-	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
+	if a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
 		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		a.scaleToZeroThresholdExceeded = true
 		return 0, true
 	}
 

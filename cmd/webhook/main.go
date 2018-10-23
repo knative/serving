@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
@@ -92,6 +93,7 @@ func main() {
 			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
 			v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
 			kpa.SchemeGroupVersion.WithKind("PodAutoscaler"):      &kpa.PodAutoscaler{},
+			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
 		},
 		Logger: logger,
 	}

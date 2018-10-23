@@ -20,10 +20,35 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestPodAutoscalerDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generations",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&PodAutoscaler{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(PodAutoscaler, %T) = %v", test.t, err)
+			}
+		})
+	}
+}
 
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}

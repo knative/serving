@@ -81,7 +81,7 @@ func TestMultiScalerScaling(t *testing.T) {
 		}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -157,7 +157,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -212,7 +212,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}

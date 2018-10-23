@@ -61,6 +61,7 @@ function create_monitoring() {
 }
 
 function create_everything() {
+  export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_istio
   create_serving
   create_test_resources

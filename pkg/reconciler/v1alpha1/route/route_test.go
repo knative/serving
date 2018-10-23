@@ -44,6 +44,7 @@ import (
 	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
@@ -162,19 +163,6 @@ func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher) {
 	kubeClient, sharedClient, servingClient, _, reconciler, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
-	return
-}
-
-func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
-	kubeClient *fakekubeclientset.Clientset,
-	sharedClient *fakesharedclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
-	controller *ctrl.Impl,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	sharedInformer sharedinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory,
-	configMapWatcher *configmap.ManualWatcher) {
-	kubeClient, sharedClient, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, configMapWatcher = newTestSetup(t)
 	return
 }
 
@@ -905,5 +893,116 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		if route.Status.Domain != expectedDomain {
 			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
 		}
+	}
+}
+
+func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
+	_, _, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, watcher := newTestSetup(t)
+
+	stopCh := make(chan struct{})
+	defer func() {
+		close(stopCh)
+	}()
+
+	servingInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	sharedInformer.Start(stopCh)
+	if err := watcher.Start(stopCh); err != nil {
+		t.Fatalf("failed to start configuration manager: %v", err)
+	}
+
+	go controller.Run(1, stopCh)
+
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
+	routeWatcher, err := routeClient.Watch(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("Could not create route watcher")
+	}
+	defer routeWatcher.Stop()
+
+	routeModifiedCh := make(chan struct{})
+	defer close(routeModifiedCh)
+
+	go func() {
+		for event := range routeWatcher.ResultChan() {
+			if event.Type == watch.Modified {
+				routeModifiedCh <- struct{}{}
+			}
+		}
+	}()
+
+	// Create a route.
+	route.Labels = map[string]string{"app": "prod"}
+	routeClient.Create(route)
+
+	// Test changes in domain config map. Routes should get updated appropriately.
+	// We're expecting exactly one route modification per config-map change.
+	tests := []struct {
+		doThings             func()
+		expectedDomainSuffix string
+	}{{
+		expectedDomainSuffix: prodDomainSuffix,
+		doThings:             func() {}, // The update will still happen: status will be updated to match the route labels
+	}, {
+		expectedDomainSuffix: "mytestdomain.com",
+		doThings: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      config.DomainConfigName,
+					Namespace: system.Namespace,
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+					"mytestdomain.com":  "selector:\n  app: prod",
+				},
+			}
+			watcher.OnChange(&domainConfig)
+		},
+	}, {
+		expectedDomainSuffix: "newprod.net",
+		doThings: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      config.DomainConfigName,
+					Namespace: system.Namespace,
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+					"newprod.net":       "selector:\n  app: prod",
+				},
+			}
+			watcher.OnChange(&domainConfig)
+		},
+	}, {
+		expectedDomainSuffix: defaultDomainSuffix,
+		doThings: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      config.DomainConfigName,
+					Namespace: system.Namespace,
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+				},
+			}
+			watcher.OnChange(&domainConfig)
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
+			test.doThings()
+
+			<-routeModifiedCh
+
+			route, err := routeClient.Get(route.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("Error getting a route, test: '%s'", test.expectedDomainSuffix)
+			}
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, test.expectedDomainSuffix)
+			if route.Status.Domain != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			}
+		})
 	}
 }

@@ -36,7 +36,6 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: kpa.PodAutoscalerSpec{
-			ServingState:         rev.Spec.ServingState,
 			ContainerConcurrency: rev.Spec.ContainerConcurrency,
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",

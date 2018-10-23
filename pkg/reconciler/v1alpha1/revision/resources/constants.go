@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	// TODO(mattmoor): Make this private once we remove revision_test.go
-	UserContainerName    = "user-container"
+	userContainerName    = "user-container"
 	fluentdContainerName = "fluentd-proxy"
 	envoyContainerName   = "istio-proxy"
 	queueContainerName   = "queue-proxy"
@@ -35,8 +34,7 @@ const (
 	userPort        = 8080
 	userPortEnvName = "PORT"
 
-	// TODO(mattmoor): Make this private once we remove revision_test.go
-	AutoscalerPort = 8080
+	autoscalerPort = 8080
 
 	// ServicePortName is the name of the external port of the service
 	ServicePortName = "http"

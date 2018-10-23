@@ -276,12 +276,12 @@
   revision = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6"
 
 [[projects]]
-  digest = "1:67b7978e7075ca49f622605dec690bbed9c5be4f06d08d727ee74f8969bcbbbb"
+  digest = "1:9a52adf44086cead3b384e5d0dbf7a1c1cce65e67552ee3383a8561c42a18cd3"
   name = "github.com/imdario/mergo"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "f1ac5984e69fed03e0574a92f70c59f132616ea2"
-  version = "0.3.0"
+  revision = "9f23e2d6bd2a77f959b2bf6acdbefd708a83a4a4"
+  version = "v0.3.6"
 
 [[projects]]
   digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
@@ -298,14 +298,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:aa66aed49f459dd8103eaed406d2203058c05cea8d533021244056e86e17cf5f"
+  digest = "1:9cfc60d7d1a78a7967137b4ffc344e5449f0c5956c48598ded8e089c4444bcd1"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "96c363748e2a57d357f6c7f7be0614fe0f473b2d"
+  revision = "cc4451408f52b86fec87f6b7e4bc88848d3b1088"
 
 [[projects]]
   digest = "1:826576a2dbea52eb350ed5c0fd3e53f1f24cd6bdcfaf89ff89239b8cd426cd0d"
@@ -328,7 +328,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:213664599d44d8a5c94b19b8b28407ee8a1e5cf3f1789c0b08286c4f479a4644"
+  digest = "1:b545b9094c6fc1feec82e7855d66db97d247c79dc235dd880c10dd1cfff8fd51"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -368,15 +368,16 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "f00975a13e4c7284aac5b8d01181590869472291"
+  revision = "62bcfe912f72225fdd6ac1405639c17e55ac8dc8"
+  source = "https://github.com/knative/pkg.git"
 
 [[projects]]
   branch = "master"
-  digest = "1:00f434f614520a4b48ef3f6d3ed5c7a1a4f89be1bed98c250711413f6da2eb51"
+  digest = "1:f42d23c4286880873a951329d5a6002fcb9ee9f7d6c5fd8263ea53df2391acee"
   name = "github.com/knative/test-infra"
   packages = ["."]
   pruneopts = "T"
-  revision = "c21d3a832727d5d4334e734c0878eac3a5a07ae7"
+  revision = "e7ddaaf7b3c285a538c6dfe061d59b73ace965cf"
 
 [[projects]]
   branch = "master"
@@ -675,7 +676,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:ba83efacee6fc544aaebcc643ec8ad8d345bfa7f6cd5afb1492fb19cd994cc4a"
+  digest = "1:6dd53537a34d9b612e66acd39859953cf7ad70e5b5953937bed5ea998355e7b8"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -710,11 +711,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
-  version = "kubernetes-1.11.2"
+  revision = "4e7be11eab3ffcfc1876898b8272df53785a9504"
+  version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:4b0d523ee389c762d02febbcfa0734c4530ebe87abe925db18f05422adcb33e8"
+  digest = "1:e430de0896db98fb93a75f45ace427a4b6d09028777498b7c6a25d33866efdd6"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -762,11 +763,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
-  version = "kubernetes-1.11.2"
+  revision = "def12e63c512da17043b4f0293f52d1006603d9f"
+  version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:1f3ae1c6123c71b97f90bb55dc7937d6a3abacdd3fcbd2efc701e91312482fee"
+  digest = "1:11aa1e909f4b89bb9c46227e590fd6661cd6e185b20ef74c9c6a6370f5ff2ddc"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -944,11 +945,11 @@
     "util/workqueue",
   ]
   pruneopts = "NUT"
-  revision = "1f13a808da65775f22cbf47862c4e5898d8f4ca1"
-  version = "kubernetes-1.11.2"
+  revision = "2cefa64ff137e128daeddbd1775cd775708a05bf"
+  version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:8ab487a323486c8bbbaa3b689850487fdccc6cbea8690620e083b2d230a4447e"
+  digest = "1:3b9c82e73290987c719062ba514f47cc95a7b1e10d9868b1e083e48044c0820b"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -972,8 +973,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"
-  version = "kubernetes-1.11.2"
+  revision = "8c97d6ab64da020f8b151e9d3ed8af3172f5c390"
+  version = "kubernetes-1.11.3"
 
 [[projects]]
   branch = "master"

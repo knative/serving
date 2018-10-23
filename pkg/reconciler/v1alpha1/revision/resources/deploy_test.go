@@ -71,7 +71,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -95,7 +95,87 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+				Args: []string{"-containerConcurrency=1"},
+				Env: []corev1.EnvVar{{
+					Name:  "SERVING_NAMESPACE",
+					Value: "foo", // matches namespace
+				}, {
+					Name: "SERVING_CONFIGURATION",
+					// No OwnerReference
+				}, {
+					Name:  "SERVING_REVISION",
+					Value: "bar", // matches name
+				}, {
+					Name:  "SERVING_AUTOSCALER",
+					Value: "autoscaler", // no autoscaler configured.
+				}, {
+					Name:  "SERVING_AUTOSCALER_PORT",
+					Value: "8080",
+				}, {
+					Name: "SERVING_POD",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
+				}, {
+					Name: "SERVING_LOGGING_CONFIG",
+					// No logging configuration
+				}, {
+					Name: "SERVING_LOGGING_LEVEL",
+					// No logging level
+				}},
+			}},
+			Volumes: []corev1.Volume{varLogVolume},
+		},
+	}, {
+		name: "simple concurrency=single no owner digest resolved",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels:    labels,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 1,
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+			},
+			Status: v1alpha1.RevisionStatus{
+				ImageDigest: "busybox@sha256:deadbeef",
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:         userContainerName,
+				Image:        "busybox@sha256:deadbeef",
+				Resources:    userResources,
+				Ports:        userPorts,
+				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:    userLifecycle,
+				Env: []corev1.EnvVar{userEnv,
+					{
+						Name:  "K_REVISION",
+						Value: "bar",
+					}, {
+						Name:  "K_CONFIGURATION",
+						Value: "cfg",
+					}, {
+						Name:  "K_SERVICE",
+						Value: "svc",
+					}},
+			}, {
+				Name:           queueContainerName,
+				Resources:      queueResources,
+				Ports:          queuePorts,
+				Lifecycle:      queueLifecycle,
+				ReadinessProbe: queueReadinessProbe,
+				// These changed based on the Revision and configs passed in.
+				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -155,7 +235,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -179,7 +259,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -240,7 +320,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -272,7 +352,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -332,7 +412,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -363,7 +443,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -423,7 +503,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -456,7 +536,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -514,7 +594,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -545,7 +625,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=0"},
+				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -601,7 +681,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -625,7 +705,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -662,7 +742,7 @@ func TestMakePodSpec(t *testing.T) {
 					Value: "--no-supervisor -q",
 				}, {
 					Name:  "SERVING_CONTAINER_NAME",
-					Value: UserContainerName,
+					Value: userContainerName,
 				}, {
 					Name: "SERVING_CONFIGURATION",
 					// No owner reference
@@ -682,7 +762,16 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				VolumeMounts: fluentdVolumeMounts,
 			}},
-			Volumes: []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
+			Volumes: []corev1.Volume{varLogVolume, corev1.Volume{
+				Name: fluentdConfigMapVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "bar-fluentd",
+						},
+					},
+				},
+			}},
 		},
 	}, {
 		name: "complex pod spec",
@@ -714,7 +803,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:    UserContainerName,
+				Name:    userContainerName,
 				Image:   "busybox",
 				Command: []string{"/bin/bash"},
 				Args:    []string{"-c", "echo Hello world"},
@@ -748,7 +837,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-concurrencyQuantumOfTime=0s", "-containerConcurrency=1"},
+				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
