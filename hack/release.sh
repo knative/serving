@@ -63,7 +63,7 @@ echo "Copying Build release"
 cp "${REPO_ROOT_DIR}/third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_FLAGS} -f config/ >> "${SERVING_YAML}"
+ko resolve ${KO_FLAGS} -f config/ > "${SERVING_YAML}"
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
@@ -72,20 +72,20 @@ ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f config/monitoring/logging/elasticsearch \
     -f third_party/config/monitoring/metrics/prometheus \
     -f config/monitoring/metrics/prometheus \
-    -f config/monitoring/tracing/zipkin >> "${MONITORING_YAML}"
+    -f config/monitoring/tracing/zipkin > "${MONITORING_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus >> "${MONITORING_METRIC_PROMETHEUS_YAML}"
+    -f config/monitoring/metrics/prometheus > "${MONITORING_METRIC_PROMETHEUS_YAML}"
 
 # Logs via ElasticSearch, Fluentd & Kibana
 ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch >> "${MONITORING_LOG_ELASTICSEARCH_YAML}"
+    -f config/monitoring/logging/elasticsearch > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
 # Traces via Zipkin
-ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin >> "${MONITORING_TRACE_ZIPKIN_YAML}"
+ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin > "${MONITORING_TRACE_ZIPKIN_YAML}"
 
 echo "Building Release Bundles."
 
@@ -98,19 +98,19 @@ readonly LITE_YAML=release-lite.yaml
 readonly NO_MON_YAML=release-no-mon.yaml
 
 # NO_MON is just build and serving
-cat "${BUILD_YAML}" > "${NO_MON_YAML}"
+cp "${BUILD_YAML}" "${NO_MON_YAML}"
 echo "---" >> "${NO_MON_YAML}"
 cat "${SERVING_YAML}" >> "${NO_MON_YAML}"
 echo "---" >> "${NO_MON_YAML}"
 
 # LITE is NO_MON plus "lean" monitoring
-cat "${NO_MON_YAML}" > "${LITE_YAML}"
+cp "${NO_MON_YAML}" "${LITE_YAML}"
 echo "---" >> "${LITE_YAML}"
 cat "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${LITE_YAML}"
 echo "---" >> "${LITE_YAML}"
 
 # RELEASE is NO_MON plus full monitoring
-cat "${NO_MON_YAML}" > "${RELEASE_YAML}"
+cp "${NO_MON_YAML}" "${RELEASE_YAML}"
 echo "---" >> "${RELEASE_YAML}"
 cat "${MONITORING_YAML}" >> "${RELEASE_YAML}"
 echo "---" >> "${RELEASE_YAML}"
