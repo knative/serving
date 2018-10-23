@@ -361,6 +361,26 @@ func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
+func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+
+	now := time.Now()
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName + "-0",
+		RequestCount:              0,
+		AverageConcurrentRequests: 50.0,
+	})
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName + "-1",
+		RequestCount:              0,
+		AverageConcurrentRequests: 50.0,
+	})
+
+	a.expectScale(t, now, 10, true)
+}
+
 func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
@@ -378,7 +398,13 @@ func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
 
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName,
+		PodName:                   ActivatorPodName + "-0",
+		RequestCount:              0,
+		AverageConcurrentRequests: 1000.0,
+	})
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 1000.0,
 	})
