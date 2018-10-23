@@ -104,8 +104,6 @@ To use a k8s cluster running in GKE:
     --kubernetes-version=v1.11.3 \
     --vm-driver=kvm2 \
     --bootstrapper=kubeadm \
-    --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
-    --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 
@@ -116,8 +114,6 @@ To use a k8s cluster running in GKE:
     --kubernetes-version=v1.11.3 \
     --vm-driver=hyperkit \
     --bootstrapper=kubeadm \
-    --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
-    --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 
