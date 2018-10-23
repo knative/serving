@@ -187,26 +187,23 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	containerConcurrency         v1alpha1.RevisionContainerConcurrencyType
-	stats                        map[statKey]Stat
-	statsMutex                   sync.Mutex
-	panicking                    bool
-	panicTime                    *time.Time
-	maxPanicPods                 float64
-	reporter                     StatsReporter
-	lastRequestTime              time.Time
-	scaleToZeroThresholdExceeded bool
+	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
+	stats                map[statKey]Stat
+	statsMutex           sync.Mutex
+	panicking            bool
+	panicTime            *time.Time
+	maxPanicPods         float64
+	reporter             StatsReporter
+	firstMetricObserved  *time.Time
 }
 
 // New creates a new instance of autoscaler
 func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		DynamicConfig:                dynamicConfig,
-		containerConcurrency:         containerConcurrency,
-		stats:                        make(map[statKey]Stat),
-		reporter:                     reporter,
-		lastRequestTime:              time.Now(),
-		scaleToZeroThresholdExceeded: false,
+		DynamicConfig:        dynamicConfig,
+		containerConcurrency: containerConcurrency,
+		stats:                make(map[statKey]Stat),
+		reporter:             reporter,
 	}
 }
 
@@ -261,10 +258,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
-			// Update lastRequestTime if the current stat is newer and
-			// actually contains requests
-			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
-				a.lastRequestTime = *stat.Time
+
+			if a.firstMetricObserved == nil || a.firstMetricObserved.After(instant) {
+				a.firstMetricObserved = &instant
 			}
 		} else {
 			// Drop metrics after 60 seconds
@@ -272,16 +268,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
+	// Scale to 1 by default.
+	if a.firstMetricObserved == nil {
+		logger.Debug("No metrics have arrived yet.")
+		return 1, false
+	}
+
 	// Do nothing when we have no data.
 	if stableData.observedPods(now) < 1.0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
-	}
-
-	// Scale to zero if the last request is from too long ago
-	if a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
-		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		return 0, true
 	}
 
 	// Log system totals
