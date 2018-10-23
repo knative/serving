@@ -168,9 +168,18 @@ type TableTest []TableRow
 
 func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
+		// Record the original objects in table.
+		originObjects := []runtime.Object{}
+		for _, obj := range test.Objects {
+			originObjects = append(originObjects, obj.DeepCopyObject())
+		}
 		t.Run(test.Name, func(t *testing.T) {
 			test.Test(t, factory)
 		})
+		// Validate cached objects do not get soiled after controller loops
+		if diff := cmp.Diff(originObjects, test.Objects, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected objects in test %s (-want +got): %v", test.Name, diff)
+		}
 	}
 }
 
