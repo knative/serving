@@ -117,6 +117,7 @@ func (c *Reconciler) updateStatus(ctx context.Context, route *v1alpha1.Route) (*
 	if err != nil {
 		return nil, err
 	}
+	existing = existing.DeepCopy()
 	// If there's nothing to update, just return.
 	if reflect.DeepEqual(existing.Status, route.Status) {
 		return existing, nil
