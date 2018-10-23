@@ -45,7 +45,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
-	cfg := reloadConfiguration(names.Config, clients, t)
+	var cfg *v1alpha1.Configuration
 
 	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
 	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
@@ -53,7 +53,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 
-	cfg = reloadConfiguration(names.Config, clients, t)
+	cfg = fetchConfiguration(names.Config, clients, t)
 
 	logger.Infof("Updating labels of Configuration %s", names.Config)
 	cfg.Labels =  map[string]string{
@@ -69,12 +69,19 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Fatalf("The labels for Configuration %s were not updated: %v", names.Config, err)
 	}
 
-	cfg = reloadConfiguration(names.Config, clients, t)
+	cfg = fetchConfiguration(names.Config, clients, t)
 	expected := names.Revision
 	actual := cfg.Status.LatestCreatedRevisionName
 	if expected != actual {
 		t.Errorf("Did not expect a new Revision after updating labels for Configuration %s - expected Revision: %s, actual Revision: %s",
 			names.Config, expected, actual)
+	}
+
+	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
+		return checkMapKeysNotPresent(cfg.Labels, r.Labels), nil
+	})
+	if err != nil {
+		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
 	}
 
 	logger.Infof("Updating annotations of Configuration %s", names.Config)
@@ -91,15 +98,22 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Fatalf("The annotations for Configuration %s were not updated: %v", names.Config, err)
 	}
 
-	cfg = reloadConfiguration(names.Config, clients, t)
+	cfg = fetchConfiguration(names.Config, clients, t)
 	actual = cfg.Status.LatestCreatedRevisionName
 	if expected != actual {
 		t.Errorf("Did not expect a new Revision after updating annotations for Configuration %s - expected Revision: %s, actual Revision: %s",
 			names.Config, expected, actual)
 	}
+
+	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
+		return checkMapKeysNotPresent(cfg.Annotations, r.Annotations), nil
+	})
+	if err != nil {
+		t.Errorf("The annotations for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
+	}
 }
 
-func reloadConfiguration(name string, clients *test.Clients, t *testing.T) *v1alpha1.Configuration {
+func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1alpha1.Configuration {
 	cfg, err := clients.ServingClient.Configs.Get(name, v1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get configuration %s: %v", name, err)
@@ -121,19 +135,22 @@ func waitForConfigurationLatestCreatedRevision(clients *test.Clients, names test
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if reflect.DeepEqual(c.Labels, labels) {
-			return true, nil
-		}
-		return false, nil
+		return reflect.DeepEqual(c.Labels, labels), nil
 	}, "ConfigurationMetadataUpdatedWithLabels")
 }
 
 func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if reflect.DeepEqual(c.Annotations, annotations) {
-			return true, nil
-		}
-		return false, nil
+		return reflect.DeepEqual(c.Annotations, annotations), nil
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
+}
+
+func checkMapKeysNotPresent(expected map[string]string, actual map[string]string) bool {
+	for k := range expected {
+		if _, ok := actual[k]; ok {
+			return false
+		}
+	}
+	return true
 }
 
