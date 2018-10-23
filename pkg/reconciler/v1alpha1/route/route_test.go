@@ -897,7 +897,6 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
-	t.Skip("Disabled until #2281 is fixed")
 	_, _, servingClient, controller, _, kubeInformer, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
