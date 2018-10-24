@@ -1124,6 +1124,112 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/named-traffic-split",
 	}, {
+		Name: "same revision targets",
+		Objects: []runtime.Object{
+			routeWithTraffic("default", "same-revision-targets", nil,
+				v1alpha1.TrafficTarget{
+					Name:              "gray",
+					ConfigurationName: "gray",
+					Percent:           50,
+				}, v1alpha1.TrafficTarget{
+					Name:         "also-gray",
+					RevisionName: "gray-00001",
+					Percent:      50,
+				}),
+			simpleReadyConfig("default", "gray"),
+			addOwnerRef(
+				simpleReadyRevision("default",
+					// Use the Revision name from the config.
+					simpleReadyConfig("default", "gray").Status.LatestReadyRevisionName,
+				),
+				or("Configuration", "gray"),
+			),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeVirtualService(
+				setDomain(routeWithTraffic("default", "same-revision-targets", nil,
+					v1alpha1.TrafficTarget{
+						Name:              "gray",
+						ConfigurationName: "gray",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						Name:         "also-gray",
+						RevisionName: "gray-00001",
+						Percent:      50,
+					}), "same-revision-targets.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "gray").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+						"gray": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "gray").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+						"also-gray": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "gray").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			resources.MakeK8sService(routeWithTraffic("default", "same-revision-targets", nil,
+				v1alpha1.TrafficTarget{
+					Name:              "gray",
+					ConfigurationName: "gray",
+					Percent:           50,
+				}, v1alpha1.TrafficTarget{
+					Name:         "also-gray",
+					RevisionName: simpleReadyConfig("default", "gray").Status.LatestReadyRevisionName,
+					Percent:      50,
+				})),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: routeWithTraffic("default", "same-revision-targets", &v1alpha1.RouteStatus{
+				Domain:         "same-revision-targets.default.example.com",
+				DomainInternal: "same-revision-targets.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "same-revision-targets.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					Name:         "gray",
+					RevisionName: "gray-00001",
+					Percent:      50,
+				}, {
+					Name:         "also-gray",
+					RevisionName: "gray-00001",
+					Percent:      50,
+				}},
+			}, v1alpha1.TrafficTarget{
+				Name:              "gray",
+				ConfigurationName: "gray",
+				Percent:           50,
+			}, v1alpha1.TrafficTarget{
+				Name:         "also-gray",
+				RevisionName: "gray-00001",
+				Percent:      50,
+			}),
+		}},
+		Key: "default/same-revision-targets",
+	}, {
 		Name: "change route configuration",
 		// Start from a steady state referencing "blue", and modify the route spec to point to "green" instead.
 		Objects: []runtime.Object{
