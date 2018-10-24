@@ -27,8 +27,7 @@ type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Domain *Domain
-	GC     *gc.Config
+	RevisionGC *gc.Config
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -39,37 +38,9 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
-// Store is based on configmap.UntypedStore and is used to store and watch for
-// updates to configuration related to routes (currently only config-domain).
-//
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
-}
-
-// NewStore creates a configmap.UntypedStore based config store.
-//
-// logger must be non-nil implementation of configmap.Logger (commonly used
-// loggers conform)
-//
-// onAfterStore is a variadic list of callbacks to run
-// after the ConfigMap has been processed and stored.
-//
-// See also: configmap.NewUntypedStore().
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
-	store := &Store{
-		UntypedStore: configmap.NewUntypedStore(
-			"route",
-			logger,
-			configmap.Constructors{
-				DomainConfigName: NewDomainFromConfigMap,
-				gc.ConfigName:    gc.NewConfigFromConfigMap,
-			},
-			onAfterStore...,
-		),
-	}
-
-	return store
 }
 
 func (s *Store) ToContext(ctx context.Context) context.Context {
@@ -78,7 +49,18 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 func (s *Store) Load() *Config {
 	return &Config{
-		Domain: s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
-		GC:     s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+	}
+}
+
+func NewStore(logger configmap.Logger) *Store {
+	return &Store{
+		UntypedStore: configmap.NewUntypedStore(
+			"configuration",
+			logger,
+			configmap.Constructors{
+				gc.ConfigName: gc.NewConfigFromConfigMap,
+			},
+		),
 	}
 }

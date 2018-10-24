@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -38,6 +40,8 @@ import (
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
+
+var fakeCurTime = time.Unix(1e9, 0)
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -1316,6 +1320,55 @@ func TestReconcile(t *testing.T) {
 			}),
 		}},
 		Key: "default/switch-configs",
+	}, {
+		Name: "Update stale lastPinned",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "stale-lastpinned", "config", &v1alpha1.RouteStatus{
+				Domain:         "stale-lastpinned.default.example.com",
+				DomainInternal: "stale-lastpinned.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "stale-lastpinned.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
+				}},
+			}),
+			addConfigLabel(
+				simpleReadyConfig("default", "config"),
+				// The Route controller attaches our label to this Configuration.
+				"serving.knative.dev/route", "stale-lastpinned",
+			),
+			setLastPinned(simpleReadyRevision("default",
+				// Use the Revision name from the config.
+				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			), fakeCurTime.Add(-10*time.Minute)),
+			resources.MakeVirtualService(
+				setDomain(simpleRunLatest("default", "stale-lastpinned", "config", nil), "stale-lastpinned.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			resources.MakeK8sService(simpleRunLatest("default", "stale-lastpinned", "config", nil)),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchLastPinned("default", "config-00001"),
+		},
+		Key: "default/stale-lastpinned",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
@@ -1334,6 +1387,7 @@ func TestReconcile(t *testing.T) {
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
+			clock: FakeClock{Time: fakeCurTime},
 		}
 	}))
 }
@@ -1458,6 +1512,21 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 	return action
 }
 
+func setLastPinned(rev *v1alpha1.Revision, t time.Time) *v1alpha1.Revision {
+	rev.Annotations["serving.knative.dev/lastPinned"] = v1alpha1.RevisionLastPinnedString(t)
+	return rev
+}
+
+func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+	lastPinStr := v1alpha1.RevisionLastPinnedString(fakeCurTime)
+	patch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/annotations/serving.knative.dev~1lastPinned","value":%q}]`, lastPinStr)
+	action.Patch = []byte(patch)
+	return action
+}
+
 func simpleReadyConfig(namespace, name string) *v1alpha1.Configuration {
 	return setLatestReadyRevision(simpleNotReadyConfig(namespace, name))
 }
@@ -1488,11 +1557,18 @@ func addConfigLabel(config *v1alpha1.Configuration, key, value string) *v1alpha1
 	return config
 }
 
+func revisionDefaultAnnotations() map[string]string {
+	return map[string]string{
+		"serving.knative.dev/lastPinned": v1alpha1.RevisionLastPinnedString(fakeCurTime.Add(-1 * time.Second)),
+	}
+}
+
 func simpleReadyRevision(namespace, name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:   namespace,
+			Name:        name,
+			Annotations: revisionDefaultAnnotations(),
 		},
 		Status: v1alpha1.RevisionStatus{
 			Conditions: duckv1alpha1.Conditions{{
@@ -1506,8 +1582,9 @@ func simpleReadyRevision(namespace, name string) *v1alpha1.Revision {
 func simpleNotReadyRevision(namespace, name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:   namespace,
+			Name:        name,
+			Annotations: revisionDefaultAnnotations(),
 		},
 		Status: v1alpha1.RevisionStatus{
 			Conditions: duckv1alpha1.Conditions{{
@@ -1521,8 +1598,9 @@ func simpleNotReadyRevision(namespace, name string) *v1alpha1.Revision {
 func simpleFailedRevision(namespace, name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:   namespace,
+			Name:        name,
+			Annotations: revisionDefaultAnnotations(),
 		},
 		Status: v1alpha1.RevisionStatus{
 			Conditions: duckv1alpha1.Conditions{{
@@ -1571,6 +1649,9 @@ func ReconcilerTestConfig() *config.Config {
 					Selector: map[string]string{"app": "prod"},
 				},
 			},
+		},
+		GC: &gc.Config{
+			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},
 	}
 }

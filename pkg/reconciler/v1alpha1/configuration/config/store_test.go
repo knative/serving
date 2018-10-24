@@ -21,52 +21,25 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/gc"
 
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/gc"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
-	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
+	gcConfig := ConfigMapFromTestFile(t, "config-gc")
 
-	store.OnConfigChanged(domainConfig)
 	store.OnConfigChanged(gcConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
-	t.Run("domain", func(t *testing.T) {
-		expected, _ := NewDomainFromConfigMap(domainConfig)
-		if diff := cmp.Diff(expected, config.Domain); diff != "" {
-			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
-		}
-	})
-
-	t.Run("gc", func(t *testing.T) {
+	t.Run("revision-gc", func(t *testing.T) {
 		expected, _ := gc.NewConfigFromConfigMap(gcConfig)
-		if diff := cmp.Diff(expected, config.GC); diff != "" {
+		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
 	})
-}
-
-func TestStoreImmutableConfig(t *testing.T) {
-	store := NewStore(TestLogger(t))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
-
-	config := store.Load()
-
-	config.Domain.Domains = map[string]*LabelSelector{
-		"mutated": nil,
-	}
-
-	newConfig := store.Load()
-
-	if _, ok := newConfig.Domain.Domains["mutated"]; ok {
-		t.Error("Domain config is not immutable")
-	}
 }
