@@ -135,13 +135,13 @@ func waitForConfigurationLatestCreatedRevision(clients *test.Clients, names test
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Labels, labels), nil
+		return reflect.DeepEqual(c.Labels, labels) && c.Spec.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithLabels")
 }
 
 func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Annotations, annotations), nil
+		return reflect.DeepEqual(c.Annotations, annotations) && c.Spec.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
 }
 
