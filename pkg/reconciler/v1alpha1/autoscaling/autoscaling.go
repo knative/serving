@@ -129,7 +129,7 @@ func (c *Reconciler) EnqueueEndpointsKPA(impl *controller.Impl) func(obj interfa
 	}
 }
 
-// Reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
+// Reconcile delegates right sizing of KPA ScaleTargetRef to a local method or a sub-resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -151,7 +151,12 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the kpa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, key, kpa)
+	switch kpa.Class() {
+	case "kpa":
+		err = c.reconcileKpa(ctx, key, kpa)
+	case "hpa":
+		err = c.reconcileHpa(ctx, key, kpa)
+	}
 	if equality.Semantic.DeepEqual(original.Status, kpa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -167,7 +172,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+// reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics
+func (c *Reconciler) reconcileKpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
 	kpa.Status.InitializeConditions()
@@ -223,6 +229,11 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 		kpa.Status.MarkActive()
 	}
 
+	return nil
+}
+
+func (c *Reconciler) reconcileKpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+	// TODO: create an HPA.
 	return nil
 }
 

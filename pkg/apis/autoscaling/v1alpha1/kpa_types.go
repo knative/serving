@@ -120,6 +120,14 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
+func (kpa *PodAutoscaler) Class() string {
+	if c, ok := kpa.Annotations[autoscaling.ClassAnnotationKey]; ok {
+		return c
+	}
+	// Default to "kpa" class for backward compatibility.
+	return "kpa"
+}
+
 func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
 	if s, ok := kpa.Annotations[key]; ok {
 		// no error check: relying on validation
