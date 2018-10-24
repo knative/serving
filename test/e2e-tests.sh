@@ -81,7 +81,7 @@ kubectl create namespace serving-tests
 options=""
 (( EMIT_METRICS )) && options="-emitmetrics"
 report_go_test \
-  -v -tags=e2e -count=1 -timeout=20m \
+  -v -tags=e2e -count=1 -timeout=40m \
   ./test/conformance ./test/e2e \
   ${options} || fail_test
 
