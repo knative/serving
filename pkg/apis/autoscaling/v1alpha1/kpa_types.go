@@ -20,14 +20,13 @@ import (
 	"strconv"
 	"time"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
@@ -125,7 +124,9 @@ func (kpa *PodAutoscaler) Class() string {
 		return c
 	}
 	// Default to "kpa" class for backward compatibility.
-	return "kpa"
+	// DO NOT SUBMIT
+	return "hpa"
+	//return "kpa"
 }
 
 func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {

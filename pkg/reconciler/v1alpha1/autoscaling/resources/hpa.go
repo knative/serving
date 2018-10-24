@@ -19,20 +19,27 @@ package resources
 import (
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func MakeHPA(kpa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler {
 	min, max := kpa.ScaleBounds()
+	max = 100 // DO NOT SUBMIT
 	hpa := &autoscalingv1.HorizontalPodAutoscaler{
-		Spec: autoscalingv1.HorizontalPodAutoscalingSpec{
-			ScaleTargetRef: kpa.ScaleTargetRef,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            kpa.Name,
+			Namespace:       kpa.Namespace,
+			Labels:          kpa.Labels,
+			Annotations:     kpa.Annotations,
+			OwnerReferences: kpa.OwnerReferences,
+		},
+		Spec: autoscalingv1.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: kpa.Spec.ScaleTargetRef,
 		},
 	}
-	if min != 0 {
+	hpa.Spec.MaxReplicas = max
+	if min > 0 {
 		hpa.Spec.MinReplicas = &min
-	}
-	if max != 0 {
-		hpa.Spec.MaxReplicas = &max
 	}
 	return hpa
 }

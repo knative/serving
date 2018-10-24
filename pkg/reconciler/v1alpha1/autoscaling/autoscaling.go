@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -151,14 +152,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the kpa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	switch kpa.Class() {
-	case "kpa":
-		// TODO: delete HPA if it exists.
-		err = c.reconcileKpa(ctx, key, kpa)
-	case "hpa":
-		// TODO: delete KPA if it exists.
-		err = c.reconcileHpa(ctx, key, kpa)
-	}
+	logger.Infof("DO NOT SUBMIT reconciling an hpa")
+	err = c.reconcileHpa(ctx, key, kpa)
+	// switch kpa.Class() {
+	// case "kpa":
+	// 	// TODO: delete HPA if it exists.
+	// 	err = c.reconcileKpa(ctx, key, kpa)
+	// case "hpa":
+	// 	// TODO: delete KPA if it exists.
+	// 	err = c.reconcileHpa(ctx, key, kpa)
+	// }
 	if equality.Semantic.DeepEqual(original.Status, kpa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -235,11 +238,14 @@ func (c *Reconciler) reconcileKpa(ctx context.Context, key string, kpa *kpa.PodA
 }
 
 func (c *Reconciler) reconcileHpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
 	desiredHpa := resources.MakeHPA(kpa)
 	hpa := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace)
-	actualHpa, err := hpa.Get(desiredHpa.Name, metav1.Options)
+	actualHpa, err := hpa.Get(desiredHpa.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
+		logger.Infof("DO NOT SUBMIT %v+", desiredHpa)
 		_, err := hpa.Create(desiredHpa)
 		if err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
