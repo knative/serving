@@ -147,7 +147,7 @@ func TestRunLatestService(t *testing.T) {
 	routeProberErrorChan := test.RunRouteProber(logger, clients, routeDomain)
 
 	logger.Info("Updating the Service to use a different image")
-	if err := test.UpdateServiceImage(clients, svc, imagePaths[1]); err != nil {
+	if _, err := test.UpdateServiceImage(clients, svc, imagePaths[1]); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
 
@@ -298,16 +298,11 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 
-	logger.Info("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
 	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets, 'current' and 'latest'")
 	// TODO(dangerd): Validate traffic still points to firstRevision and route now has two traffic targets: current and latest
 
 	logger.Info("Updating the Service Spec with a new image")
-	if err := test.UpdateServiceImage(clients, svc, releaseImagePath2); err != nil {
+	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
 	}
 
@@ -328,16 +323,11 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 
-	logger.Info("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
 	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'next', and 'latest'")
 	// TODO(dangerd): Validate that traffic is going between the two revisions
 
 	logger.Info("Updating the Service Spec with a new image")
-	if err := test.UpdateServiceImage(clients, svc, releaseImagePath3); err != nil {
+	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath3); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
 	}
 
@@ -389,8 +379,8 @@ func TestManualService(t *testing.T) {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
 
-	//TODO(dangerd): Additional service object validation
-	//TODO(dangerd): Update Route and Configuration out of band
+	// TODO(dangerd): Additional service object validation
+	// TODO(dangerd): Update Route and Configuration out of band
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.

@@ -169,11 +169,7 @@ func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent in
 		config = svc.Spec.Pinned.Configuration
 	}
 	return &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       svc.ObjectMeta.Namespace,
-			Name:            svc.ObjectMeta.Name,
-			ResourceVersion: svc.ObjectMeta.ResourceVersion,
-		},
+		ObjectMeta: svc.ObjectMeta,
 		Spec: v1alpha1.ServiceSpec{
 			Release: &v1alpha1.ReleaseType{
 				Revisions:      revisions,
@@ -187,11 +183,7 @@ func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent in
 // ManualService returns a Manual Service object in namespace with the name names.Service
 func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
 	return &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       svc.ObjectMeta.Namespace,
-			Name:            svc.ObjectMeta.Name,
-			ResourceVersion: svc.ObjectMeta.ResourceVersion,
-		},
+		ObjectMeta: svc.ObjectMeta,
 		Spec: v1alpha1.ServiceSpec{
 			Manual: &v1alpha1.ManualType{},
 		},

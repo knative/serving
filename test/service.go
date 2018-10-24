@@ -19,13 +19,20 @@ limitations under the License.
 package test
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/mattbaird/jsonpatch"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+func createPatch(cur, desired *v1alpha1.Service) ([]byte, error) {
+	patch, err := duck.CreatePatch(cur, desired)
+	if err != nil {
+		return nil, err
+	}
+	return patch.MarshalJSON()
+}
 
 // CreateLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by imagePath
@@ -44,8 +51,7 @@ func UpdateReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1a
 	if err != nil {
 		return nil, err
 	}
-	patchedSvc, err := clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
-	return patchedSvc, err
+	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // UpdateManualService updates an existing service in namespace with the name names.Service
@@ -56,55 +62,23 @@ func UpdateManualService(logger *logging.BaseLogger, clients *Clients, svc *v1al
 	if err != nil {
 		return nil, err
 	}
-	patchedSvc, err := clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
-	return patchedSvc, err
+	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
-func createPatch(cur, desired *v1alpha1.Service) ([]byte, error) {
-	curJson, err := json.Marshal(cur)
-	if err != nil {
-		return nil, err
-	}
-	desiredJson, err := json.Marshal(desired)
-	if err != nil {
-		return nil, err
-	}
-	patch, err := jsonpatch.CreatePatch(curJson, desiredJson)
-	if err != nil {
-		return nil, err
-	}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return nil, err
-	}
-	return patchBytes, nil
-}
-
-func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath string) error {
-	var serviceType string
+func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
+	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
-		serviceType = "runLatest"
+		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else if svc.Spec.Release != nil {
-		serviceType = "release"
+		newSvc.Spec.Release.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else if svc.Spec.Pinned != nil {
-		serviceType = "pinned"
+		newSvc.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else {
-		return fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
+		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
-	patches := []jsonpatch.JsonPatchOperation{
-		{
-			Operation: "replace",
-			Path:      fmt.Sprintf("/spec/%s/configuration/revisionTemplate/spec/container/image", serviceType),
-			Value:     imagePath,
-		},
-	}
-	patchBytes, err := json.Marshal(patches)
+	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
-	if err != nil {
-		return err
-	}
-	return nil
+	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
