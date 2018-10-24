@@ -127,7 +127,6 @@ echo "Tagging referenced images with ${TAG}."
 tag_images_in_yaml "${RELEASE_YAML}" "${SERVING_RELEASE_GCR}" "${TAG}"
 
 echo "New release built successfully"
-
 if (( ! PUBLISH_RELEASE )); then
  exit 0
 fi
