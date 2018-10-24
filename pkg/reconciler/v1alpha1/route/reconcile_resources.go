@@ -53,8 +53,10 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha
 	} else if err != nil {
 		return err
 	} else if !equality.Semantic.DeepEqual(virtualService.Spec, desiredVirtualService.Spec) {
-		virtualService.Spec = desiredVirtualService.Spec
-		virtualService, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(virtualService)
+		// Don't modify the informers copy
+		existing := virtualService.DeepCopy()
+		existing.Spec = desiredVirtualService.Spec
+		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err
@@ -92,8 +94,10 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 		// Preserve the ClusterIP field in the Service's Spec, if it has been set.
 		desiredService.Spec.ClusterIP = service.Spec.ClusterIP
 		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-			service.Spec = desiredService.Spec
-			service, err = c.KubeClientSet.CoreV1().Services(ns).Update(service)
+			// Don't modify the informers copy
+			existing := service.DeepCopy()
+			existing.Spec = desiredService.Spec
+			_, err = c.KubeClientSet.CoreV1().Services(ns).Update(existing)
 			if err != nil {
 				return err
 			}
