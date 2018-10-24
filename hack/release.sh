@@ -64,6 +64,13 @@ cp "${REPO_ROOT_DIR}/third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
 ko resolve ${KO_FLAGS} -f config/ > "${SERVING_YAML}"
+if [[ -n "${RELEASE_VERSION}" ]]; then
+  # Add the configmap including release information
+  COMMIT_ID=$(cat .git/HEAD)
+  echo "---" >> "${SERVING_YAML}"
+  sed -e "s,KNATIVE-VERSION,v${RELEASE_VERSION}," -e "s,GITHUB-COMMIT-ID,${COMMIT_ID}," \
+    ./hack/config-release.template >> "${SERVING_YAML}"
+fi
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
