@@ -216,3 +216,10 @@ func (c *Impl) processNextWorkItem() bool {
 
 	return true
 }
+
+// GlobalResync enqueues all objects from the passed SharedInformer
+func (c *Impl) GlobalResync(si cache.SharedInformer) {
+	for _, key := range si.GetStore().ListKeys() {
+		c.EnqueueKey(key)
+	}
+}

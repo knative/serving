@@ -18,9 +18,7 @@ metadata:
   name: activator
   namespace: knative-serving
 spec:
-  # TODO: Increase the replicas
-  # https://github.com/knative/serving/issues/695
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: activator
@@ -49,6 +47,11 @@ spec:
           # and seeing k8s logs in addition to ours is not useful.
         - "-logtostderr=false"
         - "-stderrthreshold=FATAL"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging

@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -34,7 +35,7 @@ import (
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/system"
-	appsv1 "k8s.io/api/apps/v1"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,8 +48,8 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
-	return nil
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return "", nil
 }
 
 const (
@@ -229,7 +230,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	stopCh := make(chan struct{})
-	defer close(stopCh)
 
 	rev := getTestRevision()
 	// TODO(grantr): inserting the route at client creation is necessary
@@ -250,15 +250,21 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
 
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

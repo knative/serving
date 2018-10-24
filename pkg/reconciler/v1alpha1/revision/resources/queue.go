@@ -108,7 +108,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Value: autoscalerAddress,
 		}, {
 			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: strconv.Itoa(AutoscalerPort),
+			Value: strconv.Itoa(autoscalerPort),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{

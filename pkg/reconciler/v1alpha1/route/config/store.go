@@ -19,7 +19,7 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/reconciler/config"
+	"github.com/knative/pkg/configmap"
 )
 
 type cfgKey struct{}
@@ -37,19 +37,32 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
+// Store is based on configmap.UntypedStore and is used to store and watch for
+// updates to configuration related to routes (currently only config-domain).
+//
 // +k8s:deepcopy-gen=false
 type Store struct {
-	*config.UntypedStore
+	*configmap.UntypedStore
 }
 
-func NewStore(logger config.Logger) *Store {
+// NewStore creates a configmap.UntypedStore based config store.
+//
+// logger must be non-nil implementation of configmap.Logger (commonly used
+// loggers conform)
+//
+// onAfterStore is a variadic list of callbacks to run
+// after the ConfigMap has been processed and stored.
+//
+// See also: configmap.NewUntypedStore().
+func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
-		UntypedStore: config.NewUntypedStore(
+		UntypedStore: configmap.NewUntypedStore(
 			"route",
 			logger,
-			config.Constructors{
+			configmap.Constructors{
 				DomainConfigName: NewDomainFromConfigMap,
 			},
+			onAfterStore...,
 		),
 	}
 

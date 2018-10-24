@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -39,7 +40,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -71,7 +71,7 @@ const (
 )
 
 type resolver interface {
-	Resolve(*appsv1.Deployment, map[string]struct{}) error
+	Resolve(string, k8schain.Options, map[string]struct{}) (string, error)
 }
 
 type configStore interface {
@@ -299,6 +299,30 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 	return nil
 }
 
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {
+	// The image digest has already been resolved.
+	if rev.Status.ImageDigest != "" {
+		return nil
+	}
+
+	cfgs := config.FromContext(ctx)
+	opt := k8schain.Options{
+		Namespace:          rev.Namespace,
+		ServiceAccountName: rev.Spec.ServiceAccountName,
+		// ImagePullSecrets: Not possible via RevisionSpec, since we
+		// don't expose such a field.
+	}
+	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
+	if err != nil {
+		rev.Status.MarkContainerMissing(err.Error())
+		return err
+	}
+
+	rev.Status.ImageDigest = digest
+
+	return nil
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
 
@@ -317,6 +341,9 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name string
 			f    func(context.Context, *v1alpha1.Revision) error
 		}{{
+			name: "image digest",
+			f:    c.reconcileDigest,
+		}, {
 			name: "user deployment",
 			f:    c.reconcileDeployment,
 		}, {
@@ -370,17 +397,19 @@ func (c *Reconciler) EnqueueEndpointsRevision(impl *controller.Impl) func(obj in
 	}
 }
 
-func (c *Reconciler) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	newRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+	rev, err := c.revisionLister.Revisions(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(newRev.Status, rev.Status) {
-		newRev.Status = rev.Status
+	if !reflect.DeepEqual(rev.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := rev.DeepCopy()
+		existing.Status = desired.Status
 
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(newRev)
+		return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
 		//	return prClient.UpdateStatus(newRev)
 	}
 	return rev, nil

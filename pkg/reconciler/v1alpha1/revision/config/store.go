@@ -19,10 +19,10 @@ package config
 import (
 	"context"
 
+	"github.com/knative/pkg/configmap"
 	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler/config"
 )
 
 type cfgKey struct{}
@@ -46,15 +46,15 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 
 // +k8s:deepcopy-gen=false
 type Store struct {
-	*config.UntypedStore
+	*configmap.UntypedStore
 }
 
-func NewStore(logger config.Logger) *Store {
+func NewStore(logger configmap.Logger) *Store {
 	store := &Store{
-		UntypedStore: config.NewUntypedStore(
+		UntypedStore: configmap.NewUntypedStore(
 			"revision",
 			logger,
-			config.Constructors{
+			configmap.Constructors{
 				ControllerConfigName:    NewControllerConfigFromConfigMap,
 				NetworkConfigName:       NewNetworkFromConfigMap,
 				ObservabilityConfigName: NewObservabilityFromConfigMap,

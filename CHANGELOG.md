@@ -1,4 +1,5 @@
 # Knative Serving Changelog
+
 All notable changes to Knative Serving will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
@@ -9,7 +10,9 @@ When adding a changelog entry, link to the most relevant issue or PR for more
 details.
 
 ## [Unreleased]
+
 ### Added
+
 * Basic API resources Revision, Configuration, and Route.
 * Integration with the Build API for on-demand container builds. [#36](https://github.com/knative/serving/pull/36)
 * Autoscaling of Revision deployments. [#229](https://github.com/knative/serving/pull/229)

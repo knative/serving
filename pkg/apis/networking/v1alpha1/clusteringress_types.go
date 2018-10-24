@@ -264,7 +264,7 @@ type LoadBalancerIngressStatus struct {
 	// Domain is set for load-balancer ingress points that are DNS based
 	// (typically AWS load-balancers)
 	// +optional
-	Domain string `json:"hostname,omitempty"`
+	Domain string `json:"domain,omitempty"`
 
 	// DomainInternal is set if there is a cluster-local DNS name to access the Ingress.
 	//
@@ -272,7 +272,7 @@ type LoadBalancerIngressStatus struct {
 	//       DNS name to allow routing in case of not having a mesh.
 	//
 	// +optional
-	DomainInternal string `json:"hostname,omitempty"`
+	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
 // ConditionType represents a ClusterIngress condition value

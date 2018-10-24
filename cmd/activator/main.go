@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -96,8 +97,9 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	defer createdLogger.Sync()
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	defer logger.Sync()
+
 	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -146,7 +148,8 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	activatorhandler.NewConcurrencyReporter(autoscaler.ActivatorPodName, activatorhandler.Channels{
+	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
+	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
 		ReqChan:    reqChan,
 		StatChan:   statChan,
 		ReportChan: time.NewTicker(time.Second).C,

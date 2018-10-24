@@ -26,10 +26,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
@@ -156,28 +156,17 @@ func TestResolve(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: ns,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: svcacct,
-					Containers: []corev1.Container{{
-						Image: tag.String(),
-					}},
-				},
-			},
-		},
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
-	if err := dr.Resolve(deploy, emptyRegistrySet); err != nil {
+	resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
+	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 
 	// Make sure that we get back the appropriate digest.
-	digest, err := name.NewDigest(deploy.Spec.Template.Spec.Containers[0].Image, name.WeakValidation)
+	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
 	if err != nil {
 		t.Fatalf("NewDigest() = %v", err)
 	}
@@ -187,66 +176,48 @@ func TestResolve(t *testing.T) {
 }
 
 func TestResolveWithDigest(t *testing.T) {
+	ns, svcacct := "foo", "default"
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
-			Namespace: "foo",
+			Namespace: ns,
 		},
 	})
+	originalDigest := "ubuntu@sha256:e7def0d56013d50204d73bb588d99e0baa7d69ea1bc1157549b898eb67287612"
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	original := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: "foo",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{{
-						Image: "ubuntu@sha256:e7def0d56013d50204d73bb588d99e0baa7d69ea1bc1157549b898eb67287612",
-					}},
-				},
-			},
-		},
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
-	deploy := original.DeepCopy()
-	if err := dr.Resolve(deploy, emptyRegistrySet); err != nil {
+	resolvedDigest, err := dr.Resolve(originalDigest, opt, emptyRegistrySet)
+	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 
-	if diff := cmp.Diff(original, deploy); diff != "" {
-		t.Errorf("Deployment should not change (-want +got): %s", diff)
+	if diff := cmp.Diff(originalDigest, resolvedDigest); diff != "" {
+		t.Errorf("Digest should not change (-want +got): %s", diff)
 	}
 }
 
 func TestResolveWithBadTag(t *testing.T) {
+	ns, svcacct := "foo", "default"
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
-			Namespace: "foo",
+			Namespace: ns,
 		},
 	})
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: "foo",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{{
-						// Invalid character
-						Image: "ubuntu%latest",
-					}},
-				},
-			},
-		},
+
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
-	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", deploy)
+
+	// Invalid character
+	invalidImage := "ubuntu%latest"
+	if resolvedDigest, err := dr.Resolve(invalidImage, opt, emptyRegistrySet); err == nil {
+		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
@@ -278,24 +249,12 @@ func TestResolveWithPingFailure(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: ns,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: svcacct,
-					Containers: []corev1.Container{{
-						Image: tag.String(),
-					}},
-				},
-			},
-		},
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
-	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", deploy)
+	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
@@ -327,49 +286,26 @@ func TestResolveWithManifestFailure(t *testing.T) {
 
 	// Resolve our tag on the fake registry to the digest of the random.Image()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: ns,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: svcacct,
-					Containers: []corev1.Container{{
-						Image: tag.String(),
-					}},
-				},
-			},
-		},
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
-	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", deploy)
+	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
 func TestResolveNoAccess(t *testing.T) {
+	ns, svcacct := "foo", "default"
 	client := fakeclient.NewSimpleClientset()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: "foo",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{{
-						Image: "ubuntu:latest",
-					}},
-				},
-			},
-		},
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
 	}
 	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if err := dr.Resolve(deploy, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", deploy)
+	if resolvedDigest, err := dr.Resolve("ubuntu:latest", opt, emptyRegistrySet); err == nil {
+		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
@@ -403,32 +339,22 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		client:    client,
 		transport: http.DefaultTransport,
 	}
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "blah",
-			Namespace: ns,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: svcacct,
-					Containers: []corev1.Container{{
-						Image: "localhost:5000/ubuntu:latest",
-					}},
-				},
-			},
-		},
-	}
 
 	registriesToSkip := map[string]struct{}{
 		"localhost:5000": {},
 	}
 
-	if err := dr.Resolve(deploy, registriesToSkip); err != nil {
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+
+	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", opt, registriesToSkip)
+	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
 
-	if got, want := deploy.Spec.Template.Spec.Containers[0].Image, "localhost:5000/ubuntu:latest"; got != want {
+	if got, want := resolvedDigest, ""; got != want {
 		t.Fatalf("Resolve() got %q want of %q", got, want)
 	}
 }

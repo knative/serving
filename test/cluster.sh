@@ -52,15 +52,16 @@ function create_test_resources() {
 
 function create_monitoring() {
   echo ">> Bringing up Monitoring"
-  kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
+  kubectl apply -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 }
 
 function create_everything() {
+  export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_istio
   create_serving
   create_test_resources
@@ -87,11 +88,12 @@ function delete_test_resources() {
 
 function delete_monitoring() {
   echo ">> Bringing down Monitoring"
-  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 }
 
 function delete_everything() {

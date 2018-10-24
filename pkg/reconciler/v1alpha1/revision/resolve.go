@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -35,44 +34,36 @@ type digestResolver struct {
 
 // Resolve resolves the image references that use tags to digests.
 func (r *digestResolver) Resolve(
-	deploy *appsv1.Deployment,
+	image string,
+	opt k8schain.Options,
 	registriesToSkip map[string]struct{},
-) error {
-	pod := deploy.Spec.Template.Spec
-	opt := k8schain.Options{
-		Namespace:          deploy.Namespace,
-		ServiceAccountName: pod.ServiceAccountName,
-		// ImagePullSecrets: Not possible via RevisionSpec, since we
-		// don't expose such a field.
-	}
+) (string, error) {
 	kc, err := k8schain.New(r.client, opt)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	for i := range pod.Containers {
-		if _, err := name.NewDigest(pod.Containers[i].Image, name.WeakValidation); err == nil {
-			// Already a digest
-			continue
-		}
-		tag, err := name.NewTag(pod.Containers[i].Image, name.WeakValidation)
-		if err != nil {
-			return err
-		}
-
-		if _, ok := registriesToSkip[tag.Registry.RegistryStr()]; ok {
-			continue
-		}
-
-		img, err := remote.Image(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
-		if err != nil {
-			return err
-		}
-		digest, err := img.Digest()
-		if err != nil {
-			return err
-		}
-		pod.Containers[i].Image = fmt.Sprintf("%s@%s", tag.Repository.String(), digest)
+	if _, err := name.NewDigest(image, name.WeakValidation); err == nil {
+		// Already a digest
+		return image, nil
 	}
-	return nil
+
+	tag, err := name.NewTag(image, name.WeakValidation)
+	if err != nil {
+		return "", err
+	}
+
+	if _, ok := registriesToSkip[tag.Registry.RegistryStr()]; ok {
+		return "", nil
+	}
+
+	img, err := remote.Image(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	if err != nil {
+		return "", err
+	}
+	digest, err := img.Digest()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s@%s", tag.Repository.String(), digest), nil
 }

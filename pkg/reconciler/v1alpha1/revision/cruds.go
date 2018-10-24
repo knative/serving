@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -28,14 +27,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
 	deployment := resources.MakeDeployment(
@@ -46,13 +43,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		cfgs.Autoscaler,
 		cfgs.Controller,
 	)
-
-	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment, cfgs.Controller.RegistriesSkippingTagResolving); err != nil {
-		logger.Error("Error resolving deployment", zap.Error(err))
-		rev.Status.MarkContainerMissing(err.Error())
-		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
-	}
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
@@ -95,8 +85,7 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 	}
 	logger.Infof("Reconciling service diff (-desired, +observed): %v",
 		cmp.Diff(desiredService.Spec, service.Spec))
-	service.Spec = desiredService.Spec
 
-	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(service)
+	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(desiredService)
 	return d, WasChanged, err
 }

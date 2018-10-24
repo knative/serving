@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -348,20 +349,16 @@ type fixedResolver struct {
 	digest string
 }
 
-func (r *fixedResolver) Resolve(deploy *appsv1.Deployment, _ map[string]struct{}) error {
-	pod := deploy.Spec.Template.Spec
-	for i := range pod.Containers {
-		pod.Containers[i].Image = r.digest
-	}
-	return nil
+func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return r.digest, nil
 }
 
 type errorResolver struct {
 	error string
 }
 
-func (r *errorResolver) Resolve(*appsv1.Deployment, map[string]struct{}) error {
-	return errors.New(r.error)
+func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return "", errors.New(r.error)
 }
 
 func TestResolutionFailed(t *testing.T) {

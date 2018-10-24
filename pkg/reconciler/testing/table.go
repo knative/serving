@@ -61,6 +61,10 @@ type TableRow struct {
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
 	WithReactors []clientgotesting.ReactionFunc
+
+	// For cluster-scoped resources like ClusterIngress, it does not have to be
+	// in the same namespace with its child resources.
+	SkipNamespaceValidation bool
 }
 
 type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList)
@@ -87,7 +91,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			continue
 		}
 		got := actions.Creates[i]
-		if got.GetNamespace() != expectedNamespace {
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
@@ -126,7 +130,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace {
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}
@@ -146,7 +150,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace {
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
@@ -164,9 +168,18 @@ type TableTest []TableRow
 
 func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
+		// Record the original objects in table.
+		originObjects := []runtime.Object{}
+		for _, obj := range test.Objects {
+			originObjects = append(originObjects, obj.DeepCopyObject())
+		}
 		t.Run(test.Name, func(t *testing.T) {
 			test.Test(t, factory)
 		})
+		// Validate cached objects do not get soiled after controller loops
+		if diff := cmp.Diff(originObjects, test.Objects, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected objects in test %s (-want +got): %v", test.Name, diff)
+		}
 	}
 }
 

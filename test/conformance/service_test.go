@@ -20,6 +20,7 @@ package conformance
 
 import (
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"testing"
 
@@ -190,6 +191,84 @@ func TestRunLatestService(t *testing.T) {
 		// failing the test.
 		logger.Errorf("Route prober failed with error %s", err)
 	}
+}
+
+func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
+	clients := setup(t)
+
+	logger := logging.GetContextLogger("TestUpdateRevisionTemplateSpecMetadata")
+
+	var names test.ResourceNames
+	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
+
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+
+	logger.Info("Creating a new Service")
+	svc, err := test.CreateLatestService(logger, clients, names, test.ImagePath(image1))
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	names.Revision, err = waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+
+	logger.Info("Updating labels of the RevisionTemplateSpec for service %s", names.Service)
+	svc = reloadService(names.Service, clients, t)
+	svc.Spec.RunLatest.Configuration.RevisionTemplate.Labels = map[string]string{
+		"labelX": "abc",
+		"labelY": "def",
+	}
+	svc, err = clients.ServingClient.Services.Update(svc)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
+	}
+
+	names.Revision, err = waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with new a new revision after updating labels in its RevisionTemplateSpec: %v", names.Service, err)
+	}
+
+	logger.Infof("Updating annotations of RevisionTemplateSpec for service %s", names.Service)
+	svc = reloadService(names.Service, clients, t)
+	svc.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{
+		"annotationA": "123",
+		"annotationB": "456",
+	}
+
+	svc, err = clients.ServingClient.Services.Update(svc)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
+	}
+
+	names.Revision, err = waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with new a new revision after updating annotations in its RevisionTemplateSpec: %v", names.Service, err)
+	}
+
+	routeDomain, err := waitForServiceDomain(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "3", "What a spaceport!")
+}
+
+func reloadService(service string, clients *test.Clients, t *testing.T) *v1alpha1.Service {
+	svc, err := clients.ServingClient.Services.Get(service, v1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to reload service %s: %v", service, err)
+	}
+	return svc
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.

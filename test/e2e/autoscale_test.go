@@ -55,7 +55,11 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurrency int, duration time.Duration, domain string) error {
+func tearDown(ctx *testContext) {
+	TearDown(ctx.clients, ctx.names, ctx.logger)
+}
+
+func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) error {
 	var (
 		totalRequests      int
 		successfulRequests int
@@ -63,15 +67,15 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 		group              errgroup.Group
 	)
 
-	logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	ctx.logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
 			if err != nil {
 				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
@@ -87,17 +91,17 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 					start := time.Now()
 					res, err := client.Do(req)
 					if err != nil {
-						logger.Errorf("error making request %v", err)
+						ctx.logger.Infof("error making request %v", err)
 						continue
 					}
 					duration := time.Now().Sub(start)
-					logger.Infof("Request took: %v", duration)
+					ctx.logger.Infof("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
-						logger.Errorf("request %d failed", requestID)
-						logger.Errorf("non 200 response %v", res.StatusCode)
-						logger.Errorf("response headers: %v", res.Header)
-						logger.Errorf("response body: %v", string(res.Body))
+						ctx.logger.Infof("request %d failed", requestID)
+						ctx.logger.Infof("non 200 response %v", res.StatusCode)
+						ctx.logger.Infof("response headers: %v", res.Header)
+						ctx.logger.Infof("response body: %v", string(res.Body))
 						continue
 					}
 					mux.Lock()
@@ -108,7 +112,7 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 		})
 	}
 
-	logger.Infof("Waiting for all requests to complete.")
+	ctx.logger.Infof("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("Error making requests for scale up: %v.", err)
 	}
@@ -117,12 +121,21 @@ func generateTraffic(clients *test.Clients, logger *logging.BaseLogger, concurre
 		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
 			successfulRequests, totalRequests)
 	}
-
-	logger.Infof("All %d requests succeeded.", totalRequests)
 	return nil
 }
 
-func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
+type testContext struct {
+	t              *testing.T
+	clients        *test.Clients
+	logger         *logging.BaseLogger
+	names          test.ResourceNames
+	deploymentName string
+	domain         string
+}
+
+func setup(t *testing.T) *testContext {
+	//add test case specific name to its own logger
+	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
 	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
@@ -134,21 +147,6 @@ func setup(t *testing.T, logger *logging.BaseLogger) *test.Clients {
 		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
 	}
 
-	return clients
-}
-
-func tearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
-	TearDown(clients, names, logger)
-}
-
-func TestAutoscaleUpDownUp(t *testing.T) {
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
-	clients := setup(t, logger)
-
-	stopChan := DiagnoseMeEvery(15*time.Second, clients, logger)
-	defer close(stopChan)
-
 	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
@@ -158,26 +156,22 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
-	defer tearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 
-	logger.Infof(`When the Revision can have traffic routed to it,
-	            the Route is marked as Ready.`)
+	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
 		test.IsRouteReady,
 		"RouteIsReady")
 	if err != nil {
-		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
-			 %v`, names.Route, err)
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
 	logger.Infof("Serves the expected data at the endpoint")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf(`Configuration %s was not updated with the new
-		         revision: %v`, names.Config, err)
+		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 	deploymentName :=
 		config.Status.LatestCreatedRevisionName + "-deployment"
@@ -197,49 +191,57 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
-			 the expected text \"%v\": %v`,
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%v\": %v",
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
-	logger.Infof(`The autoscaler spins up additional replicas when traffic
-		    increases.`)
-	err = generateTraffic(clients, logger, 20, 20*time.Second, domain)
-	if err != nil {
-		logger.Fatalf("Error during initial scale up: %v", err)
+	return &testContext{
+		t:              t,
+		clients:        clients,
+		logger:         logger,
+		names:          names,
+		deploymentName: deploymentName,
+		domain:         domain,
 	}
-	logger.Info("Waiting for scale up")
+}
+
+func assertScaleUp(ctx *testContext) {
+	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
+	err := generateTraffic(ctx, 20, 20*time.Second)
+	if err != nil {
+		ctx.t.Fatalf("Error during initial scale up: %v", err)
+	}
+	ctx.logger.Info("Waiting for scale up")
 	err = test.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
+		ctx.clients.KubeClient,
+		ctx.deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
 		2*time.Minute)
 	if err != nil {
-		logger.Fatalf(`Unable to observe the Deployment named %s scaling
-			   up. %s`, deploymentName, err)
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
+}
 
-	logger.Infof(`The autoscaler successfully scales down when devoid of
-		    traffic.`)
+func assertScaleDown(ctx *testContext) {
+	ctx.logger.Infof("The autoscaler successfully scales down when devoid of traffic.")
 
-	logger.Infof("Waiting for scale to zero")
-	err = test.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
+	ctx.logger.Infof("Waiting for scale to zero")
+	err := test.WaitForDeploymentState(
+		ctx.clients.KubeClient,
+		ctx.deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
 		scaleToZeroThreshold+2*time.Minute)
 	if err != nil {
-		logger.Fatalf(`Unable to observe the Deployment named %s scaling
-		           down. %s`, deploymentName, err)
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	logger.Infof("Wait for all pods to terminate.")
+	ctx.logger.Infof("Wait for all pods to terminate.")
 
 	err = test.WaitForPodListState(
-		clients.KubeClient,
+		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
 				if !strings.Contains(pod.Status.Reason, "Evicted") {
@@ -250,23 +252,19 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		},
 		"WaitForAvailablePods")
 	if err != nil {
-		logger.Fatalf(`Waiting for Pod.List to have no non-Evicted pods: %v`, err)
+		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
 	}
 
-	logger.Infof("Scaled down.")
-	logger.Infof("Sending traffic again to verify deployment scales back up")
-	err = generateTraffic(clients, logger, 20, 20*time.Second, domain)
-	if err != nil {
-		t.Fatalf("Error during final scale up: %v", err)
-	}
-	err = test.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
-		isDeploymentScaledUp(),
-		"DeploymentScaledUp",
-		2*time.Minute)
-	if err != nil {
-		logger.Fatalf(`Unable to observe the Deployment named %s scaling
-			   up. %s`, deploymentName, err)
-	}
+	ctx.logger.Infof("Scaled down.")
+}
+
+func TestAutoscaleUpDownUp(t *testing.T) {
+	ctx := setup(t)
+	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
+	defer close(stopChan)
+	defer tearDown(ctx)
+
+	assertScaleUp(ctx)
+	assertScaleDown(ctx)
+	assertScaleUp(ctx)
 }

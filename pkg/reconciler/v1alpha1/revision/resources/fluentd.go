@@ -65,6 +65,8 @@ const fluentdSidecarPreOutputConfig = `
 
 `
 
+const fluentdConfigMapVolumeName = "configmap"
+
 var (
 	fluentdResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -97,6 +99,19 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 	}
 }
 
+func makeFluentdConfigMapVolume(rev *v1alpha1.Revision) *corev1.Volume {
+	return &corev1.Volume{
+		Name: fluentdConfigMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: names.FluentdConfigMap(rev),
+				},
+			},
+		},
+	}
+}
+
 func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
@@ -112,7 +127,7 @@ func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 			Value: "--no-supervisor -q",
 		}, {
 			Name:  "SERVING_CONTAINER_NAME",
-			Value: UserContainerName,
+			Value: userContainerName,
 		}, {
 			Name:  "SERVING_CONFIGURATION",
 			Value: configName,
