@@ -45,8 +45,9 @@ func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, b
 	return err
 }
 
-// Probe until we get a successful response. This ensures the domain is
-// routable before we send it a bunch of traffic.
+// ProbeDomain sends requests to a domain until we get a successful
+// response. This ensures the domain is routable before we send it a
+// bunch of traffic.
 func ProbeDomain(logger *logging.BaseLogger, clients *Clients, domain string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, ServingFlags.ResolvableDomain)
 	if err != nil {
