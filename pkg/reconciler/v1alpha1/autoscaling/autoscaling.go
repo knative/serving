@@ -23,6 +23,13 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,13 +38,6 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -153,8 +153,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// updates regardless of whether the reconciliation errored out.
 	switch kpa.Class() {
 	case "kpa":
+		// TODO: delete HPA if it exists.
 		err = c.reconcileKpa(ctx, key, kpa)
 	case "hpa":
+		// TODO: delete KPA if it exists.
 		err = c.reconcileHpa(ctx, key, kpa)
 	}
 	if equality.Semantic.DeepEqual(original.Status, kpa.Status) {
@@ -232,8 +234,30 @@ func (c *Reconciler) reconcileKpa(ctx context.Context, key string, kpa *kpa.PodA
 	return nil
 }
 
-func (c *Reconciler) reconcileKpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
-	// TODO: create an HPA.
+func (c *Reconciler) reconcileHpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+	desiredHpa := resources.MakeHPA(kpa)
+	hpa := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace)
+	actualHpa, err := hpa.Get(desiredHpa.Name, metav1.Options)
+	if errors.IsNotFound(err) {
+		logger.Infof("Creating HPA %q", desiredHpa.Name)
+		_, err := hpa.Create(desiredHpa)
+		if err != nil {
+			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
+			return err
+		}
+	} else if err != nil {
+		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
+		return err
+	} else {
+		if !equality.Semantic.DeepEqual(desiredHpa.Spec, actualHpa.Spec) {
+			logger.Infof("Updating HPA %q", desiredHpa.Name)
+			_, err := hpa.Update(desiredHpa)
+			if err != nil {
+				logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
+				return err
+			}
+		}
+	}
 	return nil
 }
 
