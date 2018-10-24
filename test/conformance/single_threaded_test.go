@@ -20,6 +20,7 @@ package conformance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -56,19 +57,19 @@ func TestSingleConcurrency(t *testing.T) {
 	configOptions := test.Options{
 		ContainerConcurrency: 1,
 	}
-	logger.Infof("Creating a new Configuration")
+	logger.Info("Creating a new Configuration")
 	err := test.CreateConfiguration(logger, clients, names, imagePath, &configOptions)
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
-	logger.Infof("Creating a new Route")
+	logger.Info("Creating a new Route")
 	err = test.CreateRoute(logger, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("The Configuration will be updated with the name of the Revision once it is created")
+	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
 	revisionName, err := getNextRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -113,7 +114,7 @@ func TestSingleConcurrency(t *testing.T) {
 						return fmt.Errorf("error making request %v", err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
-						return fmt.Errorf("detected concurrent requests")
+						return errors.New("detected concurrent requests")
 					} else if res.StatusCode != http.StatusOK {
 						return fmt.Errorf("non 200 response %v", res.StatusCode)
 					}
@@ -121,7 +122,7 @@ func TestSingleConcurrency(t *testing.T) {
 			}
 		})
 	}
-	logger.Infof("Waiting for all requests to complete.")
+	logger.Info("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
 		t.Fatalf("Error making requests for single threaded test: %v.", err)
 	}
