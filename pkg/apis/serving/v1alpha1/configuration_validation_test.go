@@ -46,20 +46,6 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		// This is a Configuration specific addition to the basic Revision validation.
-		name: "specifies serving state",
-		c: &ConfigurationSpec{
-			RevisionTemplate: RevisionTemplateSpec{
-				Spec: RevisionSpec{
-					ServingState: "Active",
-					Container: corev1.Container{
-						Image: "hellworld",
-					},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("revisionTemplate.spec.servingState"),
-	}, {
 		name: "propagate revision failures",
 		c: &ConfigurationSpec{
 			RevisionTemplate: RevisionTemplateSpec{

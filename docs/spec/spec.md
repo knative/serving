@@ -254,12 +254,6 @@ spec:
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
-  # The Revision's level of readiness for receiving traffic.
-  # This may not be specified at creation (defaults to Active),
-  # and is used by the controllers and activator to enable
-  # scaling to/from 0.
-  servingState: Active | Reserve | Retired
-
   # Some function or server frameworks or application code may be
   # written to expect that each request will be granted a single-tenant
   # process to run (i.e. that the request code is run

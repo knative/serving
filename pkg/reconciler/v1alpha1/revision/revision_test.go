@@ -292,13 +292,12 @@ func addResourcesToInformers(t *testing.T,
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	haveBuild := rev.Spec.BuildRef != nil
-	inActive := rev.Spec.ServingState != "Active"
 
 	ns := rev.Namespace
 
 	kpaName := resourcenames.KPA(rev)
 	kpa, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
@@ -318,7 +317,7 @@ func addResourcesToInformers(t *testing.T,
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Deployments.Get(%v) = %v", deploymentName, err)
@@ -328,7 +327,7 @@ func addResourcesToInformers(t *testing.T,
 
 	serviceName := resourcenames.K8sService(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Services.Get(%v) = %v", serviceName, err)
