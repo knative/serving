@@ -86,9 +86,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
-			ScaleToZeroIdlePeriod:                8 * time.Minute,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -112,9 +110,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
-			ScaleToZeroIdlePeriod:                8 * time.Minute,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -138,9 +134,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
-			ScaleToZeroIdlePeriod:                8 * time.Minute,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -162,9 +156,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroThreshold:                 10 * time.Minute,
 			ScaleToZeroGracePeriod:               2 * time.Minute,
-			ScaleToZeroIdlePeriod:                8 * time.Minute,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -187,9 +179,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroThreshold:                 60 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
-			ScaleToZeroIdlePeriod:                30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
