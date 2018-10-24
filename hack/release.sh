@@ -64,6 +64,13 @@ cp "${REPO_ROOT_DIR}/third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
 ko resolve ${KO_FLAGS} -f config/ > "${SERVING_YAML}"
+if [[ -n "${RELEASE_VERSION}" ]]; then
+  # Add the configmap including release information
+  COMMIT_ID=$(cat .git/HEAD)
+  echo "---" >> "${SERVING_YAML}"
+  sed -e "s,KNATIVE-VERSION,v${RELEASE_VERSION}," -e "s,GITHUB-COMMIT-ID,${COMMIT_ID}," \
+    ./hack/config-release.template >> "${SERVING_YAML}"
+fi
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
@@ -126,7 +133,6 @@ if (( ! PUBLISH_RELEASE )); then
 fi
 
 # Publish the release
-
 readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
 for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
