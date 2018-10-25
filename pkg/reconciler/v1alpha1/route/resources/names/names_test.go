@@ -60,6 +60,16 @@ func TestNamer(t *testing.T) {
 		},
 		f:    K8sServiceFullname,
 		want: "bar.default.svc.cluster.local",
+	}, {
+		name: "ClusterIngressPrefix",
+		route: &v1alpha1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "default",
+			},
+		},
+		f:    ClusterIngressPrefix,
+		want: "bar-",
 	}}
 
 	for _, test := range tests {
