@@ -20,7 +20,6 @@ import (
 	"strconv"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -42,8 +41,7 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := rs.ServingState.Validate().ViaField("servingState").
-		Also(validateContainer(rs.Container).ViaField("container")).
+	errs := validateContainer(rs.Container).ViaField("container").
 		Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
 	if err := rs.ConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
@@ -54,12 +52,12 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	return errs
 }
 
-func (ss RevisionServingStateType) Validate() *apis.FieldError {
+func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
-	case RevisionServingStateType(""),
-		RevisionServingStateRetired,
-		RevisionServingStateReserve,
-		RevisionServingStateActive:
+	case DeprecatedRevisionServingStateType(""),
+		DeprecatedRevisionServingStateRetired,
+		DeprecatedRevisionServingStateReserve,
+		DeprecatedRevisionServingStateActive:
 		return nil
 	default:
 		return apis.ErrInvalidValue(string(ss), apis.CurrentField)
@@ -191,9 +189,7 @@ func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldErro
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	// The autoscaler is allowed to change ServingState, but consider the rest.
-	ignoreServingState := cmpopts.IgnoreFields(RevisionSpec{}, "ServingState")
-	if diff := cmp.Diff(original.Spec, current.Spec, ignoreServingState); diff != "" {
+	if diff := cmp.Diff(original.Spec, current.Spec); diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},

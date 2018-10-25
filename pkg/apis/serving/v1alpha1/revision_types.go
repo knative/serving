@@ -74,24 +74,24 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
+// DeprecatedRevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RevisionServingStateType string
+type DeprecatedRevisionServingStateType string
 
 const (
 	// The revision is ready to serve traffic. It should have Kubernetes
 	// resources, and the Istio route should be pointed to the given resources.
-	RevisionServingStateActive RevisionServingStateType = "Active"
+	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
 	// The revision is not currently serving traffic, but could be made to serve
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
 	// should be pointed to the activator.
-	RevisionServingStateReserve RevisionServingStateType = "Reserve"
+	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
 	// it would from a "Reserve" state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
-	RevisionServingStateRetired RevisionServingStateType = "Retired"
+	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
 // RevisionRequestConcurrencyModelType is an enumeration of the
@@ -128,12 +128,12 @@ type RevisionSpec struct {
 	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
-	// ServingState holds a value describing the desired state the Kubernetes
+	// DeprecatedServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users must not specify this when creating a revision. It is expected
-	// that the system will manipulate this based on routability and load.
+	// Users must not specify this when creating a revision. These values are no longer
+	// updated by the system.
 	// +optional
-	ServingState RevisionServingStateType `json:"servingState,omitempty"`
+	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the

@@ -127,25 +127,11 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 	currentScale := scl.Spec.Replicas
 
-	// Scale to zero. When scaling to zero, flip the revision's
-	// ServingState to Reserve (if Active).
 	if desiredScale == 0 {
-		if err := ks.updateServingState(logger, kpa.Namespace, owner.Name, v1alpha1.RevisionServingStateReserve); err != nil {
-			return err
-		}
-
 		// Scale to zero grace period.
 		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
 			return nil
-		}
-	}
-
-	// Scale from zero. When scaling from zero, flip the revision's
-	// ServingState to Active
-	if currentScale == 0 && desiredScale > 0 {
-		if err := ks.updateServingState(logger, kpa.Namespace, owner.Name, v1alpha1.RevisionServingStateActive); err != nil {
-			return err
 		}
 	}
 
@@ -179,21 +165,5 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 
 	logger.Debug("Successfully scaled.")
-	return nil
-}
-
-func (ks *kpaScaler) updateServingState(logger *zap.SugaredLogger, namespace, name string, state v1alpha1.RevisionServingStateType) error {
-	logger.Debugf("Setting revision ServingState to %v.", state)
-	revisionClient := ks.servingClientSet.ServingV1alpha1().Revisions(namespace)
-	rev, err := revisionClient.Get(name, metav1.GetOptions{})
-	if err != nil {
-		logger.Error("Unable to fetch Revision.", zap.Error(err))
-		return err
-	}
-	rev.Spec.ServingState = state
-	if _, err := revisionClient.Update(rev); err != nil {
-		logger.Error("Error updating revision serving state.", zap.Error(err))
-		return err
-	}
 	return nil
 }

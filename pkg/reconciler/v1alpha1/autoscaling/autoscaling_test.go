@@ -530,7 +530,6 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ServingState: "Active",
 			Container: corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},

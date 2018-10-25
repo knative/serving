@@ -252,7 +252,7 @@ type fakeReporter struct {
 	calls []reporterCall
 }
 
-func (f *fakeReporter) ReportRequest(ns, service, config, rev, servingState string, v float64) error {
+func (f *fakeReporter) ReportRequest(ns, service, config, rev string, v float64) error {
 	return nil
 }
 
