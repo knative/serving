@@ -60,6 +60,19 @@ function create_monitoring() {
     -f config/monitoring/200-common/100-istio.yaml
 }
 
+function create_namespace() {
+  echo ">> Creating Namespace serving-tests"
+  kubectl create namespace serving-tests
+}
+
+function publish_test_images() {
+  echo ">> Publishing test images"
+  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
+}
+
 function create_everything() {
   export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_istio

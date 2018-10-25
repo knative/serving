@@ -77,7 +77,7 @@ wait_until_cluster_up
 # Run the tests
 
 header "Running tests"
-kubectl create namespace serving-tests
+create_namespace
 options=""
 (( EMIT_METRICS )) && options="-emitmetrics"
 report_go_test \

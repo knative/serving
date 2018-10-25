@@ -1,0 +1,17 @@
+<testsuite>
+  <testcase class_name="TestOberservedConcurrency" name="TestOberservedConcurrency/p55.000000" time="0">
+    <properties>
+      <property name="perf_latency" value="0.075986885"></property>
+    </properties>
+  </testcase>
+  <testcase class_name="TestOberservedConcurrency" name="TestOberservedConcurrency/p90.000000" time="0">
+    <properties>
+      <property name="perf_latency" value="0.07921274"></property>
+    </properties>
+  </testcase>
+  <testcase class_name="TestOberservedConcurrency" name="TestOberservedConcurrency/p99.000000" time="0">
+    <properties>
+      <property name="perf_latency" value="0.08733334"></property>
+    </properties>
+  </testcase>
+</testsuite>
