@@ -37,8 +37,8 @@ const (
 	// which Route triggered their creation.
 	RouteLabelKey = GroupName + "/route"
 
-	// RouteNamespaceLabelKey is the label key attached to a ClusterIngress indicating by
-	// the Route in which namespace it is created.
+	// RouteNamespaceLabelKey is the label key attached to a ClusterIngress
+	// by a Route to indicate which namespace the Route was created in.
 	RouteNamespaceLabelKey = GroupName + "/routeNamespace"
 
 	// RevisionLabelKey is the label key attached to k8s resources to indicate
