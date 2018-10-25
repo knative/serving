@@ -280,6 +280,16 @@ func (ss *ServiceStatus) SetManualStatus() {
 	message := "Service is set to Manual, and is not managing underlying resources."
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, reason, message)
+
+	// Clear our fields that we propagated from Route and Configuration as we do not know
+	// them to remain true anymore
+	ss.LatestReadyRevisionName = ""
+	ss.LatestCreatedRevisionName = ""
+	ss.Domain = ""
+	ss.DomainInternal = ""
+	ss.Targetable = nil
+	ss.Traffic = nil
+
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
