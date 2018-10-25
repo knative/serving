@@ -52,12 +52,12 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	return errs
 }
 
-func (ss RevisionServingStateType) Validate() *apis.FieldError {
+func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
-	case RevisionServingStateType(""),
-		RevisionServingStateRetired,
-		RevisionServingStateReserve,
-		RevisionServingStateActive:
+	case DeprecatedRevisionServingStateType(""),
+		DeprecatedRevisionServingStateRetired,
+		DeprecatedRevisionServingStateReserve,
+		DeprecatedRevisionServingStateActive:
 		return nil
 	default:
 		return apis.ErrInvalidValue(string(ss), apis.CurrentField)
