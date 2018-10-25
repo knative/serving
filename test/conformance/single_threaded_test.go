@@ -81,11 +81,23 @@ func TestSingleConcurrency(t *testing.T) {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", names.Revision, err)
 	}
 
+	logger.Info("When the Route reports as Ready, everything should be ready.")
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	}
+
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
+
+	// Ready does not actually mean Ready for a Route just yet.
+	// See https://github.com/knative/serving/issues/1582
+	logger.Infof("Probing domain %s", domain)
+	if err := test.ProbeDomain(logger, clients, domain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", domain, err)
+	}
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {

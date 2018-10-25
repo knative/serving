@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 // +genclient
@@ -107,9 +109,13 @@ const (
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
 	RouteConditionAllTrafficAssigned duckv1alpha1.ConditionType = "AllTrafficAssigned"
+
+	// RouteConditionIngressReady is set to False when the
+	// ClusterIngress fails to become Ready.
+	RouteConditionIngressReady duckv1alpha1.ConditionType = "IngressReady"
 )
 
-var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned)
+var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned, RouteConditionIngressReady)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -211,6 +217,23 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
 		kind+"Missing",
 		"%s %q referenced in traffic not found.", kind, name)
+}
+
+// PropagateClusterIngressStatus update RouteConditionIngressReady condition
+// in RouteStatus according to IngressStatus.
+func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) {
+	cc := cs.GetCondition(v1alpha1.ClusterIngressConditionReady)
+	if cc == nil {
+		return
+	}
+	switch {
+	case cc.Status == corev1.ConditionUnknown:
+		routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionTrue:
+		routeCondSet.Manage(rs).MarkTrue(RouteConditionIngressReady)
+	case cc.Status == corev1.ConditionFalse:
+		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
+	}
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

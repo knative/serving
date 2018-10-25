@@ -38,6 +38,8 @@ aliases:
   - mdemirhan
   - tcnghia
   networking-reviewers:
+  - lichuqiang
+  - markusthoemmes
   - mdemirhan
   - tcnghia
 
@@ -47,4 +49,3 @@ aliases:
   build-reviewers:
   - imjasonh
   - mattmoor
-

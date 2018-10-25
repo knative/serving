@@ -57,7 +57,7 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	ReportRequest(ns, service, config, rev, servingState string, v float64) error
+	ReportRequest(ns, service, config, rev string, v float64) error
 	ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
@@ -69,7 +69,6 @@ type Reporter struct {
 	serviceTagKey   tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
-	servingStateKey tag.Key
 	responseCodeKey tag.Key
 	numTriesKey     tag.Key
 }
@@ -100,11 +99,6 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 	r.revisionTagKey = revTag
-	servingStateTag, err := tag.NewKey("serving_state")
-	if err != nil {
-		return nil, err
-	}
-	r.servingStateKey = servingStateTag
 	responseCodeTag, err := tag.NewKey("response_code")
 	if err != nil {
 		return nil, err
@@ -121,7 +115,7 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "The number of requests that are routed to the activator",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
 			Description: "The response count when activator proxy the request",
@@ -145,7 +139,7 @@ func NewStatsReporter() (*Reporter, error) {
 }
 
 // ReportRequest captures request metrics
-func (r *Reporter) ReportRequest(ns, service, config, rev, servingState string, v float64) error {
+func (r *Reporter) ReportRequest(ns, service, config, rev string, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -155,8 +149,7 @@ func (r *Reporter) ReportRequest(ns, service, config, rev, servingState string, 
 		tag.Insert(r.namespaceTagKey, ns),
 		tag.Insert(r.serviceTagKey, service),
 		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev),
-		tag.Insert(r.servingStateKey, servingState))
+		tag.Insert(r.revisionTagKey, rev))
 	if err != nil {
 		return err
 	}

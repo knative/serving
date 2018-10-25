@@ -20,6 +20,7 @@ import (
 
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -145,15 +146,28 @@ func TestTypicalRouteFlow(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.MarkTrafficAssigned()
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 
 	// Verify that this doesn't reset our conditions.
 	r.Status.InitializeConditions()
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 }
 
@@ -221,6 +235,57 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	r.Status.MarkRevisionFailed("cannot-find-image")
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestClusterIngressFailureRecovery(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	// Empty IngressStatus keeps things as-is.
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkTrafficAssigned()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionFalse,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 }
 
 func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {

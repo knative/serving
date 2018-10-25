@@ -20,11 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,14 +29,24 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/tracker"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (
@@ -62,9 +67,11 @@ type Reconciler struct {
 	configurationLister  listers.ConfigurationLister
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
-	virtualServiceLister istiolisters.VirtualServiceLister
+	clusterIngressLister networkinglisters.ClusterIngressLister
 	configStore          configStore
 	tracker              tracker.Interface
+
+	clock system.Clock
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -81,7 +88,20 @@ func NewController(
 	configInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
-	virtualServiceInformer istioinformers.VirtualServiceInformer,
+	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+) *controller.Impl {
+	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
+		serviceInformer, clusterIngressInformer, system.RealClock{})
+}
+
+func NewControllerWithClock(
+	opt reconciler.Options,
+	routeInformer servinginformers.RouteInformer,
+	configInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
+	serviceInformer corev1informers.ServiceInformer,
+	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	clock system.Clock,
 ) *controller.Impl {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
@@ -92,7 +112,8 @@ func NewController(
 		configurationLister:  configInformer.Lister(),
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		virtualServiceLister: virtualServiceInformer.Lister(),
+		clusterIngressLister: clusterIngressInformer.Lister(),
+		clock:                clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes")
 
@@ -110,11 +131,12 @@ func NewController(
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
 	})
-	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+
+	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			AddFunc:    c.enqueueOwnerRoute(impl),
+			UpdateFunc: controller.PassNew(c.enqueueOwnerRoute(impl)),
 		},
 	})
 
@@ -213,7 +235,13 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 // In all cases we will add annotations to the referred targets.  This is so that when they become
 // routable we can know (through a listener) and attempt traffic configuration again.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
+	// Update the information that makes us Targetable.
 	r.Status.Domain = routeDomain(ctx, r)
+	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
+	r.Status.Targetable = &duckv1alpha1.Targetable{
+		DomainInternal: resourcenames.K8sServiceFullname(r),
+	}
+
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
@@ -248,15 +276,45 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// Traffic targets aren't ready, no need to configure Route.
 		return r, nil
 	}
+	logger.Info("All referred targets are routable.")
 
-	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
-	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
+	logger.Info("Updating targeted revisions.")
+	if err := c.reconcileTargetRevisions(ctx, t, r); err != nil {
+		logger.Errorf("Failed to update target revisions: %v", err)
+	}
+
+	logger.Info("Creating ClusterIngress.")
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, t))
+	if err != nil {
 		return r, err
 	}
-	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
+	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+
+	logger.Info("ClusterIngress created, marking AllTrafficAssigned with traffic information.")
 	r.Status.Traffic = t.GetRevisionTrafficTargets()
 	r.Status.MarkTrafficAssigned()
+
 	return r, nil
+}
+
+// TODO(lichuqiang): add a generalized method in pkg repo to unify similar behaviors.
+func (c *Reconciler) enqueueOwnerRoute(impl *controller.Impl) func(obj interface{}) {
+	return func(obj interface{}) {
+		ing, ok := obj.(*netv1alpha1.ClusterIngress)
+		if !ok {
+			c.Logger.Infof("Ignoring non-ClusterIngress objects %v", obj)
+			return
+		}
+		// Check whether the ClusterIngress is referred by a Route.
+		routeName, keyExist := ing.Labels[serving.RouteLabelKey]
+		routeNamespace, nsExist := ing.Labels[serving.RouteNamespaceLabelKey]
+		if !keyExist || !nsExist {
+			c.Logger.Errorf("ClusterIngress %s does not have a referring route", ing.Name)
+			return
+		}
+
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", routeNamespace, routeName))
+	}
 }
 
 /////////////////////////////////////////

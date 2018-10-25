@@ -17,6 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strconv"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +28,7 @@ import (
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // +genclient
@@ -69,24 +74,24 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
+// DeprecatedRevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RevisionServingStateType string
+type DeprecatedRevisionServingStateType string
 
 const (
 	// The revision is ready to serve traffic. It should have Kubernetes
 	// resources, and the Istio route should be pointed to the given resources.
-	RevisionServingStateActive RevisionServingStateType = "Active"
+	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
 	// The revision is not currently serving traffic, but could be made to serve
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
 	// should be pointed to the activator.
-	RevisionServingStateReserve RevisionServingStateType = "Reserve"
+	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
 	// it would from a "Reserve" state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
-	RevisionServingStateRetired RevisionServingStateType = "Retired"
+	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
 // RevisionRequestConcurrencyModelType is an enumeration of the
@@ -123,12 +128,12 @@ type RevisionSpec struct {
 	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
-	// ServingState holds a value describing the desired state the Kubernetes
+	// DeprecatedServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users must not specify this when creating a revision. It is expected
-	// that the system will manipulate this based on routability and load.
+	// Users must not specify this when creating a revision. These values are no longer
+	// updated by the system.
 	// +optional
-	ServingState RevisionServingStateType `json:"servingState,omitempty"`
+	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
@@ -364,4 +369,95 @@ func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
 // conditions by implementing the duckv1alpha1.Conditions interface.
 func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
+}
+
+const (
+	AnnotationParseErrorTypeMissing = "Missing"
+	AnnotationParseErrorTypeInvalid = "Invalid"
+)
+
+// +k8s:deepcopy-gen=false
+type AnnotationParseError struct {
+	Type  string
+	Value string
+	Err   error
+}
+
+// +k8s:deepcopy-gen=false
+type LastPinnedParseError AnnotationParseError
+
+func (e LastPinnedParseError) Error() string {
+	return fmt.Sprintf("%v lastPinned value: %q", e.Type, e.Value)
+}
+
+// +k8s:deepcopy-gen=false
+type configurationGenerationParseError AnnotationParseError
+
+func (e configurationGenerationParseError) Error() string {
+	return fmt.Sprintf("%v configurationGeneration value: %q", e.Type, e.Value)
+}
+
+func RevisionLastPinnedString(t time.Time) string {
+	return fmt.Sprintf("%d", t.Unix())
+}
+
+func (r *Revision) SetLastPinned(t time.Time) {
+	if r.ObjectMeta.Annotations == nil {
+		r.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
+}
+
+func (r *Revision) GetLastPinned() (time.Time, error) {
+	if r.Annotations == nil {
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	if !ok {
+		// If a revision is past the create delay without an annotation it is stale
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	secs, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return time.Time{}, LastPinnedParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: str,
+			Err:   err,
+		}
+	}
+
+	return time.Unix(secs, 0), nil
+}
+
+func (r *Revision) GetConfigurationGeneration() (int64, error) {
+	if r.Annotations == nil {
+		return 0, configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	str, ok := r.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey]
+	if !ok {
+		return 0, configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	gen, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0, configurationGenerationParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: str,
+			Err:   err,
+		}
+	}
+
+	return gen, nil
 }
