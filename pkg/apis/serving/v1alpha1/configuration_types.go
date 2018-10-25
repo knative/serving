@@ -17,12 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"strings"
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -123,7 +124,20 @@ type ConfigurationList struct {
 	Items []Configuration `json:"items"`
 }
 
-func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+func (c *Configuration) InheritAnnotations(parent map[string]string, prefixes ...string) {
+	for _, p := range prefixes {
+		for k, v := range parent {
+			if strings.HasPrefix(k, p) {
+				if c.Annotations == nil {
+					c.Annotations = make(map[string]string)
+				}
+				c.Annotations[k] = v
+			}
+		}
+	}
+}
+
+func (c *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
 

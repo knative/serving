@@ -124,9 +124,7 @@ func (kpa *PodAutoscaler) Class() string {
 		return c
 	}
 	// Default to "kpa" class for backward compatibility.
-	// DO NOT SUBMIT
-	return "hpa"
-	//return "kpa"
+	return "kpa"
 }
 
 func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
