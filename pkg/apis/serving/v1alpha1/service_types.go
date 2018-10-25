@@ -272,6 +272,9 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 }
 
+// SetManualStatus updates the service conditions to unknown as the underlying Route
+// can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
+// report Ready.
 func (ss *ServiceStatus) SetManualStatus() {
 	reason := "Manual"
 	message := "Service is set to Manual, and is not managing underlying resources."
