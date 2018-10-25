@@ -254,6 +254,10 @@ spec:
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
+  # Deprecated and not updated anymore
+  # Used to be the Revision's level of readiness for receiving traffic.
+  servingState: Active | Reserve | Retired
+
   # Some function or server frameworks or application code may be
   # written to expect that each request will be granted a single-tenant
   # process to run (i.e. that the request code is run
