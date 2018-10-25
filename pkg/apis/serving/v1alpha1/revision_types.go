@@ -125,8 +125,8 @@ type RevisionSpec struct {
 
 	// DeprecatedServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users must not specify this when creating a revision. It is expected
-	// that the system will manipulate this based on routability and load.
+	// Users must not specify this when creating a revision. These values are no longer
+	// updated by the system.
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
