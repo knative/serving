@@ -21,8 +21,8 @@ import (
 	"time"
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -88,7 +88,6 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	sharedInformer := sharedinformers.NewSharedInformerFactory(sharedClient, 0)
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller := NewController(
@@ -103,15 +102,15 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
-		sharedInformer.Networking().V1alpha3().VirtualServices(),
+		servingInformer.Networking().V1alpha1().ClusterIngresses(),
 	)
 
 	h := NewHooks()
 
-	// Check for service created as a signal that syncHandler ran
-	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) HookResult {
-		service := obj.(*corev1.Service)
-		t.Logf("service created: %q", service.Name)
+	// Check for ClusterIngress created as a signal that syncHandler ran
+	h.OnCreate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
+		ci := obj.(*netv1alpha1.ClusterIngress)
+		t.Logf("ingress created: %q", ci.Name)
 
 		return HookComplete
 	})

@@ -21,81 +21,69 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis/istio/v1alpha3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	. "github.com/knative/pkg/logging/testing"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestReconcileVirtualService_Insert(t *testing.T) {
-	_, sharedClient, _, c, _, _, _, _ := newTestReconciler(t)
+func TestReconcileClusterIngress_Insert(t *testing.T) {
+	_, servingClient, c, _, _, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
 		},
-		Status: v1alpha1.RouteStatus{Domain: "foo.com"},
 	}
-	vs := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
+	ci := newTestClusterIngress(r)
+	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if created, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	} else if diff := cmp.Diff(vs, created); diff != "" {
+	created := getRouteIngressFromClient(t, servingClient, r)
+	if diff := cmp.Diff(ci, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
 }
 
-func TestReconcileVirtualService_Update(t *testing.T) {
-	_, sharedClient, _, c, _, sharedInformer, _, _ := newTestReconciler(t)
+func TestReconcileClusterIngress_Update(t *testing.T) {
+	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
 		},
 	}
 
-	vs := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
+	ci := newTestClusterIngress(r)
+	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if updated, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	} else {
-		sharedInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(updated)
-	}
+
+	updated := getRouteIngressFromClient(t, servingClient, r)
+	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Add(updated)
 
 	r.Status.Domain = "bar.com"
-	vs2 := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs2); err != nil {
+	ci2 := newTestClusterIngress(r)
+	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if updated, err := sharedClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	} else {
-		if diff := cmp.Diff(vs2, updated); diff != "" {
-			t.Errorf("Unexpected diff (-want +got): %v", diff)
-		}
-		if diff := cmp.Diff(vs, updated); diff == "" {
-			t.Error("Expected difference, but found none")
-		}
+	updated = getRouteIngressFromClient(t, servingClient, r)
+	if diff := cmp.Diff(ci2, updated); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	}
+	if diff := cmp.Diff(ci, updated); diff == "" {
+		t.Error("Expected difference, but found none")
 	}
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, _, c, _, _, _, _ := newTestReconciler(t)
+	_, _, c, _, _, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -150,7 +138,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestVirtualService(r *v1alpha1.Route) *v1alpha3.VirtualService {
+func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	tc := &traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
 		"": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
@@ -159,5 +147,5 @@ func newTestVirtualService(r *v1alpha1.Route) *v1alpha3.VirtualService {
 			},
 			Active: true,
 		}}}}
-	return resources.MakeVirtualService(r, tc)
+	return resources.MakeClusterIngress(r, tc)
 }

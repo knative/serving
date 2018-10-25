@@ -26,7 +26,6 @@ import (
 	"github.com/knative/pkg/kmeta"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 )
 
 var (
@@ -117,7 +116,7 @@ func TestNewMakeK8SService(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		service, err := NewMakeK8sService(scenario.route, scenario.ingress)
+		service, err := MakeK8sService(scenario.route, scenario.ingress)
 		// Validate
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -133,49 +132,5 @@ func TestNewMakeK8SService(t *testing.T) {
 				t.Errorf("Unexpected ServiceSpec (-want +got): %v", diff)
 			}
 		}
-	}
-}
-
-func TestMakeK8SService_ValidSpec(t *testing.T) {
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-	expectedSpec := corev1.ServiceSpec{
-		Type:         corev1.ServiceTypeExternalName,
-		ExternalName: names.K8sGatewayServiceFullname,
-	}
-	spec := MakeK8sService(r).Spec
-	if diff := cmp.Diff(expectedSpec, spec); diff != "" {
-		t.Errorf("Unexpected ServiceSpec (-want +got): %v", diff)
-	}
-}
-
-func TestMakeK8sService_ValidMeta(t *testing.T) {
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-	expectedMeta := metav1.ObjectMeta{
-		Name:      "test-route",
-		Namespace: "test-ns",
-		OwnerReferences: []metav1.OwnerReference{
-			// This service is owned by the Route.
-			*kmeta.NewControllerRef(r),
-		},
-	}
-	meta := MakeK8sService(r).ObjectMeta
-	if diff := cmp.Diff(expectedMeta, meta); diff != "" {
-		t.Errorf("Unexpected Metadata (-want +got): %v", diff)
 	}
 }

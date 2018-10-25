@@ -31,12 +31,10 @@ import (
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
-// NewMakeK8sService creates a Service that redirect to the loadbalancer specified
+// MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-// TODO: It is to replace the "MakeK8sService" func after route reconciler is switched to reconcile
-// ClusterIngress.
-func NewMakeK8sService(route *v1alpha1.Route, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
+func MakeK8sService(route *v1alpha1.Route, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress)
 	if err != nil {
 		return nil, err
@@ -86,24 +84,4 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 	}
 
 	return nil, errLoadBalancerNotFound
-}
-
-// MakeK8sService creates a Service that targets nothing, owned
-// by the provided v1alpha1.Route.  The purpose of this service is to
-// provide a domain name for Istio routing.
-func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.K8sService(route),
-			Namespace: route.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				// This service is owned by the Route.
-				*kmeta.NewControllerRef(route),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: names.K8sGatewayServiceFullname,
-		},
-	}
 }
