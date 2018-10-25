@@ -272,6 +272,13 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	}
 }
 
+func (ss *ServiceStatus) SetManualStatus() {
+	reason := "Manual"
+	message := "Service is set to Manual, and is not managing underlying resources."
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, reason, message)
+}
+
 // GetConditions returns the Conditions array. This enables generic handling of
 // conditions by implementing the duckv1alpha1.Conditions interface.
 func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {

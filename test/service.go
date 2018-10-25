@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func createPatch(cur, desired *v1alpha1.Service) ([]byte, error) {
+func createPatch(cur, desired interface{}) ([]byte, error) {
 	patch, err := duck.CreatePatch(cur, desired)
 	if err != nil {
 		return nil, err

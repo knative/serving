@@ -86,14 +86,20 @@ func (m *ManualType) Validate() *apis.FieldError {
 // Validate validates the fields belonging to ReleaseType
 func (rt *ReleaseType) Validate() *apis.FieldError {
 	var errs *apis.FieldError
+	minRevisions := 1
+	maxRevisions := 2
 
 	numRevisions := len(rt.Revisions)
-	if numRevisions < 1 {
+	if numRevisions < minRevisions {
 		errs = errs.Also(apis.ErrMissingField("revisions"))
 	}
 
-	if numRevisions > 2 {
-		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", numRevisions), "revisions.length"))
+	if numRevisions > maxRevisions {
+		outOfRange := &apis.FieldError{
+			Message: fmt.Sprintf("expected number of elements in range [%v, %v], got %v", minRevisions, maxRevisions, numRevisions),
+			Paths:   []string{"revisions"},
+		}
+		errs = errs.Also(outOfRange)
 	}
 
 	if numRevisions < 2 && rt.RolloutPercent != 0 {

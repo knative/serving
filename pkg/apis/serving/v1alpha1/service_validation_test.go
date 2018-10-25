@@ -250,7 +250,10 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("3", "spec.release.revisions.length"),
+		want: &apis.FieldError{
+			Message: "expected number of elements in range [1, 2], got 3",
+			Paths:   []string{"spec.release.revisions"},
+		},
 	}, {
 		name: "invalid release -- rollout greater than 99",
 		s: &Service{

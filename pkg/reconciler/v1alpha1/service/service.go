@@ -122,8 +122,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	service := original.DeepCopy()
 
 	if service.Spec.Manual != nil {
-		// Do not reconcile in manual mode. Just propagate changes
-		c.propagateStatus(ctx, service)
+		// We do not know the status when in manual mode. The Route can be
+		// updated with Configurations not known to the Service which would
+		// make attempts to display status potentially incorrect
+		service.Status.SetManualStatus()
 	} else {
 		// Reconcile this copy of the service and then write back any status
 		// updates regardless of whether the reconciliation errored out.
@@ -139,29 +141,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	return err
-}
-
-// propagateStatus attempts to propagate changes from configuration and route
-// up to the status on the service, but does not attempt to reconcile state
-func (c *Reconciler) propagateStatus(ctx context.Context, service *v1alpha1.Service) {
-	logger := logging.FromContext(ctx)
-	service.Status.InitializeConditions()
-
-	configName := resourcenames.Configuration(service)
-	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
-	if err == nil {
-		service.Status.PropagateConfigurationStatus(config.Status)
-	} else {
-		logger.Errorf("Failed to propagate configuration status: %q; %v", configName, zap.Error(err))
-	}
-	routeName := resourcenames.Route(service)
-	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
-	if err == nil {
-		service.Status.PropagateRouteStatus(route.Status)
-	} else {
-		logger.Errorf("Failed to propagate route status: %q; %v", routeName, zap.Error(err))
-	}
-	service.Status.ObservedGeneration = service.Spec.Generation
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {

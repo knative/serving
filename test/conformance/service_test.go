@@ -19,7 +19,10 @@ limitations under the License.
 package conformance
 
 import (
+	"context"
+	"fmt"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math"
 	"net/http"
 	"testing"
 
@@ -28,7 +31,66 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"golang.org/x/sync/errgroup"
 )
+
+const (
+	expectedLatest = "Hello World! How about some tasty noodles?"
+)
+
+func waitForExpected(logger *logging.BaseLogger, clients *test.Clients, domain, expected string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	if err != nil {
+		return err
+	}
+	_, err = client.Poll(req, pkgTest.EventuallyMatchesBody(expected))
+	return err
+}
+
+func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string, baseExpected, trafficTargets, targetsExpected []string) {
+	var subdomains []string
+	for _, target := range trafficTargets {
+		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
+	}
+
+	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
+	// started returning at least one expected result to key that we should validate percentage splits.
+	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
+	err := waitForExpected(logger, clients, subdomains[0], targetsExpected[0])
+	if err != nil {
+		t.Fatalf("Error waiting for route to update %s: %v", subdomains[0], targetsExpected[0])
+	}
+
+	g, _ := errgroup.WithContext(context.Background())
+	var minBasePercentage float64
+	if len(baseExpected) == 1 {
+		minBasePercentage = minDirectPercentage
+	} else {
+		minBasePercentage = minSplitPercentage
+	}
+	g.Go(func() error {
+		min := int(math.Floor(concurrentRequests * minBasePercentage))
+		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Error sending requests: %v", err)
+	}
+	for i, subdomain := range subdomains {
+		g.Go(func() error {
+			min := int(math.Floor(concurrentRequests * minDirectPercentage))
+			return checkDistribution(logger, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
+		})
+		// Wait before going to the next domain as to not mutate subdomain and i
+		if err := g.Wait(); err != nil {
+			t.Fatalf("Error sending requests: %v", err)
+		}
+	}
+
+}
 
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
@@ -299,7 +361,11 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets, 'current' and 'latest'")
-	// TODO(dangerd): Validate traffic still points to firstRevision and route now has two traffic targets: current and latest
+	validateDomains(t, logger, clients,
+		routeDomain,
+		[]string{expectedBlue},
+		[]string{"latest", "current"},
+		[]string{expectedBlue, expectedBlue})
 
 	logger.Info("Updating the Service Spec with a new image")
 	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath2); err != nil {
@@ -314,17 +380,25 @@ func TestReleaseService(t *testing.T) {
 	names.Revision = revisionName
 	secondRevision := revisionName
 
-	logger.Info("Since the Service is using release the Route will not be updated")
-	// TODO(dangerd): Validate service and route still serving previous revision. Should be 2 traffic targets.
+	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
+	validateDomains(t, logger, clients,
+		routeDomain,
+		[]string{expectedBlue},
+		[]string{"latest", "current"},
+		[]string{expectedGreen, expectedBlue})
 
 	logger.Info("Updating Service to split traffic between two revisions using Release mode")
-	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision, secondRevision}, 42)
+	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision, secondRevision}, 50)
 	if err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 
-	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'next', and 'latest'")
-	// TODO(dangerd): Validate that traffic is going between the two revisions
+	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
+	validateDomains(t, logger, clients,
+		routeDomain,
+		[]string{expectedBlue, expectedGreen},
+		[]string{"candidate", "latest", "current"},
+		[]string{expectedGreen, expectedGreen, expectedBlue})
 
 	logger.Info("Updating the Service Spec with a new image")
 	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath3); err != nil {
@@ -332,55 +406,11 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
-	// TODO(dangerd): Validate latest pointer updated, but traffic stays the same. Should be 3 traffic targets.
-}
-
-func TestManualService(t *testing.T) {
-	clients := setup(t)
-	logger := logging.GetContextLogger("TestManualService")
-	imagePath := test.ImagePath(pizzaPlanet1)
-	names := test.ResourceNames{
-		Service: test.AppendRandomString("empty-manual-service", logger),
-	}
-
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-
-	logger.Info("Creating a new Service in runLatest")
-	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
-	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
-	}
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-	}
-	names.Revision = revisionName
-
-	logger.Info("The Service will be updated with the domain of the Route once it is created")
-	routeDomain, err := waitForServiceDomain(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
-	}
-
-	logger.Info("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
-
-	logger.Info("Creating a new Manual Service")
-	_, err = test.UpdateManualService(logger, clients, svc)
-	if err != nil {
-		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
-	}
-
-	// TODO(dangerd): Additional service object validation
-	// TODO(dangerd): Update Route and Configuration out of band
+	validateDomains(t, logger, clients,
+		routeDomain,
+		[]string{expectedBlue, expectedGreen},
+		[]string{"latest", "candidate", "current"},
+		[]string{expectedLatest, expectedGreen, expectedBlue})
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.
