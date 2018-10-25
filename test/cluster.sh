@@ -19,6 +19,9 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 CLUSTER_SH_CREATED_MANIFESTS=0
+# Location of istio for the test cluster
+readonly ISTIO_CRD_YAML=./third_party/istio-1.1.0-prerelease/istio-crds.yaml
+readonly ISTIO_YAML=./third_party/istio-1.1.0-prerelease/istio-lean.yaml
 
 # Create all manifests required to install Knative Serving.
 function create_manifests() {
