@@ -23,10 +23,9 @@ import (
 
 // MustNewStatsReporter creates a new instance of StatsReporter. Panics if creation fails.
 func MustNewStatsReporter(reconciler string, logger *zap.SugaredLogger) controller.StatsReporter {
-	stats, err := controller.NewStatsReporter("Autoscaling")
+	stats, err := controller.NewStatsReporter(reconciler)
 	if err != nil {
-		logger.Error("Failed to initialize the stats reporter.", zap.Error(err))
-		panic(err)
+		logger.Fatal("Failed to initialize the stats reporter.", zap.Error(err))
 	}
 	return stats
 }
