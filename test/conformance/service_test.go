@@ -19,10 +19,8 @@ limitations under the License.
 package conformance
 
 import (
-	"context"
-	"fmt"
+	"encoding/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"math"
 	"net/http"
 	"testing"
 
@@ -32,6 +30,8 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
+	"github.com/mattbaird/jsonpatch"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -259,12 +259,12 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	}
 
 	logger.Info("Updating labels of the RevisionTemplateSpec for service %s", names.Service)
-	svc = reloadService(names.Service, clients, t)
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Labels = map[string]string{
+	labels := map[string]string{
 		"labelX": "abc",
 		"labelY": "def",
 	}
-	svc, err = clients.ServingClient.Services.Update(svc)
+
+	err = updateServiceWithLabels(clients, names, labels)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
 	}
@@ -275,13 +275,12 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	}
 
 	logger.Infof("Updating annotations of RevisionTemplateSpec for service %s", names.Service)
-	svc = reloadService(names.Service, clients, t)
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{
+	annotations := map[string]string{
 		"annotationA": "123",
 		"annotationB": "456",
 	}
 
-	svc, err = clients.ServingClient.Services.Update(svc)
+	err = updateServiceWithAnnotations(clients, names, annotations)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
 	}
@@ -303,114 +302,38 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "3", "What a spaceport!")
 }
 
-func reloadService(service string, clients *test.Clients, t *testing.T) *v1alpha1.Service {
-	svc, err := clients.ServingClient.Services.Get(service, v1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to reload service %s: %v", service, err)
-	}
-	return svc
+func updateServiceWithLabels(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
+	return patchService(
+		clients,
+		names,
+		"add",
+		"/spec/runLatest/configuration/revisionTemplate/metadata/labels",
+		labels)
 }
 
-func TestReleaseService(t *testing.T) {
-	clients := setup(t)
-	logger := logging.GetContextLogger("TestReleaseService")
-	releaseImagePath1 := test.ImagePath(pizzaPlanet1)
-	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
-	releaseImagePath3 := test.ImagePath(helloworld)
+func updateServiceWithAnnotations(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
+	return patchService(
+		clients,
+		names,
+		"add",
+		"/spec/runLatest/configuration/revisionTemplate/metadata/annotations",
+		annotations)
+}
 
-	names := test.ResourceNames{
-		Service: test.AppendRandomString("pizzaplanet-service", logger),
+func patchService(clients *test.Clients, names test.ResourceNames, operation string, path string, value interface{}) error {
+	patches := []jsonpatch.JsonPatchOperation{
+		{
+			Operation: operation,
+			Path: path,
+			Value: value,
+		},
 	}
-
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-
-	logger.Info("Creating a new Service in runLatest")
-	svc, err := test.CreateLatestService(logger, clients, names, releaseImagePath1)
+	patchBytes, err := json.Marshal(patches)
+	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		return err
 	}
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-	}
-	names.Revision = revisionName
-	firstRevision := revisionName
-
-	logger.Info("The Service will be updated with the domain of the Route once it is created")
-	routeDomain, err := waitForServiceDomain(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
-	}
-
-	logger.Info("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
-
-	// Everything above here is setup to get us into a good state to test release mode
-	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
-	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision}, 0)
-	if err != nil {
-		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
-	}
-
-	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets, 'current' and 'latest'")
-	validateDomains(t, logger, clients,
-		routeDomain,
-		[]string{expectedBlue},
-		[]string{"latest", "current"},
-		[]string{expectedBlue, expectedBlue})
-
-	logger.Info("Updating the Service Spec with a new image")
-	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath2); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
-	}
-
-	logger.Info("Since the Service was updated a new Revision will be created")
-	revisionName, err = waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, releaseImagePath2, err)
-	}
-	names.Revision = revisionName
-	secondRevision := revisionName
-
-	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
-	validateDomains(t, logger, clients,
-		routeDomain,
-		[]string{expectedBlue},
-		[]string{"latest", "current"},
-		[]string{expectedGreen, expectedBlue})
-
-	logger.Info("Updating Service to split traffic between two revisions using Release mode")
-	svc, err = test.UpdateReleaseService(logger, clients, svc, []string{firstRevision, secondRevision}, 50)
-	if err != nil {
-		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
-	}
-
-	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
-	validateDomains(t, logger, clients,
-		routeDomain,
-		[]string{expectedBlue, expectedGreen},
-		[]string{"candidate", "latest", "current"},
-		[]string{expectedGreen, expectedGreen, expectedBlue})
-
-	logger.Info("Updating the Service Spec with a new image")
-	if _, err := test.UpdateServiceImage(clients, svc, releaseImagePath3); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
-	}
-
-	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
-	validateDomains(t, logger, clients,
-		routeDomain,
-		[]string{expectedBlue, expectedGreen},
-		[]string{"latest", "candidate", "current"},
-		[]string{expectedLatest, expectedGreen, expectedBlue})
+	return nil
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.
