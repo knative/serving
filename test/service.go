@@ -20,6 +20,7 @@ package test
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -76,6 +77,26 @@ func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath strin
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
+	patchBytes, err := createPatch(svc, newSvc)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
+// Updates an existing service by adding metadata to the service's RevisionTemplateSpec.
+func UpdateServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
+	newSvc := svc.DeepCopy()
+	if svc.Spec.RunLatest != nil {
+		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
+	} else if svc.Spec.Release != nil {
+		newSvc.Spec.Release.Configuration.RevisionTemplate.ObjectMeta = metadata
+	} else if svc.Spec.Pinned != nil {
+		newSvc.Spec.Pinned.Configuration.RevisionTemplate.ObjectMeta = metadata
+	} else {
+		return nil, fmt.Errorf("UpdateServiceRevisionTemplateMetadata(%v): unable to determine service type", svc)
+	}
+	LogResourceObject(logger, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
