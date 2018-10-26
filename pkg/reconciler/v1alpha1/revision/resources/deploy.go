@@ -93,30 +93,26 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 
-	userPort, found := getUserPort(userContainer.Ports)
+	userPort, found := getUserPort(rev)
 	if !found {
-		userPort = &corev1.ContainerPort{
-			Name:          userPortName,
-			ContainerPort: int32(defaultUserPort),
-		}
-		userContainer.Ports = append(userContainer.Ports, *userPort)
+		createAndSetDefaultUserPort(userContainer)
 	}
-	userPortEnv := buildUserPortEnv(userPort)
-	userContainer.Env = append(userContainer.Env, userPortEnv)
+	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPort))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+
 	// Prefer imageDigest from revision if available
 	if rev.Status.ImageDigest != "" {
 		userContainer.Image = rev.Status.ImageDigest
 	}
 
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe, int(userPort.ContainerPort))
-	rewriteUserProbe(userContainer.LivenessProbe, int(userPort.ContainerPort))
+	rewriteUserProbe(userContainer.ReadinessProbe, int(userPort))
+	rewriteUserProbe(userContainer.LivenessProbe, int(userPort))
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig, buildQueueProxyExtraEnv(userPort)),
+			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -131,31 +127,38 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	return podSpec
 }
 
-func getUserPort(ports []corev1.ContainerPort) (*corev1.ContainerPort, bool) {
-	for _, port := range ports {
+func createAndSetDefaultUserPort(userContainer *corev1.Container) {
+	defaultUserPort := &corev1.ContainerPort{
+		Name:          userPortName,
+		ContainerPort: int32(defaultUserPort),
+	}
+	userContainer.Ports = append(userContainer.Ports, *defaultUserPort)
+}
+
+func getUserPort(rev *v1alpha1.Revision) (int32, bool) {
+	for _, port := range rev.Spec.Container.Ports {
 		if port.Name == userPortName {
-			return &port, true
+			return port.ContainerPort, true
 		}
 	}
 
-	return nil, false
+	return defaultUserPort, false
 }
 
-func buildUserPortEnv(userPort *corev1.ContainerPort) corev1.EnvVar {
+func buildUserPortEnv(userPort int32) corev1.EnvVar {
 	// Expose containerPort as env PORT.
 	userPortEnv := corev1.EnvVar{
 		Name:  userPortEnvName,
-		Value: strconv.Itoa(int(userPort.ContainerPort)),
+		Value: strconv.Itoa(int(userPort)),
 	}
 	return userPortEnv
 }
 
 func buildQueueProxyExtraEnv(userPort *corev1.ContainerPort) []corev1.EnvVar {
-	queueContainerExtraEnv := []corev1.EnvVar{
-		{
-			Name:  "USER_PORT",
-			Value:  strconv.Itoa(int(userPort.ContainerPort)),
-		},
+	queueContainerExtraEnv := []corev1.EnvVar{{
+		Name:  "USER_PORT",
+		Value: strconv.Itoa(int(userPort.ContainerPort)),
+	},
 	}
 
 	return queueContainerExtraEnv

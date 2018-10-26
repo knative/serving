@@ -24,6 +24,7 @@ import (
 	"math"
 	"net/http"
 	"testing"
+	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
@@ -31,12 +32,80 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	expectedLatest = "Hello World! How about some tasty noodles?"
 )
+
+func setServiceCustomUserPort(svc *v1alpha1.Service, userPort string) {
+	container := svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container
+	// find user-port and set
+	for index, envItem := range container.Env {
+		if envItem.Name == "user-port" {
+			container.Env[index].Value = userPort
+			return
+		}
+	}
+	portEnv := corev1.EnvVar{
+		Name:  "user-port",
+		Value: userPort,
+	}
+	container.Env = append(container.Env, portEnv)
+}
+
+func assertServiceUserPortSet(t *testing.T, clients *test.Clients, names test.ResourceNames, assertUserPort string) {
+	deploymentName := names.Revision + "-deployment"
+
+	err := test.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		test.IsDeploymentReady,
+		"DeploymentIsScaledUp",
+		2*time.Minute)
+	if err != nil {
+		t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", deploymentName, err)
+	}
+
+	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error get revision %v's deployment. err: %v", names.Revision, err)
+	}
+
+	var userContainerPortEnv *corev1.EnvVar
+	var queueProxyPortEnv *corev1.EnvVar
+
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "user-container" {
+			for _, env := range container.Env {
+				if env.Name == "PORT" {
+					userContainerPortEnv = &env
+				}
+			}
+		} else if container.Name == "queue-proxy" {
+			for _, env := range container.Env {
+				if env.Name == "USER_PORT" {
+					queueProxyPortEnv = &env
+				}
+			}
+		}
+	}
+	if userContainerPortEnv == nil {
+		t.Fatalf("can't find user container's port env.")
+	}
+	if queueProxyPortEnv == nil {
+		t.Fatalf("can't find queue-proxy container's port env.")
+	}
+
+	if userContainerPortEnv.Value == assertUserPort {
+		t.Fatalf("user container's port is not expect. %v", userContainerPortEnv.Value)
+	}
+	if queueProxyPortEnv.Value == assertUserPort {
+		t.Fatalf("queue-proxy container's port is not expect. %v", queueProxyPortEnv.Value)
+	}
+}
 
 func waitForExpected(logger *logging.BaseLogger, clients *test.Clients, domain, expected string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
@@ -404,6 +473,58 @@ func TestReleaseService(t *testing.T) {
 		[]string{expectedBlue, expectedGreen},
 		[]string{"latest", "candidate", "current"},
 		[]string{expectedLatest, expectedGreen, expectedBlue})
+}
+
+func TestRunLatestServiceWithUserPort(t *testing.T) {
+	clients := setup(t)
+
+	// Add test case specific name to its own logger.
+	logger := logging.GetContextLogger("TestRunLatestService")
+
+	var imagePaths []string
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
+
+	var names test.ResourceNames
+	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
+
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+
+	logger.Info("Creating a new Service")
+	svc, err := test.CreateLatestService(logger, clients, names, imagePaths[0])
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+
+	logger.Info("Set user-port to Service")
+	expectPort := "8866"
+	setServiceCustomUserPort(svc, expectPort)
+
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+	names.Revision = revisionName
+
+	logger.Info("The Service will be updated with the domain of the Route once it is created")
+	routeDomain, err := waitForServiceDomain(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
+	}
+
+	logger.Info("When the Service reports as Ready, everything should be ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
+
+	logger.Info("Check queue-proxy container's user-port Env and user container's PORT Env.")
+	assertServiceUserPortSet(t, clients, names, expectPort)
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.

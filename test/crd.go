@@ -101,6 +101,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
 						Image: imagePath,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					},
 					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
 				},
@@ -109,6 +110,9 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 	}
 	if options.EnvVars != nil && len(options.EnvVars) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
+	}
+	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
+		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
 	}
 	return config
 }

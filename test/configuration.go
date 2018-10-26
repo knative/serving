@@ -26,6 +26,7 @@ import (
 // Options are test setup parameters.
 type Options struct {
 	EnvVars              []corev1.EnvVar
+	ContainerPorts       []corev1.ContainerPort
 	ContainerConcurrency int
 }
 

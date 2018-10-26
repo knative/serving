@@ -110,7 +110,9 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		ignoredFields = append(ignoredFields, "resources")
 	}
 	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "ports")
+		if !validateContainerPorts(container.Ports) {
+			ignoredFields = append(ignoredFields, "ports")
+		}
 	}
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "volumeMounts")
@@ -131,6 +133,17 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		errs = errs.Also(err)
 	}
 	return errs
+}
+
+func validateContainerPorts(ports []corev1.ContainerPort) bool {
+	bIsAllowed := false
+	// users can set container port which names "user-port" to define application's port.
+	// Queue-proxy will use it to send requests to application
+	if len(ports) == 1 && ports[0].Name == "user-port"{
+		bIsAllowed = true
+		return bIsAllowed
+	}
+	return bIsAllowed
 }
 
 func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {

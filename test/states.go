@@ -18,8 +18,8 @@ package test
 
 import (
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
+	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -95,6 +95,13 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 // ready.
 func IsRouteReady(r *v1alpha1.Route) (bool, error) {
 	return r.Status.IsReady(), nil
+}
+
+func IsDeploymentReady(d *apiv1beta1.Deployment) (bool, error) {
+	return d.Status.UpdatedReplicas == *(d.Spec.Replicas) &&
+			d.Status.Replicas == *(d.Spec.Replicas) &&
+			d.Status.AvailableReplicas == *(d.Spec.Replicas) &&
+			d.Status.ObservedGeneration >= d.Generation, nil
 }
 
 // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.

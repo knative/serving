@@ -71,13 +71,14 @@ var (
 
 // makeQueueContainer creates the container spec for queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
-	controllerConfig *config.Controller, extraEnvs []corev1.EnvVar) *corev1.Container {
+	controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
 
 	autoscalerAddress := "autoscaler"
+	userport, _ := getUserPort(rev)
 
 	var loggingLevel string
 	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
@@ -122,9 +123,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
+		}, {
+			Name:  "USER_PORT",
+			Value: strconv.Itoa(int(userport)),
 		}},
 	}
-
-	queueContainer.Env = append(queueContainer.Env, extraEnvs...)
 	return queueContainer
 }
