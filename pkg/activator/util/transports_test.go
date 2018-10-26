@@ -141,7 +141,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		t.Run(e.label, func(t *testing.T) {
 			allRequestsGotRetryHeader := true
 			transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				if r.Header.Get(activator.ResponseCountHTTPHeader) == "" {
+				if r.Header.Get(activator.RequestCountHTTPHeader) == "" {
 					allRequestsGotRetryHeader = false
 				}
 

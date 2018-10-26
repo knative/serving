@@ -56,7 +56,7 @@ func TestRevisionCreation(t *testing.T) {
 
 	logger := logging.GetContextLogger("TestRevisionCreation")
 
-	imageName := "pizzaplanetv1"
+	imageName := pizzaPlanet1
 	imagePath := test.ImagePath(imageName)
 
 	names := test.ResourceNames{

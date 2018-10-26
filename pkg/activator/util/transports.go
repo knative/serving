@@ -86,7 +86,7 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 		rrt.logger.Debugf("Retrying")
 
 		attempts++
-		r.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(attempts))
+		r.Header.Add(activator.RequestCountHTTPHeader, strconv.Itoa(attempts))
 		resp, err = rrt.transport.RoundTrip(r)
 
 		if err != nil {

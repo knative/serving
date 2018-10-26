@@ -33,6 +33,7 @@ readonly SERVING_YAML=serving.yaml
 readonly MONITORING_YAML=monitoring.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=monitoring-metrics-prometheus.yaml
 readonly MONITORING_TRACE_ZIPKIN_YAML=monitoring-tracing-zipkin.yaml
+readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=monitoring-tracing-zipkin-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=monitoring-logs-elasticsearch.yaml
 
 # Script entry point
@@ -85,8 +86,11 @@ ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f third_party/config/monitoring/logging/elasticsearch \
     -f config/monitoring/logging/elasticsearch > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
-# Traces via Zipkin
+# Traces via Zipkin when ElasticSearch is installed
 ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin > "${MONITORING_TRACE_ZIPKIN_YAML}"
+
+# Traces via Zipkin in Memory when ElasticSearch is not installed 
+ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 echo "Building Release Bundles."
 
@@ -128,7 +132,7 @@ fi
 
 # Publish the release
 
-readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
+readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML} ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
 for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"

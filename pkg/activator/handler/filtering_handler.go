@@ -28,7 +28,7 @@ type FilteringHandler struct {
 func (h *FilteringHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If this header is set the request was sent by the activator itself, thus
 	// we immediatly return a 503 to trigger a retry.
-	if r.Header.Get(activator.ResponseCountHTTPHeader) != "" {
+	if r.Header.Get(activator.RequestCountHTTPHeader) != "" {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

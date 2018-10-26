@@ -34,13 +34,13 @@ func TestFilteringHandler(t *testing.T) {
 	},
 		{
 			label:          "filter a request containing retry header",
-			headers:        http.Header{activator.ResponseCountHTTPHeader: {"4"}},
+			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: "4"}),
 			passed:         false,
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
 			label:          "forward a request containing empty retry header",
-			headers:        http.Header{activator.ResponseCountHTTPHeader: {""}},
+			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: ""}),
 			passed:         true,
 			expectedStatus: http.StatusOK,
 		},
@@ -74,4 +74,12 @@ func TestFilteringHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mapToHeader(m map[string]string) http.Header {
+	h := http.Header{}
+	for k, v := range m {
+		h.Add(k, v)
+	}
+	return h
 }
