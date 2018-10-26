@@ -40,7 +40,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("Creating new configuration %s", names.Config)
-	err := test.CreateConfiguration(logger, clients, names, test.ImagePath(image1), &test.Options{})
+	err := test.CreateConfiguration(logger, clients, names, test.ImagePath(pizzaPlanet1), &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
@@ -56,7 +56,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	cfg = fetchConfiguration(names.Config, clients, t)
 
 	logger.Infof("Updating labels of Configuration %s", names.Config)
-	cfg.Labels =  map[string]string{
+	cfg.Labels = map[string]string{
 		"labelX": "abc",
 		"labelY": "def",
 	}
@@ -153,4 +153,3 @@ func checkMapKeysNotPresent(expected map[string]string, actual map[string]string
 	}
 	return true
 }
-

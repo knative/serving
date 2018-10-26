@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package reconciler
 
-func (s *Service) SetDefaults() {
-	s.Spec.SetDefaults()
-}
+import (
+	"github.com/knative/pkg/controller"
+	"go.uber.org/zap"
+)
 
-func (ss *ServiceSpec) SetDefaults() {
-	if ss.RunLatest != nil {
-		ss.RunLatest.Configuration.SetDefaults()
-	} else if ss.Pinned != nil {
-		ss.Pinned.Configuration.SetDefaults()
-	} else if ss.Release != nil {
-		ss.Release.Configuration.SetDefaults()
+// MustNewStatsReporter creates a new instance of StatsReporter. Panics if creation fails.
+func MustNewStatsReporter(reconciler string, logger *zap.SugaredLogger) controller.StatsReporter {
+	stats, err := controller.NewStatsReporter(reconciler)
+	if err != nil {
+		logger.Fatal("Failed to initialize the stats reporter.", zap.Error(err))
 	}
+	return stats
 }

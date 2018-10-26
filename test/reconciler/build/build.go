@@ -32,6 +32,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 
+	"github.com/knative/serving/pkg/reconciler"
 	testing "github.com/knative/serving/test/apis/testing/v1alpha1"
 	clientset "github.com/knative/serving/test/client/clientset/versioned"
 	buildscheme "github.com/knative/serving/test/client/clientset/versioned/scheme"
@@ -71,7 +72,7 @@ func NewController(
 		buildclientset: buildclientset,
 		buildsLister:   buildInformer.Lister(),
 	}
-	impl := controller.NewImpl(r, logger, "Builds")
+	impl := controller.NewImpl(r, logger, "Builds", reconciler.MustNewStatsReporter("Builds", logger))
 
 	logger.Info("Setting up event handlers")
 	// Set up an event handler for when Build resources change

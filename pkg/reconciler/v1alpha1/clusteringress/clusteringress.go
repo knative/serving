@@ -67,7 +67,7 @@ func NewController(
 		clusterIngressLister: clusterIngressInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses")
+	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	clusterIngressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
