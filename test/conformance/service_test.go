@@ -19,8 +19,10 @@ limitations under the License.
 package conformance
 
 import (
+	"context"
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"fmt"
+	"math"
 	"net/http"
 	"testing"
 
@@ -29,8 +31,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"golang.org/x/sync/errgroup"
 	"github.com/mattbaird/jsonpatch"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 )
 
