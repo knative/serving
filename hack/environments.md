@@ -10,7 +10,7 @@ This environment is rebuilt by the Steering Committee at the conclusion of a mil
 
 You can configure your access by running:
 
-```
+```shell
 gcloud container clusters get-credentials knative-demo --zone us-central1-a --project knative-environments
 ```
 
@@ -20,7 +20,7 @@ This environment is recreated by a prow periodic job every Saturday 1AM PST, usi
 
 You can configure your access by running:
 
-```
+```shell
 gcloud container clusters get-credentials knative-playground --zone us-central1-a --project knative-environments
 ```
 
@@ -28,7 +28,7 @@ gcloud container clusters get-credentials knative-playground --zone us-central1-
 
 To manually recreate an environment, call the `deploy.sh` script passing the environment name as parameter:
 
-```
+```shell
 ./deploy.sh knative-playground # or
 ./deploy.sh knative-demo
 ```

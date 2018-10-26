@@ -97,7 +97,7 @@ spec:
       targetPort: 15031
 ---
 # This is the corresponding Deployment to backed the aforementioned Service.
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: knative-ingressgateway
@@ -126,7 +126,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.1"
+          image: "docker.io/istio/proxyv2:1.0.2"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

@@ -27,7 +27,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestRevisions(t *testing.T) {
+func TestMakeRevisions(t *testing.T) {
 	tests := []struct {
 		name          string
 		configuration *v1alpha1.Configuration

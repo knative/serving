@@ -13,7 +13,7 @@ This kind of failure is most likely due to either a misconfigured manifest or
 wrong command. For example, the following output says that you must configure
 route traffic percent to sum to 100:
 
-```
+```console
 Error from server (InternalError): error when applying patch:
 {"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"serving.knative.dev/v1alpha1\",\"kind\":\"Route\",\"metadata\":{\"annotations\":{},\"name\":\"route-example\",\"namespace\":\"default\"},\"spec\":{\"traffic\":[{\"configurationName\":\"configuration-example\",\"percent\":50}]}}\n"}},"spec":{"traffic":[{"configurationName":"configuration-example","percent":50}]}}
 to:
@@ -23,6 +23,7 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
 ## Check application logs
+
 Knative Serving provides default out-of-the-box logs for your application. After entering
 `kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana)
@@ -73,12 +74,13 @@ kubectl get routerule <routerule-name> -o yaml
 ```
 
 If you don't know the name of your route rule, use the
-```kubectl get routerule``` command to find it.
+`kubectl get routerule` command to find it.
 
 The command returns the configuration of your route rule. Compare the domains
 between your route and route rule; they should match.
 
 ### Check ingress status
+
 Enter:
 
 ```shell
@@ -87,7 +89,6 @@ kubectl get ingress
 
 The command returns the status of the ingress. You can see the name, age,
 domains, and IP address.
-
 
 ## Check Revision status
 
@@ -119,18 +120,18 @@ conditions:
 
 If you see this condition, check the following to continue debugging:
 
-  * [Check Pod status](#check-pod-status)
-  * [Check application logs](#check-application-logs)
-  * [Check Istio routing](#check-istio-routing)
+* [Check Pod status](#check-pod-status)
+* [Check application logs](#check-application-logs)
+* [Check Istio routing](#check-istio-routing)
 
 If you see other conditions, to debug further:
 
-  * Look up the meaning of the conditions in Knative
-     [Error Conditions and Reporting](../spec/errors.md). Note: some of them
-     are not implemented yet. An alternative is to
-     [check Pod status](#check-pod-status).
-  * If you are using `BUILD` to deploy and the `BuidComplete` condition is not
-     `True`, [check BUILD status](#check-build-status).
+* Look up the meaning of the conditions in Knative
+    [Error Conditions and Reporting](../spec/errors.md). Note: some of them
+    are not implemented yet. An alternative is to
+    [check Pod status](#check-pod-status).
+* If you are using `BUILD` to deploy and the `BuidComplete` condition is not
+    `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
 
@@ -142,7 +143,7 @@ kubectl get pods
 
 This should list all `Pod`s with brief status. For example:
 
-```
+```console
 NAME                                                      READY     STATUS             RESTARTS   AGE
 configuration-example-00001-deployment-659747ff99-9bvr4   2/2       Running            0          3h
 configuration-example-00002-deployment-5f475b7849-gxcht   1/2       CrashLoopBackOff   2          36s
@@ -153,7 +154,6 @@ Choose one and use the following command to see detailed information for its
 
 ```shell
 kubectl get pod <pod-name> -o yaml
-
 ```
 
 ## Check Build status

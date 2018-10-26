@@ -46,9 +46,11 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/route/config \
   -i github.com/knative/serving/pkg/autoscaler \
+  -i github.com/knative/serving/pkg/gc \
   -i github.com/knative/serving/pkg/logging
 
 # Make sure our dependencies are up-to-date

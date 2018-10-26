@@ -128,6 +128,10 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
+kubectl apply -f ./third_party/istio-1.0.2/istio-crds.yaml
+while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+  echo "Waiting on Istio CRDs"; sleep 1
+done
 kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
@@ -178,12 +182,12 @@ page to ensure that all services are up and running (and not blocked by a quota 
 Run:
 
 ```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
+kubectl apply -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 ```
 
 ## Iterating
@@ -191,8 +195,9 @@ kubectl apply -R -f config/monitoring/100-common \
 As you make changes to the code-base, there are two special cases to be aware of:
 
 * **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
-    * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
-    * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+
+  * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+  * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
@@ -219,10 +224,11 @@ You can delete all of the service components with:
 
 ```shell
 ko delete --ignore-not-found=true \
-  -f config/monitoring/100-common \
+  -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.2/istio.yaml
+  -f ./third_party/istio-1.0.2/istio.yaml \
+  -f ./third_party/istio-1.0.2/istio-crds.yaml
 ```
 
 ## Telemetry

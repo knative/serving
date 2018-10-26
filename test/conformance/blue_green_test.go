@@ -50,22 +50,6 @@ const (
 	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
 
-// Probe until we get a successful response. This ensures the domain is
-// routable before we send it a bunch of traffic.
-func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
-	if err != nil {
-		return err
-	}
-	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	_, err = client.Poll(req, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
-	return err
-}
-
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
 func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
 	responses := make([]string, num)
@@ -254,7 +238,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// It doesn't matter which domain we probe, we just need to choose one.
 	logger.Infof("Probing domain %s", tealDomain)
-	if err := probeDomain(logger, clients, tealDomain); err != nil {
+	if err := test.ProbeDomain(logger, clients, tealDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
 	}
 

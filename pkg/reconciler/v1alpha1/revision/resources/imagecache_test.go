@@ -56,7 +56,7 @@ func TestMakeImageCache(t *testing.T) {
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name:  UserContainerName,
+							Name:  userContainerName,
 							Image: "busybox",
 						}},
 					},
@@ -108,7 +108,7 @@ func TestMakeImageCache(t *testing.T) {
 					Spec: corev1.PodSpec{
 						ServiceAccountName: "privilegeless",
 						Containers: []corev1.Container{{
-							Name:  UserContainerName,
+							Name:  userContainerName,
 							Image: "busybox",
 						}},
 					},

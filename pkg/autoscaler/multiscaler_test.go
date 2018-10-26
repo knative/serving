@@ -50,7 +50,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient)
 	kpa := newKPA(t, servingClient, revision)
 	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
 
@@ -81,7 +81,7 @@ func TestMultiScalerScaling(t *testing.T) {
 		}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -126,7 +126,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient)
 	kpa := newKPA(t, servingClient, revision)
 	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
 
@@ -157,7 +157,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -193,7 +193,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient)
 	kpa := newKPA(t, servingClient, revision)
 	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
 
@@ -212,7 +212,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -248,7 +248,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient)
 	kpa := newKPA(t, servingClient, revision)
 	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
 
@@ -302,7 +302,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient, v1alpha1.RevisionServingStateActive)
+	revision := newRevision(t, servingClient)
 	kpa := newKPA(t, servingClient, revision)
 	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
 
@@ -407,14 +407,13 @@ func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.
 	return kpa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
+func newRevision(t *testing.T, servingClient clientset.Interface) *v1alpha1.Revision {
 	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ServingState:     servingState,
 			ConcurrencyModel: "Multi",
 		},
 	}

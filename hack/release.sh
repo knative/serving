@@ -24,17 +24,21 @@ readonly SERVING_RELEASE_GCR
 
 # istio.yaml file to upload
 # We publish our own istio.yaml, so users don't need to use helm
+readonly ISTIO_CRD_YAML=./third_party/istio-1.0.2/istio-crds.yaml
 readonly ISTIO_YAML=./third_party/istio-1.0.2/istio.yaml
 readonly ISTIO_LEAN_YAML=./third_party/istio-1.0.2/istio-lean.yaml
 
 readonly BUILD_YAML=build.yaml
 readonly SERVING_YAML=serving.yaml
 readonly MONITORING_YAML=monitoring.yaml
-readonly MONITORING_LEAN_YAML=monitoring-lean.yaml
+readonly MONITORING_METRIC_PROMETHEUS_YAML=monitoring-metrics-prometheus.yaml
+readonly MONITORING_TRACE_ZIPKIN_YAML=monitoring-tracing-zipkin.yaml
+readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=monitoring-tracing-zipkin-in-mem.yaml
+readonly MONITORING_LOG_ELASTICSEARCH_YAML=monitoring-logs-elasticsearch.yaml
 
 # Script entry point
 
-parse_flags $@
+initialize $@
 
 set -o errexit
 set -o pipefail
@@ -61,32 +65,32 @@ echo "Copying Build release"
 cp "${REPO_ROOT_DIR}/third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_FLAGS} -f config/ >> "${SERVING_YAML}"
+ko resolve ${KO_FLAGS} -f config/ > "${SERVING_YAML}"
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
-ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml >> "${MONITORING_YAML}"
+ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin > "${MONITORING_YAML}"
 
-# Use ko to do the same for the lite version.
-ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
-    -f third_party/config/monitoring/common/istio \
-    -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
-    -f third_party/config/monitoring/common/prometheus-operator \
-    -f config/monitoring/150-elasticsearch/100-scaling-configmap.yaml \
-    -f config/monitoring/200-common/100-fluentd.yaml \
-    -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
-    -f config/monitoring/200-common/100-grafana-dash-knative.yaml \
-    -f config/monitoring/200-common/100-grafana.yaml \
-    -f config/monitoring/200-common/100-istio.yaml \
-    -f config/monitoring/200-common/200-prometheus-exporter \
-    -f config/monitoring/200-common/300-prometheus \
-    -f config/monitoring/200-common/100-istio.yaml >> "${MONITORING_LEAN_YAML}"
+# Metrics via Prometheus & Grafana
+ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus > "${MONITORING_METRIC_PROMETHEUS_YAML}"
 
+# Logs via ElasticSearch, Fluentd & Kibana
+ko resolve ${KO_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
+
+# Traces via Zipkin when ElasticSearch is installed
+ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin > "${MONITORING_TRACE_ZIPKIN_YAML}"
+
+# Traces via Zipkin in Memory when ElasticSearch is not installed 
+ko resolve ${KO_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 echo "Building Release Bundles."
 
@@ -99,19 +103,19 @@ readonly LITE_YAML=release-lite.yaml
 readonly NO_MON_YAML=release-no-mon.yaml
 
 # NO_MON is just build and serving
-cat "${BUILD_YAML}" > "${NO_MON_YAML}"
+cp "${BUILD_YAML}" "${NO_MON_YAML}"
 echo "---" >> "${NO_MON_YAML}"
 cat "${SERVING_YAML}" >> "${NO_MON_YAML}"
 echo "---" >> "${NO_MON_YAML}"
 
 # LITE is NO_MON plus "lean" monitoring
-cat "${NO_MON_YAML}" > "${LITE_YAML}"
+cp "${NO_MON_YAML}" "${LITE_YAML}"
 echo "---" >> "${LITE_YAML}"
-cat "${MONITORING_LEAN_YAML}" >> "${LITE_YAML}"
+cat "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${LITE_YAML}"
 echo "---" >> "${LITE_YAML}"
 
 # RELEASE is NO_MON plus full monitoring
-cat "${NO_MON_YAML}" > "${RELEASE_YAML}"
+cp "${NO_MON_YAML}" "${RELEASE_YAML}"
 echo "---" >> "${RELEASE_YAML}"
 cat "${MONITORING_YAML}" >> "${RELEASE_YAML}"
 echo "---" >> "${RELEASE_YAML}"
@@ -128,9 +132,12 @@ fi
 
 # Publish the release
 
-for yaml in "${RELEASE_YAML}" "${LITE_YAML}" "${NO_MON_YAML}" "${SERVING_YAML}" "${BUILD_YAML}" "${MONITORING_YAML}" "${MONITORING_LEAN_YAML}" "${ISTIO_YAML}" "${ISTIO_LEAN_YAML}"; do
+readonly YAMLS_TO_PUBLISH="${RELEASE_YAML} ${LITE_YAML} ${NO_MON_YAML} ${SERVING_YAML} ${BUILD_YAML} ${MONITORING_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_TRACE_ZIPKIN_YAML} ${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML} ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML}"
+for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
+
+branch_release "Knative Serving" ${YAMLS_TO_PUBLISH}
 
 echo "New release published successfully"

@@ -17,17 +17,25 @@ limitations under the License.
 package configuration
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -125,7 +133,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: unknown)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
-			resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432)),
+			setRevCreationTimestamp(resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-not-done", "foo", 5432,
@@ -144,7 +152,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555))), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-done", "foo", 5555,
@@ -174,14 +182,14 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566))), time.Now()),
 		},
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555),
-			makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555))),
+			setRevCreationTimestamp(makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555))), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-failed", "foo", 5555,
@@ -319,7 +327,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337))), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("revision-recovers", "foo", 1337,
@@ -342,6 +350,125 @@ func TestReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
+			},
+		}
+	}))
+}
+
+func TestGCReconcile(t *testing.T) {
+	table := TableTest{{
+		Name: "dont gc old revision no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "dont gc old latest revision no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "dont gc revisions minimum generations no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "gc old revision pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevLastPinned(setRevCreationTimestamp(
+				makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554))),
+				time.Now().Add(-10*time.Minute)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			),
+		}},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource:  schema.GroupVersionResource{Group: "serving.knative.dev", Version: "v1alpha1", Resource: "revisions"},
+			},
+			Name: "old-revision-05554",
+		}},
+		Key: "foo/old-revision",
+	}}
+
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+			configStore: &testConfigStore{
+				config: &config.Config{
+					RevisionGC: &gc.Config{
+						StaleRevisionCreateDelay:        5 * time.Minute,
+						StaleRevisionTimeout:            5 * time.Minute,
+						StaleRevisionMinimumGenerations: 2,
+					},
+				},
+			},
 		}
 	}))
 }
@@ -389,6 +516,16 @@ func setRevConcurrencyModel(rev *v1alpha1.Revision, ss v1alpha1.RevisionRequestC
 	return rev
 }
 
+func setRevLastPinned(rev *v1alpha1.Revision, t time.Time) *v1alpha1.Revision {
+	rev.SetLastPinned(t)
+	return rev
+}
+
+func setRevCreationTimestamp(rev *v1alpha1.Revision, t time.Time) *v1alpha1.Revision {
+	rev.ObjectMeta.CreationTimestamp = metav1.Time{t}
+	return rev
+}
+
 func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
 	rev.Status.MarkContainerHealthy()
@@ -409,4 +546,143 @@ func makeRevFailed(rev *v1alpha1.Revision) *v1alpha1.Revision {
 func makeRevStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha1.Revision {
 	rev.Status = status
 	return rev
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		RevisionGC: &gc.Config{
+			StaleRevisionCreateDelay: 5 * time.Minute,
+			StaleRevisionTimeout:     5 * time.Minute,
+		},
+	}
+}
+
+func TestIsRevisionStale(t *testing.T) {
+	curTime := time.Now()
+	staleTime := curTime.Add(-10 * time.Minute)
+
+	tests := []struct {
+		name      string
+		rev       *v1alpha1.Revision
+		latestRev string
+		want      bool
+	}{{
+		name: "new no lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{curTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "old no lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "not stale lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", curTime.Unix()),
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale within miniumGenerations",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "2",
+					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale latest ready revision",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "1",
+					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		latestRev: "myrev",
+		want:      false,
+	}}
+
+	cfgStore := testConfigStore{
+		config: &config.Config{
+			RevisionGC: &gc.Config{
+				StaleRevisionCreateDelay:        5 * time.Minute,
+				StaleRevisionTimeout:            5 * time.Minute,
+				StaleRevisionMinimumGenerations: 2,
+			},
+		},
+	}
+	ctx := cfgStore.ToContext(context.TODO())
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := &v1alpha1.Configuration{
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 3,
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestReadyRevisionName: test.latestRev,
+				},
+			}
+
+			got := isRevisionStale(ctx, test.rev, cfg)
+			if got != test.want {
+				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
+			}
+		})
+	}
 }

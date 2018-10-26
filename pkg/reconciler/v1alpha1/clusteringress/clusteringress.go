@@ -127,23 +127,25 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 // Update the Status of the ClusterIngress.  Caller is responsible for checking
 // for semantic differences before calling.
-func (c *Reconciler) updateStatus(ctx context.Context, ci *v1alpha1.ClusterIngress) (*v1alpha1.ClusterIngress, error) {
-	existing, err := c.clusterIngressLister.Get(ci.Name)
+func (c *Reconciler) updateStatus(ctx context.Context, desired *v1alpha1.ClusterIngress) (*v1alpha1.ClusterIngress, error) {
+	ci, err := c.clusterIngressLister.Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// If there's nothing to update, just return.
-	if reflect.DeepEqual(existing.Status, ci.Status) {
-		return existing, nil
+	if reflect.DeepEqual(ci.Status, desired.Status) {
+		return ci, nil
 	}
-	existing.Status = ci.Status
+	// Don't modify the informers copy
+	existing := ci.DeepCopy()
+	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
 	updated, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(existing)
 	if err != nil {
 		return nil, err
 	}
 
-	c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated", "Updated status for clusterIngress %q", ci.Name)
+	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for clusterIngress %q", desired.Name)
 	return updated, nil
 }
 
@@ -190,8 +192,10 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	} else if err != nil {
 		return err
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
-		vs.Spec = desired.Spec
-		vs, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(vs)
+		// Don't modify the informers copy
+		existing := vs.DeepCopy()
+		existing.Spec = desired.Spec
+		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err

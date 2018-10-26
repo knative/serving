@@ -19,7 +19,7 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0.2/istio-lean.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.2/istio.yaml
 
 function create_istio() {
   echo ">> Bringing up Istio"
@@ -52,12 +52,12 @@ function create_test_resources() {
 
 function create_monitoring() {
   echo ">> Bringing up Monitoring"
-  kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
+  kubectl apply -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 }
 
 function create_namespace() {
@@ -101,11 +101,12 @@ function delete_test_resources() {
 
 function delete_monitoring() {
   echo ">> Bringing down Monitoring"
-  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 }
 
 function delete_everything() {

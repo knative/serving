@@ -71,7 +71,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -151,7 +151,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox@sha256:deadbeef",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -235,7 +235,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -320,7 +320,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -412,7 +412,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -503,7 +503,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -594,7 +594,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  UserContainerName,
+				Name:  userContainerName,
 				Image: "busybox",
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -681,7 +681,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         UserContainerName,
+				Name:         userContainerName,
 				Image:        "busybox",
 				Resources:    userResources,
 				Ports:        userPorts,
@@ -742,7 +742,7 @@ func TestMakePodSpec(t *testing.T) {
 					Value: "--no-supervisor -q",
 				}, {
 					Name:  "SERVING_CONTAINER_NAME",
-					Value: UserContainerName,
+					Value: userContainerName,
 				}, {
 					Name: "SERVING_CONFIGURATION",
 					// No owner reference
@@ -762,7 +762,16 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				VolumeMounts: fluentdVolumeMounts,
 			}},
-			Volumes: []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
+			Volumes: []corev1.Volume{varLogVolume, corev1.Volume{
+				Name: fluentdConfigMapVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "bar-fluentd",
+						},
+					},
+				},
+			}},
 		},
 	}, {
 		name: "complex pod spec",
@@ -794,7 +803,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:    UserContainerName,
+				Name:    userContainerName,
 				Image:   "busybox",
 				Command: []string{"/bin/bash"},
 				Args:    []string{"-c", "echo Hello world"},

@@ -21,11 +21,15 @@ import (
 	"time"
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,6 +97,14 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory) {
+	// Create config
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace,
+		},
+		Data: map[string]string{},
+	})
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -112,6 +124,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
+			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -140,15 +153,19 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	})
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
-	kubeInformer.Start(stopCh)
-	servingInformer.Start(stopCh)
-
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
 	}()
+	kubeInformer.Start(stopCh)
+	servingInformer.Start(stopCh)
+
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

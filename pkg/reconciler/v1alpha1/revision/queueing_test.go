@@ -35,6 +35,7 @@ import (
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,7 +106,6 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			ServingState:     v1alpha1.RevisionServingStateActive,
 			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 		},
 	}
@@ -229,7 +229,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	stopCh := make(chan struct{})
-	defer close(stopCh)
 
 	rev := getTestRevision()
 	// TODO(grantr): inserting the route at client creation is necessary
@@ -250,15 +249,21 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	servingSystemInformer.Start(stopCh)
 
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

@@ -6,6 +6,9 @@ wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
 cd istio-${ISTIO_VERSION}
 
+# Copy CRDs template
+cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
+
 # Create template
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=true \
