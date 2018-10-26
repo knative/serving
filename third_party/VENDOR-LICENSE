@@ -191,7 +191,7 @@ Import: github.com/knative/serving/vendor/cloud.google.com/go
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2014 Google Inc.
+   Copyright [yyyy] [name of copyright owner]
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -2209,10 +2209,7 @@ third-party archives.
 ===========================================================
 Import: github.com/knative/serving/vendor/github.com/golang/protobuf
 
-Go support for Protocol Buffers - Google's data interchange format
-
 Copyright 2010 The Go Authors.  All rights reserved.
-https://github.com/golang/protobuf
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
