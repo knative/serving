@@ -66,4 +66,3 @@ spec:
   resolution: DNS
   endpoints:
   - address: 169.254.169.254
-  

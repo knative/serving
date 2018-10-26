@@ -95,4 +95,5 @@ data:
   # To export metrics to stackdriver, you need to have a valid stackdriver project ID.
   # Note: Using stackdriver would incur charges for knative-serving system metrics
   # before we have own resource types.
-  metrics.stackdriver-project-id: "<your stackdriver project id>"  
+  metrics.stackdriver-project-id: "<your stackdriver project id>" 
+   
