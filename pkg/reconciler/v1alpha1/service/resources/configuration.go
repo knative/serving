@@ -37,9 +37,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			Labels: makeLabels(service),
 		},
 	}
-	c.InheritAnnotations(service.Annotations,
-		"autoscaling.knative.dev",
-		"autoscaling.internal.knative.dev")
+	c.InheritAnnotations(service.GetObjectMeta())
 
 	if service.Spec.RunLatest != nil {
 		c.Spec = service.Spec.RunLatest.Configuration

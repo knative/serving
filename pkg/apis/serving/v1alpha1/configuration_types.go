@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strings"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -124,17 +123,12 @@ type ConfigurationList struct {
 	Items []Configuration `json:"items"`
 }
 
-func (c *Configuration) InheritAnnotations(parent map[string]string, prefixes ...string) {
-	for _, p := range prefixes {
-		for k, v := range parent {
-			if strings.HasPrefix(k, p) {
-				if c.Annotations == nil {
-					c.Annotations = make(map[string]string)
-				}
-				c.Annotations[k] = v
-			}
-		}
-	}
+func (c *Configuration) InheritAnnotations(parent metav1.Object) {
+	c.Annotations = autoscaling.Inherit(c.Annotations, parent.GetAnnotations())
+}
+
+func (c *Configuration) InheritedAnnotationsEqual(parent metav1.Object) bool {
+	return autoscaling.InheritedEqual(c.Annotations, parent.GetAnnotations())
 }
 
 func (c *Configuration) GetGroupVersionKind() schema.GroupVersionKind {

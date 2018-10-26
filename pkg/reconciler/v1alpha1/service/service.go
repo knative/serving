@@ -23,6 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 )
 
 const controllerAgentName = "service-controller"
@@ -214,6 +213,7 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 
 	logger := logging.FromContext(ctx)
+
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
@@ -222,11 +222,19 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
-		// No differences to reconcile.
+	diff := false
+	if !equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
+		diff = true
+		logger.Infof("Reconciling configuration spec diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
+	}
+	if !config.InheritedAnnotationsEqual(desiredConfig.GetObjectMeta()) {
+		diff = true
+		logger.Infof("Reconciling configuration inherited annotation diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Annotations, config.Annotations))
+	}
+	if diff == false {
+		logger.Debugf("No configuration differences to reconcile.")
 		return config, nil
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
 
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec

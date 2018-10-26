@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strings"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -70,17 +69,8 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-func (r *Revision) InheritAnnotations(parent map[string]string, prefixes ...string) {
-	for _, p := range prefixes {
-		for k, v := range parent {
-			if strings.HasPrefix(k, p) {
-				if r.Annotations == nil {
-					r.Annotations = make(map[string]string)
-				}
-				r.Annotations[k] = v
-			}
-		}
-	}
+func (r *Revision) InheritAnnotations(parent metav1.Object) {
+	r.Annotations = autoscaling.Inherit(r.Annotations, parent.GetAnnotations())
 }
 
 // RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.

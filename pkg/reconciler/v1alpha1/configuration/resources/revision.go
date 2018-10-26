@@ -50,9 +50,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 		rev.Annotations = make(map[string]string)
 	}
 	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
-	rev.InheritAnnotations(config.Annotations,
-		"autoscaling.knative.dev",
-		"autoscaling.internal.knative.dev")
+	rev.InheritAnnotations(config.GetObjectMeta())
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
