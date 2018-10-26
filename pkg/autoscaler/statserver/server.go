@@ -132,7 +132,13 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	for {
 		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
-			s.logger.Infof("Handler exiting on error: %#v", err)
+			// We close abnormally, because we're just closing the connection in the client,
+			// which is okay. There's no value delaying closure of the connection unnecessarily.
+			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+				s.logger.Debug("Handler disconnected")
+			} else {
+				s.logger.Errorf("Handler exiting on error: %#v", err)
+			}
 			close(handlerCh)
 			return
 		}
