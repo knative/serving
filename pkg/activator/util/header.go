@@ -46,16 +46,16 @@ func SetupHeaderPruning(p *httputil.ReverseProxy) {
 		}
 	}
 
-	origResponseModifier := p.ModifyResponse
-	p.ModifyResponse = func(r *http.Response) error {
+	/*origResponseModifier := p.ModifyResponse
+	p.ModifyResponse = func(r *http.Response) (err error) {
+		if origResponseModifier != nil {
+			err = origResponseModifier(r)
+		}
+
 		for _, h := range responseHeadersToRemove {
 			r.Header.Del(h)
 		}
 
-		// The ResponseModifier can be nil
-		if origResponseModifier != nil {
-			return origResponseModifier(r)
-		}
-		return nil
-	}
+		return
+	}*/
 }
