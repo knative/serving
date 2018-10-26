@@ -14,6 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script builds all the YAMLs that Knative publishes.  It may be varied
+# between different branches, of what it does, but the following usage must
+# be observed:
+#
+# generate-yamls.sh  <repo-root-dir> <generated-yaml-list>
+#     repo-root-dir         the root directory of the repository.
+#     generated-yaml-list   an output file that contains the list of all
+#                           YAML file.  The first file listed must be our
+#                           manifest that contains all images to be tagged.
+#
+# Different version of release.sh should be able to call this script with
+# such assumption so that the publishing/tagging steps can evolve differently
+# than how the YAMLs are built.
 REPO_ROOT_DIR=$1
 GENERATED_YAML_LIST=$2
 
