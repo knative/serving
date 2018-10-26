@@ -238,6 +238,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec
+	config.InheritAnnotations(desiredConfig.GetObjectMeta())
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
 }
 
