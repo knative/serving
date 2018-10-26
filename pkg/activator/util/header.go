@@ -23,10 +23,14 @@ import (
 	"github.com/knative/serving/pkg/activator"
 )
 
-var headersToRemove = []string{
+var requestHeadersToRemove = []string{
 	activator.RequestCountHTTPHeader,
 	activator.RevisionHeaderName,
 	activator.RevisionHeaderNamespace,
+}
+
+var responseHeadersToRemove = []string{
+	activator.RequestCountHTTPHeader,
 }
 
 // SetupHeaderPruning will cause the http.ReverseProxy
@@ -37,8 +41,21 @@ func SetupHeaderPruning(p *httputil.ReverseProxy) {
 	p.Director = func(r *http.Request) {
 		orig(r)
 
-		for _, h := range headersToRemove {
+		for _, h := range requestHeadersToRemove {
 			r.Header.Del(h)
 		}
+	}
+
+	origResponseModifier := p.ModifyResponse
+	p.ModifyResponse = func(r *http.Response) error {
+		for _, h := range responseHeadersToRemove {
+			r.Header.Del(h)
+		}
+
+		// The ResponseModifier can be nil
+		if origResponseModifier != nil {
+			return origResponseModifier(r)
+		}
+		return nil
 	}
 }

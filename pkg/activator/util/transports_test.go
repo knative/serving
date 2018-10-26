@@ -173,7 +173,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			}
 
 			if resp != nil {
-				if got, want := resp.Header.Get(activator.ResponseCountHTTPHeader), strconv.Itoa(e.wantAttempts); got != want {
+				if got, want := resp.Header.Get(activator.RequestCountHTTPHeader), strconv.Itoa(e.wantAttempts); got != want {
 					t.Errorf("Expected retry header not the same got: %q want: %q", got, want)
 				}
 			}

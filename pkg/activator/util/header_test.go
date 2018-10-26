@@ -17,25 +17,34 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"testing"
-
-	"github.com/knative/serving/pkg/activator"
 )
 
-func TestHeaderPruning(t *testing.T) {
+func TestHeaderPruningNew(t *testing.T) {
+	testHeaderName := "knative-test-header"
+	testHeaderValue := "some-value"
+
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(activator.RevisionHeaderName) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		// These headers should be removed and not reach the client.
+		for _, header := range responseHeadersToRemove {
+			w.Header().Add(header, "foo")
 		}
 
-		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		// This header should not be removed
+		w.Header().Add(testHeaderName, testHeaderValue)
+
+		// These headers should've been stripped from the request.
+		for _, header := range requestHeadersToRemove {
+			if r.Header.Get(header) != "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -46,32 +55,41 @@ func TestHeaderPruning(t *testing.T) {
 
 	defer server.Close()
 
-	tests := []struct {
-		name   string
-		header string
-	}{{
-		name:   "revision name header",
-		header: activator.RevisionHeaderName,
-	}, {
-		name:   "revision namespace header",
-		header: activator.RevisionHeaderNamespace,
-	}}
+	proxy := httputil.NewSingleHostReverseProxy(serverURL)
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			proxy := httputil.NewSingleHostReverseProxy(serverURL)
-			SetupHeaderPruning(proxy)
+	// Adding a modifier, which should be preserved.
+	testBodyContent := "body"
+	proxy.ModifyResponse = func(r *http.Response) error {
+		r.Body = ioutil.NopCloser(bytes.NewReader([]byte(testBodyContent)))
+		return nil
+	}
+	SetupHeaderPruning(proxy)
 
-			resp := httptest.NewRecorder()
+	resp := httptest.NewRecorder()
 
-			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set(test.header, "some-value")
+	req := httptest.NewRequest("POST", "http://example.com", nil)
+	for _, header := range requestHeadersToRemove {
+		req.Header.Set(header, testHeaderValue)
+	}
 
-			proxy.ServeHTTP(resp, req)
+	proxy.ServeHTTP(resp, req)
 
-			if resp.Code != http.StatusOK {
-				t.Errorf("expected header %q to be filtered", test.header)
-			}
-		})
+	// The testserver returns BadRequest if any of those is set.
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected request headers to be filtered")
+	}
+
+	for _, header := range responseHeadersToRemove {
+		if resp.Header().Get(header) != "" {
+			t.Errorf("expected header %q to be filtered", header)
+		}
+	}
+
+	if resp.Header().Get(testHeaderName) != testHeaderValue {
+		t.Errorf("expected header %q to not be stripped", testHeaderName)
+	}
+
+	if resp.Body.String() != testBodyContent {
+		t.Error("expected the response modifier to be preserved")
 	}
 }

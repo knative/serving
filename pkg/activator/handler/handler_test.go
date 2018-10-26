@@ -197,7 +197,7 @@ func TestActivationHandler(t *testing.T) {
 					return resp, err
 				}
 				if e.attempts != "" {
-					resp.Header.Add(activator.ResponseCountHTTPHeader, e.attempts)
+					resp.Header.Add(activator.RequestCountHTTPHeader, e.attempts)
 				}
 				return resp, err
 			})
