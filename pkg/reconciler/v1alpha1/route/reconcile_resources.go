@@ -168,7 +168,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Tr
 	gcConfig := config.FromContext(ctx).GC
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, _ := errgroup.WithContext(ctx)
 	for _, target := range t.Targets {
 		for _, rt := range target {
 			tt := rt.TrafficTarget
