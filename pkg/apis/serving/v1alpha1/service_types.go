@@ -278,17 +278,18 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 func (ss *ServiceStatus) SetManualStatus() {
 	reason := "Manual"
 	message := "Service is set to Manual, and is not managing underlying resources."
-	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
-	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, reason, message)
 
-	// Clear our fields that we propagated from Route and Configuration as we do not know
-	// them to remain true anymore
-	ss.LatestReadyRevisionName = ""
-	ss.LatestCreatedRevisionName = ""
-	ss.Domain = ""
-	ss.DomainInternal = ""
-	ss.Targetable = nil
-	ss.Traffic = nil
+	// Clear our fields by creating a new status and copying over only the fields and conditions we want
+	newStatus := &ServiceStatus{}
+	newStatus.InitializeConditions()
+	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
+	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
+
+	newStatus.Targetable = ss.Targetable
+	newStatus.Domain = ss.Domain
+	newStatus.DomainInternal = ss.DomainInternal
+
+	*ss = *newStatus
 
 }
 
