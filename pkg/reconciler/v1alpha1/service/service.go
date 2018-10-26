@@ -121,9 +121,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	// Reconcile this copy of the service and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, service)
+	if service.Spec.Manual != nil {
+		// We do not know the status when in manual mode. The Route can be
+		// updated with Configurations not known to the Service which would
+		// make attempts to display status potentially incorrect
+		service.Status.SetManualStatus()
+	} else {
+		// Reconcile this copy of the service and then write back any status
+		// updates regardless of whether the reconciliation errored out.
+		err = c.reconcile(ctx, service)
+	}
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -238,12 +245,23 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 }
 
 func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(resources.MakeRoute(service))
+	route, err := resources.MakeRoute(service)
+	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
+		return nil, err
+	}
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
-	desiredRoute := resources.MakeRoute(service)
+	desiredRoute, err := resources.MakeRoute(service)
+	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
+		return nil, err
+	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation

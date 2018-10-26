@@ -70,7 +70,54 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid both types",
+		name: "valid release -- one revision",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"asdf"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid release -- two revisions",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions:      []string{"asdf", "fdsa"},
+					RolloutPercent: 42,
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid manual",
+		s: &Service{
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid multiple types",
 		s: &Service{
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
@@ -103,11 +150,11 @@ func TestServiceValidation(t *testing.T) {
 			Paths:   []string{"spec.pinned", "spec.runLatest"},
 		},
 	}, {
-		name: "invalid neither type",
+		name: "invalid missing type",
 		s:    &Service{},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths:   []string{"spec.pinned", "spec.runLatest"},
+			Paths:   []string{"spec.manual", "spec.pinned", "spec.release", "spec.runLatest"},
 		},
 	}, {
 		name: "invalid runLatest",
@@ -148,6 +195,125 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.name"),
+	}, {
+		name: "invalid release -- too few revisions; nil",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrMissingField("spec.release.revisions"),
+	}, {
+		name: "invalid release -- too few revisions; empty slice",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrMissingField("spec.release.revisions"),
+	}, {
+		name: "invalid release -- too many revisions",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"asdf", "fdsa", "abcde"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "expected number of elements in range [1, 2], got 3",
+			Paths:   []string{"spec.release.revisions"},
+		},
+	}, {
+		name: "invalid release -- rollout greater than 99",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions:      []string{"asdf", "fdsa"},
+					RolloutPercent: 100,
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("100", "spec.release.rolloutPercent"),
+	}, {
+		name: "invalid release -- rollout less than 0",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions:      []string{"asdf", "fdsa"},
+					RolloutPercent: -50,
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("-50", "spec.release.rolloutPercent"),
+	}, {
+		name: "invalid release -- non-zero rollout for single revision",
+		s: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions:      []string{"asdf"},
+					RolloutPercent: 10,
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("10", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid name - dots",
 		s: &Service{

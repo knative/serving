@@ -72,6 +72,39 @@ func TestPinned(t *testing.T) {
 	}
 }
 
+func TestRelease(t *testing.T) {
+	s := createServiceWithRelease(1, 0)
+	c, _ := MakeConfiguration(s)
+	if got, want := c.Name, testServiceName; got != want {
+		t.Errorf("expected %q for service name got %q", want, got)
+	}
+	if got, want := c.Namespace, testServiceNamespace; got != want {
+		t.Errorf("expected %q for service namespace got %q", want, got)
+	}
+	if got, want := c.Spec.RevisionTemplate.Spec.Container.Name, testContainerNameRelease; got != want {
+		t.Errorf("expected %q for container name got %q", want, got)
+	}
+	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
+
+	if got, want := len(c.Labels), 2; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := c.Labels[testLabelKey], testLabelValueRelease; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+}
+
+func TestManual(t *testing.T) {
+	s := createServiceWithManual()
+	c, err := MakeConfiguration(s)
+	if err == nil {
+		t.Errorf("MakeConfiguration(%v) = %v, wanted error", s, c)
+	}
+}
+
 func TestMalformed(t *testing.T) {
 	s := createServiceMeta()
 	c, err := MakeConfiguration(s)

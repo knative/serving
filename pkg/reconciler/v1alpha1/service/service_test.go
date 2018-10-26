@@ -49,6 +49,23 @@ var (
 		},
 	}
 
+	manualConditions = duckv1alpha1.Conditions{{
+		Type:    v1alpha1.ServiceConditionConfigurationsReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  "Manual",
+		Message: "Service is set to Manual, and is not managing underlying resources.",
+	}, {
+		Type:    v1alpha1.ServiceConditionReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  "Manual",
+		Message: "Service is set to Manual, and is not managing underlying resources.",
+	}, {
+		Type:    v1alpha1.ServiceConditionRoutesReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  "Manual",
+		Message: "Service is set to Manual, and is not managing underlying resources.",
+	}}
+
 	initialConditions = duckv1alpha1.Conditions{{
 		Type:   v1alpha1.ServiceConditionConfigurationsReady,
 		Status: corev1.ConditionUnknown,
@@ -85,7 +102,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
 			mustMakeConfig(t, svcRL("run-latest", "foo")),
-			resources.MakeRoute(svcRL("run-latest", "foo")),
+			mustMakeRoute(t, svcRL("run-latest", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("run-latest", "foo", initialConditions...),
@@ -98,16 +115,38 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/pinned",
 		WantCreates: []metav1.Object{
 			mustMakeConfig(t, svcPin("pinned", "foo")),
-			resources.MakeRoute(svcPin("pinned", "foo")),
+			mustMakeRoute(t, svcPin("pinned", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcPin("pinned", "foo", initialConditions...),
 		}},
 	}, {
+		Name: "release - create route and service",
+		Objects: []runtime.Object{
+			svcRelease("release", "foo"),
+		},
+		Key: "foo/release",
+		WantCreates: []metav1.Object{
+			mustMakeConfig(t, svcRelease("release", "foo")),
+			mustMakeRoute(t, svcRelease("release", "foo")),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcRelease("release", "foo", initialConditions...),
+		}},
+	}, {
+		Name: "manual- no creates",
+		Objects: []runtime.Object{
+			svcManual("manual", "foo"),
+		},
+		Key: "foo/manual",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcManual("manual", "foo", manualConditions...),
+		}},
+	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
 			svcRL("no-updates", "foo", initialConditions...),
-			resources.MakeRoute(svcRL("no-updates", "foo", initialConditions...)),
+			mustMakeRoute(t, svcRL("no-updates", "foo", initialConditions...)),
 			mustMakeConfig(t, svcRL("no-updates", "foo", initialConditions...)),
 		},
 		Key: "foo/no-updates",
@@ -117,13 +156,13 @@ func TestReconcile(t *testing.T) {
 			svcRL("update-route-and-config", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
 			mutateConfig(mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...))),
-			mutateRoute(resources.MakeRoute(svcRL("update-route-and-config", "foo", initialConditions...))),
+			mutateRoute(mustMakeRoute(t, svcRL("update-route-and-config", "foo", initialConditions...))),
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...)),
 		}, {
-			Object: resources.MakeRoute(svcRL("update-route-and-config", "foo", initialConditions...)),
+			Object: mustMakeRoute(t, svcRL("update-route-and-config", "foo", initialConditions...)),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
@@ -133,7 +172,7 @@ func TestReconcile(t *testing.T) {
 			svc("bad-config-update", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
 			mutateConfig(mustMakeConfig(t, svcRL("bad-config-update", "foo", initialConditions...))),
-			mutateRoute(resources.MakeRoute(svcRL("bad-config-update", "foo", initialConditions...))),
+			mutateRoute(mustMakeRoute(t, svcRL("bad-config-update", "foo", initialConditions...))),
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
@@ -150,7 +189,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/create-route-failure",
 		WantCreates: []metav1.Object{
 			mustMakeConfig(t, svcRL("create-route-failure", "foo")),
-			resources.MakeRoute(svcRL("create-route-failure", "foo")),
+			mustMakeRoute(t, svcRL("create-route-failure", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("create-route-failure", "foo", initialConditions...),
@@ -183,14 +222,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			svcRL("update-route-failure", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateRoute(resources.MakeRoute(svcRL("update-route-failure", "foo", initialConditions...))),
+			mutateRoute(mustMakeRoute(t, svcRL("update-route-failure", "foo", initialConditions...))),
 			mutateConfig(mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...))),
 		},
 		Key: "foo/update-route-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...)),
 		}, {
-			Object: resources.MakeRoute(svcRL("update-route-failure", "foo", initialConditions...)),
+			Object: mustMakeRoute(t, svcRL("update-route-failure", "foo", initialConditions...)),
 		}},
 	}, {
 		Name: "runLatest - update config failure",
@@ -202,7 +241,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			svcRL("update-config-failure", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateRoute(resources.MakeRoute(svcRL("update-config-failure", "foo", initialConditions...))),
+			mutateRoute(mustMakeRoute(t, svcRL("update-config-failure", "foo", initialConditions...))),
 			mutateConfig(mustMakeConfig(t, svcRL("update-config-failure", "foo", initialConditions...))),
 		},
 		Key: "foo/update-config-failure",
@@ -223,7 +262,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
 			mustMakeConfig(t, svcRL("run-latest", "foo")),
-			resources.MakeRoute(svcRL("run-latest", "foo")),
+			mustMakeRoute(t, svcRL("run-latest", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("run-latest", "foo", initialConditions...),
@@ -233,7 +272,7 @@ func TestReconcile(t *testing.T) {
 		// When both route and config are ready, the service should become ready.
 		Objects: []runtime.Object{
 			svcRL("all-ready", "foo", initialConditions...),
-			routeWithStatus(resources.MakeRoute(svcRL("all-ready", "foo", initialConditions...)),
+			routeWithStatus(mustMakeRoute(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
@@ -266,7 +305,7 @@ func TestReconcile(t *testing.T) {
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
 			svcRL("config-fails", "foo", initialConditions...),
-			routeWithStatus(resources.MakeRoute(svcRL("config-fails", "foo", initialConditions...)),
+			routeWithStatus(mustMakeRoute(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
@@ -302,7 +341,7 @@ func TestReconcile(t *testing.T) {
 		// When route fails, the service should fail.
 		Objects: []runtime.Object{
 			svcRL("route-fails", "foo", initialConditions...),
-			routeWithStatus(resources.MakeRoute(svcRL("route-fails", "foo", initialConditions...)),
+			routeWithStatus(mustMakeRoute(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RouteConditionReady,
@@ -392,12 +431,32 @@ func svcPin(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alp
 	}, conditions...)
 }
 
+func svcRelease(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
+	return svc(name, namespace, v1alpha1.ServiceSpec{
+		Release: &v1alpha1.ReleaseType{Revisions: []string{"release-00001", "release-00002"}, RolloutPercent: 49, Configuration: configSpec},
+	}, conditions...)
+}
+
+func svcManual(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
+	return svc(name, namespace, v1alpha1.ServiceSpec{
+		Manual: &v1alpha1.ManualType{},
+	}, conditions...)
+}
+
 func mustMakeConfig(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Configuration {
 	cfg, err := resources.MakeConfiguration(svc)
 	if err != nil {
 		t.Fatalf("MakeConfiguration() = %v", err)
 	}
 	return cfg
+}
+
+func mustMakeRoute(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Route {
+	route, err := resources.MakeRoute(svc)
+	if err != nil {
+		t.Fatalf("MakeRoute() = %v", err)
+	}
+	return route
 }
 
 // mutateConfig mutates the specification of the Configuration to simulate someone editing it around our controller.

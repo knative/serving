@@ -17,14 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"github.com/knative/pkg/apis"
 )
 
+// Validate validates the fields belonging to Service
 func (s *Service) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
 		Also(s.Spec.Validate().ViaField("spec"))
 }
 
+// Validate validates the fields belonging to ServiceSpec recursively
 func (ss *ServiceSpec) Validate() *apis.FieldError {
 	// We would do this semantic DeepEqual, but the spec is comprised
 	// entirely of a oneof, the validation for which produces a clearer
@@ -33,18 +36,35 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	switch {
-	case ss.RunLatest != nil && ss.Pinned != nil:
-		return apis.ErrMultipleOneOf("runLatest", "pinned")
-	case ss.RunLatest != nil:
-		return ss.RunLatest.Validate().ViaField("runLatest")
-	case ss.Pinned != nil:
-		return ss.Pinned.Validate().ViaField("pinned")
-	default:
-		return apis.ErrMissingOneOf("runLatest", "pinned")
+	var errs *apis.FieldError
+	set := []string{}
+
+	if ss.RunLatest != nil {
+		set = append(set, "runLatest")
+		errs = errs.Also(ss.RunLatest.Validate().ViaField("runLatest"))
 	}
+	if ss.Release != nil {
+		set = append(set, "release")
+		errs = errs.Also(ss.Release.Validate().ViaField("release"))
+	}
+	if ss.Manual != nil {
+		set = append(set, "manual")
+		errs = errs.Also(ss.Manual.Validate().ViaField("manual"))
+	}
+	if ss.Pinned != nil {
+		set = append(set, "pinned")
+		errs = errs.Also(ss.Pinned.Validate().ViaField("pinned"))
+	}
+
+	if len(set) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(set...))
+	} else if len(set) == 0 {
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual", "pinned"))
+	}
+	return errs
 }
 
+// Validate validates the fields belonging to PinnedType
 func (pt *PinnedType) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 	if pt.RevisionName == "" {
@@ -53,6 +73,42 @@ func (pt *PinnedType) Validate() *apis.FieldError {
 	return errs.Also(pt.Configuration.Validate().ViaField("configuration"))
 }
 
+// Validate validates the fields belonging to RunLatestType
 func (rlt *RunLatestType) Validate() *apis.FieldError {
 	return rlt.Configuration.Validate().ViaField("configuration")
+}
+
+// Validate validates the fields belonging to ManualType
+func (m *ManualType) Validate() *apis.FieldError {
+	return nil
+}
+
+// Validate validates the fields belonging to ReleaseType
+func (rt *ReleaseType) Validate() *apis.FieldError {
+	var errs *apis.FieldError
+	minRevisions := 1
+	maxRevisions := 2
+
+	numRevisions := len(rt.Revisions)
+	if numRevisions < minRevisions {
+		errs = errs.Also(apis.ErrMissingField("revisions"))
+	}
+
+	if numRevisions > maxRevisions {
+		outOfRange := &apis.FieldError{
+			Message: fmt.Sprintf("expected number of elements in range [%v, %v], got %v", minRevisions, maxRevisions, numRevisions),
+			Paths:   []string{"revisions"},
+		}
+		errs = errs.Also(outOfRange)
+	}
+
+	if numRevisions < 2 && rt.RolloutPercent != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", rt.RolloutPercent), "rolloutPercent"))
+	}
+
+	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%v", rt.RolloutPercent), "rolloutPercent"))
+	}
+
+	return errs.Also(rt.Configuration.Validate().ViaField("configuration"))
 }
