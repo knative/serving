@@ -266,12 +266,6 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 		},
 	}
 	svc, err = test.UpdateServiceRevisionTemplateMetadata(logger, clients, svc, metadata)
-	//labels := map[string]string{
-	//	"labelX": "abc",
-	//	"labelY": "def",
-	//}
-	//
-	//err = updateServiceWithLabels(clients, names, labels)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
 	}
@@ -288,12 +282,7 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 			"annotationB": "456",
 		},
 	}
-	//annotations := map[string]string{
-	//	"annotationA": "123",
-	//	"annotationB": "456",
-	//}
 	svc, err = test.UpdateServiceRevisionTemplateMetadata(logger, clients, svc, metadata)
-	//err = updateServiceWithAnnotations(clients, names, annotations)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
 	}
