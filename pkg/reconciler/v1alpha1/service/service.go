@@ -68,7 +68,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Services")
+	impl := controller.NewImpl(c, c.Logger, "Services", reconciler.MustNewStatsReporter("Services", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

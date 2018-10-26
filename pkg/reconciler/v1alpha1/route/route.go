@@ -115,7 +115,7 @@ func NewControllerWithClock(
 		clusterIngressLister: clusterIngressInformer.Lister(),
 		clock:                clock,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Routes")
+	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

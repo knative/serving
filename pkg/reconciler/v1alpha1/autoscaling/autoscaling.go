@@ -98,7 +98,7 @@ func NewController(
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
+	impl := controller.NewImpl(c, c.Logger, "Autoscaling", reconciler.MustNewStatsReporter("Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	kpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
