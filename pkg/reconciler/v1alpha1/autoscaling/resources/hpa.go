@@ -24,7 +24,9 @@ import (
 
 func MakeHPA(kpa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler {
 	min, max := kpa.ScaleBounds()
-	max = 100 // DO NOT SUBMIT
+	if max == 0 {
+		max = 999999 // default to no limit
+	}
 	hpa := &autoscalingv1.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            kpa.Name,
