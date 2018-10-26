@@ -29,10 +29,6 @@ var requestHeadersToRemove = []string{
 	activator.RevisionHeaderNamespace,
 }
 
-var responseHeadersToRemove = []string{
-	activator.RequestCountHTTPHeader,
-}
-
 // SetupHeaderPruning will cause the http.ReverseProxy
 // to not forward activator headers
 func SetupHeaderPruning(p *httputil.ReverseProxy) {
@@ -45,17 +41,4 @@ func SetupHeaderPruning(p *httputil.ReverseProxy) {
 			r.Header.Del(h)
 		}
 	}
-
-	/*origResponseModifier := p.ModifyResponse
-	p.ModifyResponse = func(r *http.Response) (err error) {
-		if origResponseModifier != nil {
-			err = origResponseModifier(r)
-		}
-
-		for _, h := range responseHeadersToRemove {
-			r.Header.Del(h)
-		}
-
-		return
-	}*/
 }
