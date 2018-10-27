@@ -111,7 +111,7 @@ func makeClusterIngressRule(domains []string, ns string, targets []traffic.Revis
 			continue
 		}
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
-			Backend: &v1alpha1.ClusterIngressBackend{
+			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: ns,
 				ServiceName:      reconciler.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName),
 				ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
@@ -150,7 +150,7 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traff
 		return r
 	}
 	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
-		Backend: &v1alpha1.ClusterIngressBackend{
+		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 			ServiceNamespace: system.Namespace,
 			ServiceName:      activator.K8sServiceName,
 			ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),

@@ -175,7 +175,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	cms := []*corev1.ConfigMap{
-		&corev1.ConfigMap{
+		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.DomainConfigName,
 				Namespace: system.Namespace,
@@ -185,7 +185,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 				prodDomainSuffix:    "selector:\n  app: prod",
 			},
 		},
-		&corev1.ConfigMap{
+		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      gc.ConfigName,
 				Namespace: system.Namespace,
@@ -332,7 +332,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: "knative-serving",
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
@@ -421,14 +421,14 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
 							ServicePort:      intstr.FromInt(80),
@@ -504,14 +504,14 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: "knative-serving",
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
@@ -604,14 +604,14 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
 							ServicePort:      intstr.FromInt(80),
@@ -630,7 +630,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      "test-rev-service",
 							ServicePort:      intstr.FromInt(80),
@@ -649,7 +649,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      "test-rev-service",
 							ServicePort:      intstr.FromInt(80),
@@ -724,14 +724,14 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
@@ -750,7 +750,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
@@ -769,7 +769,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						Backend: &netv1alpha1.ClusterIngressBackend{
+						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
 							ServicePort:      intstr.FromInt(80),

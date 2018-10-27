@@ -79,7 +79,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 					Paths: []v1alpha1.HTTPClusterIngressPath{{
 						Path: "^/pets/(.*?)?",
 						Splits: []v1alpha1.ClusterIngressBackendSplit{{
-							Backend: &v1alpha1.ClusterIngressBackend{
+							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 								ServiceNamespace: "test-ns",
 								ServiceName:      "v2-service",
 								ServicePort:      intstr.FromInt(80),
@@ -101,7 +101,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 					Paths: []v1alpha1.HTTPClusterIngressPath{{
 						Path: "^/pets/(.*?)?",
 						Splits: []v1alpha1.ClusterIngressBackendSplit{{
-							Backend: &v1alpha1.ClusterIngressBackend{
+							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 								ServiceNamespace: "test-ns",
 								ServiceName:      "v1-service",
 								ServicePort:      intstr.FromInt(80),
@@ -178,7 +178,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	ingressPath := &v1alpha1.HTTPClusterIngressPath{
 		Splits: []v1alpha1.ClusterIngressBackendSplit{{
-			Backend: &v1alpha1.ClusterIngressBackend{
+			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "revision-service",
 				ServicePort:      intstr.FromInt(80),
@@ -221,14 +221,14 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 	ingressPath := &v1alpha1.HTTPClusterIngressPath{
 		Splits: []v1alpha1.ClusterIngressBackendSplit{{
-			Backend: &v1alpha1.ClusterIngressBackend{
+			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "revision-service",
 				ServicePort:      intstr.FromInt(80),
 			},
 			Percent: 90,
 		}, {
-			Backend: &v1alpha1.ClusterIngressBackend{
+			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "new-revision-service",
 				ServicePort:      intstr.FromString("test-port"),
