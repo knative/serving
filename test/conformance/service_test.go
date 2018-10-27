@@ -21,7 +21,6 @@ package conformance
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math"
 	"net/http"
 	"testing"
@@ -32,6 +31,7 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -259,12 +259,13 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	}
 
 	logger.Info("Updating labels of the RevisionTemplateSpec for service %s", names.Service)
-	svc = reloadService(names.Service, clients, t)
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Labels = map[string]string{
-		"labelX": "abc",
-		"labelY": "def",
+	metadata := metav1.ObjectMeta{
+		Labels: map[string]string{
+			"labelX": "abc",
+			"labelY": "def",
+		},
 	}
-	svc, err = clients.ServingClient.Services.Update(svc)
+	svc, err = test.UpdateServiceRevisionTemplateMetadata(logger, clients, svc, metadata)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
 	}
@@ -275,13 +276,13 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 	}
 
 	logger.Infof("Updating annotations of RevisionTemplateSpec for service %s", names.Service)
-	svc = reloadService(names.Service, clients, t)
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{
-		"annotationA": "123",
-		"annotationB": "456",
+	metadata = metav1.ObjectMeta{
+		Annotations: map[string]string{
+			"annotationA": "123",
+			"annotationB": "456",
+		},
 	}
-
-	svc, err = clients.ServingClient.Services.Update(svc)
+	svc, err = test.UpdateServiceRevisionTemplateMetadata(logger, clients, svc, metadata)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
 	}
@@ -301,14 +302,6 @@ func TestUpdateRevisionTemplateSpecMetadata(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "3", "What a spaceport!")
-}
-
-func reloadService(service string, clients *test.Clients, t *testing.T) *v1alpha1.Service {
-	svc, err := clients.ServingClient.Services.Get(service, v1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to reload service %s: %v", service, err)
-	}
-	return svc
 }
 
 func TestReleaseService(t *testing.T) {
