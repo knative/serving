@@ -50,7 +50,7 @@ var (
 		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []v1alpha1.HTTPClusterIngressPath{{
 				Splits: []v1alpha1.ClusterIngressBackendSplit{{
-					Backend: &v1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "test-service",
 						ServicePort:      intstr.FromInt(80),

@@ -120,12 +120,14 @@ func (s ClusterIngressBackendSplit) Validate() *apis.FieldError {
 	if s.Percent < 0 || s.Percent > 100 {
 		all = all.Also(apis.ErrInvalidValue(fmt.Sprintf("%d", s.Percent), "percent"))
 	}
-	return all.Also(s.Backend.Validate())
+	return all.Also(s.ClusterIngressBackend.Validate())
 }
 
-func (b *ClusterIngressBackend) Validate() *apis.FieldError {
+// Validate inspects the fields of the type ClusterIngressBackend
+// to determine if they are valid.
+func (b ClusterIngressBackend) Validate() *apis.FieldError {
 	// Must not be empty.
-	if equality.Semantic.DeepEqual(b, &ClusterIngressBackend{}) {
+	if equality.Semantic.DeepEqual(b, ClusterIngressBackend{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError = nil
