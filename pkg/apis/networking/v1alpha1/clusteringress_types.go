@@ -204,7 +204,7 @@ type HTTPClusterIngressPath struct {
 // ClusterIngressBackend describes all endpoints for a given service and port.
 type ClusterIngressBackendSplit struct {
 	// Specifies the backend receiving the traffic split.
-	Backend *ClusterIngressBackend `json:",inline"`
+	ClusterIngressBackend `json:",inline"`
 
 	// Specifies the split percentage, a number between 0 and 100.  If
 	// only one split is specified, we default to 100.
