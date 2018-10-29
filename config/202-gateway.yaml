@@ -51,7 +51,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.3
     release: RELEASE-NAME
     heritage: Tiller
     app: knative-ingressgateway
@@ -103,7 +103,7 @@ metadata:
   name: knative-ingressgateway
   namespace: istio-system
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.3
     release: RELEASE-NAME
     heritage: Tiller
     app: knative-ingressgateway
@@ -113,7 +113,6 @@ spec:
   selector:
     matchLabels:
       app: knative-ingressgateway
-      knative: ingressgateway
   template:
     metadata:
       labels:
@@ -126,7 +125,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.2"
+          image: "docker.io/istio/proxyv2:1.0.3"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -137,6 +136,11 @@ spec:
             - containerPort: 853
             - containerPort: 15030
             - containerPort: 15031
+
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+
           args:
           - proxy
           - router
@@ -154,8 +158,6 @@ spec:
           - knative-ingressgateway
           - --zipkinAddress
           - zipkin:9411
-          - --statsdUdpAddress
-          - istio-statsd-prom-bridge:9125
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
