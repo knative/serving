@@ -34,9 +34,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -73,6 +74,7 @@ type Reconciler struct {
 
 	kpaLister       listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
+	hpaLister       autoscalingv1listers.HorizontalPodAutoscalerLister
 
 	kpaMetrics KPAMetrics
 	kpaScaler  KPAScaler
@@ -87,6 +89,7 @@ func NewController(
 
 	kpaInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
+	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
 
 	kpaMetrics KPAMetrics,
 	kpaScaler KPAScaler,
@@ -96,6 +99,7 @@ func NewController(
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		kpaLister:       kpaInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
+		hpaLister:       hpaInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
@@ -241,11 +245,10 @@ func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAuto
 	logger := logging.FromContext(ctx)
 
 	desiredHpa := resources.MakeHPA(kpa)
-	hpa := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace)
-	actualHpa, err := hpa.Get(desiredHpa.Name, metav1.GetOptions{})
+	hpa, err := c.hpaLister.HorizontalPodAutoscalers(kpa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		_, err := hpa.Create(desiredHpa)
+		_, err := c.KubeClientSet.Autoscaling().HorizontalPodAutoscalers(kpa.Namespace).Create(desiredHpa)
 		if err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			return err
@@ -254,9 +257,9 @@ func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAuto
 		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
 		return err
 	} else {
-		if !equality.Semantic.DeepEqual(desiredHpa.Spec, actualHpa.Spec) {
+		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 			logger.Infof("Updating HPA %q", desiredHpa.Name)
-			_, err := hpa.Update(desiredHpa)
+			_, err := c.KubeClientSet.Autoscaling().HorizontalPodAutoscalers(kpa.Namespace).Update(desiredHpa)
 			if err != nil {
 				logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
 				return err
@@ -270,8 +273,7 @@ func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAuto
 func (c *Reconciler) deleteHpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	hpa := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace)
-	err := hpa.Delete(kpa.Name, nil)
+	err := c.KubeClientSet.Autoscaling().HorizontalPodAutoscalers(kpa.Namespace).Delete(kpa.Name, nil)
 	if errors.IsNotFound(err) {
 		// This is fine.
 		return nil

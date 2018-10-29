@@ -132,9 +132,10 @@ func main() {
 
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	kpaScaler := autoscaling.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
-	ctl := autoscaling.NewController(&opt, kpaInformer, endpointsInformer, multiScaler, kpaScaler)
+	ctl := autoscaling.NewController(&opt, kpaInformer, endpointsInformer, hpaInformer, multiScaler, kpaScaler)
 
 	// Start the serving informer factory.
 	kubeInformerFactory.Start(stopCh)
