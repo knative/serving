@@ -102,8 +102,8 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 		weights = append(weights, v1alpha3.DestinationWeight{
 			Destination: v1alpha3.Destination{
 				Host: reconciler.GetK8sServiceFullname(
-					split.Backend.ServiceName, split.Backend.ServiceNamespace),
-				Port: makePortSelector(split.Backend.ServicePort),
+					split.ServiceName, split.ServiceNamespace),
+				Port: makePortSelector(split.ServicePort),
 			},
 			Weight: split.Percent,
 		})
