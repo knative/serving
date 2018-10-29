@@ -272,7 +272,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 func assertScaleUpCountPods(ctx *testContext) {
 	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-	// options: https://istio.io/docs/concepts/traffic-management/#timeouts-and-retries
 	err := generateTraffic(ctx, 20, 30*time.Second)
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
@@ -290,14 +289,14 @@ func assertScaleUpCountPods(ctx *testContext) {
 	AssertNumberOfPods(ctx, 4)
 }
 
-func AssertNumberOfPods(ctx *testContext, num_replicas int32) {
+func AssertNumberOfPods(ctx *testContext, numReplicas int32) {
 	deployment, err := ctx.clients.KubeClient.Kube.ExtensionsV1beta1().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		ctx.t.Fatalf("Failed to get deployment %s: %v", deployment, err)
 	}
 
-	if deployment.Status.Replicas != num_replicas && deployment.Status.ReadyReplicas != num_replicas {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to exactly %d pods, observed ReadyReplicas %d and Replicas %d.", ctx.deploymentName, num_replicas, deployment.Status.ReadyReplicas, deployment.Status.Replicas)
+	if deployment.Status.Replicas != numReplicas && deployment.Status.ReadyReplicas != numReplicas {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to exactly %d pods, observed ReadyReplicas %d and Replicas %d.", ctx.deploymentName, numReplicas, deployment.Status.ReadyReplicas, deployment.Status.Replicas)
 	}
 }
 
