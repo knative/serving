@@ -68,37 +68,51 @@ func newConfigWatcher() configmap.Watcher {
 func TestCreateAndDelete(t *testing.T) {
 
 	cases := []struct {
-		name          string
-		annotations   map[string]string
-		wantKpaCreate bool
-		wantHpaCreate bool
-		wantKpaDelete bool
-		wantHpaDelete bool
+		name                   string
+		annotations            map[string]string
+		wantKpaCreate          bool
+		wantHpaCreate          bool
+		wantKpaDelete          bool
+		wantHpaDelete          bool
+		wantPodAutoscalerReady bool
 	}{{
-		name:          "default class (kpa)",
-		annotations:   map[string]string{},
-		wantKpaCreate: true,
-		wantHpaCreate: false,
-		wantKpaDelete: false,
-		wantHpaDelete: true,
+		name:                   "default class (kpa)",
+		annotations:            map[string]string{},
+		wantKpaCreate:          true,
+		wantHpaCreate:          false,
+		wantKpaDelete:          false,
+		wantHpaDelete:          true,
+		wantPodAutoscalerReady: true,
 	}, {
 		name: "kpa class",
 		annotations: map[string]string{
 			"autoscaling.knative.dev/class": "kpa",
 		},
-		wantKpaCreate: true,
-		wantHpaCreate: false,
-		wantKpaDelete: false,
-		wantHpaDelete: true,
+		wantKpaCreate:          true,
+		wantHpaCreate:          false,
+		wantKpaDelete:          false,
+		wantHpaDelete:          true,
+		wantPodAutoscalerReady: true,
 	}, {
 		name: "hpa class",
 		annotations: map[string]string{
 			"autoscaling.knative.dev/class": "hpa",
 		},
-		wantKpaCreate: false,
-		wantHpaCreate: true,
-		wantKpaDelete: true,
-		wantHpaDelete: false,
+		wantKpaCreate:          false,
+		wantHpaCreate:          true,
+		wantKpaDelete:          true,
+		wantHpaDelete:          false,
+		wantPodAutoscalerReady: true,
+	}, {
+		name: "other class",
+		annotations: map[string]string{
+			"autoscaling.knative.dev/class": "other",
+		},
+		wantKpaCreate:          false,
+		wantHpaCreate:          false,
+		wantKpaDelete:          true,
+		wantHpaDelete:          true,
+		wantPodAutoscalerReady: false,
 	}}
 
 	for _, tc := range cases {
@@ -184,14 +198,18 @@ func TestCreateAndDelete(t *testing.T) {
 				}
 			}
 
-			// Verify the PodAutoscaler is created and Ready.
+			// Verify the PodAutoscaler is created.
 			newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 				kpa.Name, metav1.GetOptions{})
 			if err != nil {
 				t.Errorf("Get() = %v", err)
 			}
-			if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-				t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+			if tc.wantPodAutoscalerReady {
+				// Verify the PodAutoscaler is ready.
+				// Other reconcilers will manage PodAutoscaler conditions.
+				if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
+					t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+				}
 			}
 
 			// Delete the revision.
