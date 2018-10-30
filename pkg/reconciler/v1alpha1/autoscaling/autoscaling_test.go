@@ -19,6 +19,7 @@ package autoscaling
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/system"
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,11 +98,6 @@ func TestCreateAndDelete(t *testing.T) {
 			kubeClient := fakeK8s.NewSimpleClientset()
 			servingClient := fakeKna.NewSimpleClientset()
 
-			createdCh := make(chan struct{})
-			defer close(createdCh)
-			deletedCh := make(chan struct{})
-			defer close(deletedCh)
-
 			opts := reconciler.Options{
 				KubeClientSet:    kubeClient,
 				ServingClientSet: servingClient,
@@ -115,7 +110,7 @@ func TestCreateAndDelete(t *testing.T) {
 			scaleClient := &scalefake.FakeScaleClient{}
 			kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-			fakeMetrics := newTestKPAMetrics(createdCh, deletedCh)
+			fakeMetrics := newFakeKPAMetrics()
 			ctl := NewController(&opts,
 				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 				kubeInformer.Core().V1().Endpoints(),
@@ -134,50 +129,39 @@ func TestCreateAndDelete(t *testing.T) {
 			kpa := revisionresources.MakeKPA(rev)
 			servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 			servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-			reconcileDone := make(chan struct{})
-			go func() {
-				defer close(reconcileDone)
-				err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-				if err != nil {
-					t.Errorf("Reconcile() = %v", err)
-				}
-			}()
 
-			// Ensure revision creation has been seen before deleting it.
-			if tc.wantKpaCreate {
-				select {
-				case <-createdCh:
-				case <-time.After(3 * time.Second):
-					t.Fatal("KPA creation notification timed out")
-				}
-			}
-			if tc.wantKpaDelete {
-				select {
-				case <-deletedCh:
-				case <-time.After(3 * time.Second):
-					t.Fatal("KPA deletion notification timed out")
-				}
+			// Reconcile.
+			err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+			if err != nil {
+				t.Errorf("Reconcile() = %v", err)
 			}
 
-			// Wait for the creation Reconcile to complete.
-			_ = <-reconcileDone
-
+			// Verify the correct autoscalers were created.
+			// And that unnecessary ones were deleted.
 			if tc.wantKpaCreate {
-				if count := fakeMetrics.createCallCount.Load(); count != 1 {
-					t.Fatalf("Create called %d times instead of once", count)
+				_, err := fakeMetrics.Get(context.TODO(), testNamespace+"/"+testRevision)
+				if errors.IsNotFound(err) {
+					t.Fatalf("Expected KPA. Found none")
+				} else if err != nil {
+					t.Fatalf("Error getting KPA: %v", err)
 				}
 			}
 			if tc.wantHpaCreate {
 				_, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
-					t.Errorf("Wanted HPA. Not found")
+					t.Fatalf("Wanted HPA. Not found")
 				} else if err != nil {
 					t.Fatalf("Error getting HPA: %v", err)
 				}
 			}
 			if tc.wantKpaDelete {
-				if count := fakeMetrics.deleteCallCount.Load(); count != 1 {
-					t.Fatalf("Delete called %d times instead of once", count)
+				_, err := fakeMetrics.Get(context.TODO(), testNamespace+"/"+testRevision)
+				if errors.IsNotFound(err) {
+					// Expected
+				} else if err != nil {
+					t.Fatalf("Error getting KPA: %v", err)
+				} else {
+					t.Fatalf("Wanted no KPA. Found one")
 				}
 			}
 			if tc.wantHpaDelete {
@@ -187,10 +171,11 @@ func TestCreateAndDelete(t *testing.T) {
 				} else if err != nil {
 					t.Fatalf("Error getting HPA: %v", err)
 				} else {
-					t.Errorf("Did not want HPA. Found HPA.")
+					t.Errorf("Wanted no HPA. Found one")
 				}
 			}
 
+			// Verify the PodAutoscaler is created and Ready.
 			newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 				kpa.Name, metav1.GetOptions{})
 			if err != nil {
@@ -201,33 +186,25 @@ func TestCreateAndDelete(t *testing.T) {
 			}
 
 			// Delete the revision.
-			fakeMetrics.reset()
 			servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
 			servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
 			servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
 			servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Delete(kpa)
 
-			reconcileDone = make(chan struct{})
-			go func() {
-				defer close(reconcileDone)
-				err = ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-				if err != nil {
-					t.Errorf("Reconcile() = %v", err)
-				}
-			}()
-
-			// Expect a KPA deletion.
-			select {
-			case <-deletedCh:
-			case <-time.After(3 * time.Second):
-				t.Fatal("KPA deletion notification timed out")
+			// Reconcile.
+			err = ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+			if err != nil {
+				t.Errorf("Reconcile() = %v", err)
 			}
 
-			// Wait for the deletion Reconcile to complete.
-			_ = <-reconcileDone
-
-			if count := fakeMetrics.deleteCallCount.Load(); count != 1 {
-				t.Fatalf("Delete called %d times instead of once", count)
+			// Verify all autoscalers were deleted.
+			_, err = fakeMetrics.Get(context.TODO(), testNamespace+"/"+testRevision)
+			if errors.IsNotFound(err) {
+				// Expected
+			} else if err != nil {
+				t.Fatalf("Error getting KPA: %v", err)
+			} else {
+				t.Fatalf("Wanted no KPA. Found one")
 			}
 			_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
@@ -245,11 +222,6 @@ func TestNoEndpoints(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-	deletedCh := make(chan struct{})
-	defer close(deletedCh)
-
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
@@ -262,7 +234,7 @@ func TestNoEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, deletedCh)
+	fakeMetrics := newFakeKPAMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
@@ -281,18 +253,10 @@ func TestNoEndpoints(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	reconcileDone := make(chan struct{})
-	go func() {
-		defer close(reconcileDone)
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	}()
-
-	// Wait for the Reconcile to complete.
-	_ = <-createdCh
-	_ = <-reconcileDone
+	err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	if err != nil {
+		t.Errorf("Reconcile() = %v", err)
+	}
 
 	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
@@ -308,11 +272,6 @@ func TestEmptyEndpoints(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-	deletedCh := make(chan struct{})
-	defer close(deletedCh)
-
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
@@ -325,7 +284,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, deletedCh)
+	fakeMetrics := newFakeKPAMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
@@ -344,18 +303,10 @@ func TestEmptyEndpoints(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	reconcileDone := make(chan struct{})
-	go func() {
-		defer close(reconcileDone)
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	}()
-
-	// Wait for the Reconcile to complete.
-	_ = <-createdCh
-	_ = <-reconcileDone
+	err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	if err != nil {
+		t.Errorf("Reconcile() = %v", err)
+	}
 
 	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
@@ -487,11 +438,6 @@ func TestScaleFailure(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-	deletedCh := make(chan struct{})
-	defer close(deletedCh)
-
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
@@ -504,7 +450,7 @@ func TestScaleFailure(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, deletedCh)
+	fakeMetrics := newFakeKPAMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Endpoints(),
@@ -517,18 +463,17 @@ func TestScaleFailure(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision, map[string]string{})
 	kpa := revisionresources.MakeKPA(rev)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	go func() {
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err == nil {
-			t.Error("Reconcile() = nil, wanted error")
-		}
-	}()
+	err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	if err == nil {
+		t.Error("Reconcile() = nil, wanted error")
+	}
 
-	// Ensure revision creation has been seen before deleting it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
+	// Ensure KPA is created.
+	_, err = fakeMetrics.Get(context.TODO(), testNamespace+"/"+testRevision)
+	if errors.IsNotFound(err) {
+		t.Fatalf("Expected KPA. Found none")
+	} else if err != nil {
+		t.Fatalf("Error getting KPA: %v", err)
 	}
 }
 
@@ -561,39 +506,42 @@ func TestBadKey(t *testing.T) {
 	}
 }
 
-func newTestKPAMetrics(createdCh chan struct{}, deletedCh chan struct{}) *testKPAMetrics {
-	return &testKPAMetrics{atomic.NewUint32(0), atomic.NewUint32(0), createdCh, deletedCh}
+func newFakeKPAMetrics() *fakeKPAMetrics {
+	return &fakeKPAMetrics{metrics: make(map[string]*autoscaler.Metric)}
 }
 
-type testKPAMetrics struct {
-	createCallCount *atomic.Uint32
-	deleteCallCount *atomic.Uint32
-	createdCh       chan struct{}
-	deletedCh       chan struct{}
+type fakeKPAMetrics struct {
+	sync.Mutex
+	metrics map[string]*autoscaler.Metric
 }
 
-func (km *testKPAMetrics) Get(ctx context.Context, key string) (*autoscaler.Metric, error) {
+func (km *fakeKPAMetrics) Get(ctx context.Context, key string) (*autoscaler.Metric, error) {
+	km.Lock()
+	defer km.Unlock()
+	if metric, ok := km.metrics[key]; ok {
+		return metric, nil
+	}
 	return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
 }
 
-func (km *testKPAMetrics) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
-	km.createCallCount.Add(1)
-	km.createdCh <- struct{}{}
-	return &autoscaler.Metric{1}, nil
+func (km *fakeKPAMetrics) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
+	key := kpa.Namespace + "/" + kpa.Name
+	km.Lock()
+	defer km.Unlock()
+	km.metrics[key] = &autoscaler.Metric{1}
+	return km.metrics[key], nil
 }
 
-func (km *testKPAMetrics) Delete(ctx context.Context, key string) error {
-	km.deleteCallCount.Add(1)
-	km.deletedCh <- struct{}{}
+func (km *fakeKPAMetrics) Delete(ctx context.Context, key string) error {
+	km.Lock()
+	defer km.Unlock()
+	if _, ok := km.metrics[key]; ok {
+		delete(km.metrics, key)
+	}
 	return nil
 }
 
-func (km *testKPAMetrics) Watch(fn func(string)) {
-}
-
-func (km *testKPAMetrics) reset() {
-	km.createCallCount.Store(0)
-	km.deleteCallCount.Store(0)
+func (km *fakeKPAMetrics) Watch(fn func(string)) {
 }
 
 type failingKPAMetrics struct {
