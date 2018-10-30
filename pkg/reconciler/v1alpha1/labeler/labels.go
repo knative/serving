@@ -66,7 +66,7 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 	configMap := make(map[string]*v1alpha1.Configuration)
 
 	// Lookup Configurations that are missing our Route label.
-	for name, _ := range configs {
+	for name := range configs {
 		configurationOrder = append(configurationOrder, name)
 
 		config, err := c.configurationLister.Configurations(route.Namespace).Get(name)
@@ -127,7 +127,6 @@ func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 		if _, ok := configs[config.Name]; ok {
 			continue
 		}
-		delete(config.Labels, serving.RouteLabelKey)
 
 		if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, nil); err != nil {
 			logger.Errorf("Failed to remove route label to configuration %q: %s", config.Name, err)

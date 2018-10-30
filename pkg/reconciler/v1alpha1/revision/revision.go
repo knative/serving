@@ -134,7 +134,7 @@ func NewController(
 			transport: http.DefaultTransport,
 		},
 	}
-	impl := controller.NewImpl(c, c.Logger, "Revisions")
+	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
 
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
@@ -397,17 +397,19 @@ func (c *Reconciler) EnqueueEndpointsRevision(impl *controller.Impl) func(obj in
 	}
 }
 
-func (c *Reconciler) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	newRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+	rev, err := c.revisionLister.Revisions(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(newRev.Status, rev.Status) {
-		newRev.Status = rev.Status
+	if !reflect.DeepEqual(rev.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := rev.DeepCopy()
+		existing.Status = desired.Status
 
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(newRev)
+		return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
 		//	return prClient.UpdateStatus(newRev)
 	}
 	return rev, nil

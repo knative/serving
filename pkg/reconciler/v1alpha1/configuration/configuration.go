@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
@@ -28,17 +30,26 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
 const controllerAgentName = "configuration-controller"
+
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
 
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
@@ -47,6 +58,8 @@ type Reconciler struct {
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+
+	configStore configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -64,7 +77,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Configurations")
+	impl := controller.NewImpl(c, c.Logger, "Configurations", reconciler.MustNewStatsReporter("Configurations", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -80,6 +93,10 @@ func NewController(
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		},
 	})
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	c.configStore = configns.NewStore(c.Logger.Named("config-store"))
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
 
@@ -94,6 +111,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
+
+	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Configuration resource with this namespace/name
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -188,6 +207,10 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
+	if err := c.gcRevisions(ctx, config); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -217,16 +240,79 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	return created, nil
 }
 
-func (c *Reconciler) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	newu, err := c.configurationLister.Configurations(u.Namespace).Get(u.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+	u, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(newu.Status, u.Status) {
-		newu.Status = u.Status
+	if !reflect.DeepEqual(u.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := u.DeepCopy()
+		existing.Status = desired.Status
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
+		return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
 		//	return configClient.UpdateStatus(newu)
 	}
-	return newu, nil
+	return u, nil
+}
+
+func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {
+	logger := logging.FromContext(ctx)
+
+	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
+	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
+	if err != nil {
+		return err
+	}
+
+	for _, rev := range revs {
+		if isRevisionStale(ctx, rev, config) {
+			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				logger.Errorf("Failed to delete stale revision: %v", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+	cfg := configns.FromContext(ctx).RevisionGC
+	logger := logging.FromContext(ctx)
+
+	// maxGen is the maximum generation number we consider for GC
+	maxGen := config.Spec.Generation - cfg.StaleRevisionMinimumGenerations
+
+	if config.Status.LatestReadyRevisionName == rev.Name {
+		return false
+	}
+
+	// Check if rev is within "MinimumGenerations" of latest
+	if gen, err := rev.GetConfigurationGeneration(); err != nil {
+		logger.Errorf("Failed to determine revision configuration generation: %v", err)
+		return false
+	} else if gen > maxGen {
+		return false
+	}
+
+	curTime := time.Now()
+	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
+		// Revision was created sooner than staleRevisionCreateDelay. Ignore it
+		return false
+	}
+
+	lastPin, err := rev.GetLastPinned()
+	if err != nil {
+		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+			logger.Errorf("Failed to determine revision last pinned: %v", err)
+		}
+		return false
+	}
+
+	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	if ret {
+		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
+	}
+	return ret
 }

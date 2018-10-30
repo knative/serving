@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/serving/pkg/gc"
 )
 
 type cfgKey struct{}
@@ -27,6 +28,7 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Domain *Domain
+	GC     *gc.Config
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -61,6 +63,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			logger,
 			configmap.Constructors{
 				DomainConfigName: NewDomainFromConfigMap,
+				gc.ConfigName:    gc.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -76,5 +79,6 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		Domain: s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
+		GC:     s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
 	}
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package names
 
 import (
+	"fmt"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/system"
@@ -34,10 +36,12 @@ func K8sService(route *v1alpha1.Route) string {
 	return route.Name
 }
 
-func VirtualService(route *v1alpha1.Route) string {
-	return route.Name
-}
-
 func K8sServiceFullname(route *v1alpha1.Route) string {
 	return reconciler.GetK8sServiceFullname(K8sService(route), route.Namespace)
+}
+
+// ClusterIngressPrefix returns GenerateName prefix of the
+// ClusterIngress child resource for given Route.
+func ClusterIngressPrefix(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s-", route.Name)
 }

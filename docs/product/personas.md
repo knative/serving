@@ -4,7 +4,6 @@ When discussing user actions, it is often helpful to [define specific
 user roles](https://en.wikipedia.org/wiki/Persona_(user_experience)) who
 might want to do the action.
 
-
 ## Knative Serving Compute
 
 ### Developer Personas
@@ -20,6 +19,7 @@ their native language tooling or business processes.
 * SRE
 
 User stories:
+
 * Deploy some code
 * Update environment
 * Roll back the last change
@@ -38,6 +38,7 @@ organization policy and security patches.
 * Capacity Planner
 
 User stories:
+
 * Create an Knative Serving cluster
 * Apply policy / RBAC
 * Control or charge back for resource usage
@@ -57,9 +58,9 @@ contributors to the project, as well as the impact on end-users.
 * Consultant
 
 User stories:
+
 * Check out the code
 * Build and run the code
 * Run tests
 * View test status
 * Run performance tests
-

@@ -85,8 +85,7 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 	}
 	logger.Infof("Reconciling service diff (-desired, +observed): %v",
 		cmp.Diff(desiredService.Spec, service.Spec))
-	service.Spec = desiredService.Spec
 
-	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(service)
+	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(desiredService)
 	return d, WasChanged, err
 }

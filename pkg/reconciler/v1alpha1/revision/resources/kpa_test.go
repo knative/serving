@@ -36,7 +36,7 @@ func TestMakeKPA(t *testing.T) {
 		rev  *v1alpha1.Revision
 		want *kpa.PodAutoscaler
 	}{{
-		name: "name is bar (ServiceState=Active, Concurrency=1)",
+		name: "name is bar (Concurrency=1)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -44,7 +44,6 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ServingState:         "Active",
 				ContainerConcurrency: 1,
 			},
 		},
@@ -78,7 +77,7 @@ func TestMakeKPA(t *testing.T) {
 			},
 		},
 	}, {
-		name: "name is baz (ServiceState=Reserve, Concurrency=0)",
+		name: "name is baz (Concurrency=0)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -86,7 +85,6 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "4321",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ServingState:         "Reserve",
 				ContainerConcurrency: 0,
 			},
 		},

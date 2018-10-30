@@ -22,8 +22,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
@@ -170,8 +168,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	_, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
+		newRevisionBuilder(defaultRevisionLabels).build())
 	failEp := Endpoint{}
 	failStatus := http.StatusServiceUnavailable
 	failErr := fmt.Errorf("test error")
@@ -228,8 +225,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 func TestShutdown_ReturnError(t *testing.T) {
 	_, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
+		newRevisionBuilder(defaultRevisionLabels).build())
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{

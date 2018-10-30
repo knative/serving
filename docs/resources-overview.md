@@ -1,6 +1,6 @@
-For a truly high-level overview, [see these slides](https://docs.google.com/presentation/d/1CbwVC7W2JaSxRyltU8CS1bIsrIXu1RrZqvnlMlDaaJE/edit#slide=id.p)
+# Resources Overview
 
-# Resources
+For a truly high-level overview, [see these slides](https://docs.google.com/presentation/d/1CbwVC7W2JaSxRyltU8CS1bIsrIXu1RrZqvnlMlDaaJE/edit#slide=id.p)
 
 This document provides a high-level description of the resources deployed to a Kubernetes cluster in order to run Knative Serving. The exact list of resources is going to change frequently during the current phase of active development. In order to keep this document from becoming out-of-date frequently it doesn't describe the exact individual resources but instead the higher level objects which they form.
 
@@ -27,7 +27,7 @@ The Knative Serving controller creates Kubernetes, Istio, and Build CRD resource
 
 The various Kubernetes resource configurations are organized as follows:
 
-```
+```plain
 # Knative Serving resources
 config/*.yaml
 
@@ -53,7 +53,7 @@ View the Knative Serving specific deployments by running `kubectl -n knative-ser
 
 For example, given:
 
-```
+```console
 $ kubectl -n knative-serving get deployments
 NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 controller   1         1         1            1           6m
@@ -62,7 +62,7 @@ webhook      1         1         1            1           6m
 
 Based on the desired state shown above, we expect there to be a single pod running for each of the deployments shown above. We can verify this by running and seeing similar output as shown below:
 
-```
+```console
 $ kubectl -n knative-serving get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 controller-5bfb798f96-2zjnf   1/1       Running   0          9m

@@ -31,11 +31,15 @@ const (
 	testServiceName            = "test-service"
 	testServiceNamespace       = "test-service-namespace"
 	testRevisionName           = "test-revision-name"
+	testCandidateRevisionName  = "test-candidate-revision-name"
 	testContainerNameRunLatest = "test-container-run-latest"
 	testContainerNamePinned    = "test-container-pinned"
+	testContainerNameRelease   = "test-container-release"
 	testLabelKey               = "test-label-key"
 	testLabelValuePinned       = "test-label-value-pinned"
 	testLabelValueRunLatest    = "test-label-value-run-latest"
+	testLabelValueRelease      = "test-label-value-release"
+	testLabelValueManual       = "test-label-value-manual"
 )
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
@@ -96,5 +100,35 @@ func createServiceWithPinned() *v1alpha1.Service {
 	}
 	s.Labels = make(map[string]string, 2)
 	s.Labels[testLabelKey] = testLabelValuePinned
+	return s
+}
+
+func createServiceWithRelease(numRevision int, rolloutPercent int) *v1alpha1.Service {
+	var revisions []string
+	if numRevision == 2 {
+		revisions = []string{testRevisionName, testCandidateRevisionName}
+	} else {
+		revisions = []string{testRevisionName}
+	}
+	s := createServiceMeta()
+	s.Spec = v1alpha1.ServiceSpec{
+		Release: &v1alpha1.ReleaseType{
+			Configuration:  createConfiguration(testContainerNameRelease),
+			RolloutPercent: rolloutPercent,
+			Revisions:      revisions,
+		},
+	}
+	s.Labels = make(map[string]string, 2)
+	s.Labels[testLabelKey] = testLabelValueRelease
+	return s
+}
+
+func createServiceWithManual() *v1alpha1.Service {
+	s := createServiceMeta()
+	s.Spec = v1alpha1.ServiceSpec{
+		Manual: &v1alpha1.ManualType{},
+	}
+	s.Labels = make(map[string]string, 2)
+	s.Labels[testLabelKey] = testLabelValueManual
 	return s
 }

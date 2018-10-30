@@ -1,6 +1,6 @@
 # Configuring Knative Serving
 
-## Serving multiple domains:
+## Serving multiple domains
 
 Different domain suffixes can be configured based on the route labels.  In order
 to do this, update the config map named `config-domain` in the namespace
@@ -13,7 +13,8 @@ multiple selectors matching your route labels, the one that is most specific
 (has the most number of requirements) will be chosen.
 
 For example, if your config map looks like
-```
+
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -32,6 +33,7 @@ data:
 ```
 
 then
+
 * when your route has label `app=prod`, then route domain will have the suffix
   `prod.domain.com`
 * when your route has labels `app=staging, version=v2`, then route domain will

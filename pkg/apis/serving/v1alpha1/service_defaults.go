@@ -25,5 +25,7 @@ func (ss *ServiceSpec) SetDefaults() {
 		ss.RunLatest.Configuration.SetDefaults()
 	} else if ss.Pinned != nil {
 		ss.Pinned.Configuration.SetDefaults()
+	} else if ss.Release != nil {
+		ss.Release.Configuration.SetDefaults()
 	}
 }

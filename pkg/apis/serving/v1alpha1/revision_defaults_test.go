@@ -32,24 +32,18 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
-				// In the context of a Revision we initialize ServingState.
 				ContainerConcurrency: 0,
-				ServingState:         "Active",
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
-				ServingState:         "Reserve",
-			},
+				ContainerConcurrency: 1},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
-				ServingState:         "Reserve",
-			},
+				ContainerConcurrency: 1},
 		},
 	}, {
 		name: "partially initialized",
@@ -58,9 +52,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
-				ServingState:         "Active",
-			},
+				ContainerConcurrency: 0},
 		},
 	}, {
 		name: "fall back to concurrency model",
@@ -68,14 +60,12 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 0, // unspecified
-				ServingState:         "Active",
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 1,
-				ServingState:         "Active",
 			},
 		},
 	}}

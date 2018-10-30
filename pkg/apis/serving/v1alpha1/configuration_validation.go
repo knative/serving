@@ -34,11 +34,7 @@ func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var errs *apis.FieldError
-	// In the context of Configuration, serving state may not be specified at all.
 	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
-	if cs.RevisionTemplate.Spec.ServingState != "" {
-		errs = apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
-	}
 
 	if cs.Build == nil {
 		// No build was specified.

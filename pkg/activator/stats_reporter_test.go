@@ -23,7 +23,7 @@ import (
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequest("testns", "testsvc", "testconfig", "testrev", "Reserved", 1); err == nil {
+	if err := r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 	if err := r.ReportResponseCount("testns", "testsvc", "testconfig", "testrev", 200, 1, 1); err == nil {
@@ -43,8 +43,8 @@ func TestActivatorReporter(t *testing.T) {
 		"destination_revision":      "testrev",
 		"serving_state":             "Reserved",
 	}
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", "Reserved", 1) })
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", "Reserved", 2.0) })
+	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 1) })
+	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 2.0) })
 	checkSumData(t, "revision_request_count", wantTags1, 3)
 
 	// test ReportResponseCount

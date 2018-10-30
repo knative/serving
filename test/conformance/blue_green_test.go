@@ -29,12 +29,10 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 const (
@@ -49,22 +47,6 @@ const (
 	expectedBlue  = "What a spaceport!"
 	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
-
-// Probe until we get a successful response. This ensures the domain is
-// routable before we send it a bunch of traffic.
-func probeDomain(logger *logging.BaseLogger, clients *test.Clients, domain string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
-	if err != nil {
-		return err
-	}
-	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	_, err = client.Poll(req, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
-	return err
-}
 
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
 func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
@@ -170,27 +152,39 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(image1))
-	imagePaths = append(imagePaths, test.ImagePath(image2))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
-	names.Config = test.AppendRandomString("prod", logger)
-	names.Route = test.AppendRandomString("pizzaplanet", logger)
+	names.Service = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
-	logger.Infof("Creating a Configuration")
-	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{}); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+	logger.Info("Creating a new Service in runLatest")
+	svc, err := test.CreateLatestService(logger, clients, names, imagePaths[0])
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+	blue.Revision = revisionName
+
+	logger.Info("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	var err error
-
-	logger.Infof("The Configuration will be updated with the name of the Revision once it is created")
-	blue.Revision, err = getNextRevisionName(clients, names)
+	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
+	_, err = test.UpdateManualService(logger, clients, svc)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
+		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
 
 	logger.Infof("Updating the Configuration to use a different image")
@@ -205,7 +199,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	green.Revision, err = getNextRevisionName(clients, names)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
 	}
 
 	// We should only need to wait until the Revision is routable,
@@ -230,12 +224,12 @@ func TestBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
 
-	logger.Infof("Creating a Route")
-	if err := test.CreateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
+	logger.Infof("Updating Route")
+	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("When the Route reports as Ready, everything should be ready.")
+	logger.Infof("Wait for the route domains to be ready")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -252,10 +246,11 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
-	// It doesn't matter which domain we probe, we just need to choose one.
-	logger.Infof("Probing domain %s", tealDomain)
-	if err := probeDomain(logger, clients, tealDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
+	// Since we are updating the route the teal domain probe will succeed before our changes
+	// take effect so we probe the green domain.
+	logger.Infof("Probing domain %s", greenDomain)
+	if err := test.ProbeDomain(logger, clients, greenDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", greenDomain, err)
 	}
 
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.

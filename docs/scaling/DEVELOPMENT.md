@@ -14,6 +14,7 @@ Knative Serving Revisions are automatically scaled up and down according incomin
 ## Behavior
 
 Revisions have three autoscaling states which are:
+
 1. **Active** when they are actively serving requests,
 2. **Reserve** when they are scaled down to 0 Pods but is still in service, and
 3. **Retired** when they will no longer receive traffic.
@@ -28,10 +29,11 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 
 Note: Retired state is currently not set anywhere. See [issue 1203](https://github.com/knative/serving/issues/1203).
 
-## Context 
+## Context
+
 The following diagram illustrates the mechanics of the autoscaler:
 
-```
+```diagram
    +---------------------+
    | ROUTE               |
    |                     |
@@ -60,7 +62,7 @@ The following diagram illustrates the mechanics of the autoscaler:
                               |                                        |
                               | REVISION                               |
                               +----------------------------------------+
-                              
+
 ```
 
 ## Design Goals
@@ -72,6 +74,7 @@ The following diagram illustrates the mechanics of the autoscaler:
 ### Slow Brain / Fast Brain
 
 The Knative Serving Autoscaler is split into two parts:
+
 1. **Fast Brain** that maintains the desired level of concurrent requests per Pod (satisfying [Design Goal #1](#design-goals)), and the
 2. **Slow Brain** that comes up with the desired level based on CPU, memory and latency statistics (satisfying [Design Goal #2](#design-goals)).
 

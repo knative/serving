@@ -76,7 +76,7 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 	}
 
 	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
-	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, string(revision.Spec.ServingState), 1.0)
+	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, 1.0)
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {

@@ -41,16 +41,6 @@ func TestNamer(t *testing.T) {
 		f:    K8sService,
 		want: "blah",
 	}, {
-		name: "VirtualService",
-		route: &v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "default",
-			},
-		},
-		f:    VirtualService,
-		want: "foo",
-	}, {
 		name: "K8sServiceFullname",
 		route: &v1alpha1.Route{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,6 +50,16 @@ func TestNamer(t *testing.T) {
 		},
 		f:    K8sServiceFullname,
 		want: "bar.default.svc.cluster.local",
+	}, {
+		name: "ClusterIngressPrefix",
+		route: &v1alpha1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "default",
+			},
+		},
+		f:    ClusterIngressPrefix,
+		want: "bar-",
 	}}
 
 	for _, test := range tests {

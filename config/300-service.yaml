@@ -31,3 +31,19 @@ spec:
     - kservice
     - ksvc
   scope: Namespaced
+  additionalPrinterColumns:
+  - name: Domain
+    type: string
+    JSONPath: .status.domain
+  - name: LatestCreated
+    type: string
+    JSONPath: .status.latestCreatedRevisionName
+  - name: LatestReady
+    type: string
+    JSONPath: .status.latestReadyRevisionName
+  - name: Ready
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"
+  - name: Reason
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"

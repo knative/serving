@@ -103,7 +103,7 @@ func NewController(
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
+	impl := controller.NewImpl(c, c.Logger, "Autoscaling", reconciler.MustNewStatsReporter("Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	kpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -334,17 +334,19 @@ func (c *Reconciler) reconcileMetric(ctx context.Context, kpa *kpa.PodAutoscaler
 	return nil
 }
 
-func (c *Reconciler) updateStatus(kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
-	newKPA, err := c.kpaLister.PodAutoscalers(kpa.Namespace).Get(kpa.Name)
+func (c *Reconciler) updateStatus(desired *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+	kpa, err := c.kpaLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(newKPA.Status, kpa.Status) {
-		newKPA.Status = kpa.Status
+	if !reflect.DeepEqual(kpa.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := kpa.DeepCopy()
+		existing.Status = desired.Status
 
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(newKPA)
+		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(existing)
 		//	return prClient.UpdateStatus(newKPA)
 	}
 	return kpa, nil

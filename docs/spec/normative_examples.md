@@ -26,7 +26,7 @@ represent final CLI design.
 **_Scenario_**: User deploys a new revision to an existing service
 with a new container image, rolling out automatically to 100%
 
-```
+```console
 $ knative deploy --service my-service
   Deploying app to service [my-service]:
 ✓ Starting
@@ -45,7 +45,6 @@ $ knative deploy --service my-service
   Revision is created, and automatically rolled out to 100% once ready.
 
 ![Automatic Rollout](images/auto_rollout.png)
-
 
 After the initial Route and Configuration have been created (which is shown
 in the
@@ -75,6 +74,7 @@ inheriting previous environment values from the configuration spec:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -95,6 +95,7 @@ with the new container image:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -113,6 +114,7 @@ the Configuration and Service are updated to reflect the new Revision:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -121,7 +123,7 @@ metadata:
   generation: 1235
  ...
 
-spec: 
+spec:
   ... # same as before, except new container.image
 status:
   latestReadyRevisionName: abc
@@ -132,6 +134,7 @@ status:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -140,7 +143,7 @@ metadata:
   generation: 1452
  ...
 
-spec: 
+spec:
   ... # same as before, except new container.image
 status:
   latestReadyRevisionName: abc
@@ -156,6 +159,7 @@ of the revision:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/def
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
@@ -194,6 +198,7 @@ existing revision `abc` and new revision `def`:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -208,7 +213,7 @@ spec:
 
 status:
   # domain:
-  # oss: my-service.namespace.mydomain.com 
+  # oss: my-service.namespace.mydomain.com
   domain: my-service.namespace.mydomain.com
   # percentages add to 100
   traffic:  # in status, all configurationName refs are dereferenced
@@ -226,6 +231,7 @@ And once reconciled, revision def serves 100% of the traffic :
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -239,7 +245,7 @@ spec:
       percent: 100
 status:
   domain: my-service.default.mydomain.com
-  traffic: 
+  traffic:
   - revisionName: def
     percent: 100
   conditions:
@@ -248,13 +254,12 @@ status:
   ...
 ```
 
-
 ## 2) Creating a new Service with a pre-built container
 
 **Scenario**: User creates a new Service and deploys their first
   Revision based on a pre-built container
 
-```
+```console
 $ knative deploy --service my-service --region us-central1
 ✓ Creating service [my-service] in region [us-central1]
   Deploying app to service [my-service]:
@@ -311,6 +316,7 @@ The client creates the service in `runLatest` mode:
 ```http
 POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -321,7 +327,7 @@ spec:
     configuration:
       revisionTemplate:  # template for building Revision
         metadata: ...
-        spec: 
+        spec:
           container: # k8s core.v1.Container
             image: gcr.io/...
             env:
@@ -338,6 +344,7 @@ objects with the same name as the Service:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -353,6 +360,7 @@ spec:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -363,7 +371,7 @@ metadata:
 spec:  # Contents from service's spec.runLatest.configuration
   revisionTemplate:
     metadata: ...
-    spec: 
+    spec:
       container: # k8s core.v1.Container
         image: gcr.io/...
         env:
@@ -381,6 +389,7 @@ and metadata from the configuration, as well as new metadata labels:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
@@ -408,6 +417,7 @@ with latestCreatedRevisionName:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -429,6 +439,7 @@ updated as Ready (to serve), the latestReadyRevisionName is updated:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -436,12 +447,12 @@ metadata:
   name: my-service
   generation: 1234
   ...
-spec: 
+spec:
   ...  # same as before
 status:
   # the latest created and ready to serve. Watched by route
   latestReadyRevisionName: abc
-  # latest created revision 
+  # latest created revision
   latestCreatedRevisionName: abc
   observedGeneration: 1234
 ```
@@ -454,6 +465,7 @@ new revision `abc`, addressable as
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -486,6 +498,7 @@ The Service also watches the Configuration (and Route) and mirrors their status 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -493,12 +506,12 @@ metadata:
   name: my-service
   generation: 1
   ...
-spec: 
+spec:
   ...  # same as before
 status:
   # the latest created and ready to serve.
   latestReadyRevisionName: abc
-  # latest created revision 
+  # latest created revision
   latestCreatedRevisionName: abc
   observedGeneration: 1
 ```
@@ -510,7 +523,7 @@ status:
   (env var change) to an existing service, tests the revision, then
   proceeds with a manually controlled rollout to 100%
 
-```
+```console
 $ knative rollout --service my-service strategy manual
 
 $ knative deploy --service my-service --env HELLO="blurg"
@@ -570,6 +583,7 @@ The client updates the service to pin the current revision:
 ```http
 PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -592,6 +606,7 @@ and therefore unchanged).
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -615,6 +630,7 @@ the environment but keeping the same container image:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -637,6 +653,7 @@ the creation of a new revision:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
@@ -657,6 +674,7 @@ revision `def`, but different config:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/ghi
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
@@ -689,6 +707,7 @@ verification, etc.
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -724,6 +743,7 @@ updating the service to pin `ghi` as the new revision.
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -734,11 +754,12 @@ spec:
     revisionname: ghi
 ```
 
-This causes the service to update the route to assign 
+This causes the service to update the route to assign.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: route
@@ -763,6 +784,7 @@ point to the same revision. Both names are left in place so that
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Route
@@ -797,10 +819,10 @@ status:
 **Scenario**: User deploys a revision to an existing service from
   source rather than a pre-built container
 
-```
+```console
 $ knative deploy --service my-service
   Deploying app to service [my-service]:
-✓ Uploading     [=================] 
+✓ Uploading     [=================]
 ✓ Detected [node-8-9-4] runtime
 ✓ Building
 ✓ Starting
@@ -822,7 +844,6 @@ $ knative deploy --service my-service
 
 ![Build Example](images/build_example.png)
 
-
 Previous examples demonstrated services created with pre-built
 containers. Revisions can also be created by providing build
 information to the service, which results in a container image built
@@ -837,11 +858,12 @@ configuration in the service inlining a build spec:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: my-service 
+  name: my-service
 spec:
   runLatest:
     configuration:
@@ -889,6 +911,7 @@ Revision’s status for convenience:
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
@@ -944,10 +967,10 @@ Revision is created which can become ready.
 
 **Scenario**: User deploys a new function revision to an existing service
 
-```
+```console
 $ knative deploy --function index --service my-function
   Deploying function to service [my-function]:
-✓ Uploading     [=================] 
+✓ Uploading     [=================]
 ✓ Detected [node-8-9-4] runtime
 ✓ Building
 ✓ Starting
@@ -994,11 +1017,12 @@ Creating the service with build and function metadata:
 ```http
 POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: my-function 
+  name: my-function
 spec:
   runLatest:
     configuration:
@@ -1019,7 +1043,7 @@ spec:
               value: gcr.io/...  # destination for image
             - name: _ENTRY_POINT
               value: index  # language dependent, function-only entrypoint
-  
+
       revisionTemplate:  # template for building Revision
         metadata:
           labels:

@@ -156,6 +156,40 @@ func LatestService(namespace string, names ResourceNames, imagePath string) *v1a
 	}
 }
 
+// ReleaseService returns a Release Service object in namespace with the name names.Service that uses
+// the image specifeid by imagePath. It also takes a list of 1-2 revisons and a rolloutPercent to be
+// used to configure routing
+func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent int) *v1alpha1.Service {
+	var config v1alpha1.ConfigurationSpec
+	if svc.Spec.RunLatest != nil {
+		config = svc.Spec.RunLatest.Configuration
+	} else if svc.Spec.Release != nil {
+		config = svc.Spec.Release.Configuration
+	} else if svc.Spec.Pinned != nil {
+		config = svc.Spec.Pinned.Configuration
+	}
+	return &v1alpha1.Service{
+		ObjectMeta: svc.ObjectMeta,
+		Spec: v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:      revisions,
+				RolloutPercent: rolloutPercent,
+				Configuration:  config,
+			},
+		},
+	}
+}
+
+// ManualService returns a Manual Service object in namespace with the name names.Service
+func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
+	return &v1alpha1.Service{
+		ObjectMeta: svc.ObjectMeta,
+		Spec: v1alpha1.ServiceSpec{
+			Manual: &v1alpha1.ManualType{},
+		},
+	}
+}
+
 const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyz"
 	randSuffixLen = 8

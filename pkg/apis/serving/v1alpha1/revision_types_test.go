@@ -17,15 +17,18 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -645,5 +648,149 @@ func TestRevisionBuildRefNil(t *testing.T) {
 	var want *corev1.ObjectReference = nil
 	if got != want {
 		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionGetLastPinned(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		expectTime  time.Time
+		expectErr   error
+	}{{
+		name:        "Nil annotations",
+		annotations: nil,
+		expectTime:  time.Time{},
+		expectErr: LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:        "Empty map annotations",
+		annotations: map[string]string{},
+		expectTime:  time.Time{},
+		expectErr: LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:        "Invalid time",
+		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "abcd"},
+		expectTime:  time.Time{},
+		expectErr: LastPinnedParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: "abcd",
+		},
+	}, {
+		name:        "Valid time",
+		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "10000"},
+		expectTime:  time.Unix(10000, 0),
+		expectErr:   nil,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rev := Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations,
+				},
+			}
+
+			pt, err := rev.GetLastPinned()
+			failErr := func() {
+				t.Fatalf("Expected error %v got %v", tc.expectErr, err)
+			}
+
+			if tc.expectErr == nil {
+				if err != nil {
+					failErr()
+				}
+			} else {
+				if tc.expectErr.Error() != err.Error() {
+					failErr()
+				}
+			}
+
+			if tc.expectTime != pt {
+				t.Fatalf("Expected pin time %v got %v", tc.expectTime, pt)
+			}
+		})
+	}
+}
+
+func TestRevisionAnnotations(t *testing.T) {
+	fakeTime := time.Unix(1e10, 0)
+	fakeGen := int64(10)
+	cases := []struct {
+		name               string
+		annotations        map[string]string
+		setLastPinned      *time.Time
+		expectLastPinned   time.Time
+		expectConfigGen    *int64
+		expectConfigGenErr error
+	}{{
+		name:        "nil annotations",
+		annotations: nil,
+		expectConfigGenErr: configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:        "empty annotations",
+		annotations: map[string]string{},
+		expectConfigGenErr: configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:             "empty annotations set lastPinned",
+		annotations:      map[string]string{},
+		setLastPinned:    &fakeTime,
+		expectLastPinned: fakeTime,
+		expectConfigGenErr: configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name: "annotated lastPinned",
+		annotations: map[string]string{
+			serving.RevisionLastPinnedAnnotationKey: "10000000000",
+		},
+		expectLastPinned: fakeTime,
+		expectConfigGenErr: configurationGenerationParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name: "annotated configGeneration",
+		annotations: map[string]string{
+			serving.ConfigurationGenerationAnnotationKey: "10",
+		},
+		expectConfigGen: &fakeGen,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rev := Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations,
+				},
+			}
+
+			if tc.setLastPinned != nil {
+				rev.SetLastPinned(*tc.setLastPinned)
+			}
+
+			if lp, _ := rev.GetLastPinned(); lp != tc.expectLastPinned {
+				t.Fatalf("Expected lastPinned time of %v, got %v", tc.expectLastPinned, lp)
+			}
+
+			cg, err := rev.GetConfigurationGeneration()
+			if err != nil {
+				if tc.expectConfigGenErr == nil || tc.expectConfigGenErr.Error() != err.Error() {
+					t.Fatalf("Expected configGeneration error of %v, got %v", tc.expectConfigGenErr, err)
+				}
+			} else if tc.expectConfigGenErr != nil {
+				t.Fatalf("Expected configGeneration error of %v, got %v", tc.expectConfigGenErr, err)
+			}
+
+			if tc.expectConfigGen != nil && cg != *tc.expectConfigGen {
+				t.Fatalf("Expected configGeneration %v, got %v", *tc.expectConfigGen, cg)
+			}
+		})
 	}
 }

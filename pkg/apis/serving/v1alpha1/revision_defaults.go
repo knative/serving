@@ -17,12 +17,6 @@ limitations under the License.
 package v1alpha1
 
 func (r *Revision) SetDefaults() {
-	// We only set the default ServingState in the context of Revision
-	// because we want it unspecified in other contexts (e.g. RevisionTemplateSpec).
-	if r.Spec.ServingState == "" {
-		r.Spec.ServingState = RevisionServingStateActive
-	}
-
 	r.Spec.SetDefaults()
 }
 

@@ -106,7 +106,6 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			ServingState:     v1alpha1.RevisionServingStateActive,
 			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 		},
 	}

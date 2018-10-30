@@ -601,7 +601,6 @@ func newTestRevision(namespace string, name string, annotations map[string]strin
 			Annotations: annotations,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ServingState: "Active",
 			Container: corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},

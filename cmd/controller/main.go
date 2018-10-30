@@ -166,7 +166,7 @@ func main() {
 			configurationInformer,
 			revisionInformer,
 			coreServiceInformer,
-			virtualServiceInformer,
+			clusterIngressInformer,
 		),
 		labeler.NewRouteToConfigurationController(
 			opt,

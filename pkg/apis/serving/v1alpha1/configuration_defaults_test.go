@@ -33,9 +33,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						// ServingState is not initialized in this context.
-					},
+					Spec: RevisionSpec{},
 				},
 			},
 		},

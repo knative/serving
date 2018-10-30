@@ -27,14 +27,18 @@ const (
 	// generation of the Configuration that created this revision
 	ConfigurationGenerationAnnotationKey = GroupName + "/configurationGeneration"
 
+	// RevisionLastPinnedAnnotationKey is the annotation key used for determining when a route has
+	// pinned a revision
+	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"
+
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
 	// The key can also be attached to ClusterIngress resources to indicate
 	// which Route triggered their creation.
 	RouteLabelKey = GroupName + "/route"
 
-	// RouteNamespaceLabelKey is the label key attached to a ClusterIngress indicating by
-	// the Route in which namespace it is created.
+	// RouteNamespaceLabelKey is the label key attached to a ClusterIngress
+	// by a Route to indicate which namespace the Route was created in.
 	RouteNamespaceLabelKey = GroupName + "/routeNamespace"
 
 	// RevisionLabelKey is the label key attached to k8s resources to indicate

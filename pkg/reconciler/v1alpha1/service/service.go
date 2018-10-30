@@ -67,7 +67,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Services")
+	impl := controller.NewImpl(c, c.Logger, "Services", reconciler.MustNewStatsReporter("Services", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -120,9 +120,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	// Reconcile this copy of the service and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, service)
+	if service.Spec.Manual != nil {
+		// We do not know the status when in manual mode. The Route can be
+		// updated with Configurations not known to the Service which would
+		// make attempts to display status potentially incorrect
+		service.Status.SetManualStatus()
+	} else {
+		// Reconcile this copy of the service and then write back any status
+		// updates regardless of whether the reconciliation errored out.
+		err = c.reconcile(ctx, service)
+	}
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -187,19 +194,21 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	return nil
 }
 
-func (c *Reconciler) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	existing, err := c.serviceLister.Services(service.Namespace).Get(service.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
+	service, err := c.serviceLister.Services(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(existing.Status, service.Status) {
-		existing.Status = service.Status
-		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(service.Namespace)
+	if !reflect.DeepEqual(service.Status, desired.Status) {
+		// Don't modify the informers copy
+		existing := service.DeepCopy()
+		existing.Status = desired.Status
+		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return serviceClient.Update(existing)
 	}
-	return existing, nil
+	return service, nil
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
@@ -236,19 +245,32 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 		return config, nil
 	}
 
+	// Don't modify the informers copy
+	existing := config.DeepCopy()
 	// Preserve the rest of the object (e.g. ObjectMeta)
-	config.Spec = desiredConfig.Spec
-	config.InheritAnnotations(desiredConfig.GetObjectMeta())
-	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
+	existing.Spec = desiredConfig.Spec
+	existing.InheritAnnotations(desiredConfig.GetObjectMeta())
+	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
 
 func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(resources.MakeRoute(service))
+	route, err := resources.MakeRoute(service)
+	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
+		return nil, err
+	}
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
-	desiredRoute := resources.MakeRoute(service)
+	desiredRoute, err := resources.MakeRoute(service)
+	if err != nil {
+		// This should be unreachable as configuration creation
+		// happens first in reconcile()
+		return nil, err
+	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation
@@ -259,7 +281,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
 
+	// Don't modify the informers copy
+	existing := route.DeepCopy()
 	// Preserve the rest of the object (e.g. ObjectMeta)
-	route.Spec = desiredRoute.Spec
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
+	existing.Spec = desiredRoute.Spec
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }

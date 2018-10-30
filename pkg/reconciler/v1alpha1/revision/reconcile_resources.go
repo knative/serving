@@ -231,8 +231,11 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
 			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v",
 				cmp.Diff(desiredConfigMap.Data, configMap.Data))
-			configMap.Data = desiredConfigMap.Data
-			configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(desiredConfigMap)
+
+			// Don't modify the informers copy
+			existing := configMap.DeepCopy()
+			existing.Data = desiredConfigMap.Data
+			_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(existing)
 			if err != nil {
 				logger.Error("Error updating fluentd configmap", zap.Error(err))
 				return err

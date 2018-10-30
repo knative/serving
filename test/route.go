@@ -26,6 +26,9 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
@@ -42,6 +45,39 @@ func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, b
 	route := BlueGreenRoute(ServingNamespace, names, blue, green)
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
+	return err
+}
+
+// UpdateRoute updates a route in the given namespace using the route name in names
+func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
+	newRoute.ObjectMeta.ResourceVersion = route.ObjectMeta.ResourceVersion
+	LogResourceObject(logger, ResourceObjects{Route: newRoute})
+	patchBytes, err := createPatch(route, newRoute)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
+}
+
+// ProbeDomain sends requests to a domain until we get a successful
+// response. This ensures the domain is routable before we send it a
+// bunch of traffic.
+func ProbeDomain(logger *logging.BaseLogger, clients *Clients, domain string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, ServingFlags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	if err != nil {
+		return err
+	}
+	// TODO(tcnghia): Replace this probing with Status check when we have them.
+	_, err = client.Poll(req, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
 	return err
 }
 
