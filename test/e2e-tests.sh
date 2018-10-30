@@ -43,14 +43,6 @@ function dump_extra_cluster_state() {
   kubectl -n knative-serving logs $(get_app_pod activator knative-serving)
 }
 
-function publish_test_images() {
-  echo ">> Publishing test images"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  done
-}
-
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   delete_everything

@@ -92,10 +92,8 @@ func CreateTestgridXML(tc []testgrid.TestCase) error {
 
 // RunLoadTest runs the load test with fortio and returns the reponse
 func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain string) (*fhttp.HTTPRunnerResults, error) {
-	o := fhttp.HTTPOptions{
-		URL:            url,
-		NumConnections: nConnections,
-	}
+	o := fhttp.NewHTTPOptions(url)
+	o.NumConnections = nConnections
 	o.AddAndValidateExtraHeader(fmt.Sprintf("Host: %s", domain))
 
 	opts := fhttp.HTTPRunnerOptions{
@@ -104,7 +102,7 @@ func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain
 			NumThreads:  nThreads,
 			Percentiles: []float64{50.0, 90.0, 99.0},
 		},
-		HTTPOptions: o,
+		HTTPOptions: *o,
 	}
 
 	return fhttp.RunHTTPTest(&opts)
