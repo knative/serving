@@ -130,7 +130,7 @@ If you see other conditions, to debug further:
     [Error Conditions and Reporting](../spec/errors.md). Note: some of them
     are not implemented yet. An alternative is to
     [check Pod status](#check-pod-status).
-* If you are using `BUILD` to deploy and the `BuidComplete` condition is not
+* If you are using `BUILD` to deploy and the `BuildComplete` condition is not
     `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
