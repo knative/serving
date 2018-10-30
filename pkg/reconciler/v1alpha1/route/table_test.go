@@ -851,6 +851,59 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/cluster-ip",
 	}, {
+		// Make sure we fix the external name if something messes with it.
+		Name: "fix external name",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "external-name", "config", &v1alpha1.RouteStatus{
+				Domain:         "external-name.default.example.com",
+				DomainInternal: "external-name.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "external-name.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
+				}},
+			}),
+			addConfigLabel(
+				simpleReadyConfig("default", "config"),
+				// The Route controller attaches our label to this Configuration.
+				"serving.knative.dev/route", "external-name",
+			),
+			simpleReadyRevision("default",
+				// Use the Revision name from the config.
+				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			),
+			simpleReadyIngress(
+				setDomain(simpleRunLatest("default", "external-name", "config", nil), "external-name.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			setExternalName(simpleK8sService(simpleRunLatest("default", "external-name", "config", nil)), "this-is-the-wrong-name"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(simpleRunLatest("default", "external-name", "config", nil)),
+		}},
+		Key: "default/external-name",
+	}, {
 		Name: "reconcile cluster ingress mutation",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "ingress-mutation", "config", &v1alpha1.RouteStatus{
@@ -1529,6 +1582,11 @@ func mutateService(svc *corev1.Service) *corev1.Service {
 
 func setClusterIP(svc *corev1.Service, ip string) *corev1.Service {
 	svc.Spec.ClusterIP = ip
+	return svc
+}
+
+func setExternalName(svc *corev1.Service, name string) *corev1.Service {
+	svc.Spec.ExternalName = name
 	return svc
 }
 
