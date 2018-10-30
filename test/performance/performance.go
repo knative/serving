@@ -21,7 +21,6 @@ package performance
 import (
 	"fmt"
 	"os"
-	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -40,13 +39,9 @@ const (
 	gateway = "knative-ingressgateway"
 )
 
-// Setup creates all the initial setup needed to run the tests
-func Setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
-	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
-	}
-	return clients
+// SetupClients creates all the clients that we need to interact with in our tests
+func SetupClients() (*test.Clients, error) {
+	return test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 }
 
 // Teardown cleans up resources used
@@ -96,17 +91,17 @@ func CreateTestgridXML(tc []testgrid.TestCase) error {
 }
 
 // RunLoadTest runs the load test with fortio and returns the reponse
-func RunLoadTest(endpoint, domain string) (*fhttp.HTTPRunnerResults, error) {
+func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain string) (*fhttp.HTTPRunnerResults, error) {
 	o := fhttp.HTTPOptions{
-		URL:            fmt.Sprintf("http://%s/?timeout=1000", endpoint),
-		NumConnections: 5,
+		URL:            url,
+		NumConnections: nConnections,
 	}
 	o.AddAndValidateExtraHeader(fmt.Sprintf("Host: %s", domain))
 
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
-			Duration:    1 * time.Minute,
-			NumThreads:  5,
+			Duration:    duration,
+			NumThreads:  nThreads,
 			Percentiles: []float64{50.0, 90.0, 99.0},
 		},
 		HTTPOptions: o,

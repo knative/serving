@@ -66,6 +66,11 @@ function warning() {
   make_banner "!" "$1"
 }
 
+# Checks whether the given function exists.
+function function_exists() {
+  [[ "$(type -t $1)" == "function" ]]
+}
+
 # Remove ALL images in the given GCR repository.
 # Parameters: $1 - GCR repository.
 function delete_gcr_images() {
@@ -357,7 +362,7 @@ function start_latest_knative_build() {
 function run_go_tool() {
   local tool=$1
   if [[ -z "$(which ${tool})" ]]; then
-    go get -u $2
+    go install $2
   fi
   shift 2
   ${tool} $@
@@ -370,7 +375,7 @@ function update_licenses() {
   cd ${REPO_ROOT_DIR} || return 1
   local dst=$1
   shift
-  run_go_tool dep-collector github.com/mattmoor/dep-collector $@ > ./${dst}
+  run_go_tool dep-collector ./vendor/github.com/knative/test-infra/tools/dep-collector $@ > ./${dst}
 }
 
 # Run dep-collector to check for forbidden liceses.
@@ -379,7 +384,7 @@ function check_licenses() {
   # Fetch the google/licenseclassifier for its license db
   go get -u github.com/google/licenseclassifier
   # Check that we don't have any forbidden licenses in our images.
-  run_go_tool dep-collector github.com/mattmoor/dep-collector -check $@
+  run_go_tool dep-collector ./vendor/github.com/knative/test-infra/tools/dep-collector -check $@
 }
 
 # Run the given linter on the given files, checking it exists first.

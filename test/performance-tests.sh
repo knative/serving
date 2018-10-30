@@ -44,6 +44,6 @@ set +o pipefail
 
 # Need to export concurrency var as it is required by the parser.
 export concurrency=5
-report_go_test -v -tags=performance -count=1 -timeout=5m ./test/performance || fail_test
+report_go_test -tags=performance -count=1 -timeout=5m ./test/performance || fail_test
 
 success

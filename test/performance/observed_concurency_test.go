@@ -21,6 +21,7 @@ package performance
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -31,10 +32,11 @@ import (
 )
 
 const (
-	tName       = "TestOberservedConcurrency"
+	tName       = "TestObservedConcurrency"
 	perfLatency = "perf_latency"
 	concurrency = 5
-	duration    = "60s"
+	duration    = 1 * time.Minute
+	numThreads  = 1
 )
 
 func createTestCase(val float32, percentile float64) testgrid.TestCase {
@@ -59,7 +61,10 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 }
 
 func TestObservedConcurrency(t *testing.T) {
-	clients := Setup(t)
+	clients, err := SetupClients(t)
+	if err != nil {
+		t.Fatalf("Cannot initialize clients: %v", err)
+	}
 
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger(tName)
@@ -100,7 +105,8 @@ func TestObservedConcurrency(t *testing.T) {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
-	resp, err := RunLoadTest(*endpoint, domain)
+	url = fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
+	resp, err := RunLoadTest(duration, numThreads, concurrency, url, domain)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
