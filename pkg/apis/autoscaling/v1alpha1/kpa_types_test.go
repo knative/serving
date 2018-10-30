@@ -68,22 +68,54 @@ func TestCanScaleToZero(t *testing.T) {
 		name   string
 		status PodAutoscalerStatus
 		result bool
+		err    bool
 		grace  time.Duration
+		idle   time.Duration
 	}{{
 		name:   "empty status",
 		status: PodAutoscalerStatus{},
 		result: false,
-		grace:  10 * time.Second,
+		err:    false,
 	}, {
-		name: "active condition",
+		name: "active condition (no LTT)",
 		status: PodAutoscalerStatus{
 			Conditions: duckv1alpha1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
+				// No LTT = beginning of time, so for sure we can.
 			}},
 		},
 		result: false,
-		grace:  10 * time.Second,
+		idle:   10 * time.Second,
+	}, {
+		name: "active condition (LTT > idle period)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+				},
+				// LTT = 30 seconds ago.
+			}},
+		},
+		result: false,
+		idle:   10 * time.Second,
+	}, {
+		name: "active condition (LTT < idle period)",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+				LastTransitionTime: apis.VolatileTime{
+					Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+				},
+				// LTT = 10 seconds ago.
+			}},
+		},
+		result: false,
+		err:    true,
+		idle:   30 * time.Second,
 	}, {
 		name: "inactive condition (no LTT)",
 		status: PodAutoscalerStatus{
@@ -126,7 +158,59 @@ func TestCanScaleToZero(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+		t.Run(tc.name, func(t *testing.T) {
+			er, ee := tc.result, tc.err
+			ar, ae := tc.status.CanScaleToZero(tc.idle, tc.grace)
+			if er != ar {
+				t.Errorf("expected: %v got: %v", er, ar)
+			}
+			if ee && ae == nil {
+				t.Errorf("expected error, got no error")
+			}
+		})
+	}
+}
+
+func TestIsActivating(t *testing.T) {
+	cases := []struct {
+		name         string
+		status       PodAutoscalerStatus
+		isActivating bool
+	}{{
+		name:         "empty status",
+		status:       PodAutoscalerStatus{},
+		isActivating: false,
+	}, {
+		name: "active=unknown",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isActivating: true,
+	}, {}, {
+		name: "active=true",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isActivating: false,
+	}, {
+		name: "active=false",
+		status: PodAutoscalerStatus{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   PodAutoscalerConditionActive,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isActivating: false,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.isActivating, tc.status.IsActivating(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}

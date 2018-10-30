@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -144,6 +145,14 @@ func (rs *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(rs).IsHappy()
 }
 
+// IsActivating assumes the pod autoscaler is Activating if it is neither
+// Active nor Inactive
+func (rs *PodAutoscalerStatus) IsActivating() bool {
+	cond := rs.GetCondition(PodAutoscalerConditionActive)
+
+	return cond != nil && cond.Status == corev1.ConditionUnknown
+}
+
 func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return podCondSet.Manage(rs).GetCondition(t)
 }
@@ -164,18 +173,22 @@ func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
-// CanScaleToZero checks whether the pod autoscaler has been in an inactive state
-// for at least the specified grace period.
-func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
+func (rs *PodAutoscalerStatus) CanScaleToZero(idlePeriod, gracePeriod time.Duration) (bool, error) {
 	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
 		switch cond.Status {
+		case corev1.ConditionTrue:
+			// Return an error if this PodAutoscaler has not been active for
+			// at least the idle period
+			if !time.Now().After(cond.LastTransitionTime.Inner.Add(idlePeriod)) {
+				return false, fmt.Errorf("Target must be active for atleast scale-to-zero idle period: %ds", idlePeriod/time.Second)
+			}
 		case corev1.ConditionFalse:
 			// Check that this PodAutoscaler has been inactive for
 			// at least the grace period.
-			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod))
+			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod)), nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

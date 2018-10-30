@@ -128,8 +128,22 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	currentScale := scl.Spec.Replicas
 
 	if desiredScale == 0 {
-		// Scale to zero grace period.
-		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
+		// We should only scale to zero when both of the following conditions are true:
+		//   a) The KPA has been active for atleast the idle period, after which it gets marked inactive
+		//   b) The KPA has been inactive for atleast the grace period
+		config := ks.getAutoscalerConfig()
+		ok, err := kpa.Status.CanScaleToZero(config.ScaleToZeroIdlePeriod, config.ScaleToZeroGracePeriod)
+
+		// KPA is active, but not longer than the idle period
+		if err != nil {
+			// Return error so that the KPA isn't marked inactive
+			logger.Errorf("Cannot scale to zero.", zap.Error(err))
+			return desiredScale, err
+		}
+
+		// KPA has not been Active=False for the grace period. If the KPA is Active=True,
+		// it will be marked inactive after this.
+		if !ok {
 			logger.Debug("Waiting for Active=False grace period.")
 			return desiredScale, nil
 		}
