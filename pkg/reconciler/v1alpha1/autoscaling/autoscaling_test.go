@@ -159,7 +159,7 @@ func TestCreateAndDelete(t *testing.T) {
 				}
 			}
 
-			// Wait for the create Reconcile to complete.
+			// Wait for the creation Reconcile to complete.
 			_ = <-reconcileDone
 
 			if tc.wantKpaCreate {
@@ -167,9 +167,27 @@ func TestCreateAndDelete(t *testing.T) {
 					t.Fatalf("Create called %d times instead of once", count)
 				}
 			}
+			if tc.wantHpaCreate {
+				_, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					t.Errorf("Wanted HPA. Not found")
+				} else if err != nil {
+					t.Fatalf("Error getting HPA: %v", err)
+				}
+			}
 			if tc.wantKpaDelete {
 				if count := fakeMetrics.deleteCallCount.Load(); count != 1 {
 					t.Fatalf("Delete called %d times instead of once", count)
+				}
+			}
+			if tc.wantHpaDelete {
+				_, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					// Expected
+				} else if err != nil {
+					t.Fatalf("Error getting HPA: %v", err)
+				} else {
+					t.Errorf("Did not want HPA. Found HPA.")
 				}
 			}
 
@@ -205,11 +223,19 @@ func TestCreateAndDelete(t *testing.T) {
 				t.Fatal("KPA deletion notification timed out")
 			}
 
-			// Wait for the delete Reconcile to complete.
+			// Wait for the deletion Reconcile to complete.
 			_ = <-reconcileDone
 
 			if count := fakeMetrics.deleteCallCount.Load(); count != 1 {
 				t.Fatalf("Delete called %d times instead of once", count)
+			}
+			_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				// Expected
+			} else if err != nil {
+				t.Fatalf("Error getting HPA: %v", err)
+			} else {
+				t.Errorf("Did not want HPA. Found HPA.")
 			}
 		})
 	}
