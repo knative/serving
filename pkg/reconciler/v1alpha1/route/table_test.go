@@ -29,17 +29,16 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
-
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 var fakeCurTime = time.Unix(1e9, 0)
@@ -797,7 +796,10 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/svc-mutation",
 	}, {
-		Name: "allow cluster ip",
+		// In #1789 we switched this to an ExternalName Service. Services created in
+		// 0.1 will still have ClusterIP set, which is Forbidden for ExternalName
+		// Services. Ensure that we drop the ClusterIP if it is set in the spec.
+		Name: "drop cluster ip",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "cluster-ip", "config", &v1alpha1.RouteStatus{
 				Domain:         "cluster-ip.default.example.com",
@@ -844,6 +846,9 @@ func TestReconcile(t *testing.T) {
 			),
 			setClusterIP(simpleK8sService(simpleRunLatest("default", "cluster-ip", "config", nil)), "127.0.0.1"),
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(simpleRunLatest("default", "cluster-ip", "config", nil)),
+		}},
 		Key: "default/cluster-ip",
 	}, {
 		Name: "reconcile cluster ingress mutation",
