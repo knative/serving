@@ -82,6 +82,15 @@ func TestCreateAndDelete(t *testing.T) {
 		wantKpaDelete: false,
 		wantHpaDelete: true,
 	}, {
+		name: "kpa class",
+		annotations: map[string]string{
+			"autoscaling.knative.dev/class": "kpa",
+		},
+		wantKpaCreate: true,
+		wantHpaCreate: false,
+		wantKpaDelete: false,
+		wantHpaDelete: true,
+	}, {
 		name: "hpa class",
 		annotations: map[string]string{
 			"autoscaling.knative.dev/class": "hpa",
