@@ -34,5 +34,5 @@ const (
 	// which services/endpoints should trigger reconciles.
 	KPALabelKey = GroupName + "/kpa"
 
-	// TODO: create a CPU target key
+	// TODO: plumb through HPA CPU target annotation.
 )
