@@ -143,6 +143,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
+	// TODO: Service should inherit autoscaling annotations from Namespace.
+
 	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 

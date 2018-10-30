@@ -324,6 +324,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
+	// TODO: Revision should inherit autoscaling annotations from Namespace, like it does from Configuration.
+
 	logger := commonlogging.FromContext(ctx)
 
 	rev.Status.InitializeConditions()
