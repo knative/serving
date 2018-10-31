@@ -94,6 +94,5 @@ data:
   # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
   # field is optional. When running on GKE, application default credentials will be
   # used if this field is not provided.
-  # Note: Using stackdriver would incur charges for knative-serving system metrics
-  # before we have own resource types.
+  # Note: Using stackdriver will incur additional charges
   # metrics.stackdriver-project-id: "<your stackdriver project id>" 
