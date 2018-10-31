@@ -130,6 +130,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	return s
 }
 
+// get the number of consuming request
 func (s *Stats) GetConcurrency() int32 {
 	return s.concurrency
 }
