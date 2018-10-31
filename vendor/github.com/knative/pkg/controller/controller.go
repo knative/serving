@@ -123,12 +123,9 @@ func (c *Impl) Enqueue(obj interface{}) {
 // EnqueueControllerOf takes a resource, identifies its controller resource,
 // converts it into a namespace/name string, and passes that to EnqueueKey.
 func (c *Impl) EnqueueControllerOf(obj interface{}) {
-	// TODO(mattmoor): This will not properly handle Delete, which we do
-	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
-	// to enqueue the last known owner.
-	object, err := meta.Accessor(obj)
+	object, err := getObject(obj)
 	if err != nil {
-		c.logger.Error(zap.Error(err))
+		c.logger.Error(err)
 		return
 	}
 
@@ -137,6 +134,61 @@ func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	if owner := metav1.GetControllerOf(object); owner != nil {
 		c.EnqueueKey(object.GetNamespace() + "/" + owner.Name)
 	}
+}
+
+// EnqueueLabelOf returns with an Enqueue func that takes a resource,
+// identifies its controller resource through given namespace and name labels,
+// converts it into a namespace/name string, and passes that to EnqueueKey.
+// Callers should pass in an empty string as namespace label key for obj
+// whose controller is of cluster-scoped resource.
+func (c *Impl) EnqueueLabelOf(namespaceLabel, nameLabel string) func(obj interface{}) {
+	return func(obj interface{}) {
+		object, err := getObject(obj)
+		if err != nil {
+			c.logger.Error(err)
+			return
+		}
+
+		labels := object.GetLabels()
+		controllerKey, ok := labels[nameLabel]
+		if !ok {
+			c.logger.Infof("Object %s/%s does not have a referring name label %s",
+				object.GetNamespace(), object.GetName(), nameLabel)
+			return
+		}
+
+		if namespaceLabel != "" {
+			controllerNamespace, ok := labels[namespaceLabel]
+			if !ok {
+				c.logger.Infof("Object %s/%s does not have a referring namespace label %s",
+					object.GetNamespace(), object.GetName(), namespaceLabel)
+				return
+			}
+
+			controllerKey = fmt.Sprintf("%s/%s", controllerNamespace, controllerKey)
+		}
+
+		c.EnqueueKey(controllerKey)
+	}
+}
+
+// getObject tries to get runtime Object from given interface in the way of Accessor first;
+// and to handle deletion, it try to fetch info from DeletedFinalStateUnknown on failure.
+func getObject(obj interface{}) (metav1.Object, error) {
+	object, err := meta.Accessor(obj)
+	if err != nil {
+		// To handle obj deletion, try to fetch info from DeletedFinalStateUnknown.
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return nil, fmt.Errorf("Couldn't get object from tombstone %#v", obj)
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			return nil, fmt.Errorf("The object that Tombstone contained is not of metav1.Object %#v", obj)
+		}
+	}
+
+	return object, nil
 }
 
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
