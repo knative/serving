@@ -55,7 +55,7 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	var t token
 	select {
 	default:
-		// Pending request queue is full.  Report failure.
+		// Pending request queue is full. Report failure.
 		return false
 	case b.pendingRequests <- t:
 		// Pending request has capacity.

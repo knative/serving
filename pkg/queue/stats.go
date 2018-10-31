@@ -53,6 +53,7 @@ type Channels struct {
 type Stats struct {
 	podName string
 	ch      Channels
+	concurrency int32
 }
 
 // NewStats instantiates a new instance of Stats.
@@ -64,7 +65,6 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 	go func() {
 		var requestCount int32
-		var concurrency int32
 
 		lastChange := startedAt
 		timeOnConcurrency := make(map[int32]time.Duration)
@@ -77,7 +77,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 		updateState := func(time time.Time) {
 			if time.After(lastChange) {
 				durationSinceChange := time.Sub(lastChange)
-				timeOnConcurrency[concurrency] += durationSinceChange
+				timeOnConcurrency[s.concurrency] += durationSinceChange
 				lastChange = time
 			}
 		}
@@ -90,9 +90,9 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				switch event.EventType {
 				case ReqIn:
 					requestCount = requestCount + 1
-					concurrency = concurrency + 1
+					s.concurrency = s.concurrency + 1
 				case ReqOut:
-					concurrency = concurrency - 1
+					s.concurrency = s.concurrency - 1
 				}
 			case now := <-s.ch.ReportChan:
 				updateState(now)
@@ -128,4 +128,8 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	}()
 
 	return s
+}
+
+func (s *Stats) GetConcurrency() int32 {
+	return s.concurrency
 }

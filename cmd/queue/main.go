@@ -69,6 +69,7 @@ var (
 	statSink              *websocket.ManagedConnection
 	logger                *zap.SugaredLogger
 	breaker               *queue.Breaker
+	stats                 *queue.Stats
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
@@ -200,7 +201,22 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 	// no guarantee that container termination is done only after
 	// removal from service is effective, but this has been showed to
 	// alleviate the issue.
-	time.Sleep(quitSleepSecs * time.Second)
+	timer := time.NewTimer(quitSleepSecs * time.Second).C
+	ticker := time.NewTicker(time.Second).C
+
+CheckAllDone:
+	for {
+		select {
+		case <-timer:
+			break CheckAllDone
+		case <-ticker:
+			if stats.GetConcurrency() == 0 {
+				break CheckAllDone
+			}
+		}
+	}
+
+	io.WriteString(w, fmt.Sprintf("quit with %d unfinished requests\n", stats.GetConcurrency()))
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, "alive: false")
 }
@@ -256,7 +272,7 @@ func main() {
 	go statReporter()
 
 	reportTicker := time.NewTicker(time.Second).C
-	queue.NewStats(podName, queue.Channels{
+	stats = queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker,
 		StatChan:   statChan,
