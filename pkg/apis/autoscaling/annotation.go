@@ -18,6 +18,7 @@ package autoscaling
 
 import "strings"
 
+// Inherit copies autoscaling annotations from map `from` into map `to`.
 func Inherit(to, from map[string]string) map[string]string {
 	for _, prefix := range []string{
 		GroupName,
@@ -35,7 +36,9 @@ func Inherit(to, from map[string]string) map[string]string {
 	return to
 }
 
-func InheritedEqual(to, from map[string]string) bool {
+// IsInheritedEqual returns `true` if any autoscaling annotations need to
+// be copied from map `from` into map `to`.
+func IsInheritedEqual(to, from map[string]string) bool {
 	for _, prefix := range []string{
 		GroupName,
 		InternalGroupName,

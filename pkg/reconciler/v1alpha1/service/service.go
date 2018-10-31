@@ -238,7 +238,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 		diff = true
 		logger.Infof("Reconciling configuration spec diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
 	}
-	if !config.InheritedAnnotationsEqual(desiredConfig.GetObjectMeta()) {
+	if !config.IsInheritedAnnotationsEqual(desiredConfig.GetObjectMeta()) {
 		diff = true
 		logger.Infof("Reconciling configuration inherited annotation diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Annotations, config.Annotations))
 	}

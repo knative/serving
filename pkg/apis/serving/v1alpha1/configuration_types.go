@@ -127,8 +127,8 @@ func (c *Configuration) InheritAnnotations(parent metav1.Object) {
 	c.Annotations = autoscaling.Inherit(c.Annotations, parent.GetAnnotations())
 }
 
-func (c *Configuration) InheritedAnnotationsEqual(parent metav1.Object) bool {
-	return autoscaling.InheritedEqual(c.Annotations, parent.GetAnnotations())
+func (c *Configuration) IsInheritedAnnotationsEqual(parent metav1.Object) bool {
+	return autoscaling.IsInheritedEqual(c.Annotations, parent.GetAnnotations())
 }
 
 func (c *Configuration) GetGroupVersionKind() schema.GroupVersionKind {

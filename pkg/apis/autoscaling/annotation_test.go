@@ -76,7 +76,7 @@ func TestInherit(t *testing.T) {
 	}
 }
 
-func TestInheritedEqual(t *testing.T) {
+func TestIsInheritedEqual(t *testing.T) {
 	cases := []struct {
 		name   string
 		parent map[string]string
@@ -132,7 +132,7 @@ func TestInheritedEqual(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := InheritedEqual(tc.child, tc.parent); tc.want != got {
+			if got := IsInheritedEqual(tc.child, tc.parent); tc.want != got {
 				t.Errorf("%q expected %v. got %v", tc.name, tc.want, got)
 			}
 		})
