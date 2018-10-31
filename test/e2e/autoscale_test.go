@@ -139,7 +139,7 @@ func setup(t *testing.T) *testContext {
 	clients := Setup(t)
 
 	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
-	if err != nil {
+	if err == nil {
 		t.Fatalf("Unable to get autoscaler config map: %v", err)
 	}
 	scaleToZeroThreshold, err = time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
