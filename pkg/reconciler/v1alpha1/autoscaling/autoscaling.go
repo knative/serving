@@ -193,7 +193,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
 			return err
 		}
-		if err = c.upsertHpa(ctx, key, kpa); err != nil {
+		if err := c.upsertHpa(ctx, key, kpa); err != nil {
 			return err
 		}
 		// HPA autoscaler does not support scale-to-zero.
