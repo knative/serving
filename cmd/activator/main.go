@@ -98,6 +98,12 @@ func main() {
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+		// Enrich logs with GitHub commit ID.
+		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+	} else {
+		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
+	}
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")

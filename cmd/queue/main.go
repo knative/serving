@@ -218,6 +218,12 @@ func main() {
 	flag.Parse()
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
+	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+		// Enrich logs with GitHub commit ID.
+		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+	} else {
+		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
+	}
 	defer logger.Sync()
 
 	initEnv()

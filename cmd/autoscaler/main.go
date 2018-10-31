@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/serving/cmd/util"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -75,6 +77,12 @@ func main() {
 
 	var atomicLevel zap.AtomicLevel
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
+	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+		// Enrich logs with GitHub commit ID.
+		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+	} else {
+		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
+	}
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
