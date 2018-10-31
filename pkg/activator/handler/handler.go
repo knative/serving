@@ -60,19 +60,33 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
+
+	attempts := int(1) // one attempt is always needed
+	proxy.ModifyResponse = func(r *http.Response) error {
+		if numTries := r.Header.Get(activator.RequestCountHTTPHeader); numTries != "" {
+			if count, err := strconv.Atoi(numTries); err == nil {
+				a.Logger.Infof("got %d attempts", count)
+				attempts = count
+			} else {
+				a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.RequestCountHTTPHeader, err)
+			}
+		}
+
+		// We don't return this header to the user. It's only used to transport
+		// state in the activator.
+		r.Header.Del(activator.RequestCountHTTPHeader)
+
+		return nil
+	}
 	util.SetupHeaderPruning(proxy)
+
 	proxy.ServeHTTP(capture, r)
 
 	// Report the metrics
 	httpStatus := capture.statusCode
 	duration := time.Now().Sub(start)
-	if numTries := w.Header().Get(activator.ResponseCountHTTPHeader); numTries != "" {
-		if count, err := strconv.Atoi(numTries); err == nil {
-			a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, count, 1.0)
-		} else {
-			a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.ResponseCountHTTPHeader, err)
-		}
-	}
+
+	a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
 	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
 }
 

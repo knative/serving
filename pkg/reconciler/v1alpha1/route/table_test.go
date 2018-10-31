@@ -29,17 +29,16 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
-
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 var fakeCurTime = time.Unix(1e9, 0)
@@ -66,9 +65,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
@@ -98,9 +94,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -134,9 +127,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
@@ -290,15 +280,22 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "create-svc-failure", "config", &v1alpha1.RouteStatus{
+				Domain:         "create-svc-failure.default.example.com",
+				DomainInternal: "create-svc-failure.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "create-svc-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 		}},
@@ -343,13 +340,17 @@ func TestReconcile(t *testing.T) {
 				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "ingress-create-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionIngressReady,
 					Status: corev1.ConditionUnknown,
 				}, {
 					Type:   v1alpha1.RouteConditionReady,
 					Status: corev1.ConditionUnknown,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 		}},
@@ -631,9 +632,8 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 			setLatestReadyRevision(setLatestCreatedRevision(
@@ -683,6 +683,26 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
+		}, {
+			Object: simpleRunLatest("default", "update-ci-failure", "config", &v1alpha1.RouteStatus{
+				Domain:         "update-ci-failure.default.example.com",
+				DomainInternal: "update-ci-failure.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "update-ci-failure.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00002",
+					Percent:      100,
+				}},
+			}),
 		}},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -761,9 +781,8 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 			addConfigLabel(
@@ -797,7 +816,10 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/svc-mutation",
 	}, {
-		Name: "allow cluster ip",
+		// In #1789 we switched this to an ExternalName Service. Services created in
+		// 0.1 will still have ClusterIP set, which is Forbidden for ExternalName
+		// Services. Ensure that we drop the ClusterIP if it is set in the spec.
+		Name: "drop cluster ip",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "cluster-ip", "config", &v1alpha1.RouteStatus{
 				Domain:         "cluster-ip.default.example.com",
@@ -844,7 +866,63 @@ func TestReconcile(t *testing.T) {
 			),
 			setClusterIP(simpleK8sService(simpleRunLatest("default", "cluster-ip", "config", nil)), "127.0.0.1"),
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(simpleRunLatest("default", "cluster-ip", "config", nil)),
+		}},
 		Key: "default/cluster-ip",
+	}, {
+		// Make sure we fix the external name if something messes with it.
+		Name: "fix external name",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "external-name", "config", &v1alpha1.RouteStatus{
+				Domain:         "external-name.default.example.com",
+				DomainInternal: "external-name.default.svc.cluster.local",
+				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "external-name.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
+				}},
+			}),
+			addConfigLabel(
+				simpleReadyConfig("default", "config"),
+				// The Route controller attaches our label to this Configuration.
+				"serving.knative.dev/route", "external-name",
+			),
+			simpleReadyRevision("default",
+				// Use the Revision name from the config.
+				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			),
+			simpleReadyIngress(
+				setDomain(simpleRunLatest("default", "external-name", "config", nil), "external-name.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			setExternalName(simpleK8sService(simpleRunLatest("default", "external-name", "config", nil)), "this-is-the-wrong-name"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(simpleRunLatest("default", "external-name", "config", nil)),
+		}},
+		Key: "default/external-name",
 	}, {
 		Name: "reconcile cluster ingress mutation",
 		Objects: []runtime.Object{
@@ -1015,9 +1093,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "config-missing", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "config-missing.default.example.com",
-				DomainInternal: "config-missing.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "config-missing.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1043,9 +1118,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-direct.default.example.com",
-				DomainInternal: "missing-revision-direct.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "missing-revision-direct.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1071,9 +1143,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-indirect.default.example.com",
-				DomainInternal: "missing-revision-indirect.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "missing-revision-indirect.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1524,6 +1593,11 @@ func mutateService(svc *corev1.Service) *corev1.Service {
 
 func setClusterIP(svc *corev1.Service, ip string) *corev1.Service {
 	svc.Spec.ClusterIP = ip
+	return svc
+}
+
+func setExternalName(svc *corev1.Service, name string) *corev1.Service {
+	svc.Spec.ExternalName = name
 	return svc
 }
 

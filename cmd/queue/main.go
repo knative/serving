@@ -261,11 +261,6 @@ func main() {
 		ReportChan: reportTicker,
 		StatChan:   statChan,
 	}, time.Now())
-	defer func() {
-		if statSink != nil {
-			statSink.Close()
-		}
-	}()
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
@@ -288,6 +283,11 @@ func main() {
 
 		server.Shutdown(context.Background())
 		adminServer.Shutdown(context.Background())
+
+		if statSink != nil {
+			statSink.Close()
+		}
+
 		os.Exit(0)
 	}()
 

@@ -129,6 +129,16 @@ func TestActivationHandler(t *testing.T) {
 			wantErr:   nil,
 			reporterCalls: []reporterCall{
 				{
+					Op:         "ReportResponseCount",
+					Namespace:  "real-namespace",
+					Revision:   "real-name",
+					Service:    "service-real-name",
+					Config:     "config-real-name",
+					StatusCode: http.StatusOK,
+					Attempts:   1,
+					Value:      1.0,
+				},
+				{
 					Op:         "ReportResponseTime",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
@@ -156,6 +166,16 @@ func TestActivationHandler(t *testing.T) {
 			wantErr:   errors.New("request error"),
 			reporterCalls: []reporterCall{
 				{
+					Op:         "ReportResponseCount",
+					Namespace:  "real-namespace",
+					Revision:   "real-name",
+					Service:    "service-real-name",
+					Config:     "config-real-name",
+					StatusCode: http.StatusBadGateway,
+					Attempts:   1,
+					Value:      1.0,
+				},
+				{
 					Op:         "ReportResponseTime",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
@@ -174,6 +194,16 @@ func TestActivationHandler(t *testing.T) {
 			wantErr:   nil,
 			attempts:  "hi there",
 			reporterCalls: []reporterCall{
+				{
+					Op:         "ReportResponseCount",
+					Namespace:  "real-namespace",
+					Revision:   "real-name",
+					Service:    "service-real-name",
+					Config:     "config-real-name",
+					StatusCode: http.StatusOK,
+					Attempts:   1,
+					Value:      1.0,
+				},
 				{
 					Op:         "ReportResponseTime",
 					Namespace:  "real-namespace",
@@ -197,7 +227,7 @@ func TestActivationHandler(t *testing.T) {
 					return resp, err
 				}
 				if e.attempts != "" {
-					resp.Header.Add(activator.ResponseCountHTTPHeader, e.attempts)
+					resp.Header.Add(activator.RequestCountHTTPHeader, e.attempts)
 				}
 				return resp, err
 			})
@@ -219,6 +249,10 @@ func TestActivationHandler(t *testing.T) {
 
 			if resp.Code != e.wantCode {
 				t.Errorf("Unexpected response status. Want %d, got %d", e.wantCode, resp.Code)
+			}
+
+			if resp.Header().Get(activator.RequestCountHTTPHeader) != "" {
+				t.Errorf("Expected the %q header to be filtered", activator.RequestCountHTTPHeader)
 			}
 
 			gotBody, _ := ioutil.ReadAll(resp.Body)

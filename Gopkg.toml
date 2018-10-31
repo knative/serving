@@ -18,13 +18,12 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-10-08
-  revision = "cc4451408f52b86fec87f6b7e4bc88848d3b1088"
+  version = "v0.2.0"
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-10-25
-  revision = "5c809f170b42301a276080f4fd884a30188ca1a5"
+  # HEAD as of 2018-10-30
+  revision = "02b354e3a4fc52a1df245b4069671f082ce321d1"
 
 [[override]]
   name = "go.uber.org/zap"
