@@ -23,23 +23,21 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -74,7 +72,6 @@ type Reconciler struct {
 
 	kpaLister       listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
-	hpaLister       autoscalingv1listers.HorizontalPodAutoscalerLister
 
 	kpaMetrics KPAMetrics
 	kpaScaler  KPAScaler
@@ -89,7 +86,6 @@ func NewController(
 
 	kpaInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
 
 	kpaMetrics KPAMetrics,
 	kpaScaler KPAScaler,
@@ -99,7 +95,6 @@ func NewController(
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		kpaLister:       kpaInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
-		hpaLister:       hpaInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
@@ -134,7 +129,7 @@ func (c *Reconciler) EnqueueEndpointsKPA(impl *controller.Impl) func(obj interfa
 	}
 }
 
-// Reconcile delegates to a local method or a sub-resource.
+// Reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -147,7 +142,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.kpaLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("KPA no longer exists")
-		return c.delete(ctx, key)
+		return c.kpaMetrics.Delete(ctx, key)
 	} else if err != nil {
 		return err
 	}
@@ -174,53 +169,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
-	logger.Debugf("PodAutoscaler class %q", kpa.Class())
-
-	// Create or update the underlying autoscaler implementation.
-	// Delete unused autoscaler implementations--there can be only one!
-	switch kpa.Class() {
-	case "kpa":
-		err := c.deleteHpa(ctx, key)
-		if err != nil {
-			return err
-		}
-		metric, err := c.upsertKpa(ctx, key, kpa)
-		if err != nil {
-			return err
-		}
-		// Right-size the ScaleTargetRef and update status.
-		return c.reconcileMetric(ctx, kpa, metric)
-	case "hpa":
-		err := c.kpaMetrics.Delete(ctx, key)
-		if err != nil {
-			return err
-		}
-		err = c.upsertHpa(ctx, key, kpa)
-		if err != nil {
-			return err
-		}
-		// HPA autoscaler does not support scale-to-zero.
-		kpa.Status.MarkActive()
-		return nil
-	default:
-		err := c.kpaMetrics.Delete(ctx, key)
-		if err != nil {
-			return err
-		}
-		return c.deleteHpa(ctx, key)
-	}
-}
-
-func (c *Reconciler) delete(ctx context.Context, key string) error {
-	err := c.kpaMetrics.Delete(ctx, key)
-	if err != nil {
-		return err
-	}
-	return c.deleteHpa(ctx, key)
-}
-
-func (c *Reconciler) upsertKpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
-	logger := logging.FromContext(ctx)
 
 	kpa.Status.InitializeConditions()
 	logger.Debug("KPA exists")
@@ -230,68 +178,12 @@ func (c *Reconciler) upsertKpa(ctx context.Context, key string, kpa *kpa.PodAuto
 		metric, err = c.kpaMetrics.Create(ctx, kpa)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
-			return nil, err
-		}
-		logger.Debugf("Created KPA")
-	} else if err != nil {
-		logger.Errorf("Error fetching Metric: %v", err)
-		return nil, err
-	}
-	return metric, nil
-}
-
-// Create or update a vanilla Kubernetes HorizontalPodAutoscaler.
-func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
-	logger := logging.FromContext(ctx)
-
-	desiredHpa := resources.MakeHPA(kpa)
-	hpa, err := c.hpaLister.HorizontalPodAutoscalers(kpa.Namespace).Get(desiredHpa.Name)
-	if errors.IsNotFound(err) {
-		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		_, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Create(desiredHpa)
-		if err != nil {
-			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			return err
 		}
 	} else if err != nil {
-		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
-		return err
-	} else {
-		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
-			logger.Infof("Updating HPA %q", desiredHpa.Name)
-			_, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Update(desiredHpa)
-			if err != nil {
-				logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// Delete a vanilla Kubernetes HorizontalPodAutoscaler.
-func (c *Reconciler) deleteHpa(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
+		logger.Errorf("Error fetching Metric: %v", err)
 		return err
 	}
-	err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
-	if errors.IsNotFound(err) {
-		// This is fine.
-		return nil
-	} else if err != nil {
-		logger.Errorf("Error deleting HPA %q: %v", name, err)
-		return err
-	}
-	logger.Infof("Deleted HPA %q", name)
-	return nil
-}
-
-// reconcileMetrics right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
-func (c *Reconciler) reconcileMetric(ctx context.Context, kpa *kpa.PodAutoscaler, metric *autoscaler.Metric) error {
-	logger := logging.FromContext(ctx)
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
