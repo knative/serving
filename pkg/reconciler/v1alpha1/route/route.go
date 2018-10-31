@@ -206,21 +206,44 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-	route.Status.InitializeConditions()
+	r.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route :%v", route)
+	logger.Infof("Reconciling route :%v", r)
+	// configure traffic based on the RouteSpec.
+	traffic, err := c.configureTraffic(ctx, r)
+	if traffic == nil || err != nil {
+		// Traffic targets aren't ready, no need to configure child resources.
+		return err
+	}
+
+	logger.Info("Updating targeted revisions.")
+	// In all cases we will add annotations to the referred targets.  This is so that when they become
+	// routable we can know (through a listener) and attempt traffic configuration again.
+	if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
+		logger.Errorf("Failed to update target revisions: %v", err)
+	}
+
+	// Update the information that makes us Targetable.
+	r.Status.Domain = routeDomain(ctx, r)
+	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
+	r.Status.Targetable = &duckv1alpha1.Targetable{
+		DomainInternal: resourcenames.K8sServiceFullname(r),
+	}
+
+	logger.Info("Creating ClusterIngress.")
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, traffic))
+	if err != nil {
+		return err
+	}
+	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+
 	logger.Info("Creating/Updating placeholder k8s services")
-	if err := c.reconcilePlaceholderService(ctx, route); err != nil {
+	if err := c.reconcilePlaceholderService(ctx, r, clusterIngress); err != nil {
 		return err
 	}
 
-	// Call configureTrafficAndUpdateRouteStatus, which also updates the Route.Status
-	// to contain the domain we will use for Gateway creation.
-	if _, err := c.configureTraffic(ctx, route); err != nil {
-		return err
-	}
 	logger.Info("Route successfully synced")
 	return nil
 }
@@ -231,17 +254,7 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-//
-// In all cases we will add annotations to the referred targets.  This is so that when they become
-// routable we can know (through a listener) and attempt traffic configuration again.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
-	// Update the information that makes us Targetable.
-	r.Status.Domain = routeDomain(ctx, r)
-	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
-	r.Status.Targetable = &duckv1alpha1.Targetable{
-		DomainInternal: resourcenames.K8sServiceFullname(r),
-	}
-
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.TrafficConfig, error) {
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
@@ -268,33 +281,20 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
 		r.Status.MarkUnknownTrafficError(err.Error())
-		return r, err
+		return nil, err
 	}
 	if badTarget != nil && isTargetError {
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
-		return r, nil
-	}
-	logger.Info("All referred targets are routable.")
-
-	logger.Info("Updating targeted revisions.")
-	if err := c.reconcileTargetRevisions(ctx, t, r); err != nil {
-		logger.Errorf("Failed to update target revisions: %v", err)
+		return nil, nil
 	}
 
-	logger.Info("Creating ClusterIngress.")
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, t))
-	if err != nil {
-		return r, err
-	}
-	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
-
-	logger.Info("ClusterIngress created, marking AllTrafficAssigned with traffic information.")
+	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 	r.Status.Traffic = t.GetRevisionTrafficTargets()
 	r.Status.MarkTrafficAssigned()
 
-	return r, nil
+	return t, nil
 }
 
 // TODO(lichuqiang): add a generalized method in pkg repo to unify similar behaviors.
