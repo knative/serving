@@ -36,11 +36,14 @@ function dump_extra_cluster_state() {
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl -n knative-serving logs $(get_app_pod controller knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod controller knative-serving)" -c controller > controller.log
+  cat controller.log
   echo ">>> Knative Serving autoscaler log:"
-  kubectl -n knative-serving logs $(get_app_pod autoscaler knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod autoscaler knative-serving)" -c autoscaler > autoscaler.log
+  cat autoscaler.log
   echo ">>> Knative Serving activator log:"
-  kubectl -n knative-serving logs $(get_app_pod activator knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod activator knative-serving)" -c activator > activator.log
+  cat acitvator.log
 }
 
 function publish_test_images() {
