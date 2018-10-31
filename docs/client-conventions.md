@@ -2,7 +2,7 @@
 
 This document describes conventions that Knative domain-specific clients can
 follow to achieve specific end-user goals. It is intended as a set of best
-practices for client implementors, and also as advice to direct users of the API
+practices for client implementers, and also as advice to direct users of the API
 (for example, with kubectl).
 
 These conventions are merely conventions:
@@ -13,7 +13,7 @@ These conventions are merely conventions:
 
 Some of the conventions involve the client setting labels or annotations; the
 `client.knative.dev/*` label/annotation namespace is reserved for documented
-Knative client convetions.
+Knative client conventions.
 
 ## Determine when an action is complete
 
@@ -30,10 +30,10 @@ to `True`; this indicates the operation was a success. If reflecting the spec in
 the serving state is impossible, the `Ready` condition will flip to `False`;
 this indicates the operation was a failure, and the message of the status
 condition should indicate something in English about why (and the Reason field
-can indicate an emumeration suitable for i18n). Either `True` or `False`
+can indicate an enumeration suitable for i18n). Either `True` or `False`
 indicates the operation is complete, for better or worse.
 
-Note that someone else could start another operation while the cient was waiting
+Note that someone else could start another operation while the client was waiting
 for its operation. A conventional client still waits for the `Ready` condition
 to land at `True` or `False`, and then describes to the user what happened using
 logic based on the intended effect.
@@ -41,16 +41,18 @@ logic based on the intended effect.
 For example:
  * Client A deploys image `gcr.io/foods/vegetables:eggplant`
  * While that is not yet Ready, client B deploys `gcr.io/foods/vegetables:squash`
- * The `eggplant` revision becomes Ready: True, and the service moves traffic to it.
+ * The `eggplant` revision becomes Ready: True, and the service moves traffic to
+   it.  (NB: implementations may choose not to move traffic to any but the
+   latest revision.)
  * The `squash` revision fails to bind to a port, and becomes Ready: False
  * The Service switches from Ready: Unknown to Ready: False because `squash` failed.
 
 Both client A and B should wait for the last step in this procedure.
- * Client A sees that latestReadyRevision is the revision with the
+ * Client A sees that `latestReadyRevisionName` is the revision with the
    [nonce](#associate-modifications-with-revisions) it specified, and that
-   `latestCreatedRevision` is not. It tells the user that deploying was
+   `latestCreatedRevisionName` is not. It tells the user that deploying was
    successful.
- * Client B sees that `latestCreatedRevision` is the revision with the nonce it
+ * Client B sees that `latestCreatedRevisionName` is the revision with the nonce it
    specified; it reports the failure with the appropriate message.
 
 The rule is "Wait for `Ready` to become `True` or `False`, then report on
@@ -79,18 +81,36 @@ with the lowest `configurationGeneration` in this case.
 
 The way to deploy new code with a previously-used tag is to make a new Revision,
 which the Revision controller will re-pull and lock it to the current image at
-that tag. Unfortunately Knative won't create a new Revision if you don't change
-the Configuration.
+that tag. Since Knative is a declarative API, it requires some change to the
+desired state of the world (the spec) to trigger any change.
 
-The same `client.knative.dev/nonce` annotation can help in forcing the creation
+The same `client.knative.dev/nonce` label can help in forcing the creation
 of a new Revision; if the nonce is changed, the Configuration controller must
-make one even if nothing else has changed.
+make a new Revision even if nothing else has changed.
+
+Example:
+
+```yaml
+apiVersion: serving.knative.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: my-service  # Named the same as the Service
+spec:
+  revisionTemplate:  # template for building Revision
+    metadata:
+      # In the spec of Configuration, but the metadata of the revision.
+      labels:
+        'client.knative.dev/nonce': dad00dab1de5
+    spec:
+      container:
+        image: gcr.io/...  # new image
+```
 
 ## Change non-code attributes
 
 When the user specifies they'd like to change an environment variable (or a
 memory allocation, or a concurrency setting...), and does not specify that
-they'd like to deploy a change in code, the user would be quite surprized to
+they'd like to deploy a change in code, the user would be quite surprised to
 find the newest image at their deployed tag running in the cloud.
 
 ### General idea
@@ -109,9 +129,9 @@ intent in an annotation.
     `client.knative.dev/nonce` label listed in the
     `revisionTemplate.metadata`. If this yields exactly one Revision (after
     waiting a sensible timeout for a revision to appear with that nonce), that
-    is the base revision. If not, fetch the `latestCreatedRevision` from the
+    is the base revision. If not, fetch the `latestCreatedRevisionName` from the
     status, and uses that as the base revision.
- 3. Copy the `status.imageDigest` field from the base revison into the `image`
+ 3. Copy the `status.imageDigest` field from the base revision into the `image`
     field of the Service. This ensures the running code stays the same.
  4. Make whatever other modifications to the Service.
  5. Add the `client.knative.dev/user-image` annotation to the Service,
@@ -119,13 +139,20 @@ intent in an annotation.
  6. Add the nonce label, as usual.
  7. Post the resulting Service to create a new Revision.
 
+### Changing code
+
+When clients do want to change code, they can either require the user to specify
+an image (which they put into the `image` field), or implement a "update the
+code to whatever's at your previously-deployed tag" operation which copies the
+`client.knative.dev/user-image` annotation back to `image`.
+
 ### Display images
 
 Since we're now filling in the `image` field with a URL the user may never have
 specified by hand, a client can display the image for human-readability as the
 contents of the `client.knative.dev/user-image` annotation, combined with the
 note that it is "at digest <digest>", fetched from the `imageDigest` of the
-revision (or the `image` field iteself of the Service).
+revision (or the `image` field itself of the Service).
 
 For example, the displayed value for the image may be the same when:
 
@@ -155,6 +182,11 @@ Non-convention-following clients can mess with this in the following ways:
    - Clients should display the contents of the `image` field if the
      `user-image` annotation is unspecified or implausible (an implausible value
      is one that does not share the same path prefix before the sha/tag).
+ * Attempt to deploy new code by changing something other than `image`. This
+   will not work once a conventional client changes it to a digest. All clients
+   should not assume that new code will be deployed unless they set the `image`
+   field to their desired code *and* change something about the
+   `revisionTemplate`.
 
 Furthermore, *before* a user has used a well-behaved client to change an env var
 or something, using an unaware client like kubectl to change an env var will
