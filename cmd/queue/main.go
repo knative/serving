@@ -40,8 +40,14 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/websocket"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 )
+
+type Measurement int
 
 const (
 	// Add a little buffer space between request handling and stat
@@ -55,6 +61,39 @@ const (
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
+)
+
+// TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
+// TODO(@mrmcmuffinz): Need to get more appropriate names.
+const (
+	// RequestCountM number of requests received since last Stat (approximately QPS).
+	RequestCountM Measurement = iota
+	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
+	AverageConcurrentRequestsM
+	// LameDuckM indicates this Pod has received a shutdown signal.
+	LameDuckM
+)
+
+// TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
+var (
+	measurements = []*stats.Float64Measure{
+		RequestCountM: stats.Float64(
+			"request_count",
+			"Number of requests received since last Stat",
+			stats.UnitNone),
+		AverageConcurrentRequestsM: stats.Float64(
+			"average_concurrent_requests",
+			"Number of requests currently being handled by this pod",
+			stats.UnitNone),
+		LameDuckM: stats.Float64(
+			"lame_duck",
+			"Indicates this Pod has received a shutdown signal with 1 else 0",
+			stats.UnitNone),
+	}
+	namespaceTagKey tag.Key
+	configTagKey    tag.Key
+	revisionTagKey  tag.Key
+	serviceTagKey   tag.Key
 )
 
 var (
@@ -87,6 +126,33 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
+
+	// Create views to see our measurements. This can return an error if
+	// a previously-registered view has the same name with a different value.
+	// View name defaults to the measure name if unspecified.
+	err := view.Register(
+		&view.View{
+			Description: "Number of requests received since last Stat",
+			Measure:     measurements[RequestCountM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+		&view.View{
+			Description: "Number of requests currently being handled by this pod",
+			Measure:     measurements[AverageConcurrentRequestsM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+		&view.View{
+			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
+			Measure:     measurements[LameDuckM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func statReporter() {
@@ -248,6 +314,24 @@ func main() {
 		breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, *containerConcurrency)
 	}
+
+	// Prometheous Exporter.
+	// TODO(@mrmcmuffinz): need to figure out if this is the best spot to both setup/config the
+	// prom exporter and also run the annonomyous function goroutine to handle the request.
+	// TODO(@mrmcmuffinz): Need to check if we want this always on or not.
+	// TODO(@mrmcmuffinz): Need to figure out where we actually do the work to set the measurements.
+	logger.Info("Initializing OpenCensus Prometheus exporter.")
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
+	if err != nil {
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
+	}
+	view.RegisterExporter(promExporter)
+	view.SetReportingPeriod(10 * time.Second)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
