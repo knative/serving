@@ -1,0 +1,8 @@
+349a350,356
+>         # PATCH #2: Temporary workaround for https://github.com/knative/serving/issues/2351.
+>         lifecycle:
+>           preStop:
+>             exec:
+>               command:
+>               - /bin/sleep
+>               - "20"
