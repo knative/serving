@@ -180,8 +180,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	// Delete unused autoscaler implementations--there can be only one!
 	switch kpa.Class() {
 	case "kpa":
-		err := c.deleteHpa(ctx, key)
-		if err != nil {
+		if err := c.deleteHpa(ctx, key); err != nil {
 			return err
 		}
 		metric, err := c.upsertKpa(ctx, key, kpa)
@@ -191,20 +190,17 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 		// Right-size the ScaleTargetRef and update status.
 		return c.reconcileMetric(ctx, kpa, metric)
 	case "hpa":
-		err := c.kpaMetrics.Delete(ctx, key)
-		if err != nil {
+		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
 			return err
 		}
-		err = c.upsertHpa(ctx, key, kpa)
-		if err != nil {
+		if err = c.upsertHpa(ctx, key, kpa); err != nil {
 			return err
 		}
 		// HPA autoscaler does not support scale-to-zero.
 		kpa.Status.MarkActive()
 		return nil
 	default:
-		err := c.kpaMetrics.Delete(ctx, key)
-		if err != nil {
+		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
 			return err
 		}
 		return c.deleteHpa(ctx, key)
@@ -212,8 +208,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 }
 
 func (c *Reconciler) delete(ctx context.Context, key string) error {
-	err := c.kpaMetrics.Delete(ctx, key)
-	if err != nil {
+	if err := c.kpaMetrics.Delete(ctx, key); err != nil {
 		return err
 	}
 	return c.deleteHpa(ctx, key)
@@ -248,8 +243,7 @@ func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAuto
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(kpa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		_, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Create(desiredHpa)
-		if err != nil {
+		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Create(desiredHpa); err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			return err
 		}
@@ -259,8 +253,7 @@ func (c *Reconciler) upsertHpa(ctx context.Context, key string, kpa *kpa.PodAuto
 	} else {
 		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 			logger.Infof("Updating HPA %q", desiredHpa.Name)
-			_, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Update(desiredHpa)
-			if err != nil {
+			if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(kpa.Namespace).Update(desiredHpa); err != nil {
 				logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
 				return err
 			}
