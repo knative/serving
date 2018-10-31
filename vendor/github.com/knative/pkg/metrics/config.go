@@ -65,12 +65,11 @@ func getMetricsConfig(m map[string]string, domain string, component string, logg
 		return nil, fmt.Errorf("Unsupported metrics backend value \"%s\"", backend)
 	}
 
+	// If stackdriverProjectIDKey is not provided for stackdriver backend destination, OpenCensus will try to
+	// use the application default credentials. If that is not available, Opencensus would fail to create the
+	// metrics exporter.
 	if mc.backendDestination == Stackdriver {
-		sdProj, ok := m[stackdriverProjectIDKey]
-		if !ok || sdProj == "" {
-			return nil, errors.New("For backend stackdriver, metrics.stackdriver-project-id field must exist and cannot be empty")
-		}
-		mc.stackdriverProjectID = sdProj
+		mc.stackdriverProjectID = m[stackdriverProjectIDKey]
 	}
 
 	if domain == "" {
@@ -103,7 +102,7 @@ func UpdateExporterFromConfigMap(domain string, component string, logger *zap.Su
 
 		if isMetricsConfigChanged(newConfig) {
 			if err := newMetricsExporter(newConfig, logger); err != nil {
-				logger.Error("Failed to update a new metrics exporter based on metric config.", zap.Error(err))
+				logger.Errorf("Failed to update a new metrics exporter based on metric config %v. error: %v", newConfig, err)
 				return
 			}
 		}

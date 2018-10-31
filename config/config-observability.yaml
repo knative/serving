@@ -87,12 +87,13 @@ data:
 
   # metrics.backend-destination field specifies the system metrics destination.
   # It defaults to prometheus. If this is stackdriver, the metrics will be sent
-  # to stackdriver. "prometheus" and "stackdriver" are supported. "prometheus"
-  # will be used for any other values. This field is required.
+  # to stackdriver. "prometheus" and "stackdriver" are supported. This field 
+  # is required.
   metrics.backend-destination: "prometheus"
 
-  # metrics.stackdriver-project-id field specifies the stackdriver project ID.
-  # To export metrics to stackdriver, you need to have a valid stackdriver project ID.
+  # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
+  # field is optional. When running on GKE, application default credentials will be
+  # used if this field is not provided.
   # Note: Using stackdriver would incur charges for knative-serving system metrics
   # before we have own resource types.
-  metrics.stackdriver-project-id: "<your stackdriver project id>" 
+  # metrics.stackdriver-project-id: "<your stackdriver project id>" 
