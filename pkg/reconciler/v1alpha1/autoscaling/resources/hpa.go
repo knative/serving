@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"math"
+
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +27,7 @@ import (
 func MakeHPA(kpa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler {
 	min, max := kpa.ScaleBounds()
 	if max == 0 {
-		max = 999999 // default to no limit
+		max = math.MaxInt32 // default to no limit
 	}
 	hpa := &autoscalingv1.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
