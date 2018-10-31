@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-func TestInhert(t *testing.T) {
+func TestInherit(t *testing.T) {
 	cases := []struct {
 		name   string
 		parent map[string]string
