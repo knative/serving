@@ -122,7 +122,7 @@ the setup needed for Knative:
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
-  --user="${K8S_USER_OVERRIDE}"
+  --user="${K8S_USER_OVERRIDE?}"
 ```
 
 ### Deploy Istio

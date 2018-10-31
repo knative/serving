@@ -110,7 +110,7 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 			resp.Header = make(http.Header)
 		}
 
-		resp.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(attempts))
+		resp.Header.Add(activator.RequestCountHTTPHeader, strconv.Itoa(attempts))
 	} else {
 		rrt.logger.Errorf("Failed after %d attempts. Last error: %v", attempts, err)
 	}

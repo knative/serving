@@ -92,7 +92,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "v2-service",
 						ServicePort:      intstr.FromInt(80),
@@ -111,7 +111,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "v1-service",
 						ServicePort:      intstr.FromInt(80),
@@ -191,7 +191,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "revision-service",
 						ServicePort:      intstr.FromInt(80),
@@ -237,7 +237,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "revision-service",
 						ServicePort:      intstr.FromInt(80),
@@ -283,14 +283,14 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "revision-service",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "new-revision-service",
 						ServicePort:      intstr.FromInt(80),
@@ -332,7 +332,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "knative-serving",
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
@@ -384,7 +384,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "knative-serving",
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
@@ -432,7 +432,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					Backend: &netv1alpha1.ClusterIngressBackend{
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "revision-service",
 						ServicePort:      intstr.FromInt(80),

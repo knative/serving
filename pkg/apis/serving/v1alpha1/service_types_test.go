@@ -355,6 +355,44 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 }
 
+func TestSetManualStatus(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Status should remain unknown
+	svc.Status.SetManualStatus()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Going back from manual will result in propogation to reoccur, and should make us ready
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededService(svc.Status, ServiceConditionReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Going back to unknown should make us unknown again
+	svc.Status.SetManualStatus()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+}
+
 func TestConfigurationStatusPropagation(t *testing.T) {
 	svc := &Service{}
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{

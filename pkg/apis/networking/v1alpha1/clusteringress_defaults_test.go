@@ -86,7 +86,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -103,7 +103,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -130,14 +130,14 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
 								},
 								Percent: 30,
 							}, {
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-001",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -160,7 +160,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -168,7 +168,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								// Percent is kept intact.
 								Percent: 30,
 							}, {
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-001",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -195,14 +195,14 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
 								},
 								Percent: 30,
 							}, {
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-001",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -224,7 +224,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 					HTTP: &HTTPClusterIngressRuleValue{
 						Paths: []HTTPClusterIngressPath{{
 							Splits: []ClusterIngressBackendSplit{{
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-000",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),
@@ -232,7 +232,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								// Percent is kept intact.
 								Percent: 30,
 							}, {
-								Backend: &ClusterIngressBackend{
+								ClusterIngressBackend: ClusterIngressBackend{
 									ServiceName:      "revision-001",
 									ServiceNamespace: "default",
 									ServicePort:      intstr.FromInt(8080),

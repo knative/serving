@@ -26,6 +26,9 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
@@ -43,6 +46,22 @@ func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, b
 	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
+}
+
+// UpdateRoute updates a route in the given namespace using the route name in names
+func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
+	newRoute.ObjectMeta.ResourceVersion = route.ObjectMeta.ResourceVersion
+	LogResourceObject(logger, ResourceObjects{Route: newRoute})
+	patchBytes, err := createPatch(route, newRoute)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
 }
 
 // ProbeDomain sends requests to a domain until we get a successful

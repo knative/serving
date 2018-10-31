@@ -134,7 +134,7 @@ func NewController(
 			transport: http.DefaultTransport,
 		},
 	}
-	impl := controller.NewImpl(c, c.Logger, "Revisions")
+	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
 
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
