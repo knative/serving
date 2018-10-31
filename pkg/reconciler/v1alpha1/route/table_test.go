@@ -354,7 +354,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/ingress-create-failure",
+		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -607,7 +607,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/new-latest-ready",
+		Key:                     "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "failure updating cluster ingress",
@@ -704,7 +704,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/update-ci-failure",
+		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
@@ -988,7 +988,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key: "default/ingress-mutation",
+		Key:                     "default/ingress-mutation",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
@@ -1217,7 +1217,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 		}},
-		Key: "default/pinned-becomes-ready",
+		Key:                     "default/pinned-becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
@@ -1308,7 +1308,7 @@ func TestReconcile(t *testing.T) {
 				Percent:           50,
 			}),
 		}},
-		Key: "default/named-traffic-split",
+		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "same revision targets",
@@ -1408,7 +1408,7 @@ func TestReconcile(t *testing.T) {
 				Percent:      50,
 			}),
 		}},
-		Key: "default/same-revision-targets",
+		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
@@ -1502,7 +1502,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/switch-configs",
+		Key:                     "default/switch-configs",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
