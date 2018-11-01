@@ -141,13 +141,15 @@ func NewControllerWithClock(
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.tracker.OnChanged,
-		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
+		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
 	})
+	gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.tracker.OnChanged,
-		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
+		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -261,16 +263,18 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
 		// Traffic stanza change.
+		gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 		for _, configuration := range t.Configurations {
-			if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+			if err := c.tracker.Track(objectRef(configuration, gvk), r); err != nil {
 				return nil, err
 			}
 		}
+		gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 		for _, revision := range t.Revisions {
 			if revision.Status.IsActivationRequired() {
 				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 			}
-			if err := c.tracker.Track(objectRef(revision), r); err != nil {
+			if err := c.tracker.Track(objectRef(revision, gvk), r); err != nil {
 				return nil, err
 			}
 		}
@@ -327,8 +331,11 @@ type accessor interface {
 	GetName() string
 }
 
-func objectRef(a accessor) corev1.ObjectReference {
-	gvk := a.GroupVersionKind()
+func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
+	// We can't always rely on the TypeMeta being populated.
+	// See: https://github.com/knative/serving/issues/2372
+	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
+	// gvk := a.GroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	return corev1.ObjectReference{
 		APIVersion: apiVersion,
