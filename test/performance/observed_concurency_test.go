@@ -19,14 +19,17 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/prometheus"
 	"github.com/knative/test-infra/tools/testgrid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -61,19 +64,20 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 }
 
 func TestObservedConcurrency(t *testing.T) {
-	clients, err := SetupClients(t)
+	perfClients, err := Setup(true)
 	if err != nil {
-		t.Fatalf("Cannot initialize clients: %v", err)
+		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
-	//add test case specific name to its own logger
+	// add test case specific name to its own logger
 	logger := logging.GetContextLogger(tName)
+	clients := perfClients.E2EClients
 
-	var imagePath = test.ImagePath("observed-concrrency")
+	var imagePath = test.ImagePath("observed-concurrency")
 	names := test.ResourceNames{Service: test.AppendRandomString("observed-concurrency", logger)}
 
-	defer TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
+	defer TearDown(perfClients, logger, names)
+	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
 
 	logger.Info("Creating a new Service")
 	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
@@ -100,16 +104,33 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	domain := route.Status.Domain
-	endpoint, err := GetServiceEndpoint(clients)
+	endpoint, err := spoof.GetServiceEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
-	url = fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
+	url := fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
 	resp, err := RunLoadTest(duration, numThreads, concurrency, url, domain)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
+
+	// Wait for prometheus to scrape the data
+	prometheus.AllowPrometheusSync(logger)
+
+	query := fmt.Sprintf("autoscaler_observed_stable_concurrency{configuration_namespace=\"%s\", configuration=\"%s\", revision=\"%s\"}", test.ServingNamespace, names.Config, names.Revision)
+	t.Logf("prometheus query: %s", query)
+
+	promAPI, err := prometheus.PromAPI()
+	if err != nil {
+		logger.Errorf("Cannot setup prometheus API")
+	}
+
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		logger.Errorf("Could not get metrics from prometheus: %v", err)
+	}
+	logger.Infof("promvalue = %s", value.String())
 
 	var tc []testgrid.TestCase
 	for _, p := range resp.DurationHistogram.Percentiles {

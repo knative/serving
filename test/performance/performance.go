@@ -24,56 +24,51 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/prometheus"
 	"github.com/knative/test-infra/tools/testgrid"
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 const (
-	istioNS = "istio-system"
-	gateway = "knative-ingressgateway"
+	istioNS      = "istio-system"
+	monitoringNS = "knative-monitoring"
+	gateway      = "knative-ingressgateway"
 )
 
-// SetupClients creates all the clients that we need to interact with in our tests
-func SetupClients() (*test.Clients, error) {
-	return test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
+type PerformanceClient struct {
+	E2EClients *test.Clients
+	PromClient *prometheus.PromProxy
 }
 
-// Teardown cleans up resources used
-func TearDown(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
-// GetServiceEndpoint gets the endpoint IP or hostname to use for the service
-func GetServiceEndpoint(client *test.Clients) (*string, error) {
-	var endpoint string
-	ingress, err := client.KubeClient.Kube.CoreV1().Services(istioNS).Get(gateway, metav1.GetOptions{})
+// Setup creates all the clients that we need to interact with in our tests
+func Setup(promReqd bool) (*PerformanceClient, error) {
+	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
 	}
 
-	ingresses := ingress.Status.LoadBalancer.Ingress
-	if len(ingresses) != 1 {
-		return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
+	var p *prometheus.PromProxy
+	if promReqd {
+		p = &prometheus.PromProxy{Namespace: monitoringNS}
+	}
+	return &PerformanceClient{E2EClients: clients, PromClient: p}, nil
+}
+
+// Teardown cleans up resources used
+func TearDown(client *PerformanceClient, logger *logging.BaseLogger, names test.ResourceNames) {
+	if client.E2EClients != nil && client.E2EClients.ServingClient != nil {
+		client.E2EClients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
 	}
 
-	ingressToUse := ingresses[0]
-	if ingressToUse.IP == "" {
-		if ingressToUse.Hostname == "" {
-			return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", gateway)
-		}
-		endpoint = ingressToUse.Hostname
-	} else {
-		endpoint = ingressToUse.IP
+	if client.PromClient != nil {
+		client.PromClient.Teardown(logger)
 	}
-	return &endpoint, nil
 }
 
 // Get the aritfacts directory where we should put the artifacts

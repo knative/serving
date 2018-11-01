@@ -61,13 +61,13 @@ function create_monitoring() {
 }
 
 function create_namespace() {
-  echo ">> Creating Namespace serving-tests"
+  echo ">> Creating namespace serving-tests"
   kubectl create namespace serving-tests
 }
 
 function publish_test_images() {
   echo ">> Publishing test images"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
     ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
   done

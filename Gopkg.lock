@@ -314,11 +314,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-<<<<<<< HEAD
-  digest = "1:d4b0a858c216d326672ad451d32c7f4e38415b56ea365023e40fa13acc16e4e0"
-=======
-  digest = "1:345bbba667abadd6263391c915251ede8d9fa6f6852839c60bb6738b6122b89c"
->>>>>>> master
+  digest = "1:41290f810d4fe2d98e7fcba582bcb6b593a37da307c22b252dcbf0573dba95ef"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
@@ -467,15 +463,18 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:43b2d599cf31e3998d0ecac54fc45c0c0c2a2c363b62aaad9b664f01b3a84ac7"
+  digest = "1:a00585c9efd5f6218d6505e540ad23833efd61c286c6fcb51f2f53ec1bc3f6b4"
   name = "github.com/prometheus/client_golang"
   packages = [
+    "api",
+    "api/prometheus/v1",
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp",
   ]
   pruneopts = "NUT"
-  revision = "c5b7fccd204277076155f10851dad72b76a49317"
-  version = "v0.8.0"
+  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -1109,6 +1108,9 @@
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/api",
+    "github.com/prometheus/client_golang/api/prometheus/v1",
+    "github.com/prometheus/common/model",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
