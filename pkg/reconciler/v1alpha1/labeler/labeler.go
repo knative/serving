@@ -24,7 +24,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/knative/pkg/tracker"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -42,7 +41,6 @@ type Reconciler struct {
 	routeLister         listers.RouteLister
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
-	tracker             tracker.Interface
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -70,16 +68,6 @@ func NewRouteToConfigurationController(
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 		DeleteFunc: impl.Enqueue,
-	})
-
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.tracker.OnChanged,
-		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
-	})
-	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.tracker.OnChanged,
-		UpdateFunc: controller.PassNew(c.tracker.OnChanged),
 	})
 
 	return impl
