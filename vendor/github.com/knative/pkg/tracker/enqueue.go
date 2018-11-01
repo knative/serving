@@ -17,6 +17,7 @@ limitations under the License.
 package tracker
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -61,6 +62,24 @@ type set map[string]time.Time
 
 // Track implements Interface.
 func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
+	var missingFields []string
+	if ref.APIVersion == "" {
+		missingFields = append(missingFields, "APIVersion")
+	}
+	if ref.Kind == "" {
+		missingFields = append(missingFields, "Kind")
+	}
+	if ref.Namespace == "" {
+		missingFields = append(missingFields, "Namespace")
+	}
+	if ref.Name == "" {
+		missingFields = append(missingFields, "Name")
+	}
+	if len(missingFields) > 0 {
+		return fmt.Errorf("expected ObjectReference to specify the following missing fields: %v",
+			missingFields)
+	}
+
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		return err
