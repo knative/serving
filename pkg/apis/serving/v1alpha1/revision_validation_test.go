@@ -64,14 +64,34 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("resources"),
 	}, {
-		name: "has ports",
+		name: "has more than one port",
+		c: corev1.Container{
+			Ports: []corev1.ContainerPort{{
+				Name:          "http",
+				ContainerPort: 8080,
+			},{
+				Name:          "http2",
+				ContainerPort: 8181,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "container ports set more than one",
+			Paths:   []string{"ports"},
+			Details: "only can be set named \"user-port\" port",
+		},
+	}, {
+		name: "set wrong name port",
 		c: corev1.Container{
 			Ports: []corev1.ContainerPort{{
 				Name:          "http",
 				ContainerPort: 8080,
 			}},
 		},
-		want: apis.ErrDisallowedFields("ports"),
+		want: &apis.FieldError{
+			Message: fmt.Sprintf("unsupport port name %v", "http"),
+			Paths:   []string{"ports"},
+			Details: "only can be set named \"user-port\" port",
+		},
 	}, {
 		name: "has volumeMounts",
 		c: corev1.Container{
@@ -151,7 +171,11 @@ func TestContainerValidation(t *testing.T) {
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "resources", "volumeMounts", "lifecycle").Also(&apis.FieldError{
+			Message: fmt.Sprintf("unsupport port name %v", "http"),
+			Paths:   []string{"ports"},
+			Details: "only can be set named \"user-port\" port",
+		}),
 	}}
 
 	for _, test := range tests {

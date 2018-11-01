@@ -133,7 +133,7 @@ type testContext struct {
 	domain         string
 }
 
-func setup(t *testing.T, userport int32, imageName string) *testContext {
+func setup(t *testing.T) *testContext {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
@@ -147,12 +147,11 @@ func setup(t *testing.T, userport int32, imageName string) *testContext {
 		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
 	}
 
-	imagePath := test.ImagePath(imageName)
+	imagePath := test.ImagePath("autoscale")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
 		ContainerConcurrency: 10,
-		ContainerPorts:       generateUserPort(logger, userport),
 	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
@@ -204,18 +203,6 @@ func setup(t *testing.T, userport int32, imageName string) *testContext {
 		deploymentName: deploymentName,
 		domain:         domain,
 	}
-}
-
-func generateUserPort(logger *logging.BaseLogger, port int32) []v1.ContainerPort {
-	containerPorts := []v1.ContainerPort{}
-	userPort := v1.ContainerPort{
-		Name:          "user-port",
-		ContainerPort: int32(port),
-	}
-	logger.Infof("set user port: %v", port)
-
-	containerPorts = append(containerPorts, userPort)
-	return containerPorts
 }
 
 func assertScaleUp(ctx *testContext) {
@@ -272,18 +259,7 @@ func assertScaleDown(ctx *testContext) {
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	ctx := setup(t, 8080, "autoscale")
-	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
-	defer close(stopChan)
-	defer tearDown(ctx)
-
-	assertScaleUp(ctx)
-	assertScaleDown(ctx)
-	assertScaleUp(ctx)
-}
-
-func TestAutoscaleUpDownUpUserPort(t *testing.T) {
-	ctx := setup(t, 8888, "autoscale-userport")
+	ctx := setup(t)
 	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
 	defer close(stopChan)
 	defer tearDown(ctx)

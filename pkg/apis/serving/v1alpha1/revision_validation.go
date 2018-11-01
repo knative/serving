@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/google/go-cmp/cmp"
@@ -109,11 +110,6 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if !equality.Semantic.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
 		ignoredFields = append(ignoredFields, "resources")
 	}
-	if len(container.Ports) > 0 {
-		if !validateContainerPorts(container.Ports) {
-			ignoredFields = append(ignoredFields, "ports")
-		}
-	}
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "volumeMounts")
 	}
@@ -125,6 +121,9 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		// Complain about all ignored fields so that user can remove them all at once.
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
 	}
+	if err := validateContainerPorts(container.Ports); err != nil {
+		errs = errs.Also(err)
+	}
 	// Validate our probes
 	if err := validateProbe(container.ReadinessProbe).ViaField("readinessProbe"); err != nil {
 		errs = errs.Also(err)
@@ -135,15 +134,26 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	return errs
 }
 
-func validateContainerPorts(ports []corev1.ContainerPort) bool {
-	bIsAllowed := false
-	// users can set container port which names "user-port" to define application's port.
+func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
+	// user can set container port which names "user-port" to define application's port.
 	// Queue-proxy will use it to send requests to application
-	if len(ports) == 1 && ports[0].Name == "user-port"{
-		bIsAllowed = true
-		return bIsAllowed
+	// if user didn't set any port, it will set default port user-port=8080.
+	if len(ports) > 1 {
+		return &apis.FieldError{
+			Message: "container ports set more than one",
+			Paths:   []string{"ports"},
+			Details: "only can be set named \"user-port\" port",
+		}
 	}
-	return bIsAllowed
+
+	if len(ports) == 1 && ports[0].Name != "user-port"{
+		return &apis.FieldError{
+			Message: fmt.Sprintf("unsupport port name %v", ports[0].Name),
+			Paths:   []string{"ports"},
+			Details: "only can be set named \"user-port\" port",
+		}
+	}
+	return nil
 }
 
 func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {

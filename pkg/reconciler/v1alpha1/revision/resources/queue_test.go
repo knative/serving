@@ -61,7 +61,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		userport: &corev1.ContainerPort{
 			Name:          userPortEnvName,
-			ContainerPort: defaultUserPort,
+			ContainerPort: v1alpha1.RevisionContainerUserPortDefaultValue,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -100,7 +100,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(defaultUserPort),
+				Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 			}},
 		},
 	}, {
@@ -122,7 +122,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		userport: &corev1.ContainerPort{
 			Name:          userPortEnvName,
-			ContainerPort: defaultUserPort,
+			ContainerPort: v1alpha1.RevisionContainerUserPortDefaultValue,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -162,7 +162,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(defaultUserPort),
+				Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 			}},
 		},
 	}, {
@@ -189,7 +189,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		userport: &corev1.ContainerPort{
 			Name:          userPortEnvName,
-			ContainerPort: defaultUserPort,
+			ContainerPort: v1alpha1.RevisionContainerUserPortDefaultValue,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -228,7 +228,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(defaultUserPort),
+				Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 			}},
 		},
 	}, {
@@ -253,7 +253,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		userport: &corev1.ContainerPort{
 			Name:          userPortEnvName,
-			ContainerPort: defaultUserPort,
+			ContainerPort: v1alpha1.RevisionContainerUserPortDefaultValue,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -292,7 +292,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Value: "error", // from logging config
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(defaultUserPort),
+				Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 			}},
 		},
 	}, {
@@ -312,7 +312,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		userport: &corev1.ContainerPort{
 			Name:          userPortEnvName,
-			ContainerPort: defaultUserPort,
+			ContainerPort: v1alpha1.RevisionContainerUserPortDefaultValue,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -351,7 +351,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(defaultUserPort),
+				Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 			}},
 		},
 	}}

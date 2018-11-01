@@ -39,14 +39,14 @@ import (
 var (
 	one       int32 = 1
 	userPorts       = []corev1.ContainerPort{{
-		Name:          userPortName,
-		ContainerPort: int32(defaultUserPort),
+		Name:          v1alpha1.RevisionContainerUserPortName,
+		ContainerPort: int32(v1alpha1.RevisionContainerUserPortDefaultValue),
 	}}
 
 	// Expose containerPort as env PORT.
 	userEnv = corev1.EnvVar{
 		Name:  userPortEnvName,
-		Value: strconv.Itoa(defaultUserPort),
+		Value: strconv.Itoa(v1alpha1.RevisionContainerUserPortDefaultValue),
 	}
 )
 
@@ -75,7 +75,7 @@ func TestMakePodSpec(t *testing.T) {
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{
 						{
-							Name:          userPortName,
+							Name:          v1alpha1.RevisionContainerUserPortName,
 							ContainerPort: 8888,
 						},
 					},
@@ -93,7 +93,7 @@ func TestMakePodSpec(t *testing.T) {
 				Resources: userResources,
 				Ports: []corev1.ContainerPort{
 					{
-						Name:          userPortName,
+						Name:          v1alpha1.RevisionContainerUserPortName,
 						ContainerPort: 8888,
 					},
 				},
@@ -421,7 +421,7 @@ func TestMakePodSpec(t *testing.T) {
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(defaultUserPort),
+								Port: intstr.FromInt(v1alpha1.RevisionContainerUserPortDefaultValue),
 								Path: "/",
 							},
 						},
@@ -723,7 +723,7 @@ func TestMakePodSpec(t *testing.T) {
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(defaultUserPort),
+							Port: intstr.FromInt(v1alpha1.RevisionContainerUserPortDefaultValue),
 						},
 					},
 				},

@@ -129,20 +129,20 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 
 func createAndSetDefaultUserPort(userContainer *corev1.Container) {
 	defaultUserPort := &corev1.ContainerPort{
-		Name:          userPortName,
-		ContainerPort: int32(defaultUserPort),
+		Name:          v1alpha1.RevisionContainerUserPortName,
+		ContainerPort: int32(v1alpha1.RevisionContainerUserPortDefaultValue),
 	}
 	userContainer.Ports = append(userContainer.Ports, *defaultUserPort)
 }
 
 func getUserPort(rev *v1alpha1.Revision) (int32, bool) {
 	for _, port := range rev.Spec.Container.Ports {
-		if port.Name == userPortName {
+		if port.Name == v1alpha1.RevisionContainerUserPortName {
 			return port.ContainerPort, true
 		}
 	}
 
-	return defaultUserPort, false
+	return v1alpha1.RevisionContainerUserPortDefaultValue, false
 }
 
 func buildUserPortEnv(userPort int32) corev1.EnvVar {
@@ -152,16 +152,6 @@ func buildUserPortEnv(userPort int32) corev1.EnvVar {
 		Value: strconv.Itoa(int(userPort)),
 	}
 	return userPortEnv
-}
-
-func buildQueueProxyExtraEnv(userPort *corev1.ContainerPort) []corev1.EnvVar {
-	queueContainerExtraEnv := []corev1.EnvVar{{
-		Name:  "USER_PORT",
-		Value: strconv.Itoa(int(userPort.ContainerPort)),
-	},
-	}
-
-	return queueContainerExtraEnv
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,

@@ -119,6 +119,11 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
+const (
+	RevisionContainerUserPortName         = "user-port"
+	RevisionContainerUserPortDefaultValue = 8080
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
