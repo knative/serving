@@ -267,7 +267,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	m, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, kpa)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}

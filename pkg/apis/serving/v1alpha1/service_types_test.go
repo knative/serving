@@ -368,7 +368,7 @@ func TestSetManualStatus(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
-	// Going back from manual will result in propogation to reoccur, and should make us ready
+	// Going back from manual will result in propagation to reoccur, and should make us ready
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,

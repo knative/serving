@@ -102,7 +102,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 }
 
 // The number of pods that are observable via stats
-// Substracts the activator pod if its not the only pod reporting stats
+// Subtracts the activator pod if its not the only pod reporting stats
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
