@@ -345,7 +345,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:09a0191630848e76bcf546f33f311141b0c6d8ff1ef24089b81a6f27bf19d118"
+  digest = "1:2d31c7670424160becea77a2a8f54c5a2834fb1e41f730d83e81f4633cf78320"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -381,6 +381,7 @@
     "test",
     "test/logging",
     "test/spoof",
+    "testing",
     "tracker",
     "webhook",
   ]
@@ -1081,6 +1082,7 @@
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/testing",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra",
