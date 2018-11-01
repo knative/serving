@@ -22,6 +22,13 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 
+# Set the repository
+export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
+# Build should not try to deploy anything, use a bogus value for cluster.
+export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+export K8S_USER_OVERRIDE=USER_NOT_SET
+export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
+
 # Script entry point
 
 initialize $@
@@ -33,15 +40,8 @@ run_validation_tests ./test/presubmit-tests.sh
 
 banner "Building the release"
 
-# Set the repository
-export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
-# Build should not try to deploy anything, use a bogus value for cluster.
-export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-export K8S_USER_OVERRIDE=USER_NOT_SET
-export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
-
+echo "- Destination GCR: ${KO_DOCKER_REPO}"
 if (( PUBLISH_RELEASE )); then
-  echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
   echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
 fi
 
@@ -59,8 +59,8 @@ tag_images_in_yaml "${RELEASE_YAML}" "${SERVING_RELEASE_GCR}" "${TAG}"
 echo "New release built successfully"
 
 if (( ! PUBLISH_RELEASE )); then
-  # Move the generated YAML files to the repo root dir.
-  mv ${YAMLS_TO_PUBLISH} ${REPO_ROOT_DIR}
+  # Copy the generated YAML files to the repo root dir.
+  cp ${YAMLS_TO_PUBLISH} ${REPO_ROOT_DIR}
   exit 0
 fi
 
