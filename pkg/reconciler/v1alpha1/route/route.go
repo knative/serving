@@ -34,7 +34,6 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/tracker"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -129,14 +128,16 @@ func NewControllerWithClock(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			DeleteFunc: impl.EnqueueControllerOf,
 		},
 	})
 
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    c.enqueueOwnerRoute(impl),
-			UpdateFunc: controller.PassNew(c.enqueueOwnerRoute(impl)),
+			AddFunc:    impl.EnqueueLabelOf(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOf(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
+			DeleteFunc: impl.EnqueueLabelOf(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
 		},
 	})
 
@@ -295,26 +296,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
-}
-
-// TODO(lichuqiang): add a generalized method in pkg repo to unify similar behaviors.
-func (c *Reconciler) enqueueOwnerRoute(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		ing, ok := obj.(*netv1alpha1.ClusterIngress)
-		if !ok {
-			c.Logger.Infof("Ignoring non-ClusterIngress objects %v", obj)
-			return
-		}
-		// Check whether the ClusterIngress is referred by a Route.
-		routeName, keyExist := ing.Labels[serving.RouteLabelKey]
-		routeNamespace, nsExist := ing.Labels[serving.RouteNamespaceLabelKey]
-		if !keyExist || !nsExist {
-			c.Logger.Errorf("ClusterIngress %s does not have a referring route", ing.Name)
-			return
-		}
-
-		impl.EnqueueKey(fmt.Sprintf("%s/%s", routeNamespace, routeName))
-	}
 }
 
 /////////////////////////////////////////
