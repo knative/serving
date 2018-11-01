@@ -46,31 +46,31 @@ if (( PUBLISH_RELEASE )); then
 fi
 
 # Build the release
-#
-# Run this generate-yamls.sh script, which should be versioned with the
+
+# Run `generate-yamls.sh`, which should be versioned with the
 # branch since the detail of building may change over time.
-YAML_LIST="generated-yamls.txt"
-
-$(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}" || abort "Cannot build the release."
-YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}")
-RELEASE_YAML=$(head -n1 "${YAML_LIST}")
-
-echo "Tagging referenced images with ${TAG}."
+readonly YAML_LIST="$(mktemp)"
+$(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
+readonly YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
+readonly RELEASE_YAML="$(head -n1 ${YAML_LIST})"
 
 tag_images_in_yaml "${RELEASE_YAML}" "${SERVING_RELEASE_GCR}" "${TAG}"
 
 echo "New release built successfully"
 
 if (( ! PUBLISH_RELEASE )); then
- exit 0
+  # Move the generated YAML files to the repo root dir.
+  mv ${YAMLS_TO_PUBLISH} ${REPO_ROOT_DIR}
+  exit 0
 fi
 
 # Publish the release
+# We publish our own istio.yaml, so users don't need to use helm
 for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
 
-branch_release "Knative Serving" ${YAMLS_TO_PUBLISH}
+branch_release "Knative Serving" "${YAMLS_TO_PUBLISH}"
 
 echo "New release published successfully"
