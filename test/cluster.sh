@@ -44,6 +44,7 @@ function install_knative_serving() {
   export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_manifests
   echo ">> Bringing up Istio"
+  kubectl apply -f "${ISTIO_CRD_YAML}"
   kubectl apply -f "${ISTIO_YAML}"
 
   echo ">> Bringing up Serving"
