@@ -225,7 +225,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// In all cases we will add annotations to the referred targets.  This is so that when they become
 	// routable we can know (through a listener) and attempt traffic configuration again.
 	if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
-		logger.Errorf("Failed to update target revisions: %v", err)
+		return err
 	}
 
 	// Update the information that makes us Targetable.

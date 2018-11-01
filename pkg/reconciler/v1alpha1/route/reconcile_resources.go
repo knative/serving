@@ -18,7 +18,6 @@ package route
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -200,16 +199,12 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Tr
 				}
 
 				newRev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = v1alpha1.RevisionLastPinnedString(c.clock.Now())
-				patch, err := duck.CreatePatch(rev, newRev)
-				if err != nil {
-					return err
-				}
-				patchJSON, err := json.Marshal(patch)
+				patch, err := duck.CreateMergePatch(rev, newRev)
 				if err != nil {
 					return err
 				}
 
-				if _, err := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patchJSON); err != nil {
+				if _, err := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
 					c.Logger.Errorf("Unable to set revision annotation: %v", err)
 					return err
 				}
