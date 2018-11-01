@@ -22,8 +22,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-10-25
-  revision = "5c809f170b42301a276080f4fd884a30188ca1a5"
+  # Enough to include CreateMergePatch
+  revision = "594df37bfda1543f724e76beeb0a74f530c1de57"
 
 [[override]]
   name = "go.uber.org/zap"

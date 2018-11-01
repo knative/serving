@@ -129,6 +129,14 @@
   version = "v0.3.3"
 
 [[projects]]
+  digest = "1:32598368f409bbee79deb9d43569fcd92b9fb27f39155f5e166b3371217f051f"
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "72bf35d0ff611848c1dc9df0f976c81192392fa5"
+  version = "v4.1.0"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -345,7 +353,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:2d31c7670424160becea77a2a8f54c5a2834fb1e41f730d83e81f4633cf78320"
+  digest = "1:11c8b287bacc3c659e6c33bd94fd002b1997439302e92d0ce93dd540809ca48f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -386,7 +394,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "5c809f170b42301a276080f4fd884a30188ca1a5"
+  revision = "594df37bfda1543f724e76beeb0a74f530c1de57"
 
 [[projects]]
   branch = "master"

@@ -284,7 +284,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 
 	logger.Info("Updating targeted revisions.")
 	if err := c.reconcileTargetRevisions(ctx, t, r); err != nil {
-		logger.Errorf("Failed to update target revisions: %v", err)
+		return r, err
 	}
 
 	logger.Info("Creating ClusterIngress.")
