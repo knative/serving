@@ -213,8 +213,7 @@ metadata:
   labels:
     knative.dev/configuration: ...  # name of the Configuration automatically filled in 
     knative.dev/service: ...  # name of the Service automatically filled in
-  annotations:
-    knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
+    knative.dev/configurationGeneration: ... # generation of configuration that created this Revision
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
