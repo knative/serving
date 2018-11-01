@@ -31,7 +31,6 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -136,7 +135,6 @@ func TestReconcile(t *testing.T) {
 			routeLister:         listers.GetRouteLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
-			tracker:             &rtesting.NullTracker{},
 		}
 	}))
 }
