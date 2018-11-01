@@ -25,11 +25,11 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/serving/cmd/util"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
+	"github.com/knative/serving/pkg/changeset"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
@@ -77,7 +77,7 @@ func main() {
 
 	var atomicLevel zap.AtomicLevel
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
-	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+	if commmitID, err := changeset.Get(); err == nil {
 		// Enrich logs with GitHub commit ID.
 		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
 	} else {

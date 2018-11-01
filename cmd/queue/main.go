@@ -35,6 +35,7 @@ import (
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/changeset"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
@@ -218,7 +219,7 @@ func main() {
 	flag.Parse()
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
-	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+	if commmitID, err := changeset.Get(); err == nil {
 		// Enrich logs with GitHub commit ID.
 		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
 	} else {

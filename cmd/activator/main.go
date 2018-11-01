@@ -25,6 +25,7 @@ import (
 
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/changeset"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -98,7 +99,7 @@ func main() {
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+	if commmitID, err := changeset.Get(); err == nil {
 		// Enrich logs with GitHub commit ID.
 		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
 	} else {

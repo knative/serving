@@ -26,10 +26,10 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/webhook"
-	"github.com/knative/serving/cmd/util"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/changeset"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,7 +52,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+	if commmitID, err := changeset.Get(); err == nil {
 		// Enrich logs with GitHub commit ID.
 		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
 	} else {

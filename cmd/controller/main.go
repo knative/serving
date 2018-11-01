@@ -37,7 +37,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/changeset"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
@@ -73,7 +73,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
-	if commmitID, err := util.GetGitHubShortCommitID(); err == nil {
+	if commmitID, err := changeset.Get(); err == nil {
 		// Enrich logs with GitHub commit ID.
 		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
 	} else {

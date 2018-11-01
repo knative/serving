@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ko
+package changeset
 
 import (
 	"fmt"
@@ -24,20 +24,38 @@ import (
 	"strings"
 )
 
-const _KoDataPathEnvName = "KO_DATA_PATH"
+const (
+	commitIDFile      = "HEAD"
+	koDataPathEnvName = "KO_DATA_PATH"
+)
 
 var (
 	commitIDRE = regexp.MustCompile(`^[a-f0-9]{40}$`)
 )
 
-// ReadFileFromKoData tries to read data as string from the file with given name
+// Get tries to fetch the first 7 digitals of GitHub commit ID from HEAD file in
+// KO_DATA_PATH. If it fails, it returns the error it gets.
+func Get() (string, error) {
+	data, err := readFileFromKoData(commitIDFile)
+	if err != nil {
+		return "", err
+	}
+	commitID := strings.TrimSpace(data)
+	if !commitIDRE.MatchString(commitID) {
+		err := fmt.Errorf("%q is not a valid GitHub commit ID", commitID)
+		return "", err
+	}
+	return string(commitID[0:7]), nil
+}
+
+// readFileFromKoData tries to read data as string from the file with given name
 // under KO_DATA_PATH then returns the content as string. The file is expected
 // to be wrapped into the container from /kodata by ko. If it fails, returns
 // the error it gets.
-func ReadFileFromKoData(filename string) (string, error) {
-	koDataPath := os.Getenv(_KoDataPathEnvName)
+func readFileFromKoData(filename string) (string, error) {
+	koDataPath := os.Getenv(koDataPathEnvName)
 	if koDataPath == "" {
-		err := fmt.Errorf("%q does not exist or is empty", _KoDataPathEnvName)
+		err := fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
 		return "", err
 	}
 	fullFilename := strings.Replace(koDataPath+"/"+filename, "//", "/", -1)
