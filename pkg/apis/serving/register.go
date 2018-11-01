@@ -23,10 +23,6 @@ const (
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"
 
-	// ConfigurationGenerationAnnotationKey is the annotation key attached to a Revision indicating the
-	// generation of the Configuration that created this revision
-	ConfigurationGenerationAnnotationKey = GroupName + "/configurationGeneration"
-
 	// RevisionLastPinnedAnnotationKey is the annotation key used for determining when a route has
 	// pinned a revision
 	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"

@@ -722,6 +722,7 @@ func TestRevisionAnnotations(t *testing.T) {
 	cases := []struct {
 		name               string
 		annotations        map[string]string
+		labels             map[string]string
 		setLastPinned      *time.Time
 		expectLastPinned   time.Time
 		expectConfigGen    *int64
@@ -753,12 +754,12 @@ func TestRevisionAnnotations(t *testing.T) {
 		},
 		expectLastPinned: fakeTime,
 		expectConfigGenErr: configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
+			Type: LabelParserErrorTypeMissing,
 		},
 	}, {
-		name: "annotated configGeneration",
-		annotations: map[string]string{
-			serving.ConfigurationGenerationAnnotationKey: "10",
+		name: "labeled configGeneration",
+		labels: map[string]string{
+			serving.ConfigurationGenerationLabelKey: "10",
 		},
 		expectConfigGen: &fakeGen,
 	}}
@@ -768,6 +769,7 @@ func TestRevisionAnnotations(t *testing.T) {
 			rev := Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations,
+					Labels: tc.labels,
 				},
 			}
 
