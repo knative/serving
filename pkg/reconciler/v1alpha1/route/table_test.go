@@ -1744,7 +1744,7 @@ func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
 	action.Name = name
 	action.Namespace = namespace
 	lastPinStr := v1alpha1.RevisionLastPinnedString(fakeCurTime)
-	patch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/annotations/serving.knative.dev~1lastPinned","value":%q}]`, lastPinStr)
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/lastPinned":%q}}}`, lastPinStr)
 	action.Patch = []byte(patch)
 	return action
 }

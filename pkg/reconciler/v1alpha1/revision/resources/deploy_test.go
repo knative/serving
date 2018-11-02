@@ -762,7 +762,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				VolumeMounts: fluentdVolumeMounts,
 			}},
-			Volumes: []corev1.Volume{varLogVolume, corev1.Volume{
+			Volumes: []corev1.Volume{varLogVolume, {
 				Name: fluentdConfigMapVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{

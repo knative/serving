@@ -126,12 +126,12 @@ func IsConfigRevisionCreationFailed(c *v1alpha1.Configuration) (bool, error) {
 // set to the expected value.
 func IsRevisionAtExpectedGeneration(expectedGeneration string) func(r *v1alpha1.Revision) (bool, error) {
 	return func(r *v1alpha1.Revision) (bool, error) {
-		if a, ok := r.Annotations[serving.ConfigurationGenerationAnnotationKey]; ok {
+		if a, ok := r.Labels[serving.ConfigurationGenerationLabelKey]; ok {
 			if a != expectedGeneration {
-				return true, fmt.Errorf("Expected Revision %s to be annotated with generation %s but was %s instead", r.Name, expectedGeneration, a)
+				return true, fmt.Errorf("Expected Revision %s to be labeled with generation %s but was %s instead", r.Name, expectedGeneration, a)
 			}
 			return true, nil
 		}
-		return true, fmt.Errorf("Expected Revision %s to be annotated with generation %s but there was no annotation", r.Name, expectedGeneration)
+		return true, fmt.Errorf("Expected Revision %s to be labeled with generation %s but there was no label", r.Name, expectedGeneration)
 	}
 }

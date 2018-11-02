@@ -50,6 +50,9 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 		},
 	}
 	patchBytes, err := json.Marshal(patches)
+	if err != nil {
+		return err
+	}
 	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
