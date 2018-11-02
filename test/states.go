@@ -54,7 +54,7 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 // traffic using in cluster DNS and return true if the revision received the request.
 func TODO_RouteTrafficToRevisionWithInClusterDNS(r *v1alpha1.Route) (bool, error) {
 	if r.Status.Address == nil {
-		return false, fmt.Errorf("Expected route %s to implement Addressable, missing .statu.saddress", r.Name)
+		return false, fmt.Errorf("Expected route %s to implement Addressable, missing .status.address", r.Name)
 	}
 	if r.Status.Address.Hostname == "" {
 		return false, fmt.Errorf("Expected route %s to have in cluster dns status set", r.Name)
