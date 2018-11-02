@@ -562,6 +562,12 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
 	rev.Status.MarkActive()
+	rev.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 	if !rev.Status.IsReady() {
 		t.Fatalf("Wanted ready revision: %v", rev)
 	}
