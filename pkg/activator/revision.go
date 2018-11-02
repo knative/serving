@@ -88,10 +88,12 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()
+
+		timer := time.After(r.readyTimout)
 	RevisionReady:
 		for {
 			select {
-			case <-time.After(r.readyTimout):
+			case <-timer:
 				// last chance to check
 				if revision.Status.IsReady() {
 					break RevisionReady
