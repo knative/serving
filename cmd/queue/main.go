@@ -215,8 +215,8 @@ CheckAllDone:
 		}
 	}
 
-	io.WriteString(w, fmt.Sprintf("quit with %d unfinished requests\n", stats.GetConcurrency()))
 	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, fmt.Sprintf("quit with %d unfinished requests\n", stats.GetConcurrency()))
 	io.WriteString(w, "alive: false")
 }
 
