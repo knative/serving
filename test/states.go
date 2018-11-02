@@ -53,28 +53,28 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 // RouteTrafficToRevisionWithInClusterDNS will check the revision that route r is routing
 // traffic using in cluster DNS and return true if the revision received the request.
 func TODO_RouteTrafficToRevisionWithInClusterDNS(r *v1alpha1.Route) (bool, error) {
-	if r.Status.Targetable == nil {
-		return false, fmt.Errorf("Expected route %s to implement Targetable, missing .status.targetable", r.Name)
+	if r.Status.Address == nil {
+		return false, fmt.Errorf("Expected route %s to implement Addressable, missing .statu.saddress", r.Name)
 	}
-	if r.Status.Targetable.DomainInternal == "" {
+	if r.Status.Address.Hostname == "" {
 		return false, fmt.Errorf("Expected route %s to have in cluster dns status set", r.Name)
 	}
 	// TODO make a curl request from inside the cluster using
-	// r.Status.Targetable.DomainInternal to validate DNS is set correctly
+	// r.Status.Address.Hostname to validate DNS is set correctly
 	return true, nil
 }
 
 // ServiceTrafficToRevisionWithInClusterDNS will check the revision that route r is routing
 // traffic using in cluster DNS and return true if the revision received the request.
 func TODO_ServiceTrafficToRevisionWithInClusterDNS(s *v1alpha1.Service) (bool, error) {
-	if s.Status.Targetable == nil {
-		return false, fmt.Errorf("Expected service %s to implement Targetable, missing .status.targetable", s.Name)
+	if s.Status.Address == nil {
+		return false, fmt.Errorf("Expected service %s to implement Addressable, missing .status.address", s.Name)
 	}
-	if s.Status.Targetable.DomainInternal == "" {
+	if s.Status.Address.Hostname == "" {
 		return false, fmt.Errorf("Expected service %s to have in cluster dns status set", s.Name)
 	}
 	// TODO make a curl request from inside the cluster using
-	// s.Status.Targetable.DomainInternal to validate DNS is set correctly
+	// s.Status.Address.Hostname to validate DNS is set correctly
 	return true, nil
 }
 
