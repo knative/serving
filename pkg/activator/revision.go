@@ -78,8 +78,8 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
 	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, 1.0)
 
-	// Wait for the revision to be ready
-	if !revision.Status.IsReady() {
+	// Wait for the revision to not require activation.
+	if revision.Status.IsActivationRequired() {
 		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
@@ -88,24 +88,24 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()
-	RevisionReady:
+	RevisionActive:
 		for {
 			select {
 			case <-time.After(r.readyTimout):
 				// last chance to check
-				if revision.Status.IsReady() {
-					break RevisionReady
+				if !revision.Status.IsActivationRequired() {
+					break RevisionActive
 				}
 				return nil, errors.New("Timeout waiting for revision to become ready")
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
-					if !revision.Status.IsReady() {
+					if revision.Status.IsActivationRequired() {
 						logger.Info("Revision is not yet ready")
 						continue
 					} else {
 						logger.Info("Revision is ready")
 					}
-					break RevisionReady
+					break RevisionActive
 				} else {
 					return nil, fmt.Errorf("Unexpected result type for revision: %v", event)
 				}
