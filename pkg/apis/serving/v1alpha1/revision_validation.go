@@ -140,17 +140,17 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	// if user didn't set any port, it will set default port user-port=8080.
 	if len(ports) > 1 {
 		return &apis.FieldError{
-			Message: "container ports set more than one",
+			Message: "More than one container ports is set",
 			Paths:   []string{"ports"},
-			Details: "only can be set named \"user-port\" port",
+			Details: "Only a single port named \"user-port\" is allowed",
 		}
 	}
 
-	if len(ports) == 1 && ports[0].Name != "user-port"{
+	if len(ports) == 1 && ports[0].Name != "user-port" {
 		return &apis.FieldError{
-			Message: fmt.Sprintf("unsupport port name %v", ports[0].Name),
+			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
 			Paths:   []string{"ports"},
-			Details: "only can be set named \"user-port\" port",
+			Details: "Only a single port named \"user-port\" is allowed",
 		}
 	}
 	return nil

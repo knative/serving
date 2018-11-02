@@ -19,16 +19,15 @@ limitations under the License.
 package e2e
 
 import (
-	"net/http"
-	"strconv"
-	"testing"
-
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
+	"strconv"
+	"testing"
 )
 
 const (
@@ -115,17 +114,19 @@ func TestHelloWorldUserPort(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorld-UserPort")
 
-	var imagePath = test.ImagePath("helloworld-userport")
-
-	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
-		ContainerPorts: generateUserPort(logger, userPort),
-	})
+	newYamlFilename, names, err := CreateConfigAndRouteFromYaml(logger,
+		"helloworld-userport",
+		"../test_images/helloworld-userport/helloworld.yaml",
+		"configuration-example",
+		"route-example",
+		"github.com/knative/serving/test_images/helloworld-userport",
+		namespacePlaceholder,
+	)
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+		t.Fatalf("Failed to create configuration and route: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	defer TearDownByYaml(newYamlFilename, logger)
+	test.CleanupOnInterrupt(func() { TearDownByYaml(newYamlFilename, logger) }, logger)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {

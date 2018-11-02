@@ -75,9 +75,9 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: &apis.FieldError{
-			Message: "container ports set more than one",
+			Message: "More than one container ports is set",
 			Paths:   []string{"ports"},
-			Details: "only can be set named \"user-port\" port",
+			Details: "Only a single port named \"user-port\" is allowed",
 		},
 	}, {
 		name: "set wrong name port",
@@ -88,9 +88,9 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: &apis.FieldError{
-			Message: fmt.Sprintf("unsupport port name %v", "http"),
+			Message: fmt.Sprintf("Port name %v is not allowed", "http"),
 			Paths:   []string{"ports"},
-			Details: "only can be set named \"user-port\" port",
+			Details: "Only a single port named \"user-port\" is allowed",
 		},
 	}, {
 		name: "has volumeMounts",
@@ -172,9 +172,9 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("name", "resources", "volumeMounts", "lifecycle").Also(&apis.FieldError{
-			Message: fmt.Sprintf("unsupport port name %v", "http"),
+			Message: fmt.Sprintf("Port name %v is not allowed", "http"),
 			Paths:   []string{"ports"},
-			Details: "only can be set named \"user-port\" port",
+			Details: "Only a single port named \"user-port\" is allowed",
 		}),
 	}}
 

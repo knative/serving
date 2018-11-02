@@ -20,8 +20,6 @@ package e2e
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -48,50 +46,24 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string, logger *logging.BaseLogger) {
-	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
-	os.Remove(yamlFilename)
-}
-
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
-	imagePath := test.ImagePath("helloworld")
 
-	logger.Infof("Creating manifest")
-
-	// Create manifest file.
-	newYaml, err := ioutil.TempFile("", "helloworld")
+	newYamlFilename, names, err := CreateConfigAndRouteFromYaml(logger,
+		"helloworld",
+		appYaml,
+		"configuration-example",
+		"route-example",
+		yamlImagePlaceholder,
+		namespacePlaceholder,
+	)
 	if err != nil {
-		t.Fatalf("Failed to create temporary manifest: %v", err)
-	}
-	newYamlFilename := newYaml.Name()
-	defer cleanup(newYamlFilename, logger)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
-
-	// Populate manifets file with the real path to the container
-	yamlBytes, err := ioutil.ReadFile(appYaml)
-	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", appYaml, err)
+		t.Fatalf("Failed to create configuration and route: %v", err)
 	}
 
-	content := strings.Replace(string(yamlBytes), yamlImagePlaceholder, imagePath, -1)
-	content = strings.Replace(string(content), namespacePlaceholder, test.ServingNamespace, -1)
-
-	if _, err = newYaml.WriteString(content); err != nil {
-		t.Fatalf("Failed to write new manifest: %v", err)
-	}
-	if err = newYaml.Close(); err != nil {
-		t.Fatalf("Failed to close new manifest file: %v", err)
-	}
-
-	logger.Infof("Manifest file is '%s'", newYamlFilename)
-	logger.Info("Deploying using kubectl")
-
-	// Deploy using kubectl
-	if output, err := exec.Command("kubectl", "apply", "-f", newYamlFilename).CombinedOutput(); err != nil {
-		t.Fatalf("Error running kubectl: %v", strings.TrimSpace(string(output)))
-	}
+	defer TearDownByYaml(newYamlFilename, logger)
+	test.CleanupOnInterrupt(func() { TearDownByYaml(newYamlFilename, logger) }, logger)
 
 	logger.Info("Waiting for ingress to come up")
 
@@ -100,7 +72,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	serviceHost := ""
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-		serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+		serviceHost = noStderrShell("kubectl", "get", "rt", names.Route, "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
 		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
 			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)

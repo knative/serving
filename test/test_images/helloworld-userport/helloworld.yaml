@@ -27,6 +27,10 @@ spec:
         # This is the Go import path for the binary to containerize
         # and substitute here.
         image: github.com/knative/serving/test_images/helloworld-userport
+        ports:
+        # Test user-defined port
+        - name: user-port
+          containerPort: 8888
         readinessProbe:
           httpGet:
             path: /
