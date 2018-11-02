@@ -201,13 +201,12 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 	// no guarantee that container termination is done only after
 	// removal from service is effective, but this has been showed to
 	// alleviate the issue.
-	timer := time.NewTimer(quitSleepSecs * time.Second).C
 	ticker := time.NewTicker(time.Second).C
 
 CheckAllDone:
 	for {
 		select {
-		case <-timer:
+		case <-time.After(quitSleepSecs * time.Second):
 			break CheckAllDone
 		case <-ticker:
 			if stats.GetConcurrency() == 0 {
