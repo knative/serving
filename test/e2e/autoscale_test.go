@@ -277,9 +277,9 @@ func assertNumberOfPodsEvery(duration time.Duration, ctx *testContext, numReplic
 			case <-stopChan:
 				return
 			default:
+				assertNumberOfPods(ctx, numReplicasMin, numReplicasMax)
+				time.Sleep(duration)
 			}
-			assertNumberOfPods(ctx, numReplicasMin, numReplicasMax)
-			time.Sleep(duration)
 		}
 	}()
 	return stopChan
@@ -290,10 +290,10 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 	if err != nil {
 		ctx.t.Fatalf("Failed to get deployment %s: %v", deployment, err)
 	}
-	wantedReplicas := deployment.Status.Replicas
-	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", wantedReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
-	if wantedReplicas < numReplicasMin || wantedReplicas > numReplicasMax {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, wantedReplicas)
+	gotReplicas := deployment.Status.Replicas
+	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
 	}
 }
 
@@ -301,8 +301,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	stopChan := assertNumberOfPodsEvery(2*time.Second, ctx, numPods-1, numPods+1)
 	defer close(stopChan)
 
-	err := generateTraffic(ctx, int(numPods*10), 30*time.Second)
-	if err != nil {
+	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	assertNumberOfPods(ctx, numPods, numPods+1)
