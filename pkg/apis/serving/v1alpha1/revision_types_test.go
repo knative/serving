@@ -278,8 +278,9 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &duckv1alpha1.Condition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
+		Type:     RevisionConditionBuildSucceeded,
+		Status:   corev1.ConditionTrue,
+		Severity: duckv1alpha1.ConditionSeverityError,
 	}
 
 	rs.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
