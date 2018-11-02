@@ -174,6 +174,7 @@ spec:
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+        resources: ...  # Optional
 
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
@@ -249,6 +250,7 @@ spec:
     - ...
     livenessProbe: ...  # Optional
     readinessProbe: ...  # Optional
+    resources: ...  # Optional
 
   # Name of the service account the code should run as.
   serviceAccountName: ...
@@ -368,6 +370,7 @@ spec:  # One of "runLatest" or "pinned"
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+        resources: ...  # Optional
       containerConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as

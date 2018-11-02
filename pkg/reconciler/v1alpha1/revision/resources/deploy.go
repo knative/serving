@@ -95,12 +95,36 @@ func rewriteUserProbe(p *corev1.Probe) {
 	}
 }
 
+// applyDefaultResource
+// Implements a deep merge for ResourceRequirements
+// note: DeepCopyInto cannot be used because it replaces limits or requests instead of merging them
+func applyDefaultResources(defaults corev1.ResourceRequirements, out *corev1.ResourceRequirements) {
+	in := defaults.DeepCopy()
+	if in.Limits != nil {
+		in, out := &in.Limits, &out.Limits
+		for key, val := range *out {
+			(*in)[key] = val.DeepCopy()
+		}
+		(*out) = (*in)
+	}
+	if in.Requests != nil {
+		in, out := &in.Requests, &out.Requests
+		for key, val := range *out {
+			(*in)[key] = val.DeepCopy()
+		}
+		(*out) = (*in)
+	}
+}
+
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
 	userContainer.Name = userContainerName
-	userContainer.Resources = userResources
+
+	// If client provides for some resources, override default values
+	applyDefaultResources(userResources, &userContainer.Resources)
+
 	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle

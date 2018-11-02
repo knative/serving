@@ -794,6 +794,16 @@ func TestMakePodSpec(t *testing.T) {
 						Name:  "BAZ",
 						Value: "blah",
 					}},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("666Mi"),
+							corev1.ResourceCPU:    resource.MustParse("666m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("888Mi"),
+							corev1.ResourceCPU:    resource.MustParse("888m"),
+						},
+					},
 				},
 			},
 		},
@@ -826,7 +836,16 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "K_SERVICE",
 					Value: "",
 				}},
-				Resources:    userResources,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("666Mi"),
+						corev1.ResourceCPU:    resource.MustParse("666m"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("888Mi"),
+						corev1.ResourceCPU:    resource.MustParse("888m"),
+					},
+				},
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
@@ -872,8 +891,12 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
+				return x.Cmp(y) == 0
+			})
+
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
-			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
 		})
@@ -1174,6 +1197,89 @@ func TestMakeDeployment(t *testing.T) {
 			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestApplyDefaultResources(t *testing.T) {
+	tests := []struct {
+		name     string
+		defaults corev1.ResourceRequirements
+		in       *corev1.ResourceRequirements
+		want     *corev1.ResourceRequirements
+	}{
+		{
+			name: "resources are empty",
+			defaults: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"resource": resource.MustParse("100m"),
+				},
+				Limits: corev1.ResourceList{
+					"resource": resource.MustParse("100m"),
+				},
+			},
+			in: &corev1.ResourceRequirements{},
+			want: &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"resource": resource.MustParse("100m"),
+				},
+				Limits: corev1.ResourceList{
+					"resource": resource.MustParse("100m"),
+				},
+			},
+		},
+		{
+			name: "requests are not empty",
+			defaults: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"same":  resource.MustParse("100m"),
+					"other": resource.MustParse("200m"),
+				},
+			},
+			in: &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"same": resource.MustParse("500m"),
+					"new":  resource.MustParse("300m"),
+				},
+			},
+			want: &corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"same":  resource.MustParse("500m"),
+					"new":   resource.MustParse("200m"),
+					"other": resource.MustParse("300m"),
+				},
+			},
+		},
+		{
+			name: "limits are not empty",
+			defaults: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"same":  resource.MustParse("100m"),
+					"other": resource.MustParse("200m"),
+				},
+			},
+			in: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"same": resource.MustParse("500m"),
+					"new":  resource.MustParse("300m"),
+				},
+			},
+			want: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"same":  resource.MustParse("500m"),
+					"new":   resource.MustParse("200m"),
+					"other": resource.MustParse("300m"),
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			applyDefaultResources(test.defaults, test.in)
+			if diff := cmp.Diff(test.want, test.in, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" { // Maybe this compare fails
+				t.Errorf("ApplyDefaultResources (-want, +got) = %v", diff)
 			}
 		})
 	}
