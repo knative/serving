@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -106,9 +107,6 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "name")
 	}
-	if !equality.Semantic.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
-		ignoredFields = append(ignoredFields, "resources")
-	}
 	if len(container.Ports) > 0 {
 		ignoredFields = append(ignoredFields, "ports")
 	}
@@ -189,12 +187,17 @@ func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldErro
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	if diff := cmp.Diff(original.Spec, current.Spec); diff != "" {
+	quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
+		return x.Cmp(y) == 0
+	})
+
+	if diff := cmp.Diff(original.Spec, current.Spec, quantityComparer); diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: diff,
 		}
 	}
+
 	return nil
 }
