@@ -269,42 +269,59 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	assertScaleUp(ctx)
 }
 
-func assertScaleUpCountPods(ctx *testContext) {
-	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-	err := generateTraffic(ctx, 20, 30*time.Second)
-	if err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
-	AssertNumberOfPods(ctx, 2)
-	err = generateTraffic(ctx, 30, 30*time.Second)
-	if err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
-	AssertNumberOfPods(ctx, 3)
-	err = generateTraffic(ctx, 40, 30*time.Second)
-	if err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
-	AssertNumberOfPods(ctx, 4)
+func assertNumberOfPodsEvery(duration time.Duration, ctx *testContext, numReplicasMin int32, numReplicasMax int32) chan struct{} {
+	stopChan := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				return
+			default:
+			}
+			assertNumberOfPods(ctx, numReplicasMin, numReplicasMax)
+			time.Sleep(duration)
+		}
+	}()
+	return stopChan
 }
 
-func AssertNumberOfPods(ctx *testContext, numReplicas int32) {
+func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) {
 	deployment, err := ctx.clients.KubeClient.Kube.ExtensionsV1beta1().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		ctx.t.Fatalf("Failed to get deployment %s: %v", deployment, err)
 	}
-
-	if deployment.Status.Replicas != numReplicas && deployment.Status.ReadyReplicas != numReplicas {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to exactly %d pods, observed ReadyReplicas %d and Replicas %d.", ctx.deploymentName, numReplicas, deployment.Status.ReadyReplicas, deployment.Status.Replicas)
+	wantedReplicas := deployment.Status.Replicas
+	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", wantedReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	if wantedReplicas < numReplicasMin || wantedReplicas > numReplicasMax {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, wantedReplicas)
 	}
+}
+
+func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
+	stopChan := assertNumberOfPodsEvery(2*time.Second, ctx, numPods-1, numPods+1)
+	defer close(stopChan)
+
+	err := generateTraffic(ctx, int(numPods*10), 30*time.Second)
+	if err != nil {
+		ctx.t.Fatalf("Error during initial scale up: %v", err)
+	}
+	assertNumberOfPods(ctx, numPods, numPods+1)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
-	defer close(stopChan)
 	defer tearDown(ctx)
 
-	assertScaleUpCountPods(ctx)
+	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
+	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+	// increase workload for 2 replicas for 30s
+	// assert the number of wanted replicas is between 1-3 during the 30s
+	// assert the number of wanted replicas is 2-3 after 30s
+	assertAutoscaleUpToNumPods(ctx, 2)
+	// scale to 3 replicas, assert 2-4 during scale up, assert 3-4 after scaleup
+	assertAutoscaleUpToNumPods(ctx, 3)
+	// scale to 4 replicas, assert 3-5 during scale up, assert 4-5 after scaleup
+	assertAutoscaleUpToNumPods(ctx, 4)
+
 }
