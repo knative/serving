@@ -212,14 +212,14 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	logger.Infof("KPA got=%v, want=%v", got, want)
 
 	switch {
-	case want == 0 || want == -1:
+	case want == 0:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
 	case got == 0 && want > 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0:
+	case got > 0 || want == -1:
 		kpa.Status.MarkActive()
 	}
 

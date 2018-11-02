@@ -28,12 +28,14 @@ import (
 
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/test"
 )
 
 const (
 	prometheusPort = "9090"
-	appLabel       = "prometheus-test"
+	appLabel       = "app=prometheus"
 )
 
 // PromProxy defines a proxy to the prometheus server
@@ -80,12 +82,13 @@ func (p *PromProxy) portForward(ctx context.Context, logger *logging.BaseLogger,
 
 // RunBackground starts a background process and returns the Process if succeed
 func (p *PromProxy) executeCmdBackground(logger *logging.BaseLogger, format string, args ...interface{}) (*os.Process, error) {
-	command := fmt.Sprintf(format, args...)	
-	parts := strings.Split(command, " ")
+	cmd := fmt.Sprintf(format, args...)	
+	logger.Infof("Executing command: %s", cmd)
+	parts := strings.Split(cmd, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()
 	if err != nil {
-		logger.Errorf("%s, command failed!", command)
+		logger.Errorf("%s, command failed!", cmd)
 		return nil, err
 	}
 	return c.Process, nil
@@ -93,8 +96,9 @@ func (p *PromProxy) executeCmdBackground(logger *logging.BaseLogger, format stri
 
 // ExecuteShellCmd executes a shell command
 func (p *PromProxy) execShellCmd(ctx context.Context, logger *logging.BaseLogger, format string, args ...interface{}) (string, error) {
-	command := fmt.Sprintf(format, args...)
-	c := exec.CommandContext(ctx, "sh", "-c", command) // #nosec
+	cmd := fmt.Sprintf(format, args...)
+	logger.Infof("Executing command: %s", cmd)
+	c := exec.CommandContext(ctx, "sh", "-c", cmd) // #nosec
 	bytes, err := c.CombinedOutput()	
 	if err != nil {
 		logger.Infof("Command error: %v", err)
@@ -117,19 +121,31 @@ func PromAPI() (v1.API, error) {
 	return v1.NewAPI(client), nil
 }
 
-// PrometheusDump gets all of the recorded values for a metric by name and generates a report of the values.
-// used for debugging of failures to provide a comprehensive view of traffic experienced.
-func PrometheusDump(ctx context.Context, client v1.API, metric string) (string, error) {
-	value, err := client.Query(ctx, metric, time.Now())
-	if err != nil {
-		return "" , err
-	}
-	return value.String(), nil
-}
-
 // AllowPrometheusSync sleeps for sometime to allow prometheus time to scrape the metrics.
 func AllowPrometheusSync(logger *logging.BaseLogger) {
 	logger.Info("Sleeping to allow prometheus to record metrics...")
 	time.Sleep(30 * time.Second)
+}
+
+// RunQuery runs a prometheus query and returns the metric value
+func RunQuery(ctx context.Context, logger *logging.BaseLogger, promAPI v1.API, metric string, names test.ResourceNames) float64 {
+	query := fmt.Sprintf("%s{configuration_namespace=\"%s\", configuration=\"%s\", revision=\"%s\"}", metric, test.ServingNamespace, names.Config, names.Revision)
+	logger.Infof("Prometheus query: %s", query)
+
+	value, err := promAPI.Query(ctx, query, time.Now())
+	if err != nil {
+		logger.Errorf("Could not get metrics from prometheus: %v", err)
+	}
+	
+	return VectorValue(value)
+}
+
+// VectorValue gets the vector value from the value type
+func VectorValue(val model.Value) float64 {
+	if val.Type() != model.ValVector {
+		return 0
+	}
+	value := val.(model.Vector)
+	return float64(value[0].Value)
 }
 

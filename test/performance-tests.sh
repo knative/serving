@@ -32,6 +32,7 @@ header "Setting up environment"
 
 initialize $@
 create_everything
+create_prometheus
 publish_test_images
 
 wait_until_cluster_up

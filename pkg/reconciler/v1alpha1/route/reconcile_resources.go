@@ -96,21 +96,10 @@ func (c *Reconciler) reconcileClusterIngress(
 	return clusterIngress, err
 }
 
-func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route, ingress *netv1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 	name := resourcenames.K8sService(route)
-
-	ingress, err := c.getClusterIngressForRoute(route)
-	if apierrs.IsNotFound(err) {
-		// Ingress not exist, skip creating.
-		logger.Infof("Ingress for route %s/%s not exist, skip creating placeholder k8s service", ns, name)
-		return nil
-	}
-	if err != nil {
-		// Return errors other than not found error.
-		return err
-	}
 
 	desiredService, err := resources.MakeK8sService(route, ingress)
 	if err != nil {

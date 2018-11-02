@@ -21,7 +21,6 @@ data:
   # Delay after revision creation before considering it for GC
   stale-revision-create-delay: "24h"
   # Duration since a route has been pointed at a revision before it should be GC'd
-  stale-revision-timeout: "5m"
   # This minus lastpinned-debounce be longer than the controller resync period (10 hours)
   stale-revision-timeout: "15h"
   # Minimum number of generations of revisions to keep before considering for GC

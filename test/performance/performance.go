@@ -19,6 +19,7 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -47,7 +48,7 @@ type PerformanceClient struct {
 }
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(promReqd bool) (*PerformanceClient, error) {
+func Setup(ctx context.Context, logger *logging.BaseLogger, promReqd bool) (*PerformanceClient, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -55,7 +56,9 @@ func Setup(promReqd bool) (*PerformanceClient, error) {
 
 	var p *prometheus.PromProxy
 	if promReqd {
+		logger.Infof("Creating prometheus proxy client")
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
+		p.Setup(ctx, logger)
 	}
 	return &PerformanceClient{E2EClients: clients, PromClient: p}, nil
 }
@@ -97,7 +100,8 @@ func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain
 			NumThreads:  nThreads,
 			Percentiles: []float64{50.0, 90.0, 99.0},
 		},
-		HTTPOptions: *o,
+		HTTPOptions:        *o,
+		AllowInitialErrors: true,
 	}
 
 	return fhttp.RunHTTPTest(&opts)

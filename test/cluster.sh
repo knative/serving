@@ -50,6 +50,11 @@ function create_test_resources() {
   ko apply -f test/config/
 }
 
+function create_prometheus() {
+  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus
+}
+
 function create_monitoring() {
   echo ">> Bringing up Monitoring"
   kubectl apply -R -f config/monitoring/100-namespace.yaml \

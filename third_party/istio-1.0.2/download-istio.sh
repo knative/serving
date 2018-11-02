@@ -33,3 +33,8 @@ rm istio-${ISTIO_VERSION}-linux.tar.gz
 # run one kubectl command to install istio.
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
+
+# Add in the prestop sleep to workaround https://github.com/knative/serving/issues/2351.
+#
+# We need to replace this with some better solution like retries.
+patch istio.yaml prestop-sleep.yaml.patch

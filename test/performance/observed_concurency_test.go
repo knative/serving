@@ -42,11 +42,11 @@ const (
 	numThreads  = 1
 )
 
-func createTestCase(val float32, percentile float64) testgrid.TestCase {
+func createTestCase(val float32, name string) testgrid.TestCase {
 	tp := []testgrid.TestProperty{testgrid.TestProperty{Name: perfLatency, Value: val}}
 	tc := testgrid.TestCase{
 		ClassName:  tName,
-		Name:       fmt.Sprintf("%s/p%f", tName, percentile),
+		Name:       fmt.Sprintf("%s/%s", tName, name),
 		Properties: testgrid.TestProperties{Property: tp}}
 	return tc
 }
@@ -64,17 +64,17 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 }
 
 func TestObservedConcurrency(t *testing.T) {
-	perfClients, err := Setup(true)
+	// add test case specific name to its own logger
+	logger := logging.GetContextLogger(tName)
+
+	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
-	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(tName)
-	clients := perfClients.E2EClients
-
 	var imagePath = test.ImagePath("observed-concurrency")
 	names := test.ResourceNames{Service: test.AppendRandomString("observed-concurrency", logger)}
+	clients := perfClients.E2EClients
 
 	defer TearDown(perfClients, logger, names)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
@@ -118,23 +118,22 @@ func TestObservedConcurrency(t *testing.T) {
 	// Wait for prometheus to scrape the data
 	prometheus.AllowPrometheusSync(logger)
 
-	query := fmt.Sprintf("autoscaler_observed_stable_concurrency{configuration_namespace=\"%s\", configuration=\"%s\", revision=\"%s\"}", test.ServingNamespace, names.Config, names.Revision)
-	t.Logf("prometheus query: %s", query)
-
 	promAPI, err := prometheus.PromAPI()
 	if err != nil {
 		logger.Errorf("Cannot setup prometheus API")
 	}
 
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		logger.Errorf("Could not get metrics from prometheus: %v", err)
-	}
-	logger.Infof("promvalue = %s", value.String())
-
+	// Add latency metrics
 	var tc []testgrid.TestCase
 	for _, p := range resp.DurationHistogram.Percentiles {
-		tc = append(tc, createTestCase(float32(p.Value), p.Percentile))
+		tc = append(tc, createTestCase(float32(p.Value), fmt.Sprintf("p%f", p.Percentile)))
+	}
+
+	// Add concurrency metrics
+	metrics := []string{"autoscaler_observed_stable_concurrency", "autoscaler_observed_panic_concurrency", "autoscaler_target_concurrency_per_pod"}
+	for _, metric := range metrics {
+		val := prometheus.RunQuery(context.Background(), logger, promAPI, metric, names)
+		tc = append(tc, createTestCase(float32(val), metric))
 	}
 
 	if err = CreateTestgridXML(tc); err != nil {
