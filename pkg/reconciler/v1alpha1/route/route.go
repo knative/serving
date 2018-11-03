@@ -237,11 +237,11 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 // In all cases we will add annotations to the referred targets.  This is so that when they become
 // routable we can know (through a listener) and attempt traffic configuration again.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
-	// Update the information that makes us Targetable.
+	// Update the information that makes us Callable.
 	r.Status.Domain = routeDomain(ctx, r)
 	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
-	r.Status.Targetable = &duckv1alpha1.Targetable{
-		DomainInternal: resourcenames.K8sServiceFullname(r),
+	r.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
 	logger := logging.FromContext(ctx)
