@@ -64,7 +64,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
-	if hasDeploymentTimedOut(deployment) {
+	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
 		rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
 			"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
@@ -187,7 +187,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// TODO(mattmoor): How to ensure this only fires once?
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon endpoint %q becoming ready", serviceName)
-	} else {
+	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
