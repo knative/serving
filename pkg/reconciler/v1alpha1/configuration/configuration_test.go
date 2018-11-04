@@ -71,7 +71,7 @@ func TestReconcile(t *testing.T) {
 			cfg("no-revisions-yet", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234)),
+			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("no-revisions-yet", "foo", 1234,
@@ -93,7 +93,7 @@ func TestReconcile(t *testing.T) {
 			setConcurrencyModel(cfg("validation-failure", "foo", 1234), "Bogus"),
 		},
 		WantCreates: []metav1.Object{
-			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234)), "Bogus"),
+			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234), nil), "Bogus"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
@@ -114,7 +114,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
-			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec), &corev1.ObjectReference{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+				Name:       "need-rev-and-build-99998",
+			}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
@@ -133,7 +137,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: unknown)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
-			setRevCreationTimestamp(resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432)), time.Now()),
+			setRevCreationTimestamp(resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432), nil), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-not-done", "foo", 5432,
@@ -152,7 +156,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555))), time.Now()),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-done", "foo", 5555,
@@ -182,14 +186,14 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566))), time.Now()),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566), nil)), time.Now()),
 		},
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555),
-			setRevCreationTimestamp(makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555))), time.Now()),
+			setRevCreationTimestamp(makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-failed", "foo", 5555,
@@ -210,7 +214,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: bad)",
 		Objects: []runtime.Object{
 			cfg("bad-condition", "foo", 5555),
-			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555)),
+			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555), nil),
 				v1alpha1.RevisionStatus{
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RevisionConditionReady,
@@ -271,7 +275,7 @@ func TestReconcile(t *testing.T) {
 			cfg("create-revision-failure", "foo", 99998),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998)),
+			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
@@ -297,7 +301,7 @@ func TestReconcile(t *testing.T) {
 			cfg("update-config-failure", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("update-config-failure", "foo", 1234)),
+			resources.MakeRevision(cfg("update-config-failure", "foo", 1234), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("update-config-failure", "foo", 1234,
@@ -327,7 +331,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				},
 			),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337))), time.Now()),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("revision-recovers", "foo", 1337,
@@ -362,9 +366,9 @@ func TestGCReconcile(t *testing.T) {
 		Name: "dont gc old revision no pin",
 		Objects: []runtime.Object{
 			cfg("old-revision", "foo", 5556),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554))), time.Now().Add(-10*time.Minute)),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("old-revision", "foo", 5556,
@@ -384,7 +388,7 @@ func TestGCReconcile(t *testing.T) {
 		Name: "dont gc old latest revision no pin",
 		Objects: []runtime.Object{
 			cfg("old-revision", "foo", 5556),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("old-revision", "foo", 5556,
@@ -404,8 +408,8 @@ func TestGCReconcile(t *testing.T) {
 		Name: "dont gc revisions minimum generations no pin",
 		Objects: []runtime.Object{
 			cfg("old-revision", "foo", 5556),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("old-revision", "foo", 5556,
@@ -426,10 +430,10 @@ func TestGCReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("old-revision", "foo", 5556),
 			setRevLastPinned(setRevCreationTimestamp(
-				makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554))),
+				makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554), nil)),
 				time.Now().Add(-10*time.Minute)), time.Now().Add(-10*time.Minute)),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555))), time.Now().Add(-10*time.Minute)),
-			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556))), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("old-revision", "foo", 5556,
@@ -612,7 +616,7 @@ func TestIsRevisionStale(t *testing.T) {
 					serving.ConfigurationGenerationLabelKey: "1",
 				},
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
 		},
@@ -627,7 +631,7 @@ func TestIsRevisionStale(t *testing.T) {
 					serving.ConfigurationGenerationLabelKey: "1",
 				},
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", curTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", curTime.Unix()),
 				},
 			},
 		},
@@ -642,7 +646,7 @@ func TestIsRevisionStale(t *testing.T) {
 					serving.ConfigurationGenerationLabelKey: "2",
 				},
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
 		},
@@ -657,7 +661,7 @@ func TestIsRevisionStale(t *testing.T) {
 					serving.ConfigurationGenerationLabelKey: "1",
 				},
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
 		},
