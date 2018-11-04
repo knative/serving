@@ -129,7 +129,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "scale-to-zero-grace-period",
 		field:        &lc.ScaleToZeroGracePeriod,
 		optional:     true,
-		defaultValue: 2 * time.Minute,
+		defaultValue: 30 * time.Second,
 	}, {
 		key:   "tick-interval",
 		field: &lc.TickInterval,
