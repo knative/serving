@@ -89,6 +89,9 @@ func TestBuilds(t *testing.T) {
 					"controller":         true,
 					"blockOwnerDeletion": true,
 				}},
+				"labels": map[string]interface{}{
+					"serving.knative.dev/buildHash": "2ee4528bee48a78637ec374eb58cb1977b9611b85545f8b91884ff80b8d9472",
+				},
 				"creationTimestamp": nil,
 			},
 			"spec": map[string]interface{}{
@@ -146,6 +149,9 @@ func TestBuilds(t *testing.T) {
 					"controller":         true,
 					"blockOwnerDeletion": true,
 				}},
+				"labels": map[string]interface{}{
+					"serving.knative.dev/buildHash": "934e535117334c700c3a132e5e9dfc4276974cf2c9d6fe8f09c961f8e058933",
+				},
 				"creationTimestamp": nil,
 			},
 			"spec": map[string]interface{}{

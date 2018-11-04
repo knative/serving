@@ -56,4 +56,8 @@ const (
 	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
+
+	// BuildHashLabelKey is the label key attached to a Build indicating the
+	// hash of the spec from which they were created.
+	BuildHashLabelKey = GroupName + "/buildHash"
 )
