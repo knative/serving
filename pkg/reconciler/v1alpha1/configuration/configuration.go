@@ -25,14 +25,6 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,6 +33,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -143,8 +144,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
-	// TODO: Configuration should inherit autoscaling annotations from Namespace, like it does from Service.
-
 	logger := logging.FromContext(ctx)
 	config.Status.InitializeConditions()
 

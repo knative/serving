@@ -50,7 +50,6 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
 	}
-	rev.InheritAnnotations(config.GetObjectMeta())
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))

@@ -19,10 +19,11 @@ package resources
 import (
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
@@ -37,7 +38,6 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			Labels: makeLabels(service),
 		},
 	}
-	c.InheritAnnotations(service.GetObjectMeta())
 
 	if service.Spec.RunLatest != nil {
 		c.Spec = service.Spec.RunLatest.Configuration

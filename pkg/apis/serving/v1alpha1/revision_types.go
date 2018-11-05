@@ -21,14 +21,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // +genclient
@@ -72,10 +72,6 @@ type RevisionTemplateSpec struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// +optional
 	Spec RevisionSpec `json:"spec,omitempty"`
-}
-
-func (r *Revision) InheritAnnotations(parent metav1.Object) {
-	r.Annotations = autoscaling.Inherit(r.Annotations, parent.GetAnnotations())
 }
 
 // DeprecatedRevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
