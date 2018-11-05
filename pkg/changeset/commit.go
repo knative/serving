@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -40,7 +41,7 @@ func Get() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	commitID := strings.TrimSpace(data)
+	commitID := strings.TrimSpace(string(data))
 	if !commitIDRE.MatchString(commitID) {
 		err := fmt.Errorf("%q is not a valid GitHub commit ID", commitID)
 		return "", err
@@ -52,16 +53,12 @@ func Get() (string, error) {
 // under KO_DATA_PATH then returns the content as string. The file is expected
 // to be wrapped into the container from /kodata by ko. If it fails, returns
 // the error it gets.
-func readFileFromKoData(filename string) (string, error) {
+func readFileFromKoData(filename string) ([]byte, error) {
 	koDataPath := os.Getenv(koDataPathEnvName)
 	if koDataPath == "" {
 		err := fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
-		return "", err
+		return nil, err
 	}
-	fullFilename := strings.Replace(koDataPath+"/"+filename, "//", "/", -1)
-	data, err := ioutil.ReadFile(fullFilename)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	fullFilename := filepath.Join(koDataPath, filename)
+	return ioutil.ReadFile(fullFilename)
 }
