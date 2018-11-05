@@ -29,7 +29,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/kbuffer"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -143,7 +143,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
+			Host: rclr.GetK8sServiceFullname(kbuffer.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -333,7 +333,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: "knative-serving",
-							ServiceName:      "activator-service",
+							ServiceName:      "kbuffer-service",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -510,7 +510,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: "knative-serving",
-							ServiceName:      "activator-service",
+							ServiceName:      "kbuffer-service",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,

@@ -43,8 +43,8 @@ Revisions, the resources would look like:
 #### Routing in the presence of Inactive Revisions (aka 0→1)
 
 In the case of inactive Revisions, a Route would direct requests through the
- Service `activator-service`, with enough information in the headers so that the
- Service `activator-service` Service can activate a Revision before relaying the traffic to
+ Service `kbuffer-service`, with enough information in the headers so that the
+ Service `kbuffer-service` Service can activate a Revision before relaying the traffic to
 it.
 
 From the same scenario of the previous example, if the Revision
@@ -54,7 +54,7 @@ look like:
 ![Revision `hello-world-01` is deactivated](doc/images/inactive_revision.svg)
 
 Note that while we still see a `hello-world-01` Service in this case, it does
-not have any Pod until activated by the activator.
+not have any Pod until activated by the kbuffer.
 
 After Revision `hello-world-02` also becomes inactive due to lack of traffic,
 the resources would look like:
@@ -63,4 +63,4 @@ the resources would look like:
 
 If any activation happens, Revisions becomes active again and traffic will be
 adjusted to route directly to the Revision, without going through the Service
-`activator-service`.
+`kbuffer-service`.

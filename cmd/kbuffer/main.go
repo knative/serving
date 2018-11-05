@@ -31,9 +31,9 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/serving/pkg/activator"
-	activatorhandler "github.com/knative/serving/pkg/activator/handler"
-	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/kbuffer"
+	kbufferhandler "github.com/knative/serving/pkg/kbuffer/handler"
+	kbufferutil "github.com/knative/serving/pkg/kbuffer/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -48,7 +48,7 @@ import (
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
-	component      = "activator"
+	component      = "kbuffer"
 
 	maxRetries             = 18 // the sum of all retries would add up to 1 minute
 	minRetryInterval       = 100 * time.Millisecond
@@ -68,7 +68,7 @@ var (
 
 	statSink *websocket.ManagedConnection
 	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
-	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	reqChan  = make(chan kbufferhandler.ReqEvent, requestCountingQueueLength)
 )
 
 func statReporter() {
@@ -96,10 +96,10 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
-	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	logger = createdLogger.With(zap.String(logkey.ControllerType, "kbuffer"))
 	defer logger.Sync()
 
-	logger.Info("Starting the knative activator")
+	logger.Info("Starting the knative kbuffer")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -119,19 +119,19 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
-	a = activator.NewDedupingActivator(a)
+	kb := kbuffer.NewRevisionKBuffer(kubeClient, servingClient, logger, reporter)
+	kb = kbuffer.NewDedupingKBuffer(kb)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
+	shouldRetry := kbufferutil.RetryStatus(http.StatusServiceUnavailable)
 	backoffSettings := wait.Backoff{
 		Duration: minRetryInterval,
 		Factor:   exponentialBackoffBase,
 		Steps:    maxRetries,
 	}
-	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
+	rt := kbufferutil.NewRetryRoundTripper(kbufferutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace, "8080")
@@ -140,18 +140,18 @@ func main() {
 	go statReporter()
 
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
-	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
+	kbufferhandler.NewConcurrencyReporter(podName, kbufferhandler.Channels{
 		ReqChan:    reqChan,
 		StatChan:   statChan,
 		ReportChan: time.NewTicker(time.Second).C,
 	})
 
-	ah := &activatorhandler.FilteringHandler{
-		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
-			&activatorhandler.EnforceMaxContentLengthHandler{
+	ah := &kbufferhandler.FilteringHandler{
+		NextHandler: kbufferhandler.NewRequestEventHandler(reqChan,
+			&kbufferhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
-				NextHandler: &activatorhandler.ActivationHandler{
-					Activator: a,
+				NextHandler: &kbufferhandler.ActivationHandler{
+					KBuffer:   kb,
 					Transport: rt,
 					Logger:    logger,
 					Reporter:  reporter,
@@ -164,7 +164,7 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 	go func() {
 		<-stopCh
-		a.Shutdown()
+		kb.Shutdown()
 	}()
 
 	// Watch the logging config map and dynamically update logging levels.

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package activator
+package kbuffer
 
 import (
 	"net/http"
@@ -71,7 +71,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+	a := NewRevisionKBuffer(k8s, kna, TestLogger(t), &mockReporter{})
 
 	ch := make(chan ActivationResult)
 	go func() {
@@ -122,8 +122,8 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
-	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
+	a := NewRevisionKBuffer(k8s, kna, TestLogger(t), &mockReporter{})
+	a.(*revisionKBuffer).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan ActivationResult)
 	go func() {
