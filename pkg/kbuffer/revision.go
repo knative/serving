@@ -33,9 +33,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ KBuffer = (*revisionKBuffer)(nil)
+var _ Activator = (*revisionActivator)(nil)
 
-type revisionKBuffer struct {
+type revisionActivator struct {
 	readyTimout time.Duration // for testing
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
@@ -43,11 +43,11 @@ type revisionKBuffer struct {
 	reporter    StatsReporter
 }
 
-// NewRevisionKBuffer creates an KBuffer that changes revision
+// NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionKBuffer(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) KBuffer {
-	return &revisionKBuffer{
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
+	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
@@ -56,11 +56,11 @@ func NewRevisionKBuffer(kubeClient kubernetes.Interface, servingClient clientset
 	}
 }
 
-func (r *revisionKBuffer) Shutdown() {
+func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionKBuffer) activateRevision(namespace, name string) (*v1alpha1.Revision, error) {
+func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.Revision, error) {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	rev := revisionID{
@@ -115,7 +115,7 @@ func (r *revisionKBuffer) activateRevision(namespace, name string) (*v1alpha1.Re
 	return revision, nil
 }
 
-func (r *revisionKBuffer) getRevisionEndpoint(revision *v1alpha1.Revision) (end Endpoint, err error) {
+func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (end Endpoint, err error) {
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
 	serviceName := revisionresourcenames.K8sService(revision)
@@ -144,7 +144,7 @@ func (r *revisionKBuffer) getRevisionEndpoint(revision *v1alpha1.Revision) (end 
 	}, nil
 }
 
-func (r *revisionKBuffer) ActiveEndpoint(namespace, name string) ActivationResult {
+func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	revision, err := r.activateRevision(namespace, name)

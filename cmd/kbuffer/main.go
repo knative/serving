@@ -119,8 +119,8 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
-	kb := kbuffer.NewRevisionKBuffer(kubeClient, servingClient, logger, reporter)
-	kb = kbuffer.NewDedupingKBuffer(kb)
+	a := kbuffer.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
+	a = kbuffer.NewDedupingActivator(a)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
@@ -151,7 +151,7 @@ func main() {
 			&kbufferhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &kbufferhandler.ActivationHandler{
-					KBuffer:   kb,
+					Activator: a,
 					Transport: rt,
 					Logger:    logger,
 					Reporter:  reporter,
@@ -164,7 +164,7 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 	go func() {
 		<-stopCh
-		kb.Shutdown()
+		a.Shutdown()
 	}()
 
 	// Watch the logging config map and dynamically update logging levels.

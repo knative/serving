@@ -17,7 +17,7 @@ limitations under the License.
 package kbuffer
 
 const (
-	// K8sServiceName is the name of the kbuffer service
+	// K8sServiceName is the name of the a service
 	K8sServiceName = "kbuffer-service"
 	// RequestCountHTTPHeader is the header key for number of tries
 	RequestCountHTTPHeader string = "knative-kbuffer-num-retries"
@@ -27,9 +27,9 @@ const (
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
-// KBuffer provides an active endpoint for a revision or an error and
+// Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
-type KBuffer interface {
+type Activator interface {
 	ActiveEndpoint(namespace, name string) ActivationResult
 	Shutdown()
 }

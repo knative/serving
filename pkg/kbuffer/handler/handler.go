@@ -30,7 +30,7 @@ import (
 // ActivationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type ActivationHandler struct {
-	KBuffer   kbuffer.KBuffer
+	Activator kbuffer.Activator
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
 	Reporter  kbuffer.StatsReporter
@@ -46,7 +46,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		statusCode:     http.StatusOK,
 	}
 
-	ar := a.KBuffer.ActiveEndpoint(namespace, name)
+	ar := a.Activator.ActiveEndpoint(namespace, name)
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
 		a.Logger.Errorf(msg)

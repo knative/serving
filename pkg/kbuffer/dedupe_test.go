@@ -26,14 +26,14 @@ import (
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: want,
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingKBuffer(KBuffer(f))
+	d := NewDedupingActivator(Activator(f))
 
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
 
@@ -53,14 +53,14 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 
 func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingKBuffer(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, testRevision},
@@ -87,7 +87,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).withRevisionName("rev2").build())
 	ep1 := Endpoint{"ip1", 8080}
 	ep2 := Endpoint{"ip2", 8080}
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
@@ -98,7 +98,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingKBuffer(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -130,7 +130,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	ep1 := Endpoint{"ip1", 8080}
 	status2 := http.StatusInternalServerError
 	error2 := fmt.Errorf("test error")
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
@@ -142,7 +142,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				Error:    error2,
 			},
 		})
-	d := NewDedupingKBuffer(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -172,7 +172,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	failEp := Endpoint{}
 	failStatus := http.StatusServiceUnavailable
 	failErr := fmt.Errorf("test error")
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: failEp,
@@ -180,7 +180,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				Error:    failErr,
 			},
 		})
-	d := NewDedupingKBuffer(KBuffer(f))
+	d := NewDedupingActivator(Activator(f))
 
 	// Activation initially fails
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
@@ -227,14 +227,14 @@ func TestShutdown_ReturnError(t *testing.T) {
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder(defaultRevisionLabels).build())
 	ep := Endpoint{"ip", 8080}
-	f := newFakeKBuffer(t,
+	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingKBuffer(KBuffer(f))
+	d := NewDedupingActivator(Activator(f))
 	f.hold(revisionID{testNamespace, testRevision})
 
 	go func() {
@@ -255,7 +255,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 	}
 }
 
-type fakeKBuffer struct {
+type fakeActivator struct {
 	t         *testing.T
 	responses map[revisionID]ActivationResult
 	holds     map[revisionID]*sync.WaitGroup
@@ -264,8 +264,8 @@ type fakeKBuffer struct {
 	recordMutex sync.Mutex
 }
 
-func newFakeKBuffer(t *testing.T, responses map[revisionID]ActivationResult) *fakeKBuffer {
-	return &fakeKBuffer{
+func newFakeActivator(t *testing.T, responses map[revisionID]ActivationResult) *fakeActivator {
+	return &fakeActivator{
 		t:         t,
 		responses: responses,
 		holds:     make(map[revisionID]*sync.WaitGroup),
@@ -273,7 +273,7 @@ func newFakeKBuffer(t *testing.T, responses map[revisionID]ActivationResult) *fa
 	}
 }
 
-func (f *fakeKBuffer) ActiveEndpoint(namespace, name string) ActivationResult {
+func (f *fakeActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	id := revisionID{namespace, name}
 
 	f.recordMutex.Lock()
@@ -287,15 +287,15 @@ func (f *fakeKBuffer) ActiveEndpoint(namespace, name string) ActivationResult {
 		return result
 	}
 
-	f.t.Fatalf("Unexpected call to kbuffer: %v", id)
+	f.t.Fatalf("Unexpected call to activator: %v", id)
 	return ActivationResult{}
 }
 
-func (f *fakeKBuffer) Shutdown() {
+func (f *fakeActivator) Shutdown() {
 	// Nothing to do.
 }
 
-func (f *fakeKBuffer) hold(id revisionID) {
+func (f *fakeActivator) hold(id revisionID) {
 	_, ok := f.holds[id]
 
 	if !ok {
@@ -305,13 +305,13 @@ func (f *fakeKBuffer) hold(id revisionID) {
 	f.holds[id].Add(1)
 }
 
-func (f *fakeKBuffer) release(id revisionID) {
+func (f *fakeActivator) release(id revisionID) {
 	if h, ok := f.holds[id]; ok {
 		h.Done()
 	}
 }
 
-func concurrentTest(a KBuffer, f *fakeKBuffer, ids []revisionID) []ActivationResult {
+func concurrentTest(a Activator, f *fakeActivator, ids []revisionID) []ActivationResult {
 	for _, id := range ids {
 		f.hold(id)
 	}

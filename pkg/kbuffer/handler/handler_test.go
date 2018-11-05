@@ -31,25 +31,25 @@ import (
 	"github.com/knative/serving/pkg/kbuffer/util"
 )
 
-type stubKBuffer struct {
+type stubActivator struct {
 	endpoint  kbuffer.Endpoint
 	namespace string
 	name      string
 }
 
-func newStubKBuffer(namespace string, name string, server *httptest.Server) kbuffer.KBuffer {
+func newStubActivator(namespace string, name string, server *httptest.Server) kbuffer.Activator {
 	url, _ := url.Parse(server.URL)
 	host := url.Hostname()
 	port, _ := strconv.Atoi(url.Port())
 
-	return &stubKBuffer{
+	return &stubActivator{
 		endpoint:  kbuffer.Endpoint{FQDN: host, Port: int32(port)},
 		namespace: namespace,
 		name:      name,
 	}
 }
 
-func (fa *stubKBuffer) ActiveEndpoint(namespace, name string) kbuffer.ActivationResult {
+func (fa *stubActivator) ActiveEndpoint(namespace, name string) kbuffer.ActivationResult {
 	if namespace == fa.namespace && name == fa.name {
 		return kbuffer.ActivationResult{
 			Status:            http.StatusOK,
@@ -64,7 +64,7 @@ func (fa *stubKBuffer) ActiveEndpoint(namespace, name string) kbuffer.Activation
 	}
 }
 
-func (fa *stubKBuffer) Shutdown() {
+func (fa *stubActivator) Shutdown() {
 }
 
 func TestActivationHandler(t *testing.T) {
@@ -79,7 +79,7 @@ func TestActivationHandler(t *testing.T) {
 	)
 	defer server.Close()
 
-	act := newStubKBuffer("real-namespace", "real-name", server)
+	act := newStubActivator("real-namespace", "real-name", server)
 
 	examples := []struct {
 		label         string
@@ -234,7 +234,7 @@ func TestActivationHandler(t *testing.T) {
 
 			reporter := &fakeReporter{}
 			handler := ActivationHandler{
-				KBuffer:   act,
+				Activator: act,
 				Transport: rt,
 				Logger:    TestLogger(t),
 				Reporter:  reporter,

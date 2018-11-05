@@ -25,28 +25,28 @@ import (
 var shuttingDownError = ActivationResult{
 	Endpoint: Endpoint{},
 	Status:   http.StatusInternalServerError,
-	Error:    fmt.Errorf("kbuffer shutting down"),
+	Error:    fmt.Errorf("activator shutting down"),
 }
 
-var _ KBuffer = (*dedupingKBuffer)(nil)
+var _ Activator = (*dedupingActivator)(nil)
 
-type dedupingKBuffer struct {
+type dedupingActivator struct {
 	mux             sync.Mutex
 	pendingRequests map[revisionID][]chan ActivationResult
-	kbuffer       KBuffer
+	activator       Activator
 	shutdown        bool
 }
 
-// NewDedupingKBuffer creates a KBuffer that deduplicates
+// NewDedupingActivator creates an Activator that deduplicates
 // activations requests for the same revision id and namespace.
-func NewDedupingKBuffer(kb KBuffer) KBuffer {
-	return &dedupingKBuffer{
+func NewDedupingActivator(a Activator) Activator {
+	return &dedupingActivator{
 		pendingRequests: make(map[revisionID][]chan ActivationResult),
-		kbuffer:         kb,
+		activator:       a,
 	}
 }
 
-func (a *dedupingKBuffer) ActiveEndpoint(namespace, name string) ActivationResult {
+func (a *dedupingActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	id := revisionID{namespace: namespace, name: name}
 	ch := make(chan ActivationResult, 1)
 	a.dedupe(id, ch)
@@ -54,8 +54,8 @@ func (a *dedupingKBuffer) ActiveEndpoint(namespace, name string) ActivationResul
 	return result
 }
 
-func (a *dedupingKBuffer) Shutdown() {
-	a.kbuffer.Shutdown()
+func (a *dedupingActivator) Shutdown() {
+	a.activator.Shutdown()
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	a.shutdown = true
@@ -66,7 +66,7 @@ func (a *dedupingKBuffer) Shutdown() {
 	}
 }
 
-func (a *dedupingKBuffer) dedupe(id revisionID, ch chan ActivationResult) {
+func (a *dedupingActivator) dedupe(id revisionID, ch chan ActivationResult) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if a.shutdown {
@@ -81,8 +81,8 @@ func (a *dedupingKBuffer) dedupe(id revisionID, ch chan ActivationResult) {
 	}
 }
 
-func (a *dedupingKBuffer) activate(id revisionID) {
-	result := a.kbuffer.ActiveEndpoint(id.namespace, id.name)
+func (a *dedupingActivator) activate(id revisionID) {
+	result := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if reqs, ok := a.pendingRequests[id]; ok {

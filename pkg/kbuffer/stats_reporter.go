@@ -28,10 +28,10 @@ import (
 type Measurement int
 
 const (
-	// RequestCountM is the requests count that are routed to the kbuffer
+	// RequestCountM is the requests count that are routed to the activator
 	RequestCountM Measurement = iota
 
-	//ResponseCountM is the response count when kbuffer proxy the request
+	//ResponseCountM is the response count when activator proxy the request
 	ResponseCountM
 
 	// ResponseTimeInMsecM is the response time in millisecond
@@ -42,11 +42,11 @@ var (
 	measurements = []*stats.Float64Measure{
 		RequestCountM: stats.Float64(
 			"revision_request_count",
-			"The number of requests that are routed to the kbuffer",
+			"The number of requests that are routed to the activator",
 			stats.UnitNone),
 		ResponseCountM: stats.Float64(
 			"revision_response_count",
-			"The response count when kbuffer proxy the request",
+			"The response count when activator proxy the request",
 			stats.UnitNone),
 		ResponseTimeInMsecM: stats.Float64(
 			"response_time_msec",
@@ -55,7 +55,7 @@ var (
 	}
 )
 
-// StatsReporter defines the interface for sending kbuffer metrics
+// StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
 	ReportRequest(ns, service, config, rev string, v float64) error
 	ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error
@@ -73,7 +73,7 @@ type Reporter struct {
 	numTriesKey     tag.Key
 }
 
-// NewStatsReporter creates a reporter that collects and reports kbuffer metrics
+// NewStatsReporter creates a reporter that collects and reports activator metrics
 func NewStatsReporter() (*Reporter, error) {
 
 	var r = &Reporter{}
@@ -112,13 +112,13 @@ func NewStatsReporter() (*Reporter, error) {
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
-			Description: "The number of requests that are routed to the kbuffer",
+			Description: "The number of requests that are routed to the activator",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
-			Description: "The response count when kbuffer proxy the request",
+			Description: "The response count when activator proxy the request",
 			Measure:     measurements[ResponseCountM],
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
