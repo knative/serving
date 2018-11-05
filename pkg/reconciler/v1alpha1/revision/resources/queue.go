@@ -85,7 +85,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		loggingLevel = ll.String()
 	}
 
-	queueContainer := &corev1.Container{
+	return &corev1.Container{
 		Name:           queueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
@@ -128,5 +128,4 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Value: strconv.Itoa(int(userport)),
 		}},
 	}
-	return queueContainer
 }

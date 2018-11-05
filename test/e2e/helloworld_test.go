@@ -211,15 +211,3 @@ func findExpectEnvInContainer(contaienr *v1.Container, expectEnvName string, exp
 	}
 	return false
 }
-
-func generateUserPort(logger *logging.BaseLogger, port int32) []v1.ContainerPort {
-	containerPorts := []v1.ContainerPort{}
-	userPort := v1.ContainerPort{
-		Name:          "user-port",
-		ContainerPort: int32(port),
-	}
-	logger.Infof("set user port: %v", port)
-
-	containerPorts = append(containerPorts, userPort)
-	return containerPorts
-}

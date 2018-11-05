@@ -122,7 +122,7 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
 	}
 	if err := validateContainerPorts(container.Ports); err != nil {
-		errs = errs.Also(err)
+		errs = errs.Also(err.ViaField("ports"))
 	}
 	// Validate our probes
 	if err := validateProbe(container.ReadinessProbe).ViaField("readinessProbe"); err != nil {
@@ -141,7 +141,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) > 1 {
 		return &apis.FieldError{
 			Message: "More than one container ports is set",
-			Paths:   []string{"ports"},
+			Paths:   []string{apis.CurrentField},
 			Details: "Only a single port named \"user-port\" is allowed",
 		}
 	}
@@ -149,7 +149,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 1 && ports[0].Name != "user-port" {
 		return &apis.FieldError{
 			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
-			Paths:   []string{"ports"},
+			Paths:   []string{apis.CurrentField},
 			Details: "Only a single port named \"user-port\" is allowed",
 		}
 	}
