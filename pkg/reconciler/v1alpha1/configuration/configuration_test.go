@@ -584,8 +584,8 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{curTime},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "1",
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
 				},
 			},
 		},
@@ -596,8 +596,8 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "1",
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
 				},
 			},
 		},
@@ -608,8 +608,10 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "1",
 					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
@@ -621,8 +623,10 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "1",
 					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", curTime.Unix()),
 				},
 			},
@@ -634,8 +638,10 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "2",
+				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "2",
 					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
@@ -647,8 +653,10 @@ func TestIsRevisionStale(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "1",
 					"serving.knative.dev/lastPinned":             fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},

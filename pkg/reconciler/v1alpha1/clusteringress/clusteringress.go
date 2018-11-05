@@ -77,8 +77,9 @@ func NewController(
 	})
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.enqueueOwnerIngress(impl),
-		UpdateFunc: controller.PassNew(c.enqueueOwnerIngress(impl)),
+		AddFunc:    impl.EnqueueLabelOf("", networking.IngressLabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOf("", networking.IngressLabelKey)),
+		DeleteFunc: impl.EnqueueLabelOf("", networking.IngressLabelKey),
 	})
 
 	return impl
@@ -205,21 +206,4 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	}
 
 	return nil
-}
-
-func (c *Reconciler) enqueueOwnerIngress(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		vs, ok := obj.(*v1alpha3.VirtualService)
-		if !ok {
-			c.Logger.Infof("Ignoring non-VirtualService objects %v", obj)
-			return
-		}
-		// Check whether the VirtualService is referred by a ClusterIngress.
-		ingressName, ok := vs.Labels[networking.IngressLabelKey]
-		if !ok {
-			c.Logger.Infof("VirtualService %s/%s does not have a referring ingress", vs.Namespace, vs.Name)
-			return
-		}
-		impl.EnqueueKey(ingressName)
-	}
 }

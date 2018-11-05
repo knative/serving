@@ -970,7 +970,11 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
 			test.doThings()
 
-			<-routeModifiedCh
+			select {
+			case <-routeModifiedCh:
+			case <-time.NewTimer(10 * time.Second).C:
+				t.Logf("routeWatcher did not receive a Type==Modified event for %s in 10s", test.expectedDomainSuffix)
+			}
 
 			route, err := routeClient.Get(route.Name, metav1.GetOptions{})
 			if err != nil {
