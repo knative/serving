@@ -155,7 +155,6 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		return desiredScale, nil
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-	reporter.Report(autoscaler.DesiredPodCountM, float64(desiredScale))
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
