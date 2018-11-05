@@ -31,11 +31,11 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/kbuffer"
 	kbufferhandler "github.com/knative/serving/pkg/kbuffer/handler"
 	kbufferutil "github.com/knative/serving/pkg/kbuffer/util"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/system"

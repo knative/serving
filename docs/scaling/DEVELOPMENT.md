@@ -51,7 +51,7 @@ The following diagram illustrates the mechanics of the autoscaler:
              |                +------|---------------------------------+
              V         watch  |      V                                 |
        +-----------+   first  |   +- ----+  create   +------------+    |
-       | KBuffer |------------->| Pods |<----------| Deployment |<--------------+
+       |  KBuffer  |------------->| Pods |<----------| Deployment |<--------------+
        +-----------+          |   +------+           +------------+    |          |
              |                |       |                                |          | resize
              |   activate     |       |                                |          |
@@ -115,7 +115,7 @@ When the Autoscaler has observed an average concurrency per pod of 0.0 for some 
 
 ### KBuffer
 
-The KBuffer is a single multi-tenant component that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the KBuffer (see [Design Goal #3](#design-goals)).  When the KBuffer gets a request for a Reserve Revision, it calls the Knative Serving control plane to transistion the Revision to an Active state.  It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the KBuffer in the meantime.  The KBuffer establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Knative Serving control plane will update the Istio route rules to take the KBuffer back out of the serving path.
+The KBuffer is a single multi-tenant component that catches traffic for all Reserve Revisions. It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods. When the KBuffer gets a request for a Reserve Revision, it calls the Knative Serving control plane to transition the Revision to an Active state. It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the KBuffer in the meantime. The KBuffer establishes a watch for Pods belonging to the target Revision. Once the first Pod comes up, all enqueued requests are proxied to that Pod. Concurrently, the Knative Serving control plane will update the Istio route rules to take the KBuffer back out of the serving path.
 
 ## Slow Brain Implementation
 

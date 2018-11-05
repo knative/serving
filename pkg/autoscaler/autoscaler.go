@@ -68,18 +68,18 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:              window,
-		perPodAggregations:  make(map[string]*perPodAggregation),
-		kbuffersContained: make(map[string]struct{}),
+		window:             window,
+		perPodAggregations: make(map[string]*perPodAggregation),
+		kbuffersContained:  make(map[string]struct{}),
 	}
 }
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window              time.Duration
-	perPodAggregations  map[string]*perPodAggregation
-	probeCount          int32
-	kbuffersContained map[string]struct{}
+	window             time.Duration
+	perPodAggregations map[string]*perPodAggregation
+	probeCount         int32
+	kbuffersContained  map[string]struct{}
 }
 
 // Aggregates a given stat to the correct pod-aggregation
