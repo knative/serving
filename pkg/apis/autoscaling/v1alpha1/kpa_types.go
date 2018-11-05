@@ -172,6 +172,8 @@ func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
+// CanScaleToZero checks whether the pod autoscaler has been in an inactive state
+// for at least the specified grace period.
 func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
 		switch cond.Status {
@@ -184,6 +186,8 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 	return false
 }
 
+// CanMarkInactive checks whether the pod autoscaler has been in an active state
+// for at least the specified idle period.
 func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
 		switch cond.Status {
