@@ -398,14 +398,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ac9c7e48d560f01c9877d728d46b41d0776d66c80ad34a001fb0fce2433ab804"
+  digest = "1:a7bdb80f98635c496edd4d65d903dca3fa3583af666d2134aa5a0c6f23aa9ec6"
   name = "github.com/knative/test-infra"
   packages = [
-    ".",
+    "scripts",
     "tools/testgrid",
-    ]
-  pruneopts = "T"
-  revision = "dc43f399b1b42188a0e39e8ec4719dcd17dea949"
+  ]
+  pruneopts = "UT"
+  revision = "f710a703baf3ac7e5e9005693fb1c8d61c4eccbb"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1114,7 +1114,7 @@
     "github.com/knative/pkg/testing",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
-    "github.com/knative/test-infra",
+    "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
@@ -1188,3 +1188,4 @@
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
+  

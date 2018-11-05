@@ -72,12 +72,14 @@ function fail_test() {
   exit 1
 }
 
-# Run the given E2E tests (must be tagged as such).
+# Run the given E2E tests. Assume tests are tagged e2e, unless `-tags=XXX` is passed.
 # Parameters: $1..$n - any go test flags, then directories containing the tests to run.
 function go_test_e2e() {
-  local options=""
-  (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 $@ ${options}
+  local test_options=""
+  local go_options=""
+  (( EMIT_METRICS )) && test_options="-emitmetrics"
+  [[ ! " $@" == *" -tags="* ]] && go_options="-tags=e2e"
+  report_go_test -v -count=1 ${go_options} $@ ${test_options}
 }
 
 # Download the k8s binaries required by kubetest.
@@ -184,7 +186,8 @@ function create_test_cluster() {
   # Don't fail test for kubetest, as it might incorrectly report test failure
   # if teardown fails (for details, see success() below)
   set +o errexit
-  kubetest "${CLUSTER_CREATION_ARGS[@]}" \
+  run_go_tool k8s.io/test-infra/kubetest \
+    kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
     --extract local \
