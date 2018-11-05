@@ -18,17 +18,17 @@ package metrics
 
 import (
 	"github.com/knative/pkg/metrics"
+	"github.com/knative/serving/pkg/apis/serving"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
 	ObservabilityConfigName = "config-observability"
-	metricsDomain           = "serving.knative.dev"
 )
 
 // UpdateExporterFromConfigMap returns a helper func that can be used to update the exporter
 // when a config map is updated
 func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
-	return metrics.UpdateExporterFromConfigMap(metricsDomain, component, logger)
+	return metrics.UpdateExporterFromConfigMap(serving.GroupName, component, logger)
 }
