@@ -347,6 +347,13 @@ data:
       
       containers:
       - name: istio-proxy
+        # PATCH #2: Temporary workaround for https://github.com/knative/serving/issues/2351.
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "20"
         image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
         "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
         [[ else -]]

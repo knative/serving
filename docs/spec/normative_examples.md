@@ -167,7 +167,6 @@ metadata:
   name: def
   labels:
     knative.dev/configuration: my-service
-  annotations:
     knative.dev/configurationGeneration: 1235
   ...
 spec:
@@ -398,9 +397,7 @@ metadata:
   labels:
     # name and generation of the configuration that created the revision
     knative.dev/configuration: my-service
-  annotations:
     knative.dev/configurationGeneration: 1234
-  ...  # uid, resourceVersion, creationTimestamp, generation, selfLink, etc
 spec:
   ...  # spec from the configuration
 status:
@@ -919,7 +916,6 @@ metadata:
   name: abc
   labels:
     knative.dev/configuration: my-service
-  annotations:
     knative.dev/configurationGeneration: 1234
   ...
 spec:

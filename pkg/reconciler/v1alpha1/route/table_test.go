@@ -65,9 +65,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
@@ -97,9 +94,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -133,9 +127,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "first-reconcile.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionUnknown,
@@ -184,7 +175,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "becomes-ready.default.example.com",
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "becomes-ready.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "becomes-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -236,7 +227,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "becomes-ready.default.example.com",
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "becomes-ready.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "becomes-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -289,15 +280,22 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "create-svc-failure", "config", &v1alpha1.RouteStatus{
+				Domain:         "create-svc-failure.default.example.com",
+				DomainInternal: "create-svc-failure.default.svc.cluster.local",
+				Address:        &duckv1alpha1.Addressable{Hostname: "create-svc-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 		}},
@@ -339,10 +337,10 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "ingress-create-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "ingress-create-failure.default.example.com",
 				DomainInternal: "ingress-create-failure.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "ingress-create-failure.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "ingress-create-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
+					Status: corev1.ConditionTrue,
 				}, {
 					Type:   v1alpha1.RouteConditionIngressReady,
 					Status: corev1.ConditionUnknown,
@@ -350,9 +348,13 @@ func TestReconcile(t *testing.T) {
 					Type:   v1alpha1.RouteConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00001",
+					Percent:      100,
+				}},
 			}),
 		}},
-		Key:                     "default/ingress-create-failure",
+		Key: "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -360,7 +362,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "steady-state", "config", &v1alpha1.RouteStatus{
 				Domain:         "steady-state.default.example.com",
 				DomainInternal: "steady-state.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "steady-state.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "steady-state.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -413,7 +415,7 @@ func TestReconcile(t *testing.T) {
 				simpleRunLatest("default", "different-domain", "config", &v1alpha1.RouteStatus{
 					Domain:         "different-domain.default.another-example.com",
 					DomainInternal: "different-domain.default.svc.cluster.local",
-					Targetable:     &duckv1alpha1.Targetable{DomainInternal: "different-domain.default.svc.cluster.local"},
+					Address:        &duckv1alpha1.Addressable{Hostname: "different-domain.default.svc.cluster.local"},
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 						Status: corev1.ConditionTrue,
@@ -464,7 +466,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "new-latest-created", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-created.default.example.com",
 				DomainInternal: "new-latest-created.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "new-latest-created.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-created.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -519,7 +521,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-ready.default.example.com",
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "new-latest-ready.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -588,7 +590,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-ready.default.example.com",
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "new-latest-ready.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -605,7 +607,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key:                     "default/new-latest-ready",
+		Key: "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "failure updating cluster ingress",
@@ -618,7 +620,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "update-ci-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "update-ci-failure.default.example.com",
 				DomainInternal: "update-ci-failure.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "update-ci-failure.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "update-ci-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -630,9 +632,8 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 			setLatestReadyRevision(setLatestCreatedRevision(
@@ -682,8 +683,28 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
+		}, {
+			Object: simpleRunLatest("default", "update-ci-failure", "config", &v1alpha1.RouteStatus{
+				Domain:         "update-ci-failure.default.example.com",
+				DomainInternal: "update-ci-failure.default.svc.cluster.local",
+				Address:        &duckv1alpha1.Addressable{Hostname: "update-ci-failure.default.svc.cluster.local"},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+				Traffic: []v1alpha1.TrafficTarget{{
+					RevisionName: "config-00002",
+					Percent:      100,
+				}},
+			}),
 		}},
-		Key:                     "default/update-ci-failure",
+		Key: "default/update-ci-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
@@ -691,7 +712,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "svc-mutation.default.example.com",
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "svc-mutation.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "svc-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -748,7 +769,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "svc-mutation.default.example.com",
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "svc-mutation.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "svc-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -760,9 +781,8 @@ func TestReconcile(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
+					RevisionName: "config-00001",
+					Percent:      100,
 				}},
 			}),
 			addConfigLabel(
@@ -804,7 +824,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "cluster-ip", "config", &v1alpha1.RouteStatus{
 				Domain:         "cluster-ip.default.example.com",
 				DomainInternal: "cluster-ip.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "cluster-ip.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "cluster-ip.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -857,7 +877,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "external-name", "config", &v1alpha1.RouteStatus{
 				Domain:         "external-name.default.example.com",
 				DomainInternal: "external-name.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "external-name.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "external-name.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -909,7 +929,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "ingress-mutation", "config", &v1alpha1.RouteStatus{
 				Domain:         "ingress-mutation.default.example.com",
 				DomainInternal: "ingress-mutation.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "ingress-mutation.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "ingress-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -968,7 +988,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key:                     "default/ingress-mutation",
+		Key: "default/ingress-mutation",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
@@ -977,7 +997,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
 				Domain:         "change-configs.default.example.com",
 				DomainInternal: "change-configs.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "change-configs.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "change-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1048,7 +1068,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
 				Domain:         "change-configs.default.example.com",
 				DomainInternal: "change-configs.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "change-configs.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "change-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1073,9 +1093,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "config-missing", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "config-missing.default.example.com",
-				DomainInternal: "config-missing.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "config-missing.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1101,9 +1118,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-direct.default.example.com",
-				DomainInternal: "missing-revision-direct.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "missing-revision-direct.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1129,9 +1143,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-indirect.default.example.com",
-				DomainInternal: "missing-revision-indirect.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "missing-revision-indirect.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
@@ -1187,7 +1198,7 @@ func TestReconcile(t *testing.T) {
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, &v1alpha1.RouteStatus{
 					Domain:         "pinned-becomes-ready.default.example.com",
 					DomainInternal: "pinned-becomes-ready.default.svc.cluster.local",
-					Targetable:     &duckv1alpha1.Targetable{DomainInternal: "pinned-becomes-ready.default.svc.cluster.local"},
+					Address:        &duckv1alpha1.Addressable{Hostname: "pinned-becomes-ready.default.svc.cluster.local"},
 					Conditions: duckv1alpha1.Conditions{{
 						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 						Status: corev1.ConditionTrue,
@@ -1206,7 +1217,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 		}},
-		Key:                     "default/pinned-becomes-ready",
+		Key: "default/pinned-becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
@@ -1271,7 +1282,7 @@ func TestReconcile(t *testing.T) {
 			Object: routeWithTraffic("default", "named-traffic-split", &v1alpha1.RouteStatus{
 				Domain:         "named-traffic-split.default.example.com",
 				DomainInternal: "named-traffic-split.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "named-traffic-split.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "named-traffic-split.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1297,7 +1308,7 @@ func TestReconcile(t *testing.T) {
 				Percent:           50,
 			}),
 		}},
-		Key:                     "default/named-traffic-split",
+		Key: "default/named-traffic-split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "same revision targets",
@@ -1367,7 +1378,7 @@ func TestReconcile(t *testing.T) {
 			Object: routeWithTraffic("default", "same-revision-targets", &v1alpha1.RouteStatus{
 				Domain:         "same-revision-targets.default.example.com",
 				DomainInternal: "same-revision-targets.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "same-revision-targets.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "same-revision-targets.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1397,7 +1408,7 @@ func TestReconcile(t *testing.T) {
 				Percent:      50,
 			}),
 		}},
-		Key:                     "default/same-revision-targets",
+		Key: "default/same-revision-targets",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
@@ -1406,7 +1417,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
 				Domain:         "switch-configs.default.example.com",
 				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "switch-configs.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "switch-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1474,7 +1485,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
 				Domain:         "switch-configs.default.example.com",
 				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "switch-configs.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "switch-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1491,7 +1502,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key:                     "default/switch-configs",
+		Key: "default/switch-configs",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
@@ -1499,7 +1510,7 @@ func TestReconcile(t *testing.T) {
 			simpleRunLatest("default", "stale-lastpinned", "config", &v1alpha1.RouteStatus{
 				Domain:         "stale-lastpinned.default.example.com",
 				DomainInternal: "stale-lastpinned.default.svc.cluster.local",
-				Targetable:     &duckv1alpha1.Targetable{DomainInternal: "stale-lastpinned.default.svc.cluster.local"},
+				Address:        &duckv1alpha1.Addressable{Hostname: "stale-lastpinned.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
 					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
@@ -1733,7 +1744,7 @@ func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
 	action.Name = name
 	action.Namespace = namespace
 	lastPinStr := v1alpha1.RevisionLastPinnedString(fakeCurTime)
-	patch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/annotations/serving.knative.dev~1lastPinned","value":%q}]`, lastPinStr)
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/lastPinned":%q}}}`, lastPinStr)
 	action.Patch = []byte(patch)
 	return action
 }

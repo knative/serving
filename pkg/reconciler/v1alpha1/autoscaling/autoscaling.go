@@ -64,7 +64,7 @@ type KPAMetrics interface {
 // KPAScaler knows how to scale the targets of KPAs
 type KPAScaler interface {
 	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error
+	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
 // Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
@@ -288,7 +288,8 @@ func (c *Reconciler) reconcileMetric(ctx context.Context, kpa *kpa.PodAutoscaler
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	if err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale); err != nil {
+	appliedScale, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
@@ -309,18 +310,18 @@ func (c *Reconciler) reconcileMetric(ctx context.Context, kpa *kpa.PodAutoscaler
 			got += len(es.Addresses)
 		}
 	}
-	want := metric.DesiredScale
+	want := appliedScale
 	logger.Infof("KPA got=%v, want=%v", got, want)
 
 	switch {
-	case want == 0 || want == -1:
+	case want == 0:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
 	case got == 0 && want > 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0:
+	case got > 0 || want == -1:
 		kpa.Status.MarkActive()
 	}
 

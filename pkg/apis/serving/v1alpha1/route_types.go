@@ -127,13 +127,13 @@ type RouteStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
-	// DEPRECATED: Use Targetable instead.
+	// DEPRECATED: Use Address instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
 
-	// Targetable holds the information needed for a Route to be the target of an event.
+	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
-	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
+	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.

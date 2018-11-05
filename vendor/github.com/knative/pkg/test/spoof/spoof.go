@@ -19,6 +19,9 @@ limitations under the License.
 package spoof
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -26,14 +29,22 @@ import (
 	"time"
 
 	"github.com/knative/pkg/test/logging"
+	zipkin "github.com/knative/pkg/test/zipkin"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
+	"go.opencensus.io/trace"
 )
 
 const (
 	requestInterval = 1 * time.Second
 	requestTimeout  = 5 * time.Minute
+	// TODO(tcnghia): These probably shouldn't be hard-coded here?
+	ingressName      = "knative-ingressgateway"
+	ingressNamespace = "istio-system"
 )
 
 // Response is a stripped down subset of http.Response. The is primarily useful
@@ -82,7 +93,7 @@ type SpoofingClient struct {
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
 func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool) (*SpoofingClient, error) {
 	sc := SpoofingClient{
-		Client:          http.DefaultClient,
+		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
 		RequestTimeout:  requestTimeout,
 		logger:          logger,
@@ -92,30 +103,12 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 		// If the domain that the Route controller is configured to assign to Route.Status.Domain
 		// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
 		// spoof the Host in our requests.
-
-		// TODO(tcnghia): These probably shouldn't be hard-coded here?
-		ingressName := "knative-ingressgateway"
-		ingressNamespace := "istio-system"
-
-		ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+		e, err := GetServiceEndpoint(kubeClientset)
 		if err != nil {
 			return nil, err
 		}
-		ingresses := ingress.Status.LoadBalancer.Ingress
 
-		if len(ingresses) != 1 {
-			return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
-		}
-
-		ingressToUse := ingresses[0]
-		if ingressToUse.IP == "" {
-			if ingressToUse.Hostname == "" {
-				return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", ingressName)
-			}
-			sc.endpoint = ingressToUse.Hostname
-		} else {
-			sc.endpoint = ingressToUse.IP
-		}
+		sc.endpoint = *e
 		sc.domain = domain
 	} else {
 		// If the domain is resolvable, we can use it directly when we make requests.
@@ -125,8 +118,32 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 	return &sc, nil
 }
 
+// GetServiceEndpoint gets the endpoint IP or hostname to use for the service
+func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
+	var endpoint string
+	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	ingresses := ingress.Status.LoadBalancer.Ingress
+	if len(ingresses) != 1 {
+		return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
+	}
+	ingressToUse := ingresses[0]
+	if ingressToUse.IP == "" {
+		if ingressToUse.Hostname == "" {
+			return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", ingressName)
+		}
+		endpoint = ingressToUse.Hostname
+	} else {
+		endpoint = ingressToUse.IP
+	}
+	return &endpoint, nil
+}
+
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
 // and transforming the http.Response into a spoof.Response.
+// Each response is augmented with "ZipkinTraceID" header that identifies the zipkin trace corresponding to the request.
 func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 	// Controls the Host header, for spoofing.
 	if sc.domain != "" {
@@ -138,12 +155,18 @@ func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 		req.URL.Host = sc.endpoint
 	}
 
-	resp, err := sc.Client.Do(req)
+	// Starting span to capture zipkin trace.
+	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
+	defer span.End()
+
+	resp, err := sc.Client.Do(req.WithContext(traceContext))
 	if err != nil {
 		return nil, err
 	}
 
 	defer resp.Body.Close()
+
+	resp.Header.Add(zipkin.ZipkinTraceIDHeader, span.SpanContext().TraceID.String())
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -178,4 +201,35 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 	})
 
 	return resp, err
+}
+
+// LogZipkinTrace provides support to log Zipkin Trace for param: traceID
+func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
+	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
+		return errors.New("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
+	}
+
+	sc.logger.Infof("Logging Zipkin Trace: %s", traceID)
+
+	zipkinTraceEndpoint := zipkin.ZipkinTraceEndpoint + traceID
+	// Sleep to ensure all traces are correctly pushed on the backend.
+	time.Sleep(5 * time.Second)
+	resp, err := http.Get(zipkinTraceEndpoint)
+	if err != nil {
+		return fmt.Errorf("Error retrieving Zipkin trace: %v", err)
+	}
+
+	trace, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Error reading Zipkin trace response: %v", err)
+	}
+
+	var prettyJSON bytes.Buffer
+	error := json.Indent(&prettyJSON, trace, "", "\t")
+	if error != nil {
+		return fmt.Errorf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
+	}
+	sc.logger.Infof(prettyJSON.String())
+
+	return nil
 }

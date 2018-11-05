@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// Implementable in implemented by the Fooable duck type that consumers
+// Implementable is implemented by the Fooable duck type that consumers
 // are expected to embed as a `.status.fooable` field.
 type Implementable interface {
 	// GetFullType returns an instance of a full resource wrapping

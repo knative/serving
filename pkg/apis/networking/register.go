@@ -30,7 +30,7 @@ const (
 	//
 	// The parent resource may use its own annotations to choose the
 	// annotation value for the ClusterIngress it uses.  Based on such
-	// value a different reconcilation logic may be used (for examples,
+	// value a different reconciliation logic may be used (for examples,
 	// Istio-based ClusterIngress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 

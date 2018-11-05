@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 )
@@ -123,12 +123,9 @@ func (c *Impl) Enqueue(obj interface{}) {
 // EnqueueControllerOf takes a resource, identifies its controller resource,
 // converts it into a namespace/name string, and passes that to EnqueueKey.
 func (c *Impl) EnqueueControllerOf(obj interface{}) {
-	// TODO(mattmoor): This will not properly handle Delete, which we do
-	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
-	// to enqueue the last known owner.
-	object, err := meta.Accessor(obj)
+	object, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
-		c.logger.Error(zap.Error(err))
+		c.logger.Error(err)
 		return
 	}
 
@@ -136,6 +133,42 @@ func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	// add that object to our workqueue.
 	if owner := metav1.GetControllerOf(object); owner != nil {
 		c.EnqueueKey(object.GetNamespace() + "/" + owner.Name)
+	}
+}
+
+// EnqueueLabelOf returns with an Enqueue func that takes a resource,
+// identifies its controller resource through given namespace and name labels,
+// converts it into a namespace/name string, and passes that to EnqueueKey.
+// Callers should pass in an empty string as namespace label key for obj
+// whose controller is of cluster-scoped resource.
+func (c *Impl) EnqueueLabelOf(namespaceLabel, nameLabel string) func(obj interface{}) {
+	return func(obj interface{}) {
+		object, err := kmeta.DeletionHandlingAccessor(obj)
+		if err != nil {
+			c.logger.Error(err)
+			return
+		}
+
+		labels := object.GetLabels()
+		controllerKey, ok := labels[nameLabel]
+		if !ok {
+			c.logger.Infof("Object %s/%s does not have a referring name label %s",
+				object.GetNamespace(), object.GetName(), nameLabel)
+			return
+		}
+
+		if namespaceLabel != "" {
+			controllerNamespace, ok := labels[namespaceLabel]
+			if !ok {
+				c.logger.Infof("Object %s/%s does not have a referring namespace label %s",
+					object.GetNamespace(), object.GetName(), namespaceLabel)
+				return
+			}
+
+			controllerKey = fmt.Sprintf("%s/%s", controllerNamespace, controllerKey)
+		}
+
+		c.EnqueueKey(controllerKey)
 	}
 }
 
@@ -223,6 +256,7 @@ func (c *Impl) processNextWorkItem() bool {
 		// Run Reconcile, passing it the namespace/name string of the
 		// resource to be synced.
 		if err = c.Reconciler.Reconcile(ctx, key); err != nil {
+			c.handleErr(err, key)
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 
@@ -241,9 +275,51 @@ func (c *Impl) processNextWorkItem() bool {
 	return true
 }
 
+func (c *Impl) handleErr(err error, key interface{}) {
+	// Re-queue the key if it's an transient error.
+	if !IsPermanentError(err) {
+		c.WorkQueue.AddRateLimited(key)
+		return
+	}
+
+	c.WorkQueue.Forget(key)
+}
+
 // GlobalResync enqueues all objects from the passed SharedInformer
 func (c *Impl) GlobalResync(si cache.SharedInformer) {
 	for _, key := range si.GetStore().ListKeys() {
 		c.EnqueueKey(key)
 	}
+}
+
+// NewPermanentError returns a new instance of permanentError.
+// Users can wrap an error as permanentError with this in reconcile,
+// when he does not expect the key to get re-queued.
+func NewPermanentError(err error) error {
+	return permanentError{e: err}
+}
+
+// permanentError is an error that is considered not transient.
+// We should not re-queue keys when it returns with thus error in reconcile.
+type permanentError struct {
+	e error
+}
+
+// IsPermanentError returns true if given error is permanentError
+func IsPermanentError(err error) bool {
+	switch err.(type) {
+	case permanentError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Error implements the Error() interface of error.
+func (err permanentError) Error() string {
+	if err.e == nil {
+		return ""
+	}
+
+	return err.e.Error()
 }

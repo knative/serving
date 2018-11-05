@@ -38,42 +38,37 @@ func TestMultipleDifferentKeys(t *testing.T) {
 	s.requestStart(pod2)
 
 	now := time.Now()
-	expectStats(t, s.report(now, 2), []*autoscaler.StatMessage{
-		&autoscaler.StatMessage{
-			Key: pod1,
-			Stat: autoscaler.Stat{
-				Time:                      &now,
-				PodName:                   autoscaler.ActivatorPodName,
-				AverageConcurrentRequests: 2.0,
-				RequestCount:              2,
-			},
+	expectStats(t, s.report(now, 2), []*autoscaler.StatMessage{{
+		Key: pod1,
+		Stat: autoscaler.Stat{
+			Time:                      &now,
+			PodName:                   autoscaler.ActivatorPodName,
+			AverageConcurrentRequests: 2.0,
+			RequestCount:              2,
 		},
-		&autoscaler.StatMessage{
-			Key: pod2,
-			Stat: autoscaler.Stat{
-				Time:                      &now,
-				PodName:                   autoscaler.ActivatorPodName,
-				AverageConcurrentRequests: 1.0,
-				RequestCount:              1,
-			},
+	}, {
+		Key: pod2,
+		Stat: autoscaler.Stat{
+			Time:                      &now,
+			PodName:                   autoscaler.ActivatorPodName,
+			AverageConcurrentRequests: 1.0,
+			RequestCount:              1,
 		},
-	})
+	}})
 
 	s.requestEnd(pod2)
 	s.requestEnd(pod1)
 
 	now = time.Now()
-	expectStats(t, s.report(now, 1), []*autoscaler.StatMessage{
-		&autoscaler.StatMessage{
-			Key: pod1,
-			Stat: autoscaler.Stat{
-				Time:                      &now,
-				PodName:                   autoscaler.ActivatorPodName,
-				AverageConcurrentRequests: 1.0,
-				RequestCount:              0, // no new request arrived after reporting
-			},
+	expectStats(t, s.report(now, 1), []*autoscaler.StatMessage{{
+		Key: pod1,
+		Stat: autoscaler.Stat{
+			Time:                      &now,
+			PodName:                   autoscaler.ActivatorPodName,
+			AverageConcurrentRequests: 1.0,
+			RequestCount:              0, // no new request arrived after reporting
 		},
-	})
+	}})
 }
 
 // Test type to hold the bi-directional time channels

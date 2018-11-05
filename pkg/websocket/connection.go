@@ -72,7 +72,7 @@ type ManagedConnection struct {
 // The connection will continuously be kept alive and reconnected
 // in case of a loss of connectivity.
 func NewDurableSendingConnection(target string) *ManagedConnection {
-	conn := newConnection(target)
+	c := newConnection(target)
 
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
@@ -80,27 +80,27 @@ func NewDurableSendingConnection(target string) *ManagedConnection {
 		// If the close signal races the connection attempt, make
 		// sure the connection actually closes.
 		defer func() {
-			conn.connectionLock.RLock()
-			defer conn.connectionLock.RUnlock()
+			c.connectionLock.RLock()
+			defer c.connectionLock.RUnlock()
 
-			if conn.connection != nil {
-				conn.connection.Close()
+			if conn := c.connection; conn != nil {
+				conn.Close()
 			}
 		}()
 		for {
 			select {
 			default:
-				if err := conn.connect(); err != nil {
+				if err := c.connect(); err != nil {
 					continue
 				}
-				conn.keepalive()
-			case <-conn.closeChan:
+				c.keepalive()
+			case <-c.closeChan:
 				return
 			}
 		}
 	}()
 
-	return conn
+	return c
 }
 
 // newConnection creates a new connection primitive.
@@ -146,8 +146,10 @@ func (c *ManagedConnection) keepalive() (err error) {
 			c.connectionLock.RLock()
 			defer c.connectionLock.RUnlock()
 
-			if _, _, err = c.connection.NextReader(); err != nil {
-				c.connection.Close()
+			if conn := c.connection; conn != nil {
+				if _, _, err = conn.NextReader(); err != nil {
+					conn.Close()
+				}
 			}
 		}()
 
@@ -162,12 +164,13 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 	c.connectionLock.RLock()
 	defer c.connectionLock.RUnlock()
 
-	c.writerLock.Lock()
-	defer c.writerLock.Unlock()
-
-	if c.connection == nil {
+	conn := c.connection
+	if conn == nil {
 		return ErrConnectionNotEstablished
 	}
+
+	c.writerLock.Lock()
+	defer c.writerLock.Unlock()
 
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
@@ -175,7 +178,7 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 		return err
 	}
 
-	return c.connection.WriteMessage(websocket.BinaryMessage, b.Bytes())
+	return conn.WriteMessage(websocket.BinaryMessage, b.Bytes())
 }
 
 // Close closes the websocket connection.
@@ -184,8 +187,8 @@ func (c *ManagedConnection) Close() error {
 	c.connectionLock.RLock()
 	defer c.connectionLock.RUnlock()
 
-	if c.connection != nil {
-		return c.connection.Close()
+	if conn := c.connection; conn != nil {
+		return conn.Close()
 	}
 	return nil
 }
