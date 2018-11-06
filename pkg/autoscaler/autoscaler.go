@@ -181,7 +181,7 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 		return float64(1.0)
 	}
 	outOfService := now.Sub(*agg.lameduckTime)
-	return float64(1.0) - (float64(outOfService) / float64(agg.window))
+	return math.Max(0.0, float64(1.0) - (float64(outOfService) / float64(agg.window)))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
