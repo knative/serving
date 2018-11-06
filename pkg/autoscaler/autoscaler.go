@@ -194,7 +194,6 @@ type Autoscaler struct {
 	panicTime            *time.Time
 	maxPanicPods         float64
 	reporter             StatsReporter
-	firstMetricObserved  *time.Time
 }
 
 // New creates a new instance of autoscaler
@@ -258,20 +257,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
-
-			if a.firstMetricObserved == nil || a.firstMetricObserved.After(instant) {
-				a.firstMetricObserved = &instant
-			}
 		} else {
 			// Drop metrics after 60 seconds
 			delete(a.stats, key)
 		}
-	}
-
-	// Scale to 1 by default.
-	if a.firstMetricObserved == nil {
-		logger.Debug("No metrics have arrived yet.")
-		return 1, false
 	}
 
 	// Do nothing when we have no data.
@@ -326,6 +315,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.panicTime = &now
 	}
 
+	var desiredPodCount int32
+
 	if a.panicking {
 		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
@@ -333,12 +324,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
-		a.reporter.Report(DesiredPodCountM, float64(a.maxPanicPods))
-		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
+		desiredPodCount = int32(math.Ceil(a.maxPanicPods))
+	} else {
+		logger.Debug("Operating in stable mode.")
+		desiredPodCount = int32(math.Ceil(desiredStablePodCount))
 	}
-	logger.Debug("Operating in stable mode.")
-	a.reporter.Report(DesiredPodCountM, float64(desiredStablePodCount))
-	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
+
+	a.reporter.Report(DesiredPodCountM, float64(desiredPodCount))
+	return desiredPodCount, true
 }
 
 func (a *Autoscaler) rateLimited(desiredRate float64) float64 {

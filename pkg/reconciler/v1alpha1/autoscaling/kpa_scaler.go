@@ -131,7 +131,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	if desiredScale == 0 {
 		// We should only scale to zero when both of the following conditions are true:
-		//   a) The KPA has been active for atleast the idle period, after which it gets marked inactive
+		//   a) The KPA has been active for atleast the stable window, after which it gets marked inactive
 		//   b) The KPA has been inactive for atleast the grace period
 
 		config := ks.getAutoscalerConfig()
@@ -142,8 +142,9 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		} else if kpa.Status.IsReady() { // Active=True
 			// Don't scale-to-zero if the KPA is active
 
-			// If the idle period has elapsed, let the reconciler mark it inactive
-			if kpa.Status.CanMarkInactive(config.ScaleToZeroIdlePeriod) {
+			// Only let a revision be scaled to 0 if it's been active for at
+			// least the stable window's time.
+			if kpa.Status.CanMarkInactive(config.StableWindow) {
 				return desiredScale, nil
 			}
 			// Otherwise, scale down to 1 until the idle period elapses

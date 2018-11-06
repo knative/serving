@@ -27,12 +27,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestAutoscaler_NoData_DefaultToOne(t *testing.T) {
+func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
-	a.expectScale(t, time.Now(), 1, false)
+	a.expectScale(t, time.Now(), 0, false)
 }
 
-func TestAutoscaler_NoDataAtZero_DefaultToOne(t *testing.T) {
+func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
@@ -40,23 +40,13 @@ func TestAutoscaler_NoDataAtZero_DefaultToOne(t *testing.T) {
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
-			durationSeconds:  59, // just before 1 minute (the stable window)
+			durationSeconds:  300, // 5 minutes
 			podCount:         1,
 		})
 
-	a.expectScale(t, now, 1, true) // scale to 1
-
-	now = a.recordLinearSeries(
-		t,
-		now,
-		linearSeries{
-			startConcurrency: 0,
-			endConcurrency:   0,
-			durationSeconds:  2, // crossing the window
-			podCount:         1,
-		})
-
-	a.expectScale(t, now, 0, true) // scale to 0
+	a.expectScale(t, now, 0, true)
+	now = now.Add(2 * time.Minute)
+	a.expectScale(t, now, 0, false) // do nothing
 }
 
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
@@ -111,20 +101,6 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 			endConcurrency:   10,
 			durationSeconds:  60,
 			podCount:         1,
-		})
-	a.expectScale(t, now, 1, true)
-}
-
-func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 0,
-			endConcurrency:   0,
-			durationSeconds:  60,
-			podCount:         2,
 		})
 	a.expectScale(t, now, 1, true)
 }
@@ -460,6 +436,7 @@ func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
 	if len(a.stats) != 0 {
 		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
 	}
+	a.expectScale(t, time.Now(), 0, false)
 }
 
 func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
