@@ -209,7 +209,6 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"container-concurrency-target-default":    "10.0",
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
-			"scale-to-zero-threshold":                 "10m",
 			"tick-interval":                           "2s",
 		},
 	},
