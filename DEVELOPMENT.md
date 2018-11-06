@@ -48,11 +48,6 @@ variables (we recommend adding them to your `.bashrc`):
 work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
 developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development
-environments should be managed.
-1. `K8S_USER_OVERRIDE`: The Kubernetes user that you use to manage your cluster.
-This depends on your cluster setup, please take a look at [cluster setup
-instruction](./docs/creating-a-kubernetes-cluster.md).
 
 `.bashrc` example:
 
@@ -62,7 +57,6 @@ export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
 export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
-export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
 Make sure to configure [authentication](
@@ -117,9 +111,17 @@ Once you've [setup your development environment](#getting-started), stand up
 ### Setup cluster admin
 
 Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform
-the setup needed for Knative:
+the setup needed for Knative.
+
+The value you use depends on [your cluster setup](./docs/creating-a-kubernetes-cluster.md):
 
 ```shell
+# When using Minikube, the K8s user is your local user.
+export K8S_USER_OVERRIDE=$USER
+
+# When using GKE, the K8s user is your GCP user.
+export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
+
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
   --user="${K8S_USER_OVERRIDE?}"
