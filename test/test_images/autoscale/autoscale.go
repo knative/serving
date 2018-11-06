@@ -107,6 +107,8 @@ func main() {
 	server := http.Server{Addr: ":8000", Handler: m}
 	m.HandleFunc("/", handler)
 
+	go server.ListenAndServe()
+
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
 	<-sigTermChan
