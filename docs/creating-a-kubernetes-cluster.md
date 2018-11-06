@@ -8,14 +8,8 @@ This doc describes two options for creating a k8s cluster:
 ## GKE
 
 1. [Install required tools and setup GCP project](https://github.com/knative/docs/blob/master/install/Knative-with-GKE.md#before-you-begin)
-   (You may find it useful to save the ID of the project in an environment variable (e.g. `PROJECT_ID`).
+   (You may find it useful to save the ID of the project in an environment variable (e.g. `PROJECT_ID`)).
 1. [Create a GKE cluster for knative](https://github.com/knative/docs/blob/master/install/Knative-with-GKE.md#creating-a-kubernetes-cluster)
-1. Add `K8S_USER_OVERRIDE` to your .bashrc (see [Environment Setup](#environment-setup)):
-
-   ```shell
-   # When using GKE, the K8s user is your GCP user.
-   export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
-   ```
 
 _If you are a new GCP user, you might be eligible for a trial credit making
 your GKE cluster and other resources free for a short time. Otherwise, any
@@ -37,8 +31,6 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
    ```shell
    export K8S_CLUSTER_OVERRIDE='minikube'
-   # When using Minikube, the K8s user is your local user.
-   export K8S_USER_OVERRIDE=$USER
    ```
 
 1. Take note of the workarounds required for:
