@@ -49,7 +49,11 @@ function install_knative_serving() {
 
   echo ">> Bringing up Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  kubectl apply -f "${RELEASE_NO_MON_YAML}"
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    kubectl apply -f "${RELEASE_NO_MON_YAML}"
+  else
+    kubectl apply -f "${RELEASE_YAML_OVERRIDE}"
+  fi
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -80,7 +84,11 @@ function uninstall_knative_serving() {
 
   echo ">> Bringing down Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}"
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}"
+  else
+    ko delete --ignore-not-found=true -f "${RELEASE_YAML_OVERRIDE}"
+  fi
 
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
