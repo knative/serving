@@ -2,12 +2,28 @@
 
 
 [[projects]]
-  digest = "1:218ae0d3f01ab221e2a62493a88e72189fb4941b22f60984277c22f664d34c46"
+  digest = "1:31aae90efc63302dd03fbb716a3575f1c3c5ed6eb67de4e726c62e18bbb4eb54"
   name = "cloud.google.com/go"
-  packages = ["compute/metadata"]
+  packages = [
+    "compute/metadata",
+    "internal/version",
+    "monitoring/apiv3",
+    "trace/apiv2",
+  ]
   pruneopts = "NUT"
-  revision = "050b16d2314d5fc3d4c9a51e4cd5c7468e77f162"
-  version = "v0.17.0"
+  revision = "debcad1964693daf8ef4bc06292d7e828e075130"
+  version = "v0.31.0"
+
+[[projects]]
+  digest = "1:2c2c161e4e8f05f3e0b53c22523277342ae4a0b3b3657ddd18a492edf4bc9f17"
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  packages = [
+    ".",
+    "monitoredresource",
+  ]
+  pruneopts = "NUT"
+  revision = "f6033e3f5e239c2fac5d6443ccdc2116d8c2850d"
+  version = "v0.7.0"
 
 [[projects]]
   digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
@@ -188,18 +204,22 @@
   revision = "84a468cf14b4376def5d68c722b139b881c450a4"
 
 [[projects]]
-  branch = "master"
-  digest = "1:0d390d7037c2aecc37e78c2cfbe43d020d6f1fa83fd22266b7ec621189447d57"
+  digest = "1:4dacf728c83400b3e9d1d3025dd3c1e93e9a1b033726d1b193dc209f3fa9cb7a"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
+    "protoc-gen-go/descriptor",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
+    "ptypes/empty",
+    "ptypes/struct",
     "ptypes/timestamp",
+    "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -248,6 +268,14 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
+
+[[projects]]
+  digest = "1:fe852c57b4fc4d11e6ef79bce1e930ee2f2f7d148b370afef8f8d012a80960ea"
+  name = "github.com/googleapis/gax-go"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "317e0006254c44a0ac427cc52a0e083ff0b9622f"
+  version = "v2.0.0"
 
 [[projects]]
   digest = "1:3d7c1446fc5c710351b246c0dc6700fae843ca27f5294d0bd9f68bab2a810c44"
@@ -353,7 +381,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:159e58c92785cb1c10eb2f72dbc42cb2cf6cc6d4134b66c2b365273d638354c7"
+  digest = "1:2da54d78cc8ab406465f5584180018c2fe8d0d288e77c5ab89556d2a69ec1a7f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -385,6 +413,7 @@
     "logging",
     "logging/logkey",
     "logging/testing",
+    "metrics",
     "signals",
     "test",
     "test/logging",
@@ -399,11 +428,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f42d23c4286880873a951329d5a6002fcb9ee9f7d6c5fd8263ea53df2391acee"
+  digest = "1:4d0724515d22c3964ef7bf671c989c45eefb81d71be09c1d8ab74acbdbb2ca94"
   name = "github.com/knative/test-infra"
   packages = ["."]
   pruneopts = "T"
-  revision = "e7ddaaf7b3c285a538c6dfe061d59b73ace965cf"
+  revision = "f710a703baf3ac7e5e9005693fb1c8d61c4eccbb"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -522,12 +551,15 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:73c9e8cb8f02876cab5c58c9e5014ff21ee2f0bc79d5fff37afcaaba1632a5aa"
+  digest = "1:bce7c290509e40fd1c73d700305c1961004d08c9a1812e47533416a8742893a7"
   name = "go.opencensus.io"
   packages = [
+    ".",
+    "exemplar",
     "exporter/prometheus",
     "internal",
     "internal/tagencoding",
+    "plugin/ocgrpc",
     "plugin/ochttp",
     "plugin/ochttp/propagation/b3",
     "stats",
@@ -537,10 +569,11 @@
     "trace",
     "trace/internal",
     "trace/propagation",
+    "trace/tracestate",
   ]
   pruneopts = "NUT"
-  revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
-  version = "v0.8.0"
+  revision = "b7bf3cdb64150a8c8c53b769fdeb2ba581bd4d4b"
+  version = "v0.18.0"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -588,7 +621,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8a40385c0245fa401d71b719925b3cc0514b95587223a6368b0d913d06825a47"
+  digest = "1:49f31aa4035a0a1a1d13ade03c28d1d5b8c5f94f5c1c8c9bf9cd01c92f6ed885"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -598,6 +631,8 @@
     "http2/h2c",
     "http2/hpack",
     "idna",
+    "internal/timeseries",
+    "trace",
   ]
   pruneopts = "NUT"
   revision = "aaf60122140d3fcf75376d319f0554393160eb50"
@@ -618,9 +653,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:39ebcc2b11457b703ae9ee2e8cca0f68df21969c6102cb3b705f76cca0ea0239"
+  digest = "1:c313aef534e493304f3666fbd24dca5932ebf776a82b7a40f961c9355794a1b1"
   name = "golang.org/x/sync"
-  packages = ["errgroup"]
+  packages = [
+    "errgroup",
+    "semaphore",
+  ]
   pruneopts = "NUT"
   revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
 
@@ -678,7 +716,25 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  digest = "1:7206d98ec77c90c72ec2c405181a1dcf86965803b6dbc4f98ceab7a5047c37a9"
+  branch = "master"
+  digest = "1:9403f312df79a1556f2529adff5718f2b29a0d806c7ab0637fd9e68e635a7f1b"
+  name = "google.golang.org/api"
+  packages = [
+    "googleapi/transport",
+    "internal",
+    "iterator",
+    "option",
+    "support/bundler",
+    "transport",
+    "transport/grpc",
+    "transport/http",
+    "transport/http/internal/propagation",
+  ]
+  pruneopts = "NUT"
+  revision = "511bab8e55decfbe784cd2d1868fa5cda62dc6c1"
+
+[[projects]]
+  digest = "1:626ac4e70ef18262989f8c52503259109e1a2e5580d23aeae0f0e0349819dade"
   name = "google.golang.org/appengine"
   packages = [
     ".",
@@ -689,12 +745,68 @@
     "internal/log",
     "internal/modules",
     "internal/remote_api",
+    "internal/socket",
     "internal/urlfetch",
+    "socket",
     "urlfetch",
   ]
   pruneopts = "NUT"
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:57005092fa4440ad8b606ba030326b499f27ab920ca645da114b1c4262bb4502"
+  name = "google.golang.org/genproto"
+  packages = [
+    "googleapis/api/annotations",
+    "googleapis/api/distribution",
+    "googleapis/api/label",
+    "googleapis/api/metric",
+    "googleapis/api/monitoredres",
+    "googleapis/devtools/cloudtrace/v2",
+    "googleapis/monitoring/v3",
+    "googleapis/rpc/status",
+    "protobuf/field_mask",
+  ]
+  pruneopts = "NUT"
+  revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
+
+[[projects]]
+  digest = "1:f16e8193cfe5fdd5b3d62c2d22f4a6bf0a08c61f99d78b54e16f780a9db4f923"
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "balancer",
+    "balancer/base",
+    "balancer/roundrobin",
+    "codes",
+    "connectivity",
+    "credentials",
+    "credentials/oauth",
+    "encoding",
+    "encoding/proto",
+    "grpclog",
+    "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/transport",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "resolver/dns",
+    "resolver/passthrough",
+    "stats",
+    "status",
+    "tap",
+  ]
+  pruneopts = "NUT"
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   digest = "1:ef72505cf098abdd34efeea032103377bec06abb61d8a06f002d5d296a4b1185"
@@ -1090,6 +1202,7 @@
     "github.com/knative/pkg/logging",
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
+    "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
@@ -1100,7 +1213,6 @@
     "github.com/knative/test-infra",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
-    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
