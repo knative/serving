@@ -337,9 +337,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
+		a.reporter.Report(DesiredPodCountM, float64(a.maxPanicPods))
 		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
 	}
 	logger.Debug("Operating in stable mode.")
+	a.reporter.Report(DesiredPodCountM, float64(desiredStablePodCount))
 	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 }
 
