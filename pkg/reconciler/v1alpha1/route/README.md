@@ -44,7 +44,7 @@ Revisions, the resources would look like:
 
 In the case of inactive Revisions, a Route would direct requests through the
  Service `kbuffer-service`, with enough information in the headers so that the
- Service `kbuffer-service` Service can activate a Revision before relaying the traffic to
+ Service `kbuffer-service` can activate a Revision before relaying the traffic to
 it.
 
 From the same scenario of the previous example, if the Revision
