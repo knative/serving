@@ -48,6 +48,8 @@ variables (we recommend adding them to your `.bashrc`):
 work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
 developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+   * **Note**: if you are using docker hub to store your images your `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+   * **Note**: Currently Docker Hub doesn't let you create subdirs under your username.
 
 `.bashrc` example:
 
