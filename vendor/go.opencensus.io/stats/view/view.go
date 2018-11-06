@@ -23,13 +23,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opencensus.io/exemplar"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/internal"
 	"go.opencensus.io/tag"
 )
 
 // View allows users to aggregate the recorded stats.Measurements.
-// Views need to be passed to the Subscribe function to be before data will be
+// Views need to be passed to the Register function to be before data will be
 // collected and sent to Exporters.
 type View struct {
 	Name        string // Name of View. Must be unique. If unset, will default to the name of the Measure.
@@ -67,14 +69,14 @@ func (v *View) same(other *View) bool {
 		v.Measure.Name() == other.Measure.Name()
 }
 
-// canonicalized returns a validated View canonicalized by setting explicit
+// canonicalize canonicalizes v by setting explicit
 // defaults for Name and Description and sorting the TagKeys
 func (v *View) canonicalize() error {
 	if v.Measure == nil {
-		return fmt.Errorf("cannot subscribe view %q: measure not set", v.Name)
+		return fmt.Errorf("cannot register view %q: measure not set", v.Name)
 	}
 	if v.Aggregation == nil {
-		return fmt.Errorf("cannot subscribe view %q: aggregation not set", v.Name)
+		return fmt.Errorf("cannot register view %q: aggregation not set", v.Name)
 	}
 	if v.Name == "" {
 		v.Name = v.Measure.Name()
@@ -127,12 +129,12 @@ func (v *viewInternal) collectedRows() []*Row {
 	return v.collector.collectedRows(v.view.TagKeys)
 }
 
-func (v *viewInternal) addSample(m *tag.Map, val float64) {
+func (v *viewInternal) addSample(m *tag.Map, e *exemplar.Exemplar) {
 	if !v.isSubscribed() {
 		return
 	}
 	sig := string(encodeWithKeys(m, v.view.TagKeys))
-	v.collector.addSample(sig, val)
+	v.collector.addSample(sig, e)
 }
 
 // A Data is a set of rows about usage of the single measure associated
