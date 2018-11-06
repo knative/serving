@@ -136,7 +136,10 @@ function run_validation_tests() {
   if (( ! SKIP_TESTS )); then
     banner "Running release validation tests"
     # Run tests.
-    $1
+    if ! $1; then
+      banner "Release validation tests failed, aborting"
+      exit 1
+    fi
   fi
 }
 
