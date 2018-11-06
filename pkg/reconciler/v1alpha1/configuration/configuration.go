@@ -91,6 +91,7 @@ func NewController(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			DeleteFunc: impl.EnqueueControllerOf,
 		},
 	})
 
@@ -217,19 +218,26 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 
+	var buildRef *corev1.ObjectReference
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := resources.MakeBuild(config)
 		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())
+
 		created, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
 		if err != nil {
 			return nil, err
 		}
 		logger.Infof("Created Build:\n%+v", created.GetName())
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.GetName())
+		buildRef = &corev1.ObjectReference{
+			APIVersion: created.GetAPIVersion(),
+			Kind:       created.GetKind(),
+			Name:       created.GetName(),
+		}
 	}
 
-	rev := resources.MakeRevision(config)
+	rev := resources.MakeRevision(config, buildRef)
 	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err

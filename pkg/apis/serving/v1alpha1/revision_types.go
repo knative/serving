@@ -374,6 +374,8 @@ func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 const (
 	AnnotationParseErrorTypeMissing = "Missing"
 	AnnotationParseErrorTypeInvalid = "Invalid"
+	LabelParserErrorTypeMissing = "Missing"
+	LabelParserErrorTypeInvalid = "Invalid"
 )
 
 // +k8s:deepcopy-gen=false
@@ -437,23 +439,23 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 }
 
 func (r *Revision) GetConfigurationGeneration() (int64, error) {
-	if r.Annotations == nil {
+	if r.Labels == nil {
 		return 0, configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
+			Type: LabelParserErrorTypeMissing,
 		}
 	}
 
-	str, ok := r.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey]
+	str, ok := r.ObjectMeta.Labels[serving.ConfigurationGenerationLabelKey]
 	if !ok {
 		return 0, configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
+			Type: LabelParserErrorTypeMissing,
 		}
 	}
 
 	gen, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
 		return 0, configurationGenerationParseError{
-			Type:  AnnotationParseErrorTypeInvalid,
+			Type:  LabelParserErrorTypeInvalid,
 			Value: str,
 			Err:   err,
 		}

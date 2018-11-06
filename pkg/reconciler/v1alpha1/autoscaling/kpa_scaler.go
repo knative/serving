@@ -98,7 +98,7 @@ func applyBounds(min, max int32) func(int32) int32 {
 }
 
 // Scale attempts to scale the given KPA's target reference to the desired scale.
-func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
+func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
@@ -108,13 +108,13 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	if owner == nil || owner.Kind != revGVK.Kind ||
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("KPA is not owned by a Revision.")
-		return nil
+		return desiredScale, nil
 	}
 
 	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
 		logger.Error("Unable to parse APIVersion.", zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 	resource := apis.KindToResource(gv.WithKind(kpa.Spec.ScaleTargetRef.Kind)).GroupResource()
 	resourceName := kpa.Spec.ScaleTargetRef.Name
@@ -123,7 +123,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	scl, err := ks.scaleClientSet.Scales(kpa.Namespace).Get(resource, resourceName)
 	if err != nil {
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
 
@@ -131,7 +131,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 		// Scale to zero grace period.
 		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
 			logger.Debug("Waiting for Active=False grace period.")
-			return nil
+			return desiredScale, nil
 		}
 	}
 
@@ -143,7 +143,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")
-		return nil
+		return desiredScale, nil
 	}
 
 	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
@@ -152,7 +152,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 
 	if desiredScale == currentScale {
-		return nil
+		return desiredScale, nil
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
@@ -161,9 +161,9 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	_, err = ks.scaleClientSet.Scales(kpa.Namespace).Update(resource, scl)
 	if err != nil {
 		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 
 	logger.Debug("Successfully scaled.")
-	return nil
+	return desiredScale, nil
 }

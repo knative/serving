@@ -78,12 +78,12 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
-  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
-    # domainInternal: A DNS name for the default (traffic-split) route which can
+  address: # knative/pkg/apis/duck/v1alpha1.Addressable
+    # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
-    domainInternal: my-service.default.svc.cluster.local
+    hostname: my-service.default.svc.cluster.local
 
-  # DEPRECATED: see targetable.domainInternal (above)
+  # DEPRECATED: see address.hostname (above)
   domainInternal: ...
 
   traffic:
@@ -213,8 +213,7 @@ metadata:
   labels:
     knative.dev/configuration: ...  # name of the Configuration automatically filled in 
     knative.dev/service: ...  # name of the Service automatically filled in
-  annotations:
-    knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
+    knative.dev/configurationGeneration: ... # generation of configuration that created this Revision
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -385,13 +384,13 @@ status:
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
-
-  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
-    # domainInternal: A DNS name for the default (traffic-split) route which can
+ 
+  address: # knative/pkg/apis/duck/v1alpha1.Addressable
+    # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
-    domainInternal: myservice.default.svc.cluster.local
+    hostname: myservice.default.svc.cluster.local
 
-  # DEPRECATED: see targetable.domainInternal (above)
+  # DEPRECATED: see address.hostname (above)
   domainInternal: ...
 
   # current rollout status list. configurationName references

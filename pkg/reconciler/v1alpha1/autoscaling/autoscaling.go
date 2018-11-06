@@ -62,7 +62,7 @@ type KPAMetrics interface {
 // KPAScaler knows how to scale the targets of KPAs
 type KPAScaler interface {
 	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error
+	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
 // Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
@@ -187,7 +187,8 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	if err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale); err != nil {
+	appliedScale, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
@@ -208,7 +209,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 			got += len(es.Addresses)
 		}
 	}
-	want := metric.DesiredScale
+	want := appliedScale
 	logger.Infof("KPA got=%v, want=%v", got, want)
 
 	switch {
