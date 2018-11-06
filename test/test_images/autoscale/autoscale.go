@@ -17,11 +17,15 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -99,6 +103,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	m := http.NewServeMux()
+	server := http.Server{Addr: ":8000", Handler: m}
+	m.HandleFunc("/", handler)
+
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	<-sigTermChan
+	server.Shutdown(context.Background())
 }
