@@ -104,7 +104,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	m := http.NewServeMux()
-	server := http.Server{Addr: ":8000", Handler: m}
+	server := http.Server{Addr: ":8080", Handler: m}
 	m.HandleFunc("/", handler)
 
 	go server.ListenAndServe()
