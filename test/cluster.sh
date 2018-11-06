@@ -66,50 +66,6 @@ function install_knative_serving() {
 
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/
-}
-
-function create_prometheus() {
-  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus
-}
-
-function create_monitoring() {
-  echo ">> Bringing up Monitoring"
-  kubectl apply -R -f config/monitoring/100-namespace.yaml \
-    -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch \
-    -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus \
-    -f config/monitoring/tracing/zipkin
-}
-
-function create_namespace() {
-  echo ">> Creating namespace serving-tests"
-  kubectl create namespace serving-tests
-}
-
-function publish_test_images() {
-  echo ">> Publishing test images"
-  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  done
-}
-
-function create_everything() {
-  export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-  create_istio
-  create_serving
-  create_test_resources
-  # TODO(#2122): Re-enable once we have monitoring e2e.
-  # create_monitoring
-}
-
-function delete_istio() {
-  echo ">> Bringing down Istio"
-  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
-  kubectl delete clusterrolebinding cluster-admin-binding
-}
 
   wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
   wait_until_pods_running istio-system || fail_test "Istio system is not up"
@@ -129,4 +85,25 @@ function uninstall_knative_serving() {
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+}
+
+# Creates the prometheus component
+function create_prometheus() {
+  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus
+}
+
+# Create test namespace
+function create_namespace() {
+  echo ">> Creating namespace serving-tests"
+  kubectl create namespace serving-tests
+}
+
+# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
+function publish_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
 }
