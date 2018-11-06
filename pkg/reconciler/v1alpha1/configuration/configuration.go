@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
@@ -224,16 +225,32 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 		build := resources.MakeBuild(config)
 		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())
 
-		created, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
+		// First, see if a build with this spec already exists.
+		buildHash := build.GetLabels()[serving.BuildHashLabelKey]
+		ul, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", serving.BuildHashLabelKey, buildHash),
+		})
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("Created Build:\n%+v", created.GetName())
-		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.GetName())
+
+		var result *unstructured.Unstructured
+		if len(ul.Items) != 0 {
+			// If one exists, then have the Revision reference it.
+			result = &ul.Items[0]
+		} else {
+			// Otherwise, create a build and reference that.
+			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
+			if err != nil {
+				return nil, err
+			}
+			logger.Infof("Created Build:\n%+v", result.GetName())
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())
+		}
 		buildRef = &corev1.ObjectReference{
-			APIVersion: created.GetAPIVersion(),
-			Kind:       created.GetKind(),
-			Name:       created.GetName(),
+			APIVersion: result.GetAPIVersion(),
+			Kind:       result.GetKind(),
+			Name:       result.GetName(),
 		}
 	}
 
