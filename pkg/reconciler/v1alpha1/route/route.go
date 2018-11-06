@@ -228,11 +228,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// Update the information that makes us Targetable.
+	// Update the information that makes us Addressable.
 	r.Status.Domain = routeDomain(ctx, r)
 	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
-	r.Status.Targetable = &duckv1alpha1.Targetable{
-		DomainInternal: resourcenames.K8sServiceFullname(r),
+	r.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
 	logger.Info("Creating ClusterIngress.")

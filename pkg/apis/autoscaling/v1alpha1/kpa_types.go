@@ -144,6 +144,14 @@ func (rs *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(rs).IsHappy()
 }
 
+// IsActivating assumes the pod autoscaler is Activating if it is neither
+// Active nor Inactive
+func (rs *PodAutoscalerStatus) IsActivating() bool {
+	cond := rs.GetCondition(PodAutoscalerConditionActive)
+
+	return cond != nil && cond.Status == corev1.ConditionUnknown
+}
+
 func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return podCondSet.Manage(rs).GetCondition(t)
 }
@@ -173,6 +181,20 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 			// Check that this PodAutoscaler has been inactive for
 			// at least the grace period.
 			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod))
+		}
+	}
+	return false
+}
+
+// CanMarkInactive checks whether the pod autoscaler has been in an active state
+// for at least the specified idle period.
+func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
+	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
+		switch cond.Status {
+		case corev1.ConditionTrue:
+			// Check that this PodAutoscaler has been active for
+			// at least the grace period.
+			return time.Now().After(cond.LastTransitionTime.Inner.Add(idlePeriod))
 		}
 	}
 	return false

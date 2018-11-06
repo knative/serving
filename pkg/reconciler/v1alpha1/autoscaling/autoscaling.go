@@ -34,6 +34,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -187,7 +188,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	appliedScale, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	want, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
@@ -209,18 +210,32 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 			got += len(es.Addresses)
 		}
 	}
-	want := appliedScale
+
 	logger.Infof("KPA got=%v, want=%v", got, want)
+
+	var serviceLabel string
+	var configLabel string
+	if kpa.Labels != nil {
+		serviceLabel = kpa.Labels[serving.ServiceLabelKey]
+		configLabel = kpa.Labels[serving.ConfigurationLabelKey]
+	}
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, serviceLabel, configLabel, kpa.Name)
+	if err != nil {
+		return err
+	}
+
+	reporter.Report(autoscaler.ActualPodCountM, float64(got))
+	reporter.Report(autoscaler.RequestedPodCountM, float64(want))
 
 	switch {
 	case want == 0:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got == 0 && want > 0:
+	case got == 0 && want != 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0 || want == -1:
+	case got > 0:
 		kpa.Status.MarkActive()
 	}
 

@@ -82,7 +82,6 @@ func getRouteDomains(targetName string, r *servingv1alpha1.Route, domain string)
 			names.K8sServiceFullname(r),
 			fmt.Sprintf("%s.%s.svc", r.Name, r.Namespace),
 			fmt.Sprintf("%s.%s", r.Name, r.Namespace),
-			r.Name,
 		}
 		return dedup(domains)
 	}

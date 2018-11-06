@@ -210,8 +210,9 @@ func (b *revisionBuilder) withReady(ready bool) *revisionBuilder {
 	if ready {
 		b.revision.Status.MarkContainerHealthy()
 		b.revision.Status.MarkResourcesAvailable()
+		b.revision.Status.MarkActive()
 	} else {
-		b.revision.Status.MarkContainerMissing("reasonz")
+		b.revision.Status.MarkInactive("reasonz", "detailz")
 	}
 	return b
 }

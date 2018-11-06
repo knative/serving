@@ -36,35 +36,34 @@ function dump_extra_cluster_state() {
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl -n knative-serving logs $(get_app_pod controller knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod controller knative-serving)" -c controller
   echo ">>> Knative Serving autoscaler log:"
-  kubectl -n knative-serving logs $(get_app_pod autoscaler knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod autoscaler knative-serving)" -c autoscaler
   echo ">>> Knative Serving activator log:"
-  kubectl -n knative-serving logs $(get_app_pod activator knative-serving)
+  kubectl -n knative-serving logs "$(get_app_pod activator knative-serving)" -c activator
 }
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
-  delete_everything
+  uninstall_knative_serving
 }
 
 # Script entry point.
 
 initialize $@
 
+header "Setting up environment"
+
 # Fail fast during setup.
 set -o errexit
 set -o pipefail
 
-header "Setting up environment"
-create_everything
+install_knative_serving
 publish_test_images
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
-
-wait_until_cluster_up
 
 # Run the tests
 

@@ -47,10 +47,10 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 	if err != nil {
 		t.Fatalf("Failed to get Route of helloworld app: %v", err)
 	}
-	if helloWorldRoute.Status.Targetable == nil {
-		t.Fatalf("Route is missing .Status.Targetable: %v", helloWorldRoute.Status)
+	if helloWorldRoute.Status.Address == nil {
+		t.Fatalf("Route is missing .Status.Address: %v", helloWorldRoute.Status)
 	}
-	internalDomain := helloWorldRoute.Status.Targetable.DomainInternal
+	internalDomain := helloWorldRoute.Status.Address.Hostname
 	logger.Infof("helloworld internal domain is %v.", internalDomain)
 	return []corev1.EnvVar{{
 		Name:  targetHostEnv,
