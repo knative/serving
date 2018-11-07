@@ -18,6 +18,7 @@ package util
 
 import (
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -31,4 +32,14 @@ func GetRequiredEnvOrFatal(key string, logger *zap.SugaredLogger) string {
 	}
 	logger.Infof("%v=%v", key, value)
 	return value
+}
+
+func MustParseIntEnvOrFatal(key string, logger *zap.SugaredLogger) int {
+	value := GetRequiredEnvOrFatal(key, logger)
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		logger.Fatalf("Invalid %v provided: %v", key, value)
+	}
+	logger.Infof("%v=%v", key, i)
+	return i
 }
