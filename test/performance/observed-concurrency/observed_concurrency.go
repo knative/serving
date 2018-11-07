@@ -17,10 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -37,6 +41,14 @@ func main() {
 	log.Print("Requests against '/?timeout={TIME_IN_MILLISECONDS}' will sleep for the given time.")
 	log.Print("Each request will return its serverside start and end-time in nanoseconds.")
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	m := http.NewServeMux()
+	server := http.Server{Addr: ":8080", Handler: m}
+	m.HandleFunc("/", handler)
+
+	go server.ListenAndServe()
+
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	<-sigTermChan
+	server.Shutdown(context.Background())
 }
