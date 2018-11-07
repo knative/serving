@@ -31,8 +31,10 @@ function banner() {
 #             $3 - tag to apply (optional).
 function tag_images_in_yaml() {
   [[ -z $3 ]] && return 0
-  echo "Tagging images with $3"
-  for image in $(grep -o "$2/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+  local src_dir="${GOPATH}/src/"
+  local BASE_PATH="${REPO_ROOT_DIR/$src_dir}"
+  echo "Tagging images under '${BASE_PATH}' with $3"
+  for image in $(grep -o "$2/${BASE_PATH}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
     gcloud -q container images add-tag ${image} ${image%%@*}:$3
   done
 }
@@ -108,8 +110,10 @@ function parse_flags() {
   fi
 
   if (( TAG_RELEASE )); then
-    # Currently we're not considering the tags in refs/tags namespace.
-    commit=$(git describe --always --dirty)
+    local commit="$(git rev-parse --short HEAD)"
+    if [[ "$(git describe --dirty)" == *-dirty ]]; then
+      commit+="-dirty"
+    fi
     # Like kubernetes, image tag is vYYYYMMDD-commit
     TAG="v$(date +%Y%m%d)-${commit}"
   fi
