@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/knative/pkg/logging"
@@ -91,9 +90,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		Ports:          queuePorts,
 		Lifecycle:      queueLifecycle,
 		ReadinessProbe: queueReadinessProbe,
-		Args: []string{
-			fmt.Sprintf("-containerConcurrency=%v", rev.Spec.ContainerConcurrency),
-		},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
@@ -109,6 +105,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "SERVING_AUTOSCALER_PORT",
 			Value: strconv.Itoa(autoscalerPort),
+		}, {
+			Name:  "CONTAINER_CONCURRENCY",
+			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
