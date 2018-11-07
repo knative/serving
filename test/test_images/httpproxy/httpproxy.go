@@ -16,10 +16,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"net/http"
 	"net/http/httputil"
@@ -67,6 +70,14 @@ func main() {
 	targetUrl := fmt.Sprintf("http://%s", targetHost)
 	httpProxy = initialHttpProxy(targetUrl)
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	m := http.NewServeMux()
+	server := http.Server{Addr: ":8080", Handler: m}
+	m.HandleFunc("/", handler)
+
+	go server.ListenAndServe()
+
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	<-sigTermChan
+	server.Shutdown(context.Background())
 }
