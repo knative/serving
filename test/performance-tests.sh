@@ -37,7 +37,7 @@ function perf_tests() {
   sleep 1m
   local ip=$(kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
   local host=$(kubectl get route observed-concurrency -o jsonpath="{.status.domain}")
-  
+
   wait_until_routable "$ip" "$host" || return 1
   wrk -t 1 -c "$1" -d "$2" -s "${PERF_DIR}/reporter.lua" --latency -H "Host: ${host}" "http://${ip}/?timeout=1000"
 }
@@ -46,7 +46,7 @@ function perf_tests() {
 function teardown() {
   # Delete the service now that the test is done
   kubectl delete --ignore-not-found=true -f ${TEST_APP_YAML}
-  delete_everything
+  uninstall_knative_serving
 }
 
 # Fail fast during setup.
@@ -56,16 +56,15 @@ set -o pipefail
 header "Setting up environment"
 
 initialize $@
-create_everything
+install_knative_serving
 
-wait_until_cluster_up
 ko apply -f ${TEST_APP_YAML}
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
 
-# Run the test with concurrency=5 and for 60s duration. 
+# Run the test with concurrency=5 and for 60s duration.
 # Need to export concurrency var as it is required by the parser.
 export concurrency=5
 perf_tests "${concurrency}" 60s

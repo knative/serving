@@ -22,6 +22,13 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 
+# Set the repository
+export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
+# Build should not try to deploy anything, use a bogus value for cluster.
+export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+export K8S_USER_OVERRIDE=USER_NOT_SET
+export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
+
 # Script entry point
 
 initialize $@
@@ -33,44 +40,37 @@ run_validation_tests ./test/presubmit-tests.sh
 
 banner "Building the release"
 
-# Set the repository
-export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
-# Build should not try to deploy anything, use a bogus value for cluster.
-export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-export K8S_USER_OVERRIDE=USER_NOT_SET
-export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
-
+echo "- Destination GCR: ${KO_DOCKER_REPO}"
 if (( PUBLISH_RELEASE )); then
-  echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
   echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
 fi
 
 # Build the release
-#
-# Run this generate-yamls.sh script, which should be versioned with the
+
+# Run `generate-yamls.sh`, which should be versioned with the
 # branch since the detail of building may change over time.
-YAML_LIST="generated-yamls.txt"
-
-$(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}" || abort "Cannot build the release."
-YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}")
-RELEASE_YAML=$(head -n1 "${YAML_LIST}")
-
-echo "Tagging referenced images with ${TAG}."
+readonly YAML_LIST="$(mktemp)"
+$(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
+readonly YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
+readonly RELEASE_YAML="$(head -n1 ${YAML_LIST})"
 
 tag_images_in_yaml "${RELEASE_YAML}" "${SERVING_RELEASE_GCR}" "${TAG}"
 
 echo "New release built successfully"
 
 if (( ! PUBLISH_RELEASE )); then
- exit 0
+  # Copy the generated YAML files to the repo root dir.
+  cp ${YAMLS_TO_PUBLISH} ${REPO_ROOT_DIR}
+  exit 0
 fi
 
 # Publish the release
+# We publish our own istio.yaml, so users don't need to use helm
 for yaml in ${YAMLS_TO_PUBLISH}; do
   echo "Publishing ${yaml}"
   publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
 done
 
-branch_release "Knative Serving" ${YAMLS_TO_PUBLISH}
+branch_release "Knative Serving" "${YAMLS_TO_PUBLISH}"
 
 echo "New release published successfully"
