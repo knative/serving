@@ -48,7 +48,6 @@ import (
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
-	logLevelKey    = "activator"
 	component      = "activator"
 
 	maxRetries             = 18 // the sum of all retries would add up to 1 minute
@@ -96,7 +95,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer logger.Sync()
 
@@ -170,7 +169,7 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {

@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	logLevelKey = "webhook"
+	component = "webhook"
 )
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	logger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	defer logger.Sync()
 	logger = logger.With(zap.String(logkey.ControllerType, "webhook"))
 
@@ -71,7 +71,7 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
