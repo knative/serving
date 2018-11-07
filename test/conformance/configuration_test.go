@@ -34,14 +34,14 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	logger := logging.GetContextLogger("TestUpdateConfigurationMetadata")
 
 	var names test.ResourceNames
-	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
+	names.Service = test.AppendRandomString("test-update-configuration-meta-", logger)
 	names.Config = names.Service
 
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("Creating new configuration %s", names.Config)
-	err := test.CreateConfiguration(logger, clients, names, test.ImagePath(pizzaPlanet1), &test.Options{})
+	_, err := test.CreateConfiguration(logger, clients, names, test.ImagePath(pizzaPlanet1), &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}

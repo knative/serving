@@ -32,11 +32,10 @@ import (
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) error {
+func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) (*v1alpha1.Route, error) {
 	route := Route(ServingNamespace, names)
 	LogResourceObject(logger, ResourceObjects{Route: route})
-	_, err := clients.ServingClient.Routes.Create(route)
-	return err
+	return clients.ServingClient.Routes.Create(route)
 }
 
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.

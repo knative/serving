@@ -22,41 +22,11 @@ import (
 	"net/http"
 	"testing"
 
-	"encoding/json"
-
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/mattbaird/jsonpatch"
-	"k8s.io/apimachinery/pkg/types"
 )
-
-func createRouteAndConfig(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{})
-	if err != nil {
-		return err
-	}
-	err = test.CreateRoute(logger, clients, names)
-	return err
-}
-
-func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	patches := []jsonpatch.JsonPatchOperation{{
-		Operation: "replace",
-		Path:      "/spec/revisionTemplate/spec/container/image",
-		Value:     imagePaths[1],
-	}}
-	patchBytes, err := json.Marshal(patches)
-	if err != nil {
-		return err
-	}
-	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
@@ -108,18 +78,6 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *logging.Bas
 	}
 }
 
-func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var newRevisionName string
-	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if c.Status.LatestCreatedRevisionName != names.Revision {
-			newRevisionName = c.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ConfigurationUpdatedWithRevision")
-	return newRevisionName, err
-}
-
 func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var domain string
 
@@ -146,26 +104,33 @@ func TestRouteCreation(t *testing.T) {
 	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
 	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
+	var objects test.ResourceObjects
 	var names test.ResourceNames
-	names.Config = test.AppendRandomString("prod", logger)
-	names.Route = test.AppendRandomString("pizzaplanet", logger)
-	names.TrafficTarget = test.AppendRandomString("pizzaplanet", logger)
+	names.Config = test.AppendRandomString("test-route-creation-", logger)
+	names.Route = test.AppendRandomString("test-route-creation-", logger)
+	names.TrafficTarget = test.AppendRandomString("test-route-creation-", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a new Route and Configuration")
-	err := createRouteAndConfig(logger, clients, names, imagePaths)
+	config, err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{})
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+		t.Fatalf("Failed to create Configuration: %v", err)
 	}
+	objects.Config = config
 
-	logger.Infof("The Configuration will be updated with the name of the Revision once it is created")
-	revisionName, err := getNextRevisionName(clients, names)
+	route, err := test.CreateRoute(logger, clients, names)
+	if err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+	objects.Route = route
+
+	logger.Infof("The Configuration will be updated with the name of the Revision")
+	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
-	names.Revision = revisionName
 
 	domain, err := getRouteDomain(clients, names)
 	if err != nil {
@@ -173,25 +138,24 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	logger.Infof("The Route domain is: %s", domain)
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "1", "What a spaceport!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "1", pizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
 	routeProberErrorChan := test.RunRouteProber(logger, clients, domain)
 
 	logger.Infof("Updating the Configuration to use a different image")
-	err = updateConfigWithImage(clients, names, imagePaths)
+	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
 	}
 
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	revisionName, err = getNextRevisionName(clients, names)
+	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, pizzaPlanet2, err)
 	}
-	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "2", "Re-energize yourself with a slice of pepperoni!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "2", pizzaPlanetText2)
 
 	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
 		// Currently the Route prober is flaky. So we just log the error here for future debugging instead of
