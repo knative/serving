@@ -1,8 +1,6 @@
 349a350,356
->         # PATCH #2: Temporary workaround for https://github.com/knative/serving/issues/2351.
+>         # PATCH #2: Graceful shutdown of the istio-proxy.
 >         lifecycle:
 >           preStop:
 >             exec:
->               command:
->               - /bin/sleep
->               - "20"
+>               command: command: ["sh", "-c", 'until curl -s localhost:15000/clusters | grep "inbound|80|" | grep "rq_active" | grep "rq_active::0"; do sleep 1; done;']
