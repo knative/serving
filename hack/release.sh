@@ -24,10 +24,6 @@ readonly SERVING_RELEASE_GCR
 
 # Set the repository
 export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
-# Build should not try to deploy anything, use a bogus value for cluster.
-export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-export K8S_USER_OVERRIDE=USER_NOT_SET
-export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 
 # Script entry point
 
@@ -39,6 +35,11 @@ set -o pipefail
 run_validation_tests ./test/presubmit-tests.sh
 
 banner "Building the release"
+
+# Build should not try to deploy anything, use a bogus value for cluster.
+export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+export K8S_USER_OVERRIDE=USER_NOT_SET
+export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 
 echo "- Destination GCR: ${KO_DOCKER_REPO}"
 if (( PUBLISH_RELEASE )); then
@@ -54,7 +55,7 @@ $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
 readonly YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
 readonly RELEASE_YAML="$(head -n1 ${YAML_LIST})"
 
-tag_images_in_yaml "${RELEASE_YAML}" "${SERVING_RELEASE_GCR}" "${TAG}"
+tag_images_in_yaml "${RELEASE_YAML}" "${KO_DOCKER_REPO}" "${TAG}"
 
 echo "New release built successfully"
 
