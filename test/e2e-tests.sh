@@ -53,26 +53,25 @@ function publish_test_images() {
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
-  delete_everything
+  uninstall_knative_serving
 }
 
 # Script entry point.
 
 initialize $@
 
+header "Setting up environment"
+
 # Fail fast during setup.
 set -o errexit
 set -o pipefail
 
-header "Setting up environment"
-create_everything
+install_knative_serving
 publish_test_images
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
-
-wait_until_cluster_up
 
 # Run the tests
 
