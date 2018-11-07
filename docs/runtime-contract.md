@@ -96,7 +96,7 @@ In a highly-shared environment, containers may experience the following:
 - The container MAY be killed when the container is inactive. Serverless
   computation relies on inbound requests to determine container activeness.
   The container is sent a `SIGTERM` signal when it is killed to allow for a
-  graceful shutdown of existing ressources and conenctions. If the container
+  graceful shutdown of existing ressources and connections. If the container
   has not shut down after a defined grace period, the container is forcibly
   killed via a `SIGKILL` signal. The container MUST handle inbound connection
   shutdown gracefully to guarantee error free operation.
