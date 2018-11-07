@@ -11,3 +11,4 @@
 # there is no need to add the coverage-excluded attribute
 /pkg/**/testing/** coverage-excluded=true
 /vendor/** coverage-excluded=true
+/test/** coverage-excluded=true
