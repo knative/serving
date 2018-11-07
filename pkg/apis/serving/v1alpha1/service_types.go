@@ -174,13 +174,13 @@ type ServiceStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
-	// DEPRECATED: Use Targetable instead.
+	// DEPRECATED: Use Address instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
 
-	// Targetable holds the information needed for a Route to be the target of an event.
+	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
-	Targetable *duckv1alpha1.Targetable `json:"targetable,omitempty"`
+	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
 
 	// From RouteStatus.
 	// Traffic holds the configured traffic distribution.
@@ -255,7 +255,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
-	ss.Targetable = rs.Targetable
+	ss.Address = rs.Address
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)
@@ -285,7 +285,7 @@ func (ss *ServiceStatus) SetManualStatus() {
 	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
 	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
 
-	newStatus.Targetable = ss.Targetable
+	newStatus.Address = ss.Address
 	newStatus.Domain = ss.Domain
 	newStatus.DomainInternal = ss.DomainInternal
 

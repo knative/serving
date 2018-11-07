@@ -40,8 +40,8 @@ func TestRouteDuckTypes(t *testing.T) {
 		name: "legacy targetable",
 		t:    &duckv1alpha1.LegacyTargetable{},
 	}, {
-		name: "targetable",
-		t:    &duckv1alpha1.Targetable{},
+		name: "addressable",
+		t:    &duckv1alpha1.Addressable{},
 	}}
 
 	for _, test := range tests {

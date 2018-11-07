@@ -353,7 +353,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:11c8b287bacc3c659e6c33bd94fd002b1997439302e92d0ce93dd540809ca48f"
+  digest = "1:159e58c92785cb1c10eb2f72dbc42cb2cf6cc6d4134b66c2b365273d638354c7"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -389,12 +389,13 @@
     "test",
     "test/logging",
     "test/spoof",
+    "test/zipkin",
     "testing",
     "tracker",
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "594df37bfda1543f724e76beeb0a74f530c1de57"
+  revision = "a8160c7d728d26da67e596c5b1975877082a26e6"
 
 [[projects]]
   branch = "master"
@@ -521,18 +522,21 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:d8cc1ee821ec3e47ce18ea153ae29976925c8a315715277cf48a67f2c973aa26"
+  digest = "1:73c9e8cb8f02876cab5c58c9e5014ff21ee2f0bc79d5fff37afcaaba1632a5aa"
   name = "go.opencensus.io"
   packages = [
     "exporter/prometheus",
     "internal",
     "internal/tagencoding",
+    "plugin/ochttp",
+    "plugin/ochttp/propagation/b3",
     "stats",
     "stats/internal",
     "stats/view",
     "tag",
     "trace",
     "trace/internal",
+    "trace/propagation",
   ]
   pruneopts = "NUT"
   revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
