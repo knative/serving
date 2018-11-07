@@ -101,6 +101,9 @@ project `$PROJECT_ID` and run the tests against it.
 `K8S_USER_OVERRIDE` and `DOCKER_REPO_OVERRIDE` set will immediately start the
 tests against the cluster.
 
+1. You can force running the tests against a specific GKE cluster version by using
+the `--cluster-version` flag and passing a X.Y.Z version as the flag value.
+
 ### Sample end-to-end test script
 
 This script will test that the latest Knative Serving nightly release works. It
