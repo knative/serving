@@ -428,10 +428,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ced37ff60fb19342d12d2d51c6ac28fe3684240e72210f7b2ab3754fff9e6a1d"
+  digest = "1:936f825660ae0d20d3d3493cdbb3e9d71cf4746fda96d3e18111659b9e12cf43"
   name = "github.com/knative/test-infra"
-  packages = ["."]
-  pruneopts = "T"
+  packages = [
+    "scripts",
+    "tools/dep-collector",
+  ]
+  pruneopts = "UT"
   revision = "48ce29742843637bf0ba9bc5aed78e926e513e13"
 
 [[projects]]
@@ -1210,7 +1213,8 @@
     "github.com/knative/pkg/testing",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
-    "github.com/knative/test-infra",
+    "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/tools/dep-collector",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
     "go.opencensus.io/stats",
