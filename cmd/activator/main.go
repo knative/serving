@@ -25,7 +25,6 @@ import (
 
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/changeset"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -98,12 +97,6 @@ func main() {
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	if commmitID, err := changeset.Get(); err == nil {
-		// Enrich logs with GitHub commit ID.
-		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
-	} else {
-		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
-	}
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")
