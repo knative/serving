@@ -20,6 +20,8 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +31,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }

@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +39,5 @@ func main() {
 	log.Print("Requests against '/?timeout={TIME_IN_MILLISECONDS}' will sleep for the given time.")
 	log.Print("Each request will return its serverside start and end-time in nanoseconds.")
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }

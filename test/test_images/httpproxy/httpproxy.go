@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	"github.com/knative/serving/test"
 )
 
 const (
@@ -67,6 +69,5 @@ func main() {
 	targetUrl := fmt.Sprintf("http://%s", targetHost)
 	httpProxy = initialHttpProxy(targetUrl)
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }
