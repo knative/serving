@@ -17,15 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -42,13 +40,8 @@ func main() {
 	log.Print("Each request will return its serverside start and end-time in nanoseconds.")
 
 	m := http.NewServeMux()
-	server := http.Server{Addr: ":8080", Handler: m}
 	m.HandleFunc("/", handler)
 
-	go server.ListenAndServe()
-
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-	<-sigTermChan
-	server.Shutdown(context.Background())
+	server := test.NewGracefulServer(":8080", m)
+	server.ListenAndServe()
 }

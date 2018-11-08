@@ -18,15 +18,13 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync/atomic"
-	"syscall"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 var (
@@ -50,13 +48,8 @@ func main() {
 	flag.Parse()
 
 	m := http.NewServeMux()
-	server := http.Server{Addr: ":8080", Handler: m}
 	m.HandleFunc("/", handler)
 
-	go server.ListenAndServe()
-
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-	<-sigTermChan
-	server.Shutdown(context.Background())
+	server := test.NewGracefulServer(":8080", m)
+	server.ListenAndServe()
 }

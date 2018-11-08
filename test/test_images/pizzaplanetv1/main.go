@@ -17,13 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -34,13 +32,8 @@ func main() {
 	flag.Parse()
 
 	m := http.NewServeMux()
-	server := http.Server{Addr: ":8080", Handler: m}
 	m.HandleFunc("/", handler)
 
-	go server.ListenAndServe()
-
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-	<-sigTermChan
-	server.Shutdown(context.Background())
+	server := test.NewGracefulServer(":8080", m)
+	server.ListenAndServe()
 }

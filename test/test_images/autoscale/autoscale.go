@@ -17,16 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 // Algorithm from https://stackoverflow.com/a/21854246
@@ -104,13 +102,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	m := http.NewServeMux()
-	server := http.Server{Addr: ":8080", Handler: m}
 	m.HandleFunc("/", handler)
 
-	go server.ListenAndServe()
-
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-	<-sigTermChan
-	server.Shutdown(context.Background())
+	server := test.NewGracefulServer(":8080", m)
+	server.ListenAndServe()
 }

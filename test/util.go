@@ -14,8 +14,13 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/knative/pkg/test/logging"
 )
@@ -33,4 +38,28 @@ func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
 // ImagePath is a helper function to prefix image name with repo and suffix with tag
 func ImagePath(name string) string {
 	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
+}
+
+// GracefulServer is an HTTP server, that handles SIGTERM signals gracefully.
+type GracefulServer struct {
+	wrapped http.Server
+}
+
+// NewGracefulServer creates an HTTP server, that's handling SIGTERM signals
+// gracefully. Its `ListenEndServe` method should be the last call in a main
+// function.
+func NewGracefulServer(addr string, handler http.Handler) *GracefulServer {
+	return &GracefulServer{http.Server{Addr: addr, Handler: handler}}
+}
+
+// ListenAndServe behaves the same as ListenAndServe of the plain http.Server
+// but it also adds signal handling and blocks until SIGTERM is sent and the
+// server is shutdown properly.
+func (s *GracefulServer) ListenAndServe() {
+	go s.wrapped.ListenAndServe()
+
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	<-sigTermChan
+	s.wrapped.Shutdown(context.Background())
 }
