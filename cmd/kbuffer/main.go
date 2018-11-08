@@ -114,7 +114,7 @@ func main() {
 		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
 
-	reporter, err := activator.NewStatsReporter()
+	reporter, err := kbuffer.NewStatsReporter()
 	if err != nil {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
