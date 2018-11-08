@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 // Algorithm from https://stackoverflow.com/a/21854246
@@ -99,6 +101,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }
