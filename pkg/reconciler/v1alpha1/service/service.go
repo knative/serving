@@ -158,6 +158,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return err
 		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", config.GetName())
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
@@ -178,6 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return err
 		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", route.GetName())
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
 		return err
@@ -223,7 +225,6 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
