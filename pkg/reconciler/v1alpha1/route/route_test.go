@@ -327,7 +327,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				"test-route.test.svc.cluster.local",
 				"test-route.test.svc",
 				"test-route.test",
-				"test-route",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -416,7 +415,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				"test-route.test.svc.cluster.local",
 				"test-route.test.svc",
 				"test-route.test",
-				"test-route",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -499,7 +497,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				"test-route.test.svc.cluster.local",
 				"test-route.test.svc",
 				"test-route.test",
-				"test-route",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -599,7 +596,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				"test-route.test.svc.cluster.local",
 				"test-route.test.svc",
 				"test-route.test",
-				"test-route",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -719,7 +715,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				"test-route.test.svc.cluster.local",
 				"test-route.test.svc",
 				"test-route.test",
-				"test-route",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{

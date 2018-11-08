@@ -40,8 +40,8 @@ func TestServiceDuckTypes(t *testing.T) {
 		name: "legacy targetable",
 		t:    &duckv1alpha1.LegacyTargetable{},
 	}, {
-		name: "targetable",
-		t:    &duckv1alpha1.Targetable{},
+		name: "addressable",
+		t:    &duckv1alpha1.Addressable{},
 	}}
 
 	for _, test := range tests {
@@ -368,7 +368,7 @@ func TestSetManualStatus(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
-	// Going back from manual will result in propogation to reoccur, and should make us ready
+	// Going back from manual will result in propagation to reoccur, and should make us ready
 	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,

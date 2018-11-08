@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
+func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReference) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
 		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
@@ -44,34 +44,18 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 
 	configLabels := config.Labels
 	rev.Labels[serving.ServiceLabelKey] = configLabels[serving.ServiceLabelKey]
+	rev.Labels[serving.ConfigurationGenerationLabelKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
 	}
-	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
-	// Fill in the build name, if specified.
-	rev.Spec.BuildName = names.Build(config)
-
 	// Fill in buildRef if build is involved
-	rev.Spec.BuildRef = buildRef(config)
+	rev.Spec.BuildRef = buildRef
 
 	return rev
-}
-
-func buildRef(config *v1alpha1.Configuration) *corev1.ObjectReference {
-	if config.Spec.Build == nil {
-		return nil
-	}
-
-	b := MakeBuild(config)
-	return &corev1.ObjectReference{
-		APIVersion: b.GetAPIVersion(),
-		Kind:       b.GetKind(),
-		Name:       b.GetName(),
-	}
 }

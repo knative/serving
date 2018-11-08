@@ -65,6 +65,7 @@ var (
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
+	containerConcurrency  int
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	statSink              *websocket.ManagedConnection
@@ -75,8 +76,6 @@ var (
 	httpProxy *httputil.ReverseProxy
 
 	health *healthServer = &healthServer{alive: true}
-
-	containerConcurrency = flag.Int("containerConcurrency", 0, "")
 )
 
 func initEnv() {
@@ -85,6 +84,7 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
@@ -245,15 +245,15 @@ func main() {
 	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
-	if *containerConcurrency > 0 {
+	if containerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency but at least 10 to
 		// allow the autoscaler to get a strong enough signal.
-		queueDepth := *containerConcurrency
+		queueDepth := containerConcurrency
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
-		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, *containerConcurrency)
+		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency))
+		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 
 	// Open a websocket connection to the autoscaler

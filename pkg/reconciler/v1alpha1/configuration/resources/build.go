@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +26,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
@@ -48,6 +51,19 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 
 		u = MustToUnstructured(b)
 	}
+	// After calling `As()` we can be sure that `.Raw` is populated.
+
+	// Compute the hash of the current build's spec.
+	sum := sha256.Sum256(config.Spec.Build.Raw)
+	h := hex.EncodeToString(sum[:])
+
+	// Put it into a label for later lookups.
+	l := u.GetLabels()
+	if l == nil {
+		l = make(map[string]string)
+	}
+	l[serving.BuildHashLabelKey] = h[:63] // Labels can only be 63 characters.
+	u.SetLabels(l)
 
 	u.SetNamespace(config.Namespace)
 	u.SetName(names.Build(config))

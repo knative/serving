@@ -23,10 +23,6 @@ const (
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"
 
-	// ConfigurationGenerationAnnotationKey is the annotation key attached to a Revision indicating the
-	// generation of the Configuration that created this revision
-	ConfigurationGenerationAnnotationKey = GroupName + "/configurationGeneration"
-
 	// RevisionLastPinnedAnnotationKey is the annotation key used for determining when a route has
 	// pinned a revision
 	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"
@@ -56,4 +52,12 @@ const (
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
+
+	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
+	// generation of the Configuration that created this revision
+	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
+
+	// BuildHashLabelKey is the label key attached to a Build indicating the
+	// hash of the spec from which they were created.
+	BuildHashLabelKey = GroupName + "/buildHash"
 )

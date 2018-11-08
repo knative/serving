@@ -19,25 +19,21 @@ package main
 import (
 	"flag"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
-	"github.com/knative/serving/pkg/changeset"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
 	"github.com/knative/serving/pkg/system"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -55,7 +51,7 @@ const (
 	controllerThreads = 2
 	statsServerAddr   = ":8080"
 	statsBufferLen    = 1000
-	logLevelKey       = "autoscaler"
+	component         = "autoscaler"
 )
 
 var (
@@ -76,13 +72,7 @@ func main() {
 	}
 
 	var atomicLevel zap.AtomicLevel
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
-	if commmitID, err := changeset.Get(); err == nil {
-		// Enrich logs with GitHub commit ID.
-		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
-	} else {
-		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
-	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -100,8 +90,9 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
-
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	// Watch the observability config map and dynamically update metrics exporter.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	// This is based on how Kubernetes sets up its scale client based on discovery:
 	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
 	restMapper := buildRESTMapper(kubeClientSet, stopCh)
@@ -166,19 +157,6 @@ func main() {
 	eg.Go(func() error {
 		return ctl.Run(controllerThreads, stopCh)
 	})
-
-	// Setup the metrics to flow to Prometheus.
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "autoscaler"})
-	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter.", zap.Error(err))
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(time.Second * 10)
-	go func() {
-		http.Handle("/metrics", promExporter)
-		http.ListenAndServe(":9090", nil)
-	}()
 
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 

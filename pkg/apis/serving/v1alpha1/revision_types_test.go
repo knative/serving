@@ -300,7 +300,6 @@ func TestGetSetCondition(t *testing.T) {
 func TestTypicalFlowWithBuild(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -394,19 +393,11 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
-
-	// Or this.
-	r.Status.InitializeBuildCondition()
-	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
 func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -515,6 +506,13 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	r.Status.MarkActive()
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+			Reason: "NoBuild",
+		}},
+	})
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
@@ -722,6 +720,7 @@ func TestRevisionAnnotations(t *testing.T) {
 	cases := []struct {
 		name               string
 		annotations        map[string]string
+		labels             map[string]string
 		setLastPinned      *time.Time
 		expectLastPinned   time.Time
 		expectConfigGen    *int64
@@ -753,12 +752,12 @@ func TestRevisionAnnotations(t *testing.T) {
 		},
 		expectLastPinned: fakeTime,
 		expectConfigGenErr: configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
+			Type: LabelParserErrorTypeMissing,
 		},
 	}, {
-		name: "annotated configGeneration",
-		annotations: map[string]string{
-			serving.ConfigurationGenerationAnnotationKey: "10",
+		name: "labeled configGeneration",
+		labels: map[string]string{
+			serving.ConfigurationGenerationLabelKey: "10",
 		},
 		expectConfigGen: &fakeGen,
 	}}
@@ -768,6 +767,7 @@ func TestRevisionAnnotations(t *testing.T) {
 			rev := Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations,
+					Labels:      tc.labels,
 				},
 			}
 

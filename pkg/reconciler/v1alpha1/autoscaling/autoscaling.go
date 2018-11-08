@@ -34,6 +34,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -62,7 +63,7 @@ type KPAMetrics interface {
 // KPAScaler knows how to scale the targets of KPAs
 type KPAScaler interface {
 	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error
+	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
 // Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
@@ -187,7 +188,8 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	if err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale); err != nil {
+	want, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
@@ -208,18 +210,32 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 			got += len(es.Addresses)
 		}
 	}
-	want := metric.DesiredScale
+
 	logger.Infof("KPA got=%v, want=%v", got, want)
+
+	var serviceLabel string
+	var configLabel string
+	if kpa.Labels != nil {
+		serviceLabel = kpa.Labels[serving.ServiceLabelKey]
+		configLabel = kpa.Labels[serving.ConfigurationLabelKey]
+	}
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, serviceLabel, configLabel, kpa.Name)
+	if err != nil {
+		return err
+	}
+
+	reporter.Report(autoscaler.ActualPodCountM, float64(got))
+	reporter.Report(autoscaler.RequestedPodCountM, float64(want))
 
 	switch {
 	case want == 0:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got == 0 && want > 0:
+	case got == 0 && want != 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0 || want == -1:
+	case got > 0:
 		kpa.Status.MarkActive()
 	}
 

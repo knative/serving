@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -35,9 +36,7 @@ import (
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/serving/pkg/changeset"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
@@ -49,12 +48,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 	"github.com/knative/serving/pkg/system"
-	"go.uber.org/zap"
 )
 
 const (
 	threadsPerController = 2
-	logLevelKey          = "controller"
+	component            = "controller"
 )
 
 var (
@@ -72,13 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
-	if commmitID, err := changeset.Get(); err == nil {
-		// Enrich logs with GitHub commit ID.
-		logger = logger.With(zap.String(logkey.GitHubCommitID, commmitID))
-	} else {
-		logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
-	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -194,7 +186,7 @@ func main() {
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)

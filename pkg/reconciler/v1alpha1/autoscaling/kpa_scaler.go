@@ -35,6 +35,8 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 )
 
+const ScaleUnknown = -1
+
 // kpaScaler scales the target of a KPA up or down including scaling to zero.
 type kpaScaler struct {
 	servingClientSet clientset.Interface
@@ -98,7 +100,7 @@ func applyBounds(min, max int32) func(int32) int32 {
 }
 
 // Scale attempts to scale the given KPA's target reference to the desired scale.
-func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error {
+func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
@@ -108,13 +110,13 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	if owner == nil || owner.Kind != revGVK.Kind ||
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("KPA is not owned by a Revision.")
-		return nil
+		return desiredScale, nil
 	}
 
 	gv, err := schema.ParseGroupVersion(kpa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
 		logger.Error("Unable to parse APIVersion.", zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 	resource := apis.KindToResource(gv.WithKind(kpa.Spec.ScaleTargetRef.Kind)).GroupResource()
 	resourceName := kpa.Spec.ScaleTargetRef.Name
@@ -123,15 +125,34 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	scl, err := ks.scaleClientSet.Scales(kpa.Namespace).Get(resource, resourceName)
 	if err != nil {
 		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
 
 	if desiredScale == 0 {
-		// Scale to zero grace period.
-		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
-			logger.Debug("Waiting for Active=False grace period.")
-			return nil
+		// We should only scale to zero when both of the following conditions are true:
+		//   a) The KPA has been active for atleast the idle period, after which it gets marked inactive
+		//   b) The KPA has been inactive for atleast the grace period
+
+		config := ks.getAutoscalerConfig()
+
+		if kpa.Status.IsActivating() { // Active=Unknown
+			// Don't scale-to-zero during activation
+			desiredScale = ScaleUnknown
+		} else if kpa.Status.IsReady() { // Active=True
+			// Don't scale-to-zero if the KPA is active
+
+			// If the idle period has elapsed, let the reconciler mark it inactive
+			if kpa.Status.CanMarkInactive(config.ScaleToZeroIdlePeriod) {
+				return desiredScale, nil
+			}
+			// Otherwise, scale down to 1 until the idle period elapses
+			desiredScale = 1
+		} else { // Active=False
+			// Don't scale-to-zero if the grace period hasn't elapsed
+			if !kpa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+				return desiredScale, nil
+			}
 		}
 	}
 
@@ -143,7 +164,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")
-		return nil
+		return desiredScale, nil
 	}
 
 	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
@@ -152,7 +173,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 
 	if desiredScale == currentScale {
-		return nil
+		return desiredScale, nil
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
@@ -161,9 +182,9 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	_, err = ks.scaleClientSet.Scales(kpa.Namespace).Update(resource, scl)
 	if err != nil {
 		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
-		return err
+		return desiredScale, err
 	}
 
 	logger.Debug("Successfully scaled.")
-	return nil
+	return desiredScale, nil
 }

@@ -18,15 +18,19 @@ limitations under the License.
 package e2e
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
 	testbuildv1alpha1 "github.com/knative/serving/test/apis/testing/v1alpha1"
+	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
@@ -41,7 +45,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildAndServe")
+	logger := logging.GetContextLogger("TestBuildSpecAndServe")
 
 	imagePath := test.ImagePath("helloworld")
 
@@ -116,6 +120,30 @@ func TestBuildSpecAndServe(t *testing.T) {
 	} else if cond.Status != corev1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
 	}
+
+	// Update the Configuration with an environment variable, which should trigger a new revision
+	// to be created, but without creating a new build.
+	if err := updateConfigWithEnvVars(clients, names, []corev1.EnvVar{{
+		Name:  "FOO",
+		Value: "bar",
+	}}); err != nil {
+		t.Fatalf("Failed to update config with environment variables: %v", err)
+	}
+
+	nextRevName, err := getNextRevisionName(clients, names)
+	if err != nil {
+		t.Fatalf("Error waiting for next revision to be created: %v", err)
+	}
+	names.Revision = nextRevName
+
+	nextRev, err := clients.ServingClient.Revisions.Get(nextRevName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get latest Revision: %v", err)
+	}
+
+	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff != "" {
+		t.Fatalf("Unexpected differences in BuildRef: %v", diff)
+	}
 }
 
 func TestBuildAndServe(t *testing.T) {
@@ -189,6 +217,53 @@ func TestBuildAndServe(t *testing.T) {
 	} else if cond.Status != corev1.ConditionTrue {
 		t.Fatalf("Build %q was not successful", buildName)
 	}
+
+	// Update the Configuration with an environment variable, which should trigger a new revision
+	// to be created, but without creating a new build.
+	if err := updateConfigWithEnvVars(clients, names, []corev1.EnvVar{{
+		Name:  "FOO",
+		Value: "bar",
+	}}); err != nil {
+		t.Fatalf("Failed to update config with environment variables: %v", err)
+	}
+
+	nextRevName, err := getNextRevisionName(clients, names)
+	if err != nil {
+		t.Fatalf("Error waiting for next revision to be created: %v", err)
+	}
+	names.Revision = nextRevName
+
+	nextRev, err := clients.ServingClient.Revisions.Get(nextRevName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get latest Revision: %v", err)
+	}
+
+	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff != "" {
+		t.Fatalf("Unexpected differences in BuildRef: %v", diff)
+	}
+
+	// Update the Configuration's Build with an annotation, which should trigger the creation
+	// of BOTH a Build and a Revision.
+	if err := updateConfigWithBuildAnnotation(clients, names, map[string]string{
+		"testing.knative.dev/foo": "bar",
+	}); err != nil {
+		t.Fatalf("Failed to update config with environment variables: %v", err)
+	}
+
+	nextRevName, err = getNextRevisionName(clients, names)
+	if err != nil {
+		t.Fatalf("Error waiting for next revision to be created: %v", err)
+	}
+	names.Revision = nextRevName
+
+	nextRev, err = clients.ServingClient.Revisions.Get(nextRevName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get latest Revision: %v", err)
+	}
+
+	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff == "" {
+		t.Fatalf("Got matching BuildRef, wanted different: %#v", rev.Spec.BuildRef)
+	}
 }
 
 func TestBuildFailure(t *testing.T) {
@@ -257,4 +332,50 @@ func TestBuildFailure(t *testing.T) {
 	} else if cond.Status != corev1.ConditionFalse {
 		t.Fatalf("Build %q was not unsuccessful", buildName)
 	}
+}
+
+func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {
+	var newRevisionName string
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+		if c.Status.LatestCreatedRevisionName != names.Revision {
+			newRevisionName = c.Status.LatestCreatedRevisionName
+			return true, nil
+		}
+		return false, nil
+	}, "ConfigurationUpdatedWithRevision")
+	return newRevisionName, err
+}
+
+func updateConfigWithEnvVars(clients *test.Clients, names test.ResourceNames, ev []corev1.EnvVar) error {
+	patches := []jsonpatch.JsonPatchOperation{{
+		Operation: "add",
+		Path:      "/spec/revisionTemplate/spec/container/env",
+		Value:     ev,
+	}}
+	patchBytes, err := json.Marshal(patches)
+	if err != nil {
+		return err
+	}
+	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateConfigWithBuildAnnotation(clients *test.Clients, names test.ResourceNames, ann map[string]string) error {
+	patches := []jsonpatch.JsonPatchOperation{{
+		Operation: "add",
+		Path:      "/spec/build/metadata/annotations",
+		Value:     ann,
+	}}
+	patchBytes, err := json.Marshal(patches)
+	if err != nil {
+		return err
+	}
+	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
+	if err != nil {
+		return err
+	}
+	return nil
 }
