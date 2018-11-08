@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/queue"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -56,7 +57,7 @@ type Stats struct {
 }
 
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
+func NewStats(podName string, channels Channels, startedAt time.Time, reporter *queue.Reporter) *Stats {
 	s := &Stats{
 		podName: podName,
 		ch:      channels,
@@ -109,7 +110,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 						avg += float64(c) * ratio
 					}
 				}
-
+				reporter.Report(requestCount)
 				stat := &autoscaler.Stat{
 					Time:                      &now,
 					PodName:                   s.podName,

@@ -17,6 +17,8 @@ limitations under the License.
 package queue
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -55,35 +57,54 @@ var (
 			"Indicates this Pod has received a shutdown signal with 1 else 0",
 			stats.UnitNone),
 	}
-	namespaceTagKey tag.Key
-	configTagKey    tag.Key
-	revisionTagKey  tag.Key
-	serviceTagKey   tag.Key
 )
 
-func init() {
-	var err error
+// Reporter structure representing a prometheus expoerter.
+type Reporter struct {
+	initialized     bool
+	configTagKey    tag.Key
+	namespaceTagKey tag.Key
+	numTriesKey     tag.Key
+	revisionTagKey  tag.Key
+	responseCodeKey tag.Key
+	serviceTagKey   tag.Key
+}
+
+// NewStatsReporter creates a reporter that collects and reports queue metrics
+func NewStatsReporter() (*Reporter, error) {
+	var r = &Reporter{}
+
 	// Create the tag keys that will be used to add tags to our measurements.
-	// Tag keys must conform to the restrictions described in
-	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
-	// - length between 1 and 255 inclusive
-	// - characters are printable US-ASCII
-	namespaceTagKey, err = tag.NewKey("configuration_namespace")
+	nsTag, err := tag.NewKey("destination_namespace")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	serviceTagKey, err = tag.NewKey("service")
+	r.namespaceTagKey = nsTag
+	serviceTag, err := tag.NewKey("destination_service")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	configTagKey, err = tag.NewKey("configuration")
+	r.serviceTagKey = serviceTag
+	configTag, err := tag.NewKey("destination_configuration")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	revisionTagKey, err = tag.NewKey("revision")
+	r.configTagKey = configTag
+	revTag, err := tag.NewKey("destination_revision")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	r.revisionTagKey = revTag
+	responseCodeTag, err := tag.NewKey("response_code")
+	if err != nil {
+		return nil, err
+	}
+	r.responseCodeKey = responseCodeTag
+	numTriesTag, err := tag.NewKey("num_tries")
+	if err != nil {
+		return nil, err
+	}
+	r.numTriesKey = numTriesTag
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -93,72 +114,46 @@ func init() {
 			Description: "Number of requests received since last Stat",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of requests currently being handled by this pod",
 			Measure:     measurements[AverageConcurrentRequestsM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
 			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
 			Measure:     measurements[LameDuckM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 	)
-	if err != nil {
-		panic(err)
-	}
-}
-
-/*
-// TODO(@mrmcmuffinz): Need to figure out how to properly do the reporting.
-// The below code was borrowed from stats_reporter.go in activator cmd
-// command component but not sure yet what all applies.
-
-// StatsReporter defines the interface for sending autoscaler metrics
-type StatsReporter interface {
-	Report(m Measurement, v float64) error
-}
-
-// Reporter holds cached metric objects to report autoscaler metrics
-type Reporter struct {
-	ctx         context.Context
-	logger      *zap.SugaredLogger
-	initialized bool
-}
-
-// NewStatsReporter creates a reporter that collects and reports autoscaler metrics
-func NewStatsReporter(podNamespace string, service string, config string, revision string) (*Reporter, error) {
-
-	r := &Reporter{}
-
-	// Our tags are static. So, we can get away with creating a single context
-	// and reuse it for reporting all of our metrics.
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(namespaceTagKey, podNamespace),
-		tag.Insert(serviceTagKey, service),
-		tag.Insert(configTagKey, config),
-		tag.Insert(revisionTagKey, revision))
 	if err != nil {
 		return nil, err
 	}
 
-	r.ctx = ctx
 	r.initialized = true
 	return r, nil
 }
 
-// Report captures value v for measurement m
-func (r *Reporter) Report(m Measurement, v float64) error {
+// Report captures request metrics
+func (r *Reporter) Report(measurement Measurement, value float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	stats.Record(r.ctx, measurements[m].M(v))
+	ctx, err := tag.New(context.Background())
+	/*
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.serviceTagKey, service),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev))
+	*/
+	if err != nil {
+		return err
+	}
+
+	stats.Record(ctx, measurements[measurement].M(value))
 	return nil
 }
-*/

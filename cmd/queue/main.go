@@ -284,7 +284,7 @@ func main() {
 		ReqChan:    reqChan,
 		ReportChan: reportTicker,
 		StatChan:   statChan,
-	}, time.Now())
+	}, time.Now(), reporter)
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
