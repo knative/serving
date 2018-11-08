@@ -37,7 +37,7 @@ source $(dirname $0)/cluster.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly SERVING_RELEASE_YAML=https://github.com/knative/serving/releases/download/v0.2.0/release-no-mon.yaml
+readonly SERVING_RELEASE_YAML=https://github.com/knative/serving/releases/download/v0.2.1/release-no-mon.yaml
 
 # Cribbed from e2e-tests.sh
 # TODO(#2320): Remove this.
