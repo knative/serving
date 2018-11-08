@@ -17,8 +17,8 @@ limitations under the License.
 package v1alpha3
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/knative/pkg/apis/istio/common/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
@@ -154,7 +154,7 @@ type HTTPRoute struct {
 	// forwarding target can be one of several versions of a service (see
 	// glossary in beginning of document). Weights associated with the
 	// service version determine the proportion of traffic it receives.
-	Route []DestinationWeight `json:"route,omitempty"`
+	Route []HTTPRouteDestination `json:"route,omitempty"`
 
 	// A http rule can either redirect or forward (default) traffic. If
 	// traffic passthrough option is specified in the rule,
@@ -285,7 +285,7 @@ type HTTPMatchRequest struct {
 	Headers map[string]v1alpha1.StringMatch `json:"headers,omitempty"`
 }
 
-type DestinationWeight struct {
+type HTTPRouteDestination struct {
 	// REQUIRED. Destination uniquely identifies the instances of a service
 	// to which the request/connection should be forwarded to.
 	Destination Destination `json:"destination"`
@@ -295,6 +295,20 @@ type DestinationWeight struct {
 	// If there is only destination in a rule, the weight value is assumed to
 	// be 100.
 	Weight int `json:"weight"`
+
+	// HTTP headers to remove before returning a response to the caller.
+	RemoveResponseHeaders []string `json:"removeResponseHeaders,omitempty"`
+
+	// Additional HTTP headers to add before returning a response to the caller.
+	AppendResponseHeaders map[string]string `json:"appendResponseHeaders,omitempty"`
+
+	// HTTP headers to remove before forwarding a request to the destination
+	// service.
+	RemoveRequestHeaders []string `json:"removeRequestHeaders,omitempty"`
+
+	// Additional HTTP headers to add before forwarding a request to the
+	// destination service.
+	AppendRequestHeaders map[string]string `json:"appendRequestHeaders,omitempty"`
 }
 
 // Destination indicates the network addressable service to which the
@@ -474,7 +488,7 @@ type TCPRoute struct {
 	// Currently, only one destination is allowed for TCP services. When TCP
 	// weighted routing support is introduced in Envoy, multiple destinations
 	// with weights can be specified.
-	Route DestinationWeight `json:"route"`
+	Route HTTPRouteDestination `json:"route"`
 }
 
 // L4 connection match attributes. Note that L4 connection matching support
