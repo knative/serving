@@ -196,7 +196,7 @@ func TestRouteCreation(t *testing.T) {
 	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
 		// Currently the Route prober is flaky. So we just log the error here for future debugging instead of
 		// failing the test.
-		logger.Errorf("Route prober failed with error %s", err)
+		t.Fatalf("Route prober failed with error %s", err)
 	}
 
 }
