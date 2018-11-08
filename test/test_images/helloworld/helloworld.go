@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -32,6 +34,5 @@ func main() {
 	flag.Parse()
 	log.Print("Hello world app started.")
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }

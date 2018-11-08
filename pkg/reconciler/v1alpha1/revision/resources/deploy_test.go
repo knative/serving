@@ -21,18 +21,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -95,7 +94,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -111,6 +109,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -175,7 +176,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -191,6 +191,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -259,7 +262,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -275,6 +277,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -352,7 +357,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -368,6 +372,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "0",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -443,7 +450,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -459,6 +465,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "0",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -536,7 +545,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -552,6 +560,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "0",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -625,7 +636,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=0"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -641,6 +651,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "0",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -705,7 +718,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -721,6 +733,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
@@ -837,7 +852,6 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:      queueLifecycle,
 				ReadinessProbe: queueReadinessProbe,
 				// These changed based on the Revision and configs passed in.
-				Args: []string{"-containerConcurrency=1"},
 				Env: []corev1.EnvVar{{
 					Name:  "SERVING_NAMESPACE",
 					Value: "foo", // matches namespace
@@ -853,6 +867,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "SERVING_AUTOSCALER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
 				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{

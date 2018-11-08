@@ -22,6 +22,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +38,5 @@ func main() {
 	flag.Parse()
 	log.Print("Env vars test app started.")
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }

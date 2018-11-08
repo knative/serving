@@ -21,16 +21,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/system"
 )
-
-var K8sGatewayFullname = reconciler.GetK8sServiceFullname(
-	"knative-shared-gateway",
-	system.Namespace)
-
-var K8sGatewayServiceFullname = reconciler.GetK8sServiceFullname(
-	"knative-ingressgateway",
-	"istio-system")
 
 func K8sService(route *v1alpha1.Route) string {
 	return route.Name
