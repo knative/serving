@@ -140,6 +140,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(service); err != nil {
 		logger.Warn("Failed to update service status", zap.Error(err))
+		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Service %q: %v", service.Name, err)
 		return err
 	}
 	return err
@@ -204,16 +206,21 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(service.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := service.DeepCopy()
-		existing.Status = desired.Status
-		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace)
-		// TODO: for CRD there's no updatestatus, so use normal update.
-		return serviceClient.Update(existing)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(service.Status, desired.Status) {
+		return service, nil
 	}
-	return service, nil
+	// Don't modify the informers copy
+	existing := service.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update.
+	updated, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for Service %q", desired.Name)
+	return updated, nil
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {

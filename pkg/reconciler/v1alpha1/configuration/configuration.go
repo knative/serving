@@ -139,6 +139,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(config); err != nil {
 		logger.Warn("Failed to update configuration status", zap.Error(err))
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Configuration %q: %v", config.Name, err)
 		return err
 	}
 	return err
@@ -266,19 +268,25 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	u, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
+	config, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(u.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := u.DeepCopy()
-		existing.Status = desired.Status
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
-		//	return configClient.UpdateStatus(newu)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(config.Status, desired.Status) {
+		return config, nil
 	}
-	return u, nil
+	// Don't modify the informers copy
+	existing := config.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update
+	updated, err := c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for Configuration %q", desired.Name)
+	return updated, nil
 }
 
 func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {

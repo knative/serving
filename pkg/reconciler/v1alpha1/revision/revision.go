@@ -249,12 +249,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else {
-		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
-		if _, err := c.updateStatus(rev); err != nil {
-			logger.Warn("Failed to update revision status", zap.Error(err))
-			return err
-		}
+	} else if _, err := c.updateStatus(rev); err != nil {
+		logger.Warn("Failed to update revision status", zap.Error(err))
+		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Revision %q: %v", rev.Name, err)
+		return err
 	}
 	return err
 }
@@ -411,15 +410,19 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(rev.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := rev.DeepCopy()
-		existing.Status = desired.Status
-
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
-		//	return prClient.UpdateStatus(newRev)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(rev.Status, desired.Status) {
+		return rev, nil
 	}
-	return rev, nil
+	// Don't modify the informers copy
+	existing := rev.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update
+	updated, err := c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for Revision %q", desired.Name)
+	return updated, nil
 }
