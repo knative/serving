@@ -3,10 +3,13 @@
 Knative uses a shared Gateway to serve all incoming traffic within Knative
 service mesh, which is the "knative-shared-gateway" Gateway under
 "knative-serving" namespace. The IP address to access the gateway is the
-external IP address of the "knative-ingressgateway" service under the
+external IP address of the "istio-ingressgateway" service under the
 "istio-system" namespace. So in order to set static IP for the Knative shared
 gateway, you just need to set the external IP address of the
-"knative-ingressgateway" service to the static IP you need.
+"istio-ingressgateway" service to the static IP you need.
+If the gateway service has been replaced to that of other service, you'll
+need to replace "istio-ingressgateway" with the service name accordingly.
+See [instructions](../setting-up-custom-ingress-gateway.md) for more details.
 
 ## Prerequisites
 
@@ -30,28 +33,28 @@ gateway.
 
 ## Set Up Static IP for Knative Gateway
 
-### Step 1: Update external IP of "knative-ingressgateway" service
+### Step 1: Update external IP of "istio-ingressgateway" service
 
 Run following command to reset the external IP for the
-"knative-ingressgateway" service to the static IP you reserved.
+"istio-ingressgateway" service to the static IP you reserved.
 
 ```shell
-kubectl patch svc knative-ingressgateway -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
+kubectl patch svc istio-ingressgateway -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
 ```
 
-### Step 2: Verify static IP address of knative-ingressgateway service
+### Step 2: Verify static IP address of istio-ingressgateway service
 
-You can check the external IP of the "knative-ingressgateway" service with:
+You can check the external IP of the "istio-ingressgateway" service with:
 
 ```shell
-kubectl get svc knative-ingressgateway -n istio-system
+kubectl get svc istio-ingressgateway -n istio-system
 ```
 
 The result should be something like
 
 ```console
 NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                                      AGE
-knative-ingressgateway   LoadBalancer   10.50.250.120   35.210.48.100   80:32380/TCP,443:32390/TCP,32400:32400/TCP   5h
+istio-ingressgateway   LoadBalancer   10.50.250.120   35.210.48.100   80:31380/TCP,443:31390/TCP,31400:31400/TCP...   5h
 ```
 
 The external IP will be eventually set to the static IP. This process could
