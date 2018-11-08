@@ -178,6 +178,10 @@ type RevisionSpec struct {
 	// https://github.com/knative/serving/issues/627
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
+
+	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
+	// +optional
+	TimeoutSeconds *metav1.Duration `json:"timeoutSeconds,omitempty"`
 }
 
 const (
