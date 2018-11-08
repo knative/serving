@@ -65,7 +65,6 @@ function install_head() {
   install_knative_serving
   set +o errexit
   set +o pipefail
-
 }
 
 # Deletes everything created on the cluster including all knative and istio components.
