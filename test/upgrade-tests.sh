@@ -92,11 +92,9 @@ install_head
 header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=5m ./test/upgrade || fail_test
 
-# TODO(#2373): Once this is released, we can test downgrades too.
-#
-# install_latest_release
-#
-# header "Running postdowngrade tests"
-# go_test_e2e -tags=postdowngrade -timeout=5m ./test/upgrade || fail_test
+install_latest_release
+
+header "Running postdowngrade tests"
+go_test_e2e -tags=postdowngrade -timeout=5m ./test/upgrade || fail_test
 
 success
