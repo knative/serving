@@ -56,14 +56,32 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling   bool
 		kpaMutation   func(*kpa.PodAutoscaler)
 	}{{
-		label:         "waits to scale to zero (fresh)",
+		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(kpa *kpa.PodAutoscaler) {
-			// Sets LTT to time.Now()
-			kpa.Status.MarkInactive("foo", "bar")
+		kpaMutation: func(k *kpa.PodAutoscaler) {
+			ltt := time.Now().Add(-idlePeriod).Add(1 * time.Second)
+			k.Status.Conditions = duckv1alpha1.Conditions{{
+				Type:               "Active",
+				Status:             "True",
+				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
+			}}
+		},
+	}, {
+		label:         "waits to scale to zero after idle period",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   false,
+		kpaMutation: func(k *kpa.PodAutoscaler) {
+			ltt := time.Now().Add(-idlePeriod)
+			k.Status.Conditions = duckv1alpha1.Conditions{{
+				Type:               "Active",
+				Status:             "True",
+				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
+			}}
 		},
 	}, {
 		label:         "waits to scale to zero (just before grace period)",

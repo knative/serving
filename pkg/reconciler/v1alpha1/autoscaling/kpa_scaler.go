@@ -35,6 +35,8 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 )
 
+const ScaleUnknown = -1
+
 // kpaScaler scales the target of a KPA up or down including scaling to zero.
 type kpaScaler struct {
 	servingClientSet clientset.Interface
@@ -128,10 +130,29 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	currentScale := scl.Spec.Replicas
 
 	if desiredScale == 0 {
-		// Scale to zero grace period.
-		if !kpa.Status.CanScaleToZero(ks.getAutoscalerConfig().ScaleToZeroGracePeriod) {
-			logger.Debug("Waiting for Active=False grace period.")
-			return desiredScale, nil
+		// We should only scale to zero when both of the following conditions are true:
+		//   a) The KPA has been active for atleast the idle period, after which it gets marked inactive
+		//   b) The KPA has been inactive for atleast the grace period
+
+		config := ks.getAutoscalerConfig()
+
+		if kpa.Status.IsActivating() { // Active=Unknown
+			// Don't scale-to-zero during activation
+			desiredScale = ScaleUnknown
+		} else if kpa.Status.IsReady() { // Active=True
+			// Don't scale-to-zero if the KPA is active
+
+			// If the idle period has elapsed, let the reconciler mark it inactive
+			if kpa.Status.CanMarkInactive(config.ScaleToZeroIdlePeriod) {
+				return desiredScale, nil
+			}
+			// Otherwise, scale down to 1 until the idle period elapses
+			desiredScale = 1
+		} else { // Active=False
+			// Don't scale-to-zero if the grace period hasn't elapsed
+			if !kpa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+				return desiredScale, nil
+			}
 		}
 	}
 

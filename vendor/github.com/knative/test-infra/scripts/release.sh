@@ -31,8 +31,10 @@ function banner() {
 #             $3 - tag to apply (optional).
 function tag_images_in_yaml() {
   [[ -z $3 ]] && return 0
-  echo "Tagging images with $3"
-  for image in $(grep -o "$2/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+  local src_dir="${GOPATH}/src/"
+  local BASE_PATH="${REPO_ROOT_DIR/$src_dir}"
+  echo "Tagging images under '${BASE_PATH}' with $3"
+  for image in $(grep -o "$2/${BASE_PATH}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
     gcloud -q container images add-tag ${image} ${image%%@*}:$3
   done
 }
@@ -68,7 +70,7 @@ function parse_flags() {
   RELEASE_VERSION=""
   RELEASE_NOTES=""
   RELEASE_BRANCH=""
-  KO_FLAGS="-P -L"
+  KO_FLAGS="-P"
   cd ${REPO_ROOT_DIR}
   while [[ $# -ne 0 ]]; do
     local parameter=$1
@@ -76,16 +78,8 @@ function parse_flags() {
       --skip-tests) SKIP_TESTS=1 ;;
       --tag-release) TAG_RELEASE=1 ;;
       --notag-release) TAG_RELEASE=0 ;;
-      --publish)
-        PUBLISH_RELEASE=1
-        # Remove -L from ko flags
-        KO_FLAGS="${KO_FLAGS/-L}"
-        ;;
-      --nopublish)
-        PUBLISH_RELEASE=0
-        # Add -L to ko flags
-        KO_FLAGS="-L ${KO_FLAGS}"
-        ;;
+      --publish) PUBLISH_RELEASE=1 ;;
+      --nopublish) PUBLISH_RELEASE=0 ;;
       --version)
         shift
         [[ $# -ge 1 ]] || abort "missing version after --version"
@@ -109,9 +103,17 @@ function parse_flags() {
     shift
   done
 
+  # Update KO_DOCKER_REPO and KO_FLAGS if we're not publishing.
+  if (( ! PUBLISH_RELEASE )); then
+    KO_DOCKER_REPO="ko.local"
+    KO_FLAGS="-L ${KO_FLAGS}"
+  fi
+
   if (( TAG_RELEASE )); then
-    # Currently we're not considering the tags in refs/tags namespace.
-    commit=$(git describe --always --dirty)
+    local commit="$(git rev-parse --short HEAD)"
+    if [[ "$(git describe --dirty)" == *-dirty ]]; then
+      commit+="-dirty"
+    fi
     # Like kubernetes, image tag is vYYYYMMDD-commit
     TAG="v$(date +%Y%m%d)-${commit}"
   fi
@@ -138,7 +140,10 @@ function run_validation_tests() {
   if (( ! SKIP_TESTS )); then
     banner "Running release validation tests"
     # Run tests.
-    $1
+    if ! $1; then
+      banner "Release validation tests failed, aborting"
+      exit 1
+    fi
   fi
 }
 
@@ -147,7 +152,7 @@ function initialize() {
   parse_flags $@
   # Checkout specific branch, if necessary
   if (( BRANCH_RELEASE )); then
-    git checkout --track upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    git checkout upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
   fi
 }
 
@@ -157,18 +162,23 @@ function initialize() {
 function branch_release() {
   (( BRANCH_RELEASE )) || return 0
   local title="$1 release ${TAG}"
-  local yamls="$2"
-  local attach="--attach=${yamls// / --attach=}"
+  local attachments=()
   local description="$(mktemp)"
+  local attachments_dir="$(mktemp -d)"
+  # Copy each YAML to a separate dir
+  for yaml in $2; do
+    cp ${yaml} ${attachments_dir}/
+    attachments+=("--attach=${yaml}#$(basename ${yaml})")
+  done
   echo -e "${title}\n" > ${description}
   if [[ -n "${RELEASE_NOTES}" ]]; then
     cat ${RELEASE_NOTES} >> ${description}
   fi
   git tag -a ${TAG} -m "${title}"
   git push $(git remote get-url upstream) tag ${TAG}
-  run_go_tool hub github.com/github/hub release create \
+  run_go_tool github.com/github/hub hub release create \
       --prerelease \
-      ${attach} \
+      ${attachments[@]} \
       --file=${description} \
       --commitish=${RELEASE_BRANCH} \
       ${TAG}

@@ -108,6 +108,33 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/validation-failure",
 	}, {
+		Name: "elide build when a matching one already exists",
+		Objects: []runtime.Object{
+			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
+			// An existing build is reused!
+			resources.MakeBuild(cfgWithBuild("something-else", "foo", 12345, &buildSpec)),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec), &corev1.ObjectReference{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+				Name:       "something-else-12345",
+			}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "need-rev-and-build-99998",
+					ObservedGeneration:        99998,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			),
+		}},
+		Key: "foo/need-rev-and-build",
+	}, {
 		Name: "create revision matching generation with build",
 		Objects: []runtime.Object{
 			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
@@ -535,6 +562,12 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
 	rev.Status.MarkActive()
+	rev.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 	if !rev.Status.IsReady() {
 		t.Fatalf("Wanted ready revision: %v", rev)
 	}

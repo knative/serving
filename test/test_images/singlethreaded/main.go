@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"github.com/knative/serving/test"
 )
 
 var (
@@ -45,6 +47,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	test.ListenAndServeGracefully(":8080", handler)
 }

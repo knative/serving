@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/exemplar"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/internal"
 	"go.opencensus.io/tag"
@@ -73,20 +75,23 @@ func (cmd *registerViewReq) handleCommand(w *worker) {
 	}
 }
 
-// unsubscribeFromViewReq is the command to unsubscribe to a view. Has no
+// unregisterFromViewReq is the command to unregister to a view. Has no
 // impact on the data collection for client that are pulling data from the
 // library.
-type unsubscribeFromViewReq struct {
+type unregisterFromViewReq struct {
 	views []string
 	done  chan struct{}
 }
 
-func (cmd *unsubscribeFromViewReq) handleCommand(w *worker) {
+func (cmd *unregisterFromViewReq) handleCommand(w *worker) {
 	for _, name := range cmd.views {
 		vi, ok := w.views[name]
 		if !ok {
 			continue
 		}
+
+		// Report pending data for this view before removing it.
+		w.reportView(vi, time.Now())
 
 		vi.unsubscribe()
 		if !vi.isSubscribed() {
@@ -94,6 +99,7 @@ func (cmd *unsubscribeFromViewReq) handleCommand(w *worker) {
 			// The collected data can be cleared.
 			vi.clearRows()
 		}
+		delete(w.views, name)
 	}
 	cmd.done <- struct{}{}
 }
@@ -136,24 +142,31 @@ func (cmd *retrieveDataReq) handleCommand(w *worker) {
 // recordReq is the command to record data related to multiple measures
 // at once.
 type recordReq struct {
-	tm *tag.Map
-	ms []stats.Measurement
+	tm          *tag.Map
+	ms          []stats.Measurement
+	attachments map[string]string
+	t           time.Time
 }
 
 func (cmd *recordReq) handleCommand(w *worker) {
 	for _, m := range cmd.ms {
-		if (m == stats.Measurement{}) { // not subscribed
+		if (m == stats.Measurement{}) { // not registered
 			continue
 		}
 		ref := w.getMeasureRef(m.Measure().Name())
 		for v := range ref.views {
-			v.addSample(cmd.tm, m.Value())
+			e := &exemplar.Exemplar{
+				Value:       m.Value(),
+				Timestamp:   cmd.t,
+				Attachments: cmd.attachments,
+			}
+			v.addSample(cmd.tm, e)
 		}
 	}
 }
 
 // setReportingPeriodReq is the command to modify the duration between
-// reporting the collected data to the subscribed clients.
+// reporting the collected data to the registered clients.
 type setReportingPeriodReq struct {
 	d time.Duration
 	c chan bool

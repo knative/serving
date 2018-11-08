@@ -262,6 +262,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
 	buildRef := rev.BuildRef()
 	if buildRef == nil {
+		rev.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   duckv1alpha1.ConditionSucceeded,
+				Status: corev1.ConditionTrue,
+				Reason: "NoBuild",
+			}},
+		})
 		return nil
 	}
 
@@ -271,7 +278,6 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
 		return err
 	}
-	rev.Status.InitializeBuildCondition()
 
 	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
 	_, lister, err := c.buildInformerFactory.Get(gvr)
