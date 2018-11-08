@@ -101,9 +101,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	m := http.NewServeMux()
-	m.HandleFunc("/", handler)
-
-	server := test.NewGracefulServer(":8080", m)
-	server.ListenAndServe()
+	test.ListenAndServeGracefully(":8080", handler)
 }

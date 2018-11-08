@@ -40,26 +40,18 @@ func ImagePath(name string) string {
 	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
 }
 
-// GracefulServer is an HTTP server, that handles SIGTERM signals gracefully.
-type GracefulServer struct {
-	wrapped http.Server
-}
+// ListenAndServeGracefully creates an HTTP server, listens on the defined address
+// and handles incoming requests to "/" with the given function.
+// It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
+func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
+	m := http.NewServeMux()
+	m.HandleFunc("/", handler)
+	server := http.Server{Addr: addr, Handler: m}
 
-// NewGracefulServer creates an HTTP server, that's handling SIGTERM signals
-// gracefully. Its `ListenEndServe` method should be the last call in a main
-// function.
-func NewGracefulServer(addr string, handler http.Handler) *GracefulServer {
-	return &GracefulServer{http.Server{Addr: addr, Handler: handler}}
-}
-
-// ListenAndServe behaves the same as ListenAndServe of the plain http.Server
-// but it also adds signal handling and blocks until SIGTERM is sent and the
-// server is shutdown properly.
-func (s *GracefulServer) ListenAndServe() {
-	go s.wrapped.ListenAndServe()
+	go server.ListenAndServe()
 
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
 	<-sigTermChan
-	s.wrapped.Shutdown(context.Background())
+	server.Shutdown(context.Background())
 }

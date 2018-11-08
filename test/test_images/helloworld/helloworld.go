@@ -34,9 +34,5 @@ func main() {
 	flag.Parse()
 	log.Print("Hello world app started.")
 
-	m := http.NewServeMux()
-	m.HandleFunc("/", handler)
-
-	server := test.NewGracefulServer(":8080", m)
-	server.ListenAndServe()
+	test.ListenAndServeGracefully(":8080", handler)
 }

@@ -39,9 +39,5 @@ func main() {
 	log.Print("Requests against '/?timeout={TIME_IN_MILLISECONDS}' will sleep for the given time.")
 	log.Print("Each request will return its serverside start and end-time in nanoseconds.")
 
-	m := http.NewServeMux()
-	m.HandleFunc("/", handler)
-
-	server := test.NewGracefulServer(":8080", m)
-	server.ListenAndServe()
+	test.ListenAndServeGracefully(":8080", handler)
 }

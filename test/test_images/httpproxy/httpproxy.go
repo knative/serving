@@ -69,9 +69,5 @@ func main() {
 	targetUrl := fmt.Sprintf("http://%s", targetHost)
 	httpProxy = initialHttpProxy(targetUrl)
 
-	m := http.NewServeMux()
-	m.HandleFunc("/", handler)
-
-	server := test.NewGracefulServer(":8080", m)
-	server.ListenAndServe()
+	test.ListenAndServeGracefully(":8080", handler)
 }
