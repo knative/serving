@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/queue"
+	"github.com/mrmcmuffinz/serving/pkg/queue"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -57,7 +57,7 @@ type Stats struct {
 }
 
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time, reporter *queue.Reporter) *Stats {
+func NewStats(podName string, channels Channels, startedAt time.Time, reporter *Reporter, health *HealthServer) *Stats {
 	s := &Stats{
 		podName: podName,
 		ch:      channels,
@@ -110,13 +110,19 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 						avg += float64(c) * ratio
 					}
 				}
-				reporter.Report(requestCount)
 				stat := &autoscaler.Stat{
 					Time:                      &now,
 					PodName:                   s.podName,
 					AverageConcurrentRequests: avg,
 					RequestCount:              requestCount,
 				}
+				lameDuck := 0
+				if !health.IsAlive() {
+					lameDuck = 1
+				}
+				reporter.Report(queue.LameDuckM, lameDuck)
+				reporter.Report(queue.RequestCountM, requestCount)
+				reporter.Report(queue.AverageConcurrentRequestsM, avg)
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat
