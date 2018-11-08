@@ -47,7 +47,7 @@ function publish_test_images() {
   echo ">> Publishing test images"
   image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})" || return 1
   done
 }
 
@@ -62,16 +62,12 @@ initialize $@
 
 header "Setting up environment"
 
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
-
-install_knative_serving
-publish_test_images
-
-# Handle test failures ourselves, so we can dump useful info.
+# Handle failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
+
+install_knative_serving || fail_test "Knative Serving installation failed"
+publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
 

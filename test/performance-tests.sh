@@ -49,24 +49,21 @@ function teardown() {
   uninstall_knative_serving
 }
 
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
+initialize $@
 
 header "Setting up environment"
-
-initialize $@
-install_knative_serving
-
-ko apply -f ${TEST_APP_YAML}
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
 
+install_knative_serving || fail_test "Knative Serving installation failed"
+
+ko apply -f ${TEST_APP_YAML} || fail_test
+
 # Run the test with concurrency=5 and for 60s duration.
 # Need to export concurrency var as it is required by the parser.
 export concurrency=5
-perf_tests "${concurrency}" 60s
+perf_tests "${concurrency}" 60s || fail_test
 
 success
