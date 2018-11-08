@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -861,10 +862,22 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev1.Status.MarkResourcesAvailable()
 	rev1.Status.MarkContainerHealthy()
 	rev1.Status.MarkActive()
+	rev1.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 	rev2 := getTestRevForConfig(config, name+"-revision-2")
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
 	rev2.Status.MarkActive()
+	rev2.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
 	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2

@@ -200,6 +200,7 @@ var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 	RevisionConditionActive,
+	RevisionConditionBuildSucceeded,
 )
 
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
@@ -297,13 +298,6 @@ func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alph
 
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
-
-	// We don't include BuildSucceeded here because it could confuse users if
-	// no `buildName` was specified.
-}
-
-func (rs *RevisionStatus) InitializeBuildCondition() {
-	revCondSet.Manage(rs).InitializeCondition(RevisionConditionBuildSucceeded)
 }
 
 func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
@@ -374,8 +368,8 @@ func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 const (
 	AnnotationParseErrorTypeMissing = "Missing"
 	AnnotationParseErrorTypeInvalid = "Invalid"
-	LabelParserErrorTypeMissing = "Missing"
-	LabelParserErrorTypeInvalid = "Invalid"
+	LabelParserErrorTypeMissing     = "Missing"
+	LabelParserErrorTypeInvalid     = "Invalid"
 )
 
 // +k8s:deepcopy-gen=false
