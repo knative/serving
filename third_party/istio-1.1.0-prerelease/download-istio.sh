@@ -11,8 +11,24 @@ cd istio-${ISTIO_VERSION}
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
 
 # Create template
-cp install/kubernetes/istio-demo.yaml ../istio.yaml
-cp install/kubernetes/istio-demo.yaml ../istio-lean.yaml
+helm init --client-only
+
+helm dep update install/kubernetes/helm/istio
+
+helm template install/kubernetes/helm/istio \
+  --name=istio --namespace=istio-system \
+  --set sidecarInjectorWebhook.enabled=true \
+  --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
+  --set global.proxy.autoInject=disabled \
+  --set prometheus.enabled=false \
+  > ../istio.yaml
+
+helm template --name=istio --namespace=istio-system \
+  --set sidecarInjectorWebhook.enabled=false \
+  --set global.proxy.autoInject=disabled \
+  --set global.omitSidecarInjectorConfigMap=true \
+  --set prometheus.enabled=false \
+  install/kubernetes/helm/istio > ../istio-lean.yaml
 
 # Clean up.
 cd ..
