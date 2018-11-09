@@ -25,5 +25,5 @@ spec:
           container:
             # This is the Go import path for the binary that is containerized
             # and substituted here.
-            image: github.com/knative/serving/test/performance/observed-concurrency
+            image: github.com/knative/serving/test_images/observed-concurrency
           concurrencyModel: Single
