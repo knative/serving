@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
@@ -132,9 +133,11 @@ func main() {
 
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
-	ctl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler)
+	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler)
+	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
 
 	// Start the serving informer factory.
 	kubeInformerFactory.Start(stopCh)
@@ -148,6 +151,7 @@ func main() {
 	for i, synced := range []cache.InformerSynced{
 		paInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
+		hpaInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)
@@ -156,7 +160,10 @@ func main() {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return ctl.Run(controllerThreads, stopCh)
+		return kpaCtl.Run(controllerThreads, stopCh)
+	})
+	eg.Go(func() error {
+		return hpaCtl.Run(controllerThreads, stopCh)
 	})
 
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)

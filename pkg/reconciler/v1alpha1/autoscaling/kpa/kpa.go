@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	controllerAgentName = "autoscaling-controller"
+	controllerAgentName = "kpa-class-podautoscaler-controller"
 )
 
 // KPAMetrics is an interface for notifying the presence or absence of KPAs.
@@ -98,9 +98,9 @@ func NewController(
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Autoscaling", reconciler.MustNewStatsReporter("Autoscaling", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
-	c.Logger.Info("Setting up event handlers")
+	c.Logger.Info("Setting up kpa-class event handlers")
 	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
@@ -146,6 +146,12 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
+
+	if original.Class() != autoscaling.KPA {
+		logger.Debug("Ignoring non-kpa-class PA")
+		return nil
+	}
+
 	// Don't modify the informer's copy.
 	pa := original.DeepCopy()
 

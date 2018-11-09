@@ -1,0 +1,122 @@
+/*
+Copyright 2018 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package hpa
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
+	"k8s.io/client-go/tools/cache"
+)
+
+const (
+	controllerAgentName = "hpa-class-podautoscaler-controller"
+)
+
+type Reconciler struct {
+	*reconciler.Base
+
+	paLister listers.PodAutoscalerLister
+}
+
+var _ controller.Reconciler = (*Reconciler)(nil)
+
+func NewController(
+	opts *reconciler.Options,
+	paInformer informers.PodAutoscalerInformer,
+	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
+) *controller.Impl {
+	c := &Reconciler{
+		Base:     reconciler.NewBase(*opts, controllerAgentName),
+		paLister: paInformer.Lister(),
+	}
+	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
+	c.Logger.Info("Setting up hpa-class event handlers")
+	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.Enqueue,
+		UpdateFunc: controller.PassNew(impl.Enqueue),
+		DeleteFunc: impl.Enqueue,
+	})
+	return impl
+}
+
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
+		return nil
+	}
+	logger := logging.FromContext(ctx)
+	logger.Debug("Reconcile hpa-clas PodAutoscaler")
+
+	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
+	if errors.IsNotFound(err) {
+		logger.Debug("PA no longer exists")
+		// delete the hpa
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if original.Class() != autoscaling.HPA {
+		logger.Debug("Ignoring non-hpa-class PA")
+		return nil
+	}
+
+	// Don't modify the informer's copy.
+	pa := original.DeepCopy()
+	// Reconcile this copy of the pa and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, key, pa)
+	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else {
+		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, pa))
+		// if _, err := c.updateStatus(pa); err != nil {
+		// 	logger.Warn("Failed to update pa status", zap.Error(err))
+		// 	return err
+		// }
+	}
+	return err
+}
+
+func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
+	pa.Status.InitializeConditions()
+	logger.Debug("PA exists")
+
+	// HPA-class PAs don't yet support scale-to-zero
+	pa.Status.MarkActive()
+
+	// create or update the HPA
+	return nil
+}

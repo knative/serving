@@ -30,7 +30,12 @@ const (
 	MinScaleAnnotationKey = GroupName + "/minScale"
 	MaxScaleAnnotationKey = GroupName + "/maxScale"
 
+	// KPA is Knative Horizontal Pod Autoscaler
+	KPA = "kpa"
+	// HPA is Kubernetes Horizontal Pod Autoscaler
+	HPA = "hpa"
+
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + "/kpa"
+	KPALabelKey = GroupName + "/" + KPA
 )
