@@ -83,14 +83,14 @@ function install_knative_serving() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
+  kubectl patch hpa -n istio-system istio-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
 
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system knative-ingressgateway
+  wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
 # Uninstalls Knative Serving from the current cluster.
