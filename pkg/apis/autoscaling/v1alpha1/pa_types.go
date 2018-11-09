@@ -119,16 +119,16 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-func (kpa *PodAutoscaler) Class() string {
-	if c, ok := kpa.Annotations[autoscaling.ClassAnnotationKey]; ok {
+func (pa *PodAutoscaler) Class() string {
+	if c, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; ok {
 		return c
 	}
-	// Default to "kpa" class for backward compatibility.
+	// Default to "pa" class for backward compatibility.
 	return autoscaling.KPA
 }
 
-func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
-	if s, ok := kpa.Annotations[key]; ok {
+func (pa *PodAutoscaler) scaleBoundInt32(key string) int32 {
+	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation
 		i, _ := strconv.ParseInt(s, 10, 32)
 		return int32(i)
@@ -139,9 +139,9 @@ func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
-func (kpa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	min = kpa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
-	max = kpa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
+func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
+	min = pa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
+	max = pa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
 	return
 }
 
