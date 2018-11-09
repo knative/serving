@@ -48,10 +48,6 @@ import (
 
 var (
 	conditionsOnFailure = duckv1alpha1.Conditions{{
-		Type:     "Active",
-		Status:   "Unknown",
-		Severity: "Error",
-	}, {
 		Type:     "BuildSucceeded",
 		Status:   "True",
 		Severity: "Error",
@@ -76,7 +72,7 @@ var (
 		Type:     "Active",
 		Status:   "Unknown",
 		Reason:   "Deploying",
-		Severity: "Error",
+		Severity: "Info",
 	}, {
 		Type:     "BuildSucceeded",
 		Status:   "True",
@@ -364,7 +360,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -410,9 +406,8 @@ func TestReconcile(t *testing.T) {
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
-						Status:   "Unknown",
-						Reason:   "Deploying",
-						Severity: "Error",
+						Status:   "True",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -428,15 +423,27 @@ func TestReconcile(t *testing.T) {
 						Reason:   "Deploying",
 						Severity: "Error",
 					}, {
-						Type:     "Ready",
-						Status:   "Unknown",
-						Reason:   "Deploying",
-						Severity: "Error",
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
 						// The LTT defaults and is long enough ago that we expire waiting
 						// on the Endpoints to become ready.
+						Severity: "Error",
 					}},
 				}),
-			kpa("foo", "endpoint-created-timeout", "busybox"),
+			addKPAStatus(
+				kpa("foo", "endpoint-created-timeout", "busybox"),
+				kpav1alpha1.PodAutoscalerStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
+					}, {
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
+					}},
+				}),
 			deploy("foo", "endpoint-created-timeout", "busybox"),
 			svc("foo", "endpoint-created-timeout", "busybox"),
 			endpoints("foo", "endpoint-created-timeout", "busybox"),
@@ -450,9 +457,8 @@ func TestReconcile(t *testing.T) {
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
-						Status:   "Unknown",
-						Reason:   "Deploying",
-						Severity: "Error",
+						Status:   "True",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -495,7 +501,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -523,7 +529,7 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
 						Status:   "True",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "Ready",
 						Status:   "True",
@@ -544,7 +550,7 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
 						Status:   "True",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -579,7 +585,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -606,7 +612,7 @@ func TestReconcile(t *testing.T) {
 						Status:   "Unknown",
 						Reason:   "Something",
 						Message:  "This is something longer",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "Ready",
 						Status:   "Unknown",
@@ -631,7 +637,7 @@ func TestReconcile(t *testing.T) {
 						Status:   "Unknown",
 						Reason:   "Something",
 						Message:  "This is something longer",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -642,9 +648,7 @@ func TestReconcile(t *testing.T) {
 						Severity: "Error",
 					}, {
 						Type:     "Ready",
-						Status:   "Unknown",
-						Reason:   "Something",
-						Message:  "This is something longer",
+						Status:   "True",
 						Severity: "Error",
 					}, {
 						Type:     "ResourcesAvailable",
@@ -667,7 +671,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -694,7 +698,7 @@ func TestReconcile(t *testing.T) {
 						Status:   "False",
 						Reason:   "NoTraffic",
 						Message:  "This thing is inactive.",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "Ready",
 						Status:   "False",
@@ -718,7 +722,7 @@ func TestReconcile(t *testing.T) {
 						Status:   "False",
 						Reason:   "NoTraffic",
 						Message:  "This thing is inactive.",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -730,9 +734,8 @@ func TestReconcile(t *testing.T) {
 						Severity: "Error",
 					}, {
 						Type:     "Ready",
-						Status:   "False",
-						Reason:   "NoTraffic",
-						Message:  "This thing is inactive.",
+						Status:   "Unknown",
+						Reason:   "Deploying",
 						Severity: "Error",
 					}, {
 						Type:     "ResourcesAvailable",
@@ -796,7 +799,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -809,7 +812,7 @@ func TestReconcile(t *testing.T) {
 					}, {
 						Type:     "Ready",
 						Status:   "Unknown",
-						Reason:   "Deploying",
+						Reason:   "Updating",
 						Severity: "Error",
 					}, {
 						Type:     "ResourcesAvailable",
@@ -838,7 +841,7 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
 						Status:   "Unknown",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -920,7 +923,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -963,10 +966,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:     "Active",
-						Status:   "Unknown",
-						Severity: "Error",
-					}, {
 						Type:     "BuildSucceeded",
 						Status:   "Unknown",
 						Severity: "Error",
@@ -997,8 +996,9 @@ func TestReconcile(t *testing.T) {
 			addBuild(rev("foo", "running-build", "busybox"), "the-build"),
 			build("foo", "the-build",
 				duckv1alpha1.Condition{
-					Type:   duckv1alpha1.ConditionSucceeded,
-					Status: corev1.ConditionUnknown,
+					Type:     duckv1alpha1.ConditionSucceeded,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1007,10 +1007,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:     "Active",
-						Status:   "Unknown",
-						Severity: "Error",
-					}, {
 						Type:     "BuildSucceeded",
 						Status:   "Unknown",
 						Reason:   "Building",
@@ -1063,8 +1059,9 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   duckv1alpha1.ConditionSucceeded,
-				Status: corev1.ConditionTrue,
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}),
 		},
 		WantCreates: []metav1.Object{
@@ -1084,7 +1081,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -1124,7 +1121,7 @@ func TestReconcile(t *testing.T) {
 						Type:     "Active",
 						Status:   "Unknown",
 						Reason:   "Deploying",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
@@ -1187,10 +1184,11 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionFalse,
+				Reason:   "SomeReason",
+				Message:  "This is why the build failed.",
+				Severity: "Error",
 			}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1199,10 +1197,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:     "Active",
-						Status:   "Unknown",
-						Severity: "Error",
-					}, {
 						Type:     "BuildSucceeded",
 						Status:   "False",
 						Reason:   "SomeReason",
@@ -1240,7 +1234,7 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     "Active",
 						Status:   "Unknown",
-						Severity: "Error",
+						Severity: "Info",
 					}, {
 						Type:     "ResourcesAvailable",
 						Status:   "Unknown",
@@ -1264,10 +1258,11 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionFalse,
+				Reason:   "SomeReason",
+				Message:  "This is why the build failed.",
+				Severity: "Error",
 			}),
 		},
 		Key: "foo/failed-build-stable",
@@ -1373,10 +1368,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					ServiceName: svc("foo", "create-configmap-failure", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:     "Active",
-						Status:   "Unknown",
-						Severity: "Error",
-					}, {
 						Type:     "BuildSucceeded",
 						Status:   "True",
 						Severity: "Error",

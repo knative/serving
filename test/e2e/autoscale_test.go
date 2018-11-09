@@ -178,8 +178,8 @@ func setup(t *testing.T) *testContext {
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
-	deploymentName :=
-		config.Status.LatestCreatedRevisionName + "-deployment"
+	names.Revision = config.Status.LatestCreatedRevisionName
+	deploymentName := names.Revision + "-deployment"
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
@@ -258,6 +258,12 @@ func assertScaleDown(ctx *testContext) {
 		"WaitForAvailablePods")
 	if err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
+	}
+
+	time.Sleep(10 * time.Second)
+	ctx.logger.Info("The Revision should remain ready after scaling to zero.")
+	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
+		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
 	ctx.logger.Infof("Scaled down.")

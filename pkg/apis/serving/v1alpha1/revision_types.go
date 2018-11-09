@@ -199,7 +199,6 @@ const (
 var revCondSet = duckv1alpha1.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionActive,
 	RevisionConditionBuildSucceeded,
 )
 
