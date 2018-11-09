@@ -1,5 +1,5 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.1.0.snapshot.1
+ISTIO_VERSION=1.1.0-snapshot.2
 BASE_URL=https://gcsweb.istio.io/gcs/istio-prerelease/prerelease/
 DOWNLOAD_URL=${BASE_URL}/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
@@ -11,19 +11,8 @@ cd istio-${ISTIO_VERSION}
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
 
 # Create template
-helm template --namespace=istio-system \
-  --set sidecarInjectorWebhook.enabled=true \
-  --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
-  --set global.proxy.autoInject=disabled \
-  --set prometheus.enabled=false \
-  install/kubernetes/helm/istio > ../istio.yaml
-
-helm template --namespace=istio-system \
-  --set sidecarInjectorWebhook.enabled=false \
-  --set global.proxy.autoInject=disabled \
-  --set global.omitSidecarInjectorConfigMap=true \
-  --set prometheus.enabled=false \
-  install/kubernetes/helm/istio > ../istio-lean.yaml
+cp install/kubernetes/istio-demo.yaml ../istio.yaml
+cp install/kubernetes/istio-demo.yaml ../istio-lean.yaml
 
 # Clean up.
 cd ..
