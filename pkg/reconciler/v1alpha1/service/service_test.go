@@ -259,7 +259,7 @@ func TestReconcile(t *testing.T) {
 			Object: svc("all-ready", "foo", WithRunLatestRollout,
 				// When the Route and Configuration come back with ready
 				// our initial conditions transition to Ready=True.
-				// TODO(mattmoor): Add Latest{Created,REady}
+				// TODO(mattmoor): Add Latest{Created,Ready}
 				WithReadyRoute, WithReadyConfig("all-ready-00001")),
 		}},
 	}, {
