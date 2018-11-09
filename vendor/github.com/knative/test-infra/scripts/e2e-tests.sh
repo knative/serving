@@ -79,7 +79,7 @@ function go_test_e2e() {
   local go_options=""
   (( EMIT_METRICS )) && test_options="-emitmetrics"
   [[ ! " $@" == *" -tags="* ]] && go_options="-tags=e2e"
-  report_go_test -v -count=1 ${go_options} $@ ${test_options}
+  report_go_test -v ${go_options} $@ ${test_options}
 }
 
 # Download the k8s binaries required by kubetest.

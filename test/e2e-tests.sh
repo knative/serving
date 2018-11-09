@@ -72,6 +72,6 @@ publish_test_images || fail_test "one or more test images weren't published"
 
 header "Running tests"
 create_namespace
-go_test_e2e -timeout=20m ./test/conformance ./test/e2e || fail_test
+go_test_e2e -count=10 -timeout=20m ./test/conformance ./test/e2e -run=TestCustomResourcesLimits || fail_test
 
 success
