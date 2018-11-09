@@ -386,6 +386,7 @@ func TestResolutionFailed(t *testing.T) {
 			Reason:             "ContainerMissing",
 			Message:            errorMessage,
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -462,6 +463,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -488,6 +490,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
