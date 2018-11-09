@@ -64,6 +64,21 @@ var (
 			corev1.ResourceCPU: userContainerCPU,
 		},
 	}
+
+	// Add our own PreStop hook here, which should do two things:
+	// - make the container fails the next readinessCheck to avoid
+	//   having more traffic, and
+	// - add a small delay so that the container stays alive a little
+	//   bit longer in case stoppage of traffic is not effective
+	//   immediately.
+	userLifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueQuitPath,
+			},
+		},
+	}
 )
 
 func rewriteUserProbe(p *corev1.Probe) {
@@ -88,6 +103,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.Resources = userResources
 	userContainer.Ports = userPorts
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
+	userContainer.Lifecycle = userLifecycle
 	userContainer.Env = append(userContainer.Env, userEnv)
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 	// Prefer imageDigest from revision if available
