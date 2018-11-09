@@ -23,6 +23,13 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,14 +38,6 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -255,11 +254,5 @@ func (c *Reconciler) updateStatus(desired *kpa.PodAutoscaler) (*kpa.PodAutoscale
 	existing.Status = desired.Status
 
 	// TODO: for CRD there's no updatestatus, so use normal update
-	updated, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(existing)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for KPA %q", desired.Name)
-	return updated, nil
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(existing)
 }

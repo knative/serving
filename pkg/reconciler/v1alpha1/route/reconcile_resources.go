@@ -154,13 +154,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 	existing := route.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	updated, err := c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Update(existing)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for route %q", desired.Name)
-	return updated, nil
+	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Update(existing)
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.

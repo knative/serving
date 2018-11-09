@@ -20,12 +20,6 @@ import (
 	"context"
 	"reflect"
 
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/cache"
-
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
@@ -38,6 +32,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/cache"
 )
 
 const controllerAgentName = "clusteringress-controller"
@@ -141,13 +140,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 	existing := ci.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	updated, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(existing)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", desired.Name)
-	return updated, nil
+	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(existing)
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {

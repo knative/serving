@@ -23,6 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 )
 
 const controllerAgentName = "service-controller"
@@ -214,13 +213,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	updated, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
-	if err != nil {
-		return nil, err
-	}
-
-	c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated", "Updated status for Service %q", desired.Name)
-	return updated, nil
+	return c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
