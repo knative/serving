@@ -40,7 +40,8 @@ const (
 )
 
 var (
-	scaleToZeroThreshold time.Duration
+	stableWindow     time.Duration
+	scaleToZeroGrace time.Duration
 )
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
@@ -142,9 +143,13 @@ func setup(t *testing.T) *testContext {
 	if err != nil {
 		t.Fatalf("Unable to get autoscaler config map: %v", err)
 	}
-	scaleToZeroThreshold, err = time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
+	scaleToZeroGrace, err = time.ParseDuration(configMap.Data["scale-to-zero-grace-period"])
 	if err != nil {
-		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
+		t.Fatalf("Unable to parse scale-to-zero-grace as duration: %v", err)
+	}
+	stableWindow, err = time.ParseDuration(configMap.Data["stable-window"])
+	if err != nil {
+		t.Fatalf("Unable to parse stable-window as duration: %v", err)
 	}
 
 	imagePath := test.ImagePath("autoscale")
@@ -232,7 +237,7 @@ func assertScaleDown(ctx *testContext) {
 		ctx.deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
-		scaleToZeroThreshold+2*time.Minute)
+		scaleToZeroGrace+stableWindow+2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
 	}

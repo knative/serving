@@ -187,26 +187,22 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	containerConcurrency         v1alpha1.RevisionContainerConcurrencyType
-	stats                        map[statKey]Stat
-	statsMutex                   sync.Mutex
-	panicking                    bool
-	panicTime                    *time.Time
-	maxPanicPods                 float64
-	reporter                     StatsReporter
-	lastRequestTime              time.Time
-	scaleToZeroThresholdExceeded bool
+	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
+	stats                map[statKey]Stat
+	statsMutex           sync.Mutex
+	panicking            bool
+	panicTime            *time.Time
+	maxPanicPods         float64
+	reporter             StatsReporter
 }
 
 // New creates a new instance of autoscaler
 func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		DynamicConfig:                dynamicConfig,
-		containerConcurrency:         containerConcurrency,
-		stats:                        make(map[statKey]Stat),
-		reporter:                     reporter,
-		lastRequestTime:              time.Now(),
-		scaleToZeroThresholdExceeded: false,
+		DynamicConfig:        dynamicConfig,
+		containerConcurrency: containerConcurrency,
+		stats:                make(map[statKey]Stat),
+		reporter:             reporter,
 	}
 }
 
@@ -261,11 +257,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
-			// Update lastRequestTime if the current stat is newer and
-			// actually contains requests
-			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
-				a.lastRequestTime = *stat.Time
-			}
 		} else {
 			// Drop metrics after 60 seconds
 			delete(a.stats, key)
@@ -276,12 +267,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	if stableData.observedPods(now) < 1.0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
-	}
-
-	// Scale to zero if the last request is from too long ago
-	if a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
-		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		return 0, true
 	}
 
 	// Log system totals
@@ -330,6 +315,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.panicTime = &now
 	}
 
+	var desiredPodCount int32
+
 	if a.panicking {
 		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
@@ -337,12 +324,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
-		a.reporter.Report(DesiredPodCountM, float64(a.maxPanicPods))
-		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
+		desiredPodCount = int32(math.Ceil(a.maxPanicPods))
+	} else {
+		logger.Debug("Operating in stable mode.")
+		desiredPodCount = int32(math.Ceil(desiredStablePodCount))
 	}
-	logger.Debug("Operating in stable mode.")
-	a.reporter.Report(DesiredPodCountM, float64(desiredStablePodCount))
-	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
+
+	a.reporter.Report(DesiredPodCountM, float64(desiredPodCount))
+	return desiredPodCount, true
 }
 
 func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
