@@ -49,7 +49,11 @@ function install_knative_serving() {
 
   echo ">> Bringing up Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  kubectl apply -f "${RELEASE_NO_MON_YAML}"
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    kubectl apply -f "${RELEASE_NO_MON_YAML}"
+  else
+    kubectl apply -f "${RELEASE_YAML_OVERRIDE}"
+  fi
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -80,9 +84,34 @@ function uninstall_knative_serving() {
 
   echo ">> Bringing down Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}"
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}"
+  else
+    ko delete --ignore-not-found=true -f "${RELEASE_YAML_OVERRIDE}"
+  fi
 
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+}
+
+# Creates the prometheus component
+function create_prometheus() {
+  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus
+}
+
+# Create test namespace
+function create_namespace() {
+  echo ">> Creating namespace serving-tests"
+  kubectl create namespace serving-tests
+}
+
+# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
+function publish_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
 }
