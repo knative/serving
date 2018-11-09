@@ -285,8 +285,9 @@ func main() {
 	logger.Debug("Received shutdown signal, attempting to gracefully shutdown servers.")
 	if err := server.Shutdown(context.Background()); err != nil {
 		logger.Error("Failed to shutdown proxy-server", zap.Error(err))
+	} else {
+		logger.Debug("Proxy server shutdown successfully.")
 	}
-	logger.Debug("Proxy server shutdown successfully.")
 	if err := adminServer.Shutdown(context.Background()); err != nil {
 		logger.Error("Failed to shutdown admin-server", zap.Error(err))
 	}
