@@ -75,7 +75,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -157,7 +156,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -243,7 +241,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -338,7 +335,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -431,7 +427,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -526,7 +521,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -617,7 +611,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -699,7 +692,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 				Env: []corev1.EnvVar{userEnv,
 					{
 						Name:  "K_REVISION",
@@ -844,7 +836,6 @@ func TestMakePodSpec(t *testing.T) {
 				Resources:    userResources,
 				Ports:        userPorts,
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
