@@ -94,3 +94,24 @@ function uninstall_knative_serving() {
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
 }
+
+# Creates the prometheus component
+function create_prometheus() {
+  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus
+}
+
+# Create test namespace
+function create_namespace() {
+  echo ">> Creating namespace serving-tests"
+  kubectl create namespace serving-tests
+}
+
+# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
+function publish_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+  done
+}
