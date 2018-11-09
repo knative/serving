@@ -73,7 +73,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 					"test-route.test-ns.svc.cluster.local",
 					"test-route.test-ns.svc",
 					"test-route.test-ns",
-					"test-route",
 				},
 				HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
 					Paths: []v1alpha1.HTTPClusterIngressPath{{
@@ -132,9 +131,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns"},
-		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
