@@ -144,13 +144,15 @@ func NewControllerWithClock(
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 	gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
