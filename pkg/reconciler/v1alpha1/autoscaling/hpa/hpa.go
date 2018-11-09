@@ -90,6 +90,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	if original.Class() != autoscaling.HPA {
 		logger.Debug("Ignoring non-hpa-class PA")
+		if err := c.deleteHpa(ctx, key); err != nil {
+			logger.Errorf("Error deleting HPA for non-hpa-class PA %q: %v", name, err)
+		}
 		return nil
 	}
 

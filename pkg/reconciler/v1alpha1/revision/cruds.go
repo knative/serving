@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/google/go-cmp/cmp"
-
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -56,10 +55,12 @@ func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revisio
 	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
 
-func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpa.PodAutoscaler, error) {
-	kpa := resources.MakeKPA(rev)
+func (c *Reconciler) createKPA(ctx context.Context, pa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
+}
 
-	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
+func (c *Reconciler) updateKPA(ctx context.Context, pa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(pa)
 }
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service

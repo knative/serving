@@ -149,6 +149,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	if original.Class() != autoscaling.KPA {
 		logger.Debug("Ignoring non-kpa-class PA")
+		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
+			logger.Errorf("Error deleting KPA for non-kpa-class PA %q: %v", name, err)
+		}
 		return nil
 	}
 
