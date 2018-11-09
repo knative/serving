@@ -26,22 +26,19 @@ function teardown() {
   uninstall_knative_serving
 }
 
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
+initialize $@
 
 header "Setting up environment"
-
-initialize $@
-install_knative_serving
-create_prometheus
-publish_test_images
-
-create_namespace
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
+
+install_knative_serving || fail_test "Knative Serving installation failed"
+create_prometheus || fail_test "Prometheus creation failed"
+publish_test_images || fail_test "one or more test images weren't published"
+
+create_namespace || fail_test "cannot create test namespace"
 
 go_test_e2e -tags=performance -timeout=5m ./test/performance || fail_test
 
