@@ -98,8 +98,7 @@ In a highly-shared environment, containers may experience the following:
   The container is sent a `SIGTERM` signal when it is killed to allow for a
   graceful shutdown of existing ressources and connections. If the container
   has not shut down after a defined grace period, the container is forcibly
-  killed via a `SIGKILL` signal. The container MUST handle inbound connection
-  shutdown gracefully to guarantee error free operation.
+  killed via a `SIGKILL` signal.
 - The environment MAY restrict the use of `prestart`, `poststart`, and
   `poststop` hooks to platform operators rather than developers. All of these
   hooks are defined in the context of the runtime namespace, rather than the
