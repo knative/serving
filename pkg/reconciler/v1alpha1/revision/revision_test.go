@@ -37,7 +37,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -88,7 +88,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func getTestReadyKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
+func getTestReadyKPA(rev *v1alpha1.Revision) *kpav1alpha1.PodAutoscaler {
 	kpa := resources.MakeKPA(rev)
 	kpa.Status.InitializeConditions()
 	kpa.Status.MarkActive()
