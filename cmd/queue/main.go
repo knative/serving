@@ -74,7 +74,7 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	health *healthServer = &healthServer{alive: true}
+	health = &healthServer{alive: true}
 )
 
 func initEnv() {
@@ -272,25 +272,29 @@ func main() {
 		http.HandlerFunc(handler),
 	)
 
-	// Add a SIGTERM handler to gracefully shutdown the servers during
-	// pod termination.
+	go server.ListenAndServe()
+	go setupAdminHandlers(adminServer)
+
+	// Shutdown logic and signal handling
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
-	go func() {
-		<-sigTermChan
-		// Calling server.Shutdown() allows pending requests to
-		// complete, while no new work is accepted.
+	// Blocks until we actually receive a TERM signal.
+	<-sigTermChan
+	// Calling server.Shutdown() allows pending requests to
+	// complete, while no new work is accepted.
+	logger.Debug("Received shutdown signal, attempting to gracefully shutdown servers.")
+	if err := server.Shutdown(context.Background()); err != nil {
+		logger.Error("Failed to shutdown proxy-server", zap.Error(err))
+	} else {
+		logger.Debug("Proxy server shutdown successfully.")
+	}
+	if err := adminServer.Shutdown(context.Background()); err != nil {
+		logger.Error("Failed to shutdown admin-server", zap.Error(err))
+	}
 
-		server.Shutdown(context.Background())
-		adminServer.Shutdown(context.Background())
-
-		if statSink != nil {
-			statSink.Close()
+	if statSink != nil {
+		if err := statSink.Close(); err != nil {
+			logger.Error("Failed to shutdown websocket connection", zap.Error(err))
 		}
-
-		os.Exit(0)
-	}()
-
-	go server.ListenAndServe()
-	setupAdminHandlers(adminServer)
+	}
 }
