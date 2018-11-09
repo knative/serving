@@ -23,7 +23,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
@@ -32,7 +32,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -130,11 +130,11 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, time.Second*30)
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, time.Second*30)
 
-	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
-	kpaScaler := autoscaling.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
-	ctl := autoscaling.NewController(&opt, kpaInformer, endpointsInformer, multiScaler, kpaScaler)
+	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
+	ctl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler)
 
 	// Start the serving informer factory.
 	kubeInformerFactory.Start(stopCh)
@@ -146,7 +146,7 @@ func main() {
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
 	for i, synced := range []cache.InformerSynced{
-		kpaInformer.Informer().HasSynced,
+		paInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
@@ -205,20 +205,20 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 	return rm
 }
 
-func uniScalerFactory(kpa *kpa.PodAutoscaler, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	// Create a stats reporter which tags statistics by KPA namespace, configuration name, and KPA name.
-	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace,
-		labelValueOrEmpty(kpa, serving.ServiceLabelKey), labelValueOrEmpty(kpa, serving.ConfigurationLabelKey), kpa.Name)
+func uniScalerFactory(pa *pav1alpha1.PodAutoscaler, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+	reporter, err := autoscaler.NewStatsReporter(pa.Namespace,
+		labelValueOrEmpty(pa, serving.ServiceLabelKey), labelValueOrEmpty(pa, serving.ConfigurationLabelKey), pa.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return autoscaler.New(dynamicConfig, kpa.Spec.ContainerConcurrency, reporter), nil
+	return autoscaler.New(dynamicConfig, pa.Spec.ContainerConcurrency, reporter), nil
 }
 
-func labelValueOrEmpty(kpa *kpa.PodAutoscaler, labelKey string) string {
-	if kpa.Labels != nil {
-		if value, ok := kpa.Labels[labelKey]; ok {
+func labelValueOrEmpty(pa *pav1alpha1.PodAutoscaler, labelKey string) string {
+	if pa.Labels != nil {
+		if value, ok := pa.Labels[labelKey]; ok {
 			return value
 		}
 	}

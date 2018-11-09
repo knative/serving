@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaling
+package kpa
 
 import (
 	"strconv"
@@ -23,8 +23,9 @@ import (
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -36,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	scalefake "k8s.io/client-go/scale/fake"
 	clientgotesting "k8s.io/client-go/testing"
-
-	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
@@ -54,14 +53,14 @@ func TestKPAScaler(t *testing.T) {
 		maxScale      int32
 		wantReplicas  int
 		wantScaling   bool
-		kpaMutation   func(*kpa.PodAutoscaler)
+		kpaMutation   func(*pav1alpha1.PodAutoscaler)
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(k *kpa.PodAutoscaler) {
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-idlePeriod).Add(1 * time.Second)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -75,7 +74,7 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(k *kpa.PodAutoscaler) {
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-idlePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -89,7 +88,7 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(k *kpa.PodAutoscaler) {
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod).Add(1 * time.Second)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -103,7 +102,7 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   true,
-		kpaMutation: func(k *kpa.PodAutoscaler) {
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -118,7 +117,7 @@ func TestKPAScaler(t *testing.T) {
 		minScale:      2,
 		wantReplicas:  2,
 		wantScaling:   true,
-		kpaMutation: func(k *kpa.PodAutoscaler) {
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -181,12 +180,12 @@ func TestKPAScaler(t *testing.T) {
 			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
 			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-			kpa := newKPA(t, servingClient, revision)
+			pa := newKPA(t, servingClient, revision)
 			if e.kpaMutation != nil {
-				e.kpaMutation(kpa)
+				e.kpaMutation(pa)
 			}
 
-			revisionScaler.Scale(TestContextWithLogger(t), kpa, e.scaleTo)
+			revisionScaler.Scale(TestContextWithLogger(t), pa, e.scaleTo)
 
 			if e.wantScaling {
 				checkReplicas(t, scaleClient, deployment, e.wantReplicas)
@@ -197,15 +196,15 @@ func TestKPAScaler(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *kpa.PodAutoscaler {
-	kpa := revisionresources.MakeKPA(revision)
-	kpa.Status.InitializeConditions()
-	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
+	pa := revisionresources.MakeKPA(revision)
+	pa.Status.InitializeConditions()
+	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
-		t.Fatal("Failed to create KPA.", err)
+		t.Fatal("Failed to create PA.", err)
 	}
 
-	return kpa
+	return pa
 }
 
 func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1alpha1.Revision {
