@@ -51,7 +51,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.1.0
     release: RELEASE-NAME
     heritage: Tiller
     app: knative-ingressgateway
@@ -103,22 +103,20 @@ metadata:
   name: knative-ingressgateway
   namespace: istio-system
   labels:
-    chart: gateways-1.0.1
-    release: RELEASE-NAME
-    heritage: Tiller
     app: knative-ingressgateway
     knative: ingressgateway
+    chart: gateways-1.1.0
+    release: RELEASE-NAME
+    version: 1.1.0
+    heritage: Tiller
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: knative-ingressgateway
-      knative: ingressgateway
   template:
     metadata:
       labels:
         app: knative-ingressgateway
         knative: ingressgateway
+        version: 1.1.0
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -126,7 +124,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.2"
+          image: "docker.io/istio/proxyv2:1.1.0.snapshot.1"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -137,11 +135,16 @@ spec:
             - containerPort: 853
             - containerPort: 15030
             - containerPort: 15031
+
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+
           args:
           - proxy
           - router
-          - -v
-          - "2"
+          - --log_output_level
+          - 'info'
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration
@@ -159,7 +162,7 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot:8080
+          - istio-pilot:15010
           resources:
             requests:
               cpu: 10m
