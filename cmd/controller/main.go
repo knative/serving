@@ -21,14 +21,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-
-	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
-
-	"github.com/knative/serving/pkg/system"
-
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -42,15 +34,20 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (

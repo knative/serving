@@ -18,8 +18,9 @@ package controller
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/pkg/kmeta"
 )
 
 type Callback func(interface{})
@@ -28,9 +29,9 @@ func EnsureTypeMeta(f Callback, gvk schema.GroupVersionKind) Callback {
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 
 	return func(untyped interface{}) {
-		// TODO(mattmoor): Handle deletion.
-		typed, ok := untyped.(runtime.Object)
-		if !ok {
+		typed, err := kmeta.DeletionHandlingAccessor(untyped)
+		if err != nil {
+			// TODO: We should consider logging here.
 			return
 		}
 		// We need to populated TypeMeta, but cannot trample the
