@@ -28,7 +28,6 @@ import (
 
 // MakeRoute creates a Route from a Service object.
 func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Route(service),

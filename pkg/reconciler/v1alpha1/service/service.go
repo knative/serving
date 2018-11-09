@@ -23,6 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 )
 
 const controllerAgentName = "service-controller"
@@ -140,6 +139,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(service); err != nil {
 		logger.Warn("Failed to update service status", zap.Error(err))
+		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Service %q: %v", service.Name, err)
 		return err
 	}
 	return err
@@ -158,6 +159,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return err
 		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", config.GetName())
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
@@ -178,6 +180,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return err
 		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", route.GetName())
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
 		return err
@@ -202,16 +205,15 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(service.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := service.DeepCopy()
-		existing.Status = desired.Status
-		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace)
-		// TODO: for CRD there's no updatestatus, so use normal update.
-		return serviceClient.Update(existing)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(service.Status, desired.Status) {
+		return service, nil
 	}
-	return service, nil
+	// Don't modify the informers copy
+	existing := service.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update.
+	return c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
@@ -223,7 +225,6 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
