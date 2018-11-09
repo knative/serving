@@ -36,7 +36,7 @@ import (
 
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
-	timeoutRequestDuration = 10 * time.Second
+	timeoutRequestDuration = 25 * time.Second
 )
 
 func TestDestroyPodInflight(t *testing.T) {
@@ -124,8 +124,8 @@ func TestDestroyPodInflight(t *testing.T) {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
 
-		logger.Info("Destroying the revision (also destroys the pods)")
-		return clients.ServingClient.Revisions.Delete(names.Revision, nil)
+		logger.Info("Destroying the configuration (also destroys the pods)")
+		return clients.ServingClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
