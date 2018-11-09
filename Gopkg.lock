@@ -270,6 +270,21 @@
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:0d5e3798bfa2642ac268341c96710b8def1f3cbc3bc803c421d90704d72107d8"
+  name = "github.com/google/licenseclassifier"
+  packages = [
+    ".",
+    "internal/sets",
+    "stringclassifier",
+    "stringclassifier/internal/pq",
+    "stringclassifier/searchset",
+    "stringclassifier/searchset/tokenizer",
+  ]
+  pruneopts = "NUT"
+  revision = "e979a0b10eebe748549c702a25e997c556349da6"
+
+[[projects]]
   digest = "1:fe852c57b4fc4d11e6ef79bce1e930ee2f2f7d148b370afef8f8d012a80960ea"
   name = "github.com/googleapis/gax-go"
   packages = ["."]
@@ -381,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:2da54d78cc8ab406465f5584180018c2fe8d0d288e77c5ab89556d2a69ec1a7f"
+  digest = "1:b42dafab6bf401d145cdac6e05ce7da87b1925ee2fc79cafc0e9485cb2bb4497"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -392,6 +407,7 @@
     "apis/istio/authentication/v1alpha1",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
+    "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
     "client/clientset/versioned/scheme",
@@ -424,15 +440,16 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "a8160c7d728d26da67e596c5b1975877082a26e6"
+  revision = "088e3f7faf9d7ed0122937f66289cc050d0a78b0"
 
 [[projects]]
   branch = "master"
-  digest = "1:936f825660ae0d20d3d3493cdbb3e9d71cf4746fda96d3e18111659b9e12cf43"
+  digest = "1:27624809aadb079bd3f09ed8e9f1cb9d56887ba707d241a144b531137a35f4f9"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
+    "tools/testgrid",
   ]
   pruneopts = "UT"
   revision = "48ce29742843637bf0ba9bc5aed78e926e513e13"
@@ -502,15 +519,18 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:03bca087b180bf24c4f9060775f137775550a0834e18f0bca0520a868679dbd7"
+  digest = "1:b57b560027ec66232c769a7f4c65bac5ab6c1975f0bdecc0a44d160274fd4347"
   name = "github.com/prometheus/client_golang"
   packages = [
+    "api",
+    "api/prometheus/v1",
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp",
   ]
   pruneopts = "NUT"
-  revision = "c5b7fccd204277076155f10851dad72b76a49317"
-  version = "v0.8.0"
+  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -544,6 +564,14 @@
   ]
   pruneopts = "NUT"
   revision = "282c8707aa210456a825798969cc27edda34992a"
+
+[[projects]]
+  digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
+  name = "github.com/sergi/go-diff"
+  packages = ["diffmatchpatch"]
+  pruneopts = "NUT"
+  revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:e3707aeaccd2adc89eba6c062fec72116fe1fc1ba71097da85b4d8ae1668a675"
@@ -826,6 +854,21 @@
   pruneopts = "NUT"
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
   version = "v2.2.1"
+
+[[projects]]
+  digest = "1:e8126706a7bf7fb42e55b0dbbfad575cb4369ef94ecffcff98eac31516de96b6"
+  name = "istio.io/fortio"
+  packages = [
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+    "version",
+  ]
+  pruneopts = "NUT"
+  revision = "d13f3b92c63db22136bac4e0896562404bd4ef6e"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:6dd53537a34d9b612e66acd39859953cf7ad70e5b5953937bed5ea998355e7b8"
@@ -1215,8 +1258,12 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/api",
+    "github.com/prometheus/client_golang/api/prometheus/v1",
+    "github.com/prometheus/common/model",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1227,6 +1274,8 @@
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
+    "istio.io/fortio/fhttp",
+    "istio.io/fortio/periodic",
     "k8s.io/api/apps/v1",
     "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",

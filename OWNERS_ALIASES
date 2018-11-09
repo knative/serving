@@ -12,9 +12,11 @@ aliases:
   autoscaling-approvers:
   - josephburnett
   - mdemirhan
+  - markusthoemmes
   autoscaling-reviewers:
   - josephburnett
   - mdemirhan
+  - markusthoemmes
 
   monitoring-approvers:
   - mdemirhan

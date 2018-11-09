@@ -43,14 +43,6 @@ function dump_extra_cluster_state() {
   kubectl -n knative-serving logs "$(get_app_pod activator knative-serving)" -c activator
 }
 
-function publish_test_images() {
-  echo ">> Publishing test images"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  done
-}
-
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   uninstall_knative_serving
@@ -62,21 +54,17 @@ initialize $@
 
 header "Setting up environment"
 
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
-
-install_knative_serving
-publish_test_images
-
-# Handle test failures ourselves, so we can dump useful info.
+# Handle failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
+
+install_knative_serving || fail_test "Knative Serving installation failed"
+publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
 
 header "Running tests"
-kubectl create namespace serving-tests
+create_namespace
 go_test_e2e -timeout=20m ./test/conformance ./test/e2e || fail_test
 
 success

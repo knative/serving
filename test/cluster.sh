@@ -44,12 +44,17 @@ function install_knative_serving() {
   export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
   create_manifests
   echo ">> Bringing up Istio"
-  kubectl apply -f "${ISTIO_CRD_YAML}"
-  kubectl apply -f "${ISTIO_YAML}"
+  kubectl apply -f "${ISTIO_CRD_YAML}" || return 1
+  kubectl apply -f "${ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  kubectl apply -f "${RELEASE_NO_MON_YAML}"
+  kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
+  else
+    kubectl apply -f "${RELEASE_YAML_OVERRIDE}" || return 1
+  fi
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -62,27 +67,52 @@ function install_knative_serving() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
+  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
 
   echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/
+  ko apply -f test/config/ || return 1
 
-  wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
-  wait_until_pods_running istio-system || fail_test "Istio system is not up"
-  wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running istio-system || return 1
+  wait_until_service_has_external_ip istio-system knative-ingressgateway
 }
 
 # Uninstalls Knative Serving from the current cluster.
 function uninstall_knative_serving() {
   create_manifests
   echo ">> Removing test resources (test/config/)"
-  ko delete --ignore-not-found=true -f test/config/
+  ko delete --ignore-not-found=true -f test/config/ || return 1
 
   echo ">> Bringing down Serving"
   # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}"
+  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}" || return 1
+  else
+    ko delete --ignore-not-found=true -f "${RELEASE_YAML_OVERRIDE}" || return 1
+  fi
 
   echo ">> Bringing down Istio"
-  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML}
+  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML} || return 1
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+}
+
+# Creates the prometheus component
+function create_prometheus() {
+  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus
+}
+
+# Create test namespace
+function create_namespace() {
+  echo ">> Creating namespace serving-tests"
+  kubectl create namespace serving-tests
+}
+
+# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
+function publish_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
+  for image_dir in ${image_dirs}; do
+    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})" || return 1
+  done
 }
