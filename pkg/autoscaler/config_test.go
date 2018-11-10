@@ -85,7 +85,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroGracePeriod:               2 * time.Minute,
+			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -108,7 +108,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroGracePeriod:               2 * time.Minute,
+			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -131,7 +131,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroGracePeriod:               2 * time.Minute,
+			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
@@ -152,7 +152,7 @@ func TestNewConfig(t *testing.T) {
 			MaxScaleUpRate:                       1.0,
 			StableWindow:                         5 * time.Minute,
 			PanicWindow:                          10 * time.Second,
-			ScaleToZeroGracePeriod:               2 * time.Minute,
+			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
 	}, {
