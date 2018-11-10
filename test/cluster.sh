@@ -98,7 +98,7 @@ function uninstall_knative_serving() {
 
 # Creates the prometheus component
 function create_prometheus() {
-  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
+  kubectl apply -R -f third_party/config/monitoring/metrics/prometheus \
     -f config/monitoring/metrics/prometheus
 }
 
