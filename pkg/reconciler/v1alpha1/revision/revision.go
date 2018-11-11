@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"net/http"
 	"reflect"
 	"strings"
@@ -339,6 +340,20 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err
+	}
+
+	endpoints, err := c.endpointsLister.Endpoints(rev.Namespace).Get(names.K8sService(rev))
+	if err != nil {
+		logger.Errorf("revision reconcile to get endpoints error: %v", err)
+		rev.Status.MarkActivating("revision get endpoints error", "revision get endpoints error")
+	}
+	logger.Infof("revision reconcile get endpoints: %v", endpoints)
+	if endpoints == nil {
+		rev.Status.MarkActivating("Deploying", "")
+	} else if len(endpoints.Subsets) > 0 {
+		rev.Status.MarkActive()
+	} else {
+		rev.Status.MarkInactive("No endpoints", "No endpoints")
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)

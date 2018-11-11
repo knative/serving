@@ -225,17 +225,17 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	reporter.Report(autoscaler.ActualPodCountM, float64(got))
 	reporter.Report(autoscaler.RequestedPodCountM, float64(want))
 
-	switch {
-	case want == 0:
-		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
-
-	case got == 0 && want != 0:
-		kpa.Status.MarkActivating(
-			"Queued", "Requests to the target are being buffered as resources are provisioned.")
-
-	case got > 0:
-		kpa.Status.MarkActive()
-	}
+	//switch {
+	//case want == 0:
+	//	kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+	//
+	//case got == 0 && want != 0:
+	//	kpa.Status.MarkActivating(
+	//		"Queued", "Requests to the target are being buffered as resources are provisioned.")
+	//
+	//case got > 0:
+	//	kpa.Status.MarkActive()
+	//}
 
 	return nil
 }

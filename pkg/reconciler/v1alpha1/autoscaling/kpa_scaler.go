@@ -129,44 +129,44 @@ func (ks *kpaScaler) Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredS
 	}
 	currentScale := scl.Spec.Replicas
 
-	if desiredScale == 0 {
-		// We should only scale to zero when both of the following conditions are true:
-		//   a) The KPA has been active for atleast the stable window, after which it gets marked inactive
-		//   b) The KPA has been inactive for atleast the grace period
-
-		config := ks.getAutoscalerConfig()
-
-		if kpa.Status.IsActivating() { // Active=Unknown
-			// Don't scale-to-zero during activation
-			desiredScale = ScaleUnknown
-		} else if kpa.Status.IsReady() { // Active=True
-			// Don't scale-to-zero if the KPA is active
-
-			// Only let a revision be scaled to 0 if it's been active for at
-			// least the stable window's time.
-			if kpa.Status.CanMarkInactive(config.StableWindow) {
-				return desiredScale, nil
-			}
-			// Otherwise, scale down to 1 until the idle period elapses
-			desiredScale = 1
-		} else { // Active=False
-			// Don't scale-to-zero if the grace period hasn't elapsed
-			if !kpa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-				return desiredScale, nil
-			}
-		}
-	}
-
-	// Scale from zero. When there are no metrics scale to 1.
-	if currentScale == 0 && desiredScale == -1 {
-		logger.Debugf("Scaling up from 0 to 1")
-		desiredScale = 1
-	}
-
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
-	}
+	//if desiredScale == 0 {
+	//	// We should only scale to zero when both of the following conditions are true:
+	//	//   a) The KPA has been active for atleast the stable window, after which it gets marked inactive
+	//	//   b) The KPA has been inactive for atleast the grace period
+	//
+	//	config := ks.getAutoscalerConfig()
+	//
+	//	if kpa.Status.IsActivating() { // Active=Unknown
+	//		// Don't scale-to-zero during activation
+	//		desiredScale = ScaleUnknown
+	//	} else if kpa.Status.IsReady() { // Active=True
+	//		// Don't scale-to-zero if the KPA is active
+	//
+	//		// Only let a revision be scaled to 0 if it's been active for at
+	//		// least the stable window's time.
+	//		if kpa.Status.CanMarkInactive(config.StableWindow) {
+	//			return desiredScale, nil
+	//		}
+	//		// Otherwise, scale down to 1 until the idle period elapses
+	//		desiredScale = 1
+	//	} else { // Active=False
+	//		// Don't scale-to-zero if the grace period hasn't elapsed
+	//		if !kpa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+	//			return desiredScale, nil
+	//		}
+	//	}
+	//}
+	//
+	//// Scale from zero. When there are no metrics scale to 1.
+	//if currentScale == 0 && desiredScale == -1 {
+	//	logger.Debugf("Scaling up from 0 to 1")
+	//	desiredScale = 1
+	//}
+	//
+	//if desiredScale < 0 {
+	//	logger.Debug("Metrics are not yet being collected.")
+	//	return desiredScale, nil
+	//}
 
 	if newScale := applyBounds(kpa.ScaleBounds())(desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
