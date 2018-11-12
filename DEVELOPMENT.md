@@ -10,21 +10,18 @@ to `Knative Serving`. Also take a look at:
 
 ## Getting started
 
-1. Create [a GitHub account](https://github.com/join)
-1. Setup [GitHub access via
-   SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
-1. Install [requirements](#requirements)
-1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
-1. [Set up a docker repository you can push
-   to](./docs/setting-up-a-docker-registry.md)
-1. Set up your [shell environment](#environment-setup)
-1. [Create and checkout a repo fork](#checkout-your-fork)
-
-Once you meet these requirements, you can [start Knative Serving](#starting-knative-serving)!
+Follow the instructions below to set up your development environment.  Once you
+meet these requirements, you can
+[start Knative Serving](#starting-knative-serving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### Requirements
+### Prerequisites
+
+Start by creating [a GitHub account](https://github.com/join), then setup
+[GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
+
+### Install requirements <a name="requirements"></a>
 
 You must install these tools:
 
@@ -37,7 +34,17 @@ development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
-### Environment setup
+### Create a cluster and a repo
+
+1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). NB:
+   do *not* install Istio or Knative using the instructions in that page, simply
+   create the cluster and come back here. However, if you _did_ install
+   Istio/Knative by mistake, just [clean up](#clean-up) your cluster and try
+   again.
+1. [Set up a docker repository you can push
+   to](./docs/setting-up-a-docker-registry.md)
+
+### Setup your environment <a name="environment-setup"></a>
 
 To [start your environment](./README.md#start-knative) you'll need to set these environment
 variables (we recommend adding them to your `.bashrc`):
@@ -102,7 +109,8 @@ Once you reach this point you are ready to do a full build and deploy as describ
 ## Starting Knative Serving
 
 Once you've [setup your development environment](#getting-started), stand up
-`Knative Serving`:
+`Knative Serving`. Note that if you already installed Knative to your cluster,
+you need to [clean it up](#clean-up) first before following these instructions.
 
 1. [Setup cluster admin](#setup-cluster-admin)
 1. [Deploy istio](#deploy-istio)
