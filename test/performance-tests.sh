@@ -19,11 +19,12 @@
 
 source $(dirname $0)/cluster.sh
 
+readonly USE_MONITORING=true
+
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   # Delete the service now that the test is done
   kubectl delete --ignore-not-found=true -f ${TEST_APP_YAML}
-  uninstall_knative_serving
 }
 
 initialize $@
@@ -35,7 +36,6 @@ set +o errexit
 set +o pipefail
 
 install_knative_serving || fail_test "Knative Serving installation failed"
-create_prometheus || fail_test "Prometheus creation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 create_namespace || fail_test "cannot create test namespace"

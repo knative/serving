@@ -48,8 +48,14 @@ function install_knative_serving() {
   kubectl apply -f "${ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
-  # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
+  if [[ "${USE_MONITORING}" = true ]]; then
+    echo ">> Bringing up Serving with Monitoring"
+    kubectl apply -f "${RELEASE_YAML}" || return 1
+  else
+    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
+    kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
+  fi
+
   if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
     kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
   else
