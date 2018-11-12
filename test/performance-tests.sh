@@ -25,6 +25,7 @@ readonly USE_MONITORING=true
 function teardown() {
   # Delete the service now that the test is done
   kubectl delete --ignore-not-found=true -f ${TEST_APP_YAML}
+  uninstall_knative_serving
 }
 
 initialize $@
