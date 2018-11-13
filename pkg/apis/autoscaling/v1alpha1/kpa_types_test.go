@@ -353,13 +353,13 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionFailedPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
 	checkConditionFailedPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
 
-	// When traffic hits the activator and we scale up the deployment we mark
+	// When traffic hits the kbuffer and we scale up the deployment we mark
 	// ourselves as activating.
 	r.Status.MarkActivating("Activating", "Red team, GO!")
 	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
 	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
 
-	// When the activator successfully forwards traffic to the deployment,
+	// When the kbuffer successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.Status.MarkActive()
 	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)

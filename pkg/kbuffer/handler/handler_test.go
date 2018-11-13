@@ -27,38 +27,38 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/kbuffer/util"
 )
 
 type stubActivator struct {
-	endpoint  activator.Endpoint
+	endpoint  kbuffer.Endpoint
 	namespace string
 	name      string
 }
 
-func newStubActivator(namespace string, name string, server *httptest.Server) activator.Activator {
+func newStubActivator(namespace string, name string, server *httptest.Server) kbuffer.Activator {
 	url, _ := url.Parse(server.URL)
 	host := url.Hostname()
 	port, _ := strconv.Atoi(url.Port())
 
 	return &stubActivator{
-		endpoint:  activator.Endpoint{FQDN: host, Port: int32(port)},
+		endpoint:  kbuffer.Endpoint{FQDN: host, Port: int32(port)},
 		namespace: namespace,
 		name:      name,
 	}
 }
 
-func (fa *stubActivator) ActiveEndpoint(namespace, name string) activator.ActivationResult {
+func (fa *stubActivator) ActiveEndpoint(namespace, name string) kbuffer.ActivationResult {
 	if namespace == fa.namespace && name == fa.name {
-		return activator.ActivationResult{
+		return kbuffer.ActivationResult{
 			Status:            http.StatusOK,
 			Endpoint:          fa.endpoint,
 			ServiceName:       "service-" + fa.name,
 			ConfigurationName: "config-" + fa.name,
 		}
 	}
-	return activator.ActivationResult{
+	return kbuffer.ActivationResult{
 		Status: http.StatusNotFound,
 		Error:  errors.New("not found"),
 	}
@@ -227,7 +227,7 @@ func TestActivationHandler(t *testing.T) {
 					return resp, err
 				}
 				if e.attempts != "" {
-					resp.Header.Add(activator.RequestCountHTTPHeader, e.attempts)
+					resp.Header.Add(kbuffer.RequestCountHTTPHeader, e.attempts)
 				}
 				return resp, err
 			})
@@ -243,16 +243,16 @@ func TestActivationHandler(t *testing.T) {
 			resp := httptest.NewRecorder()
 
 			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
-			req.Header.Set(activator.RevisionHeaderName, e.name)
+			req.Header.Set(kbuffer.RevisionHeaderNamespace, e.namespace)
+			req.Header.Set(kbuffer.RevisionHeaderName, e.name)
 			handler.ServeHTTP(resp, req)
 
 			if resp.Code != e.wantCode {
 				t.Errorf("Unexpected response status. Want %d, got %d", e.wantCode, resp.Code)
 			}
 
-			if resp.Header().Get(activator.RequestCountHTTPHeader) != "" {
-				t.Errorf("Expected the %q header to be filtered", activator.RequestCountHTTPHeader)
+			if resp.Header().Get(kbuffer.RequestCountHTTPHeader) != "" {
+				t.Errorf("Expected the %q header to be filtered", kbuffer.RequestCountHTTPHeader)
 			}
 
 			gotBody, _ := ioutil.ReadAll(resp.Body)

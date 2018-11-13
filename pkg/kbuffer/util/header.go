@@ -20,17 +20,17 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/kbuffer"
 )
 
 var headersToRemove = []string{
-	activator.RequestCountHTTPHeader,
-	activator.RevisionHeaderName,
-	activator.RevisionHeaderNamespace,
+	kbuffer.RequestCountHTTPHeader,
+	kbuffer.RevisionHeaderName,
+	kbuffer.RevisionHeaderNamespace,
 }
 
 // SetupHeaderPruning will cause the http.ReverseProxy
-// to not forward activator headers
+// to not forward kbuffer headers
 func SetupHeaderPruning(p *httputil.ReverseProxy) {
 	// Director is never null - otherwise ServeHTTP panics
 	orig := p.Director

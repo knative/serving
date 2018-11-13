@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package kbuffer
 
 const (
-	// K8sServiceName is the name of the activator service
-	K8sServiceName = "activator-service"
+	// K8sServiceName is the name of the kbuffer service
+	K8sServiceName = "kbuffer-service"
 	// RequestCountHTTPHeader is the header key for number of tries
-	RequestCountHTTPHeader string = "knative-activator-num-retries"
+	RequestCountHTTPHeader string = "knative-kbuffer-num-retries"
 	// RevisionHeaderName is the header key for revision name
 	RevisionHeaderName string = "knative-serving-revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace
