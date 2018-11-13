@@ -17,11 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func (r *PodAutoscaler) SetDefaults() {
 	r.Spec.SetDefaults()
+	if _, ok := r.Annotations[autoscaling.ClassAnnotationKey]; !ok {
+		// Default class to KPA.
+		r.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
 }
 
 func (rs *PodAutoscalerSpec) SetDefaults() {

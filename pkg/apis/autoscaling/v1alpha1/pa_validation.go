@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-
-	"github.com/knative/pkg/apis"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
@@ -73,6 +75,16 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: diff,
+		}
+	}
+	// Verify the PA class does not change.
+	// For backward compatability, we allow a new class where there was none before.
+	if oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]; ok {
+		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
+				Paths:   []string{"annotations", "autoscaling.knative.dev/class"},
+			}
 		}
 	}
 	return nil
