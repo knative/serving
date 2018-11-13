@@ -22,9 +22,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,6 +38,9 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
+			},
 		},
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
@@ -44,6 +49,9 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: "test-ns",
+		},
+		Annotations: map[string]string{
+			networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			*kmeta.NewControllerRef(r),

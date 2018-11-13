@@ -48,6 +48,7 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.TrafficConfig) *v1
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			},
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+			Annotations:     r.ObjectMeta.Annotations,
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
