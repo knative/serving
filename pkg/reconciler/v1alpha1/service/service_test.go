@@ -50,31 +50,37 @@ var (
 	}
 
 	manualConditions = duckv1alpha1.Conditions{{
-		Type:    v1alpha1.ServiceConditionConfigurationsReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  "Manual",
-		Message: "Service is set to Manual, and is not managing underlying resources.",
+		Type:     v1alpha1.ServiceConditionConfigurationsReady,
+		Status:   corev1.ConditionUnknown,
+		Reason:   "Manual",
+		Message:  "Service is set to Manual, and is not managing underlying resources.",
+		Severity: "Error",
 	}, {
-		Type:    v1alpha1.ServiceConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  "Manual",
-		Message: "Service is set to Manual, and is not managing underlying resources.",
+		Type:     v1alpha1.ServiceConditionReady,
+		Status:   corev1.ConditionUnknown,
+		Reason:   "Manual",
+		Message:  "Service is set to Manual, and is not managing underlying resources.",
+		Severity: "Error",
 	}, {
-		Type:    v1alpha1.ServiceConditionRoutesReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  "Manual",
-		Message: "Service is set to Manual, and is not managing underlying resources.",
+		Type:     v1alpha1.ServiceConditionRoutesReady,
+		Status:   corev1.ConditionUnknown,
+		Reason:   "Manual",
+		Message:  "Service is set to Manual, and is not managing underlying resources.",
+		Severity: "Error",
 	}}
 
 	initialConditions = duckv1alpha1.Conditions{{
-		Type:   v1alpha1.ServiceConditionConfigurationsReady,
-		Status: corev1.ConditionUnknown,
+		Type:     v1alpha1.ServiceConditionConfigurationsReady,
+		Status:   corev1.ConditionUnknown,
+		Severity: "Error",
 	}, {
-		Type:   v1alpha1.ServiceConditionReady,
-		Status: corev1.ConditionUnknown,
+		Type:     v1alpha1.ServiceConditionReady,
+		Status:   corev1.ConditionUnknown,
+		Severity: "Error",
 	}, {
-		Type:   v1alpha1.ServiceConditionRoutesReady,
-		Status: corev1.ConditionUnknown,
+		Type:     v1alpha1.ServiceConditionRoutesReady,
+		Status:   corev1.ConditionUnknown,
+		Severity: "Error",
 	}}
 )
 
@@ -275,29 +281,34 @@ func TestReconcile(t *testing.T) {
 			routeWithStatus(mustMakeRoute(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				}),
 		},
 		Key: "foo/all-ready",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("all-ready", "foo", duckv1alpha1.Conditions{{
-				Type:   v1alpha1.ServiceConditionConfigurationsReady,
-				Status: corev1.ConditionTrue,
+				Type:     v1alpha1.ServiceConditionConfigurationsReady,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionReady,
-				Status: corev1.ConditionTrue,
+				Type:     v1alpha1.ServiceConditionReady,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionRoutesReady,
-				Status: corev1.ConditionTrue,
+				Type:     v1alpha1.ServiceConditionRoutesReady,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}}...),
 		}},
 	}, {
@@ -308,32 +319,37 @@ func TestReconcile(t *testing.T) {
 			routeWithStatus(mustMakeRoute(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-						Reason: "Propagate me, please",
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "Propagate me, please",
+						Severity: "Error",
 					}},
 				}),
 		},
 		Key: "foo/config-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("config-fails", "foo", duckv1alpha1.Conditions{{
-				Type:   v1alpha1.ServiceConditionConfigurationsReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Propagate me, please",
+				Type:     v1alpha1.ServiceConditionConfigurationsReady,
+				Status:   corev1.ConditionFalse,
+				Reason:   "Propagate me, please",
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Propagate me, please",
+				Type:     v1alpha1.ServiceConditionReady,
+				Status:   corev1.ConditionFalse,
+				Reason:   "Propagate me, please",
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionRoutesReady,
-				Status: corev1.ConditionTrue,
+				Type:     v1alpha1.ServiceConditionRoutesReady,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}}...),
 		}},
 	}, {
@@ -344,32 +360,37 @@ func TestReconcile(t *testing.T) {
 			routeWithStatus(mustMakeRoute(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.RouteStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionFalse,
-						Reason: "Propagate me, please",
+						Type:     v1alpha1.RouteConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "Propagate me, please",
+						Severity: "Error",
 					}},
 				}),
 			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				}),
 		},
 		Key: "foo/route-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("route-fails", "foo", duckv1alpha1.Conditions{{
-				Type:   v1alpha1.ServiceConditionConfigurationsReady,
-				Status: corev1.ConditionTrue,
+				Type:     v1alpha1.ServiceConditionConfigurationsReady,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Propagate me, please",
+				Type:     v1alpha1.ServiceConditionReady,
+				Status:   corev1.ConditionFalse,
+				Reason:   "Propagate me, please",
+				Severity: "Error",
 			}, {
-				Type:   v1alpha1.ServiceConditionRoutesReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Propagate me, please",
+				Type:     v1alpha1.ServiceConditionRoutesReady,
+				Status:   corev1.ConditionFalse,
+				Reason:   "Propagate me, please",
+				Severity: "Error",
 			}}...),
 		}},
 	}}

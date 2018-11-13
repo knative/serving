@@ -14,8 +14,13 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/knative/pkg/test/logging"
 )
@@ -33,4 +38,20 @@ func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
 // ImagePath is a helper function to prefix image name with repo and suffix with tag
 func ImagePath(name string) string {
 	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
+}
+
+// ListenAndServeGracefully creates an HTTP server, listens on the defined address
+// and handles incoming requests to "/" with the given function.
+// It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
+func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
+	m := http.NewServeMux()
+	m.HandleFunc("/", handler)
+	server := http.Server{Addr: addr, Handler: m}
+
+	go server.ListenAndServe()
+
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	<-sigTermChan
+	server.Shutdown(context.Background())
 }

@@ -144,13 +144,15 @@ func NewControllerWithClock(
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 	gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-		UpdateFunc: controller.PassNew(reconciler.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -200,10 +202,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(ctx, route); err != nil {
+	} else if _, err := c.updateStatus(route); err != nil {
 		logger.Warn("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for route %q: %v", route.Name, err)
+			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
 	return err

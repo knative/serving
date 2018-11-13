@@ -105,20 +105,6 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 	a.expectScale(t, now, 1, true)
 }
 
-func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 0,
-			endConcurrency:   0,
-			durationSeconds:  60,
-			podCount:         2,
-		})
-	a.expectScale(t, now, 1, true)
-}
-
 func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -500,7 +486,6 @@ func (r *mockReporter) Report(m Measurement, v float64) error {
 func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 	stableWindow := 60 * time.Second
 	panicWindow := 6 * time.Second
-	scaleToZeroIdlePeriod := 4*time.Minute + 30*time.Second
 	scaleToZeroGracePeriod := 30 * time.Second
 	config := &Config{
 		ContainerConcurrencyTargetPercentage: 1.0, // targeting 100% makes the test easier to read
@@ -508,8 +493,6 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		MaxScaleUpRate:                       10.0,
 		StableWindow:                         stableWindow,
 		PanicWindow:                          panicWindow,
-		ScaleToZeroThreshold:                 scaleToZeroIdlePeriod + scaleToZeroGracePeriod,
-		ScaleToZeroIdlePeriod:                scaleToZeroIdlePeriod,
 		ScaleToZeroGracePeriod:               scaleToZeroGracePeriod,
 	}
 

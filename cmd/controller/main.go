@@ -21,19 +21,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-
-	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
-
-	"github.com/knative/serving/pkg/system"
-
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -41,20 +34,25 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (
 	threadsPerController = 2
-	logLevelKey          = "controller"
+	component            = "controller"
 )
 
 var (
@@ -72,7 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -188,7 +186,7 @@ func main() {
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)

@@ -24,9 +24,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/knative/pkg/kmeta"
 )
 
 // New returns an implementation of Interface that lets a Reconciler
@@ -104,13 +105,7 @@ func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
 	return nil
 }
 
-type accessor interface {
-	GroupVersionKind() schema.GroupVersionKind
-	GetNamespace() string
-	GetName() string
-}
-
-func objectReference(item accessor) corev1.ObjectReference {
+func objectReference(item kmeta.Accessor) corev1.ObjectReference {
 	gvk := item.GroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	return corev1.ObjectReference{
@@ -123,8 +118,8 @@ func objectReference(item accessor) corev1.ObjectReference {
 
 // OnChanged implements Interface.
 func (i *impl) OnChanged(obj interface{}) {
-	item, ok := obj.(accessor)
-	if !ok {
+	item, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
 		// TODO(mattmoor): We should consider logging here.
 		return
 	}

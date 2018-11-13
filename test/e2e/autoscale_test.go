@@ -40,7 +40,8 @@ const (
 )
 
 var (
-	scaleToZeroThreshold time.Duration
+	stableWindow     time.Duration
+	scaleToZeroGrace time.Duration
 )
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
@@ -142,9 +143,13 @@ func setup(t *testing.T) *testContext {
 	if err != nil {
 		t.Fatalf("Unable to get autoscaler config map: %v", err)
 	}
-	scaleToZeroThreshold, err = time.ParseDuration(configMap.Data["scale-to-zero-threshold"])
+	scaleToZeroGrace, err = time.ParseDuration(configMap.Data["scale-to-zero-grace-period"])
 	if err != nil {
-		t.Fatalf("Unable to parse scale-to-zero-threshold as duration: %v", err)
+		t.Fatalf("Unable to parse scale-to-zero-grace as duration: %v", err)
+	}
+	stableWindow, err = time.ParseDuration(configMap.Data["stable-window"])
+	if err != nil {
+		t.Fatalf("Unable to parse stable-window as duration: %v", err)
 	}
 
 	imagePath := test.ImagePath("autoscale")
@@ -173,8 +178,8 @@ func setup(t *testing.T) *testContext {
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
-	deploymentName :=
-		config.Status.LatestCreatedRevisionName + "-deployment"
+	names.Revision = config.Status.LatestCreatedRevisionName
+	deploymentName := names.Revision + "-deployment"
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
@@ -232,7 +237,7 @@ func assertScaleDown(ctx *testContext) {
 		ctx.deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
-		scaleToZeroThreshold+2*time.Minute)
+		scaleToZeroGrace+stableWindow+2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
 	}
@@ -253,6 +258,12 @@ func assertScaleDown(ctx *testContext) {
 		"WaitForAvailablePods")
 	if err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
+	}
+
+	time.Sleep(10 * time.Second)
+	ctx.logger.Info("The Revision should remain ready after scaling to zero.")
+	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
+		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
 	ctx.logger.Infof("Scaled down.")

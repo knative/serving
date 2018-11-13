@@ -64,6 +64,7 @@ var (
 	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
+	containerConcurrency  int
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
 	statSink              *websocket.ManagedConnection
@@ -73,9 +74,7 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	health *healthServer = &healthServer{alive: true}
-
-	containerConcurrency = flag.Int("containerConcurrency", 0, "")
+	health = &healthServer{alive: true}
 )
 
 func initEnv() {
@@ -84,6 +83,7 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
@@ -238,15 +238,15 @@ func main() {
 	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
-	if *containerConcurrency > 0 {
+	if containerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency but at least 10 to
 		// allow the autoscaler to get a strong enough signal.
-		queueDepth := *containerConcurrency
+		queueDepth := containerConcurrency
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		breaker = queue.NewBreaker(int32(queueDepth), int32(*containerConcurrency))
-		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, *containerConcurrency)
+		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency))
+		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 
 	// Open a websocket connection to the autoscaler
@@ -272,25 +272,29 @@ func main() {
 		http.HandlerFunc(handler),
 	)
 
-	// Add a SIGTERM handler to gracefully shutdown the servers during
-	// pod termination.
+	go server.ListenAndServe()
+	go setupAdminHandlers(adminServer)
+
+	// Shutdown logic and signal handling
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
-	go func() {
-		<-sigTermChan
-		// Calling server.Shutdown() allows pending requests to
-		// complete, while no new work is accepted.
+	// Blocks until we actually receive a TERM signal.
+	<-sigTermChan
+	// Calling server.Shutdown() allows pending requests to
+	// complete, while no new work is accepted.
+	logger.Debug("Received shutdown signal, attempting to gracefully shutdown servers.")
+	if err := server.Shutdown(context.Background()); err != nil {
+		logger.Error("Failed to shutdown proxy-server", zap.Error(err))
+	} else {
+		logger.Debug("Proxy server shutdown successfully.")
+	}
+	if err := adminServer.Shutdown(context.Background()); err != nil {
+		logger.Error("Failed to shutdown admin-server", zap.Error(err))
+	}
 
-		server.Shutdown(context.Background())
-		adminServer.Shutdown(context.Background())
-
-		if statSink != nil {
-			statSink.Close()
+	if statSink != nil {
+		if err := statSink.Close(); err != nil {
+			logger.Error("Failed to shutdown websocket connection", zap.Error(err))
 		}
-
-		os.Exit(0)
-	}()
-
-	go server.ListenAndServe()
-	setupAdminHandlers(adminServer)
+	}
 }

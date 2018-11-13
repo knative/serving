@@ -38,6 +38,7 @@ import (
 	"github.com/knative/serving/pkg/gc"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,8 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (
@@ -273,7 +272,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// hooks here. Each hook tests for a specific event.
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",

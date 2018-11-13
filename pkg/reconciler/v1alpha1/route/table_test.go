@@ -32,7 +32,6 @@ import (
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
@@ -66,18 +65,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionUnknown,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -95,18 +97,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "permanently-failed" does not have any ready Revision.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "permanently-failed" does not have any ready Revision.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "permanently-failed" does not have any ready Revision.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "permanently-failed" does not have any ready Revision.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -128,18 +133,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionUnknown,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Reason:   "RevisionMissing",
+					Message:  `Configuration "not-ready" is waiting for a Revision to become ready.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -177,14 +185,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "becomes-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -229,14 +240,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "becomes-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -284,14 +298,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "create-svc-failure.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "create-svc-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -339,14 +356,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "ingress-create-failure.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "ingress-create-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -354,7 +374,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/ingress-create-failure",
+		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -364,14 +384,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "steady-state.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "steady-state.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -417,14 +440,17 @@ func TestReconcile(t *testing.T) {
 					DomainInternal: "different-domain.default.svc.cluster.local",
 					Address:        &duckv1alpha1.Addressable{Hostname: "different-domain.default.svc.cluster.local"},
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}, {
-						Type:   v1alpha1.RouteConditionIngressReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionIngressReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}, {
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 					Traffic: []v1alpha1.TrafficTarget{{
 						RevisionName: "config-00001",
@@ -468,14 +494,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "new-latest-created.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-created.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -523,14 +552,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					ConfigurationName: "config",
@@ -592,14 +624,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "new-latest-ready.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00002",
@@ -607,7 +642,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/new-latest-ready",
+		Key:                     "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "failure updating cluster ingress",
@@ -622,14 +657,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "update-ci-failure.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "update-ci-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -689,14 +727,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "update-ci-failure.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "update-ci-failure.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00002",
@@ -704,7 +745,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/update-ci-failure",
+		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
@@ -714,14 +755,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "svc-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -771,14 +815,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "svc-mutation.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "svc-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -826,14 +873,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "cluster-ip.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "cluster-ip.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -879,14 +929,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "external-name.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "external-name.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -931,14 +984,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "ingress-mutation.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "ingress-mutation.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -988,7 +1044,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key: "default/ingress-mutation",
+		Key:                     "default/ingress-mutation",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
@@ -999,14 +1055,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "change-configs.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "change-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					ConfigurationName: "oldconfig",
@@ -1070,14 +1129,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "change-configs.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "change-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "newconfig-00001",
@@ -1094,18 +1156,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "config-missing", "not-found", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Configuration "not-found" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionFalse,
+					Reason:   "ConfigurationMissing",
+					Message:  `Configuration "not-found" referenced in traffic not found.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Configuration "not-found" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   "ConfigurationMissing",
+					Message:  `Configuration "not-found" referenced in traffic not found.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -1119,18 +1184,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "not-found" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Revision "not-found" referenced in traffic not found.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "not-found" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Revision "not-found" referenced in traffic not found.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -1144,18 +1212,21 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
 				Conditions: duckv1alpha1.Conditions{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "config-00001" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Revision "config-00001" referenced in traffic not found.`,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "config-00001" referenced in traffic not found.`,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   "RevisionMissing",
+					Message:  `Revision "config-00001" referenced in traffic not found.`,
+					Severity: "Error",
 				}},
 			}),
 		}},
@@ -1200,14 +1271,17 @@ func TestReconcile(t *testing.T) {
 					DomainInternal: "pinned-becomes-ready.default.svc.cluster.local",
 					Address:        &duckv1alpha1.Addressable{Hostname: "pinned-becomes-ready.default.svc.cluster.local"},
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}, {
-						Type:   v1alpha1.RouteConditionIngressReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.RouteConditionIngressReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}, {
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.RouteConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 					Traffic: []v1alpha1.TrafficTarget{{
 						// TODO(#1495): This is established thru labels instead of OwnerReferences.
@@ -1217,7 +1291,7 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 		}},
-		Key: "default/pinned-becomes-ready",
+		Key:                     "default/pinned-becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
@@ -1284,14 +1358,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "named-traffic-split.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "named-traffic-split.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "blue-00001",
@@ -1308,7 +1385,7 @@ func TestReconcile(t *testing.T) {
 				Percent:           50,
 			}),
 		}},
-		Key: "default/named-traffic-split",
+		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "same revision targets",
@@ -1380,14 +1457,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "same-revision-targets.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "same-revision-targets.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					Name:         "gray",
@@ -1408,7 +1488,7 @@ func TestReconcile(t *testing.T) {
 				Percent:      50,
 			}),
 		}},
-		Key: "default/same-revision-targets",
+		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
@@ -1419,14 +1499,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "switch-configs.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "switch-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					ConfigurationName: "blue",
@@ -1487,14 +1570,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "switch-configs.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "switch-configs.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "green-00001",
@@ -1502,7 +1588,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		Key: "default/switch-configs",
+		Key:                     "default/switch-configs",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
@@ -1512,14 +1598,17 @@ func TestReconcile(t *testing.T) {
 				DomainInternal: "stale-lastpinned.default.svc.cluster.local",
 				Address:        &duckv1alpha1.Addressable{Hostname: "stale-lastpinned.default.svc.cluster.local"},
 				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionIngressReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionIngressReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
+					Type:     v1alpha1.RouteConditionReady,
+					Status:   corev1.ConditionTrue,
+					Severity: "Error",
 				}},
 				Traffic: []v1alpha1.TrafficTarget{{
 					RevisionName: "config-00001",
@@ -1699,7 +1788,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: resourcenames.K8sGatewayServiceFullname},
+		{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
 	})
 
 	return status

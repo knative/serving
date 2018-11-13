@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/logging"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	pa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -55,11 +55,11 @@ func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revisio
 	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
 
-func (c *Reconciler) createKPA(ctx context.Context, pa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+func (c *Reconciler) createKPA(ctx context.Context, pa *pa.PodAutoscaler) (*pa.PodAutoscaler, error) {
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
 }
 
-func (c *Reconciler) updateKPA(ctx context.Context, pa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+func (c *Reconciler) updateKPA(ctx context.Context, pa *pa.PodAutoscaler) (*pa.PodAutoscaler, error) {
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(pa)
 }
 

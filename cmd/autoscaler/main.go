@@ -52,7 +52,6 @@ const (
 	controllerThreads = 2
 	statsServerAddr   = ":8080"
 	statsBufferLen    = 1000
-	logLevelKey       = "autoscaler"
 	component         = "autoscaler"
 )
 
@@ -74,7 +73,7 @@ func main() {
 	}
 
 	var atomicLevel zap.AtomicLevel
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -92,7 +91,7 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	// This is based on how Kubernetes sets up its scale client based on discovery:

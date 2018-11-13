@@ -50,4 +50,10 @@ function integration_tests() {
   ./test/e2e-tests.sh ${options}
 }
 
+function upgrade_tests() {
+  local options=""
+  (( EMIT_METRICS )) && options="--emit-metrics"
+  ./test/upgrade-tests.sh ${options}
+}
+
 main $@

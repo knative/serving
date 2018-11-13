@@ -166,12 +166,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else {
-		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, pa))
-		if _, err := c.updateStatus(pa); err != nil {
-			logger.Warn("Failed to update pa status", zap.Error(err))
-			return err
-		}
+	} else if _, err := c.updateStatus(pa); err != nil {
+		logger.Warn("Failed to update kpa status", zap.Error(err))
+		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for PA %q: %v", pa.Name, err)
+		return err
 	}
 	return err
 }
@@ -255,15 +254,14 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(pa.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := pa.DeepCopy()
-		existing.Status = desired.Status
-
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(existing)
-		//	return prClient.UpdateStatus(newKPA)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(pa.Status, desired.Status) {
+		return pa, nil
 	}
-	return pa, nil
+	// Don't modify the informers copy
+	existing := pa.DeepCopy()
+	existing.Status = desired.Status
+
+	// TODO: for CRD there's no updatestatus, so use normal update
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(existing)
 }

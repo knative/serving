@@ -30,7 +30,6 @@ var configMap = map[string]string{"max-scale-up-rate": "1",
 	"container-concurrency-target-default":    "10.0",
 	"stable-window":                           "4s",
 	"panic-window":                            "5s",
-	"scale-to-zero-threshold":                 "60s", // min
 	"scale-to-zero-grace-period":              "30s", // min
 	"tick-interval":                           "8s"}
 

@@ -249,12 +249,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else {
-		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
-		if _, err := c.updateStatus(rev); err != nil {
-			logger.Warn("Failed to update revision status", zap.Error(err))
-			return err
-		}
+	} else if _, err := c.updateStatus(rev); err != nil {
+		logger.Warn("Failed to update revision status", zap.Error(err))
+		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Revision %q: %v", rev.Name, err)
+		return err
 	}
 	return err
 }
@@ -262,6 +261,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
 	buildRef := rev.BuildRef()
 	if buildRef == nil {
+		rev.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   duckv1alpha1.ConditionSucceeded,
+				Status: corev1.ConditionTrue,
+				Reason: "NoBuild",
+			}},
+		})
 		return nil
 	}
 
@@ -271,7 +277,6 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
 		return err
 	}
-	rev.Status.InitializeBuildCondition()
 
 	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
 	_, lister, err := c.buildInformerFactory.Get(gvr)
@@ -405,15 +410,13 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(rev.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := rev.DeepCopy()
-		existing.Status = desired.Status
-
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
-		//	return prClient.UpdateStatus(newRev)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(rev.Status, desired.Status) {
+		return rev, nil
 	}
-	return rev, nil
+	// Don't modify the informers copy
+	existing := rev.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update
+	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
 }

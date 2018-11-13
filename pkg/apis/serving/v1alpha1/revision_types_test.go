@@ -278,8 +278,9 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &duckv1alpha1.Condition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
+		Type:     RevisionConditionBuildSucceeded,
+		Status:   corev1.ConditionTrue,
+		Severity: duckv1alpha1.ConditionSeverityError,
 	}
 
 	rs.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
@@ -300,7 +301,6 @@ func TestGetSetCondition(t *testing.T) {
 func TestTypicalFlowWithBuild(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -394,19 +394,11 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
-
-	// Or this.
-	r.Status.InitializeBuildCondition()
-	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
 func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -509,12 +501,18 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
 
 	// Enter a Ready state.
 	r.Status.MarkActive()
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+			Reason: "NoBuild",
+		}},
+	})
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
@@ -528,9 +526,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionFailedRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
 		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkInactive = %v, want %v", got, want)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From an Inactive state, start to activate the revision.
 	want = "Activating"
@@ -540,9 +536,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
 		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkInactive = %v, want %v", got, want)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From the activating state, simulate the transition back to readiness.
 	r.Status.MarkActive()
@@ -769,7 +763,7 @@ func TestRevisionAnnotations(t *testing.T) {
 			rev := Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations,
-					Labels: tc.labels,
+					Labels:      tc.labels,
 				},
 			}
 
