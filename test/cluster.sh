@@ -49,7 +49,7 @@ function install_knative_serving() {
 
   echo ">> Bringing up Serving"
   if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
-  # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
+    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
     kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
   else
     kubectl apply -f "${RELEASE_YAML_OVERRIDE}" || return 1
