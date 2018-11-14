@@ -22,6 +22,14 @@ import (
 	"time"
 )
 
+const (
+	// Number of seconds the /quitquitquit handler should wait before
+	// returning.  The purpose is to keep the container alive a little
+	// bit longer, that it doesn't go away until the pod is truly
+	// removed from service.
+	quitSleepSecs = 20
+)
+
 // HealthServer registers whether a PreStop hook has been called.
 type HealthServer struct {
 	alive bool
@@ -45,7 +53,7 @@ func (h *HealthServer) Kill() {
 // HealthHandler is used for readinessProbe/livenessCheck of
 // queue-proxy.
 func (h *HealthServer) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	if h.isAlive() {
+	if h.IsAlive() {
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "alive: true")
 	} else {
@@ -64,7 +72,7 @@ func (h *HealthServer) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	// if the pod removal (from service) isn't yet effective, the
 	// readinessCheck will still prevent traffic to be routed to this
 	// pod.
-	h.kill()
+	h.Kill()
 	// However, since both readinessCheck and pod removal from service
 	// is eventually consistent, we add here a small delay to have the
 	// container stay alive a little bit longer after.  We still have
