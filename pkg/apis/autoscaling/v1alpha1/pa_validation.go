@@ -28,7 +28,11 @@ import (
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
-	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").Also(rt.Spec.Validate().ViaField("spec"))
+	errs := servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").Also(rt.Spec.Validate().ViaField("spec"))
+	if err := rt.validateMetric(); err != nil {
+		errs = errs.Also(err)
+	}
+	return errs
 }
 
 func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
@@ -62,6 +66,33 @@ func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.Fiel
 		errs = errs.Also(apis.ErrMissingField("apiVersion"))
 	}
 	return errs
+}
+
+func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
+	if metric, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
+		switch pa.Class() {
+		case autoscaling.KPA:
+			switch metric {
+			case autoscaling.Concurrency:
+				return nil
+			}
+		case autoscaling.HPA:
+			switch metric {
+			case autoscaling.CPU:
+				return nil
+			}
+			// TODO: implement OPS autoscaling.
+		default:
+			// Leave other classes of PodAutoscaler alone.
+			return nil
+		}
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
+				metric, pa.Class()),
+			Paths: []string{"annotations", "autoscaling.knative.dev/metric"},
+		}
+	}
+	return nil
 }
 
 func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.FieldError {

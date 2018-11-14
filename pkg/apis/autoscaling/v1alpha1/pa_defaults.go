@@ -27,6 +27,17 @@ func (r *PodAutoscaler) SetDefaults() {
 		// Default class to KPA.
 		r.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
+	// Default metric per class
+	switch r.Class() {
+	case autoscaling.KPA:
+		if _, ok := r.Annotations[autoscaling.MetricAnnotationKey]; !ok {
+			r.Annotations[autoscaling.MetricAnnotationKey] = autoscaling.Concurrency
+		}
+	case autoscaling.HPA:
+		if _, ok := r.Annotations[autoscaling.MetricAnnotationKey]; !ok {
+			r.Annotations[autoscaling.MetricAnnotationKey] = autoscaling.CPU
+		}
+	}
 }
 
 func (rs *PodAutoscalerSpec) SetDefaults() {
