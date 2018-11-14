@@ -45,5 +45,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler 
 	if min > 0 {
 		hpa.Spec.MinReplicas = &min
 	}
+	if target, ok := pa.MetricTarget(); ok && target > 0 {
+		hpa.Spec.TargetCPUUtilizationPercentage = &target
+	}
 	return hpa
 }

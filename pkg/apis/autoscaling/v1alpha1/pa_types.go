@@ -145,6 +145,15 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	return
 }
 
+func (pa *PodAutoscaler) MetricTarget() (target int32, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
+		if i, err := strconv.ParseInt(s, 10, 32); err != nil {
+			return int32(i), true
+		}
+	}
+	return 0, false
+}
+
 // IsReady looks at the conditions and if the Status has a condition
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (rs *PodAutoscalerStatus) IsReady() bool {

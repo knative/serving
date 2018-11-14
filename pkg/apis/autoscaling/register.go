@@ -55,7 +55,7 @@ const (
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
 	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilizationa
-	TargetAnnotationKey = GroupName + "target"
+	TargetAnnotationKey = GroupName + "/target"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
