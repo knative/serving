@@ -211,7 +211,7 @@ metadata:
   name: myservice-a1e34  # system generated
   namespace: default
   labels:
-    knative.dev/configuration: ...  # name of the Configuration automatically filled in 
+    knative.dev/configuration: ...  # name of the Configuration automatically filled in
     knative.dev/service: ...  # name of the Service automatically filled in
     knative.dev/configurationGeneration: ... # generation of configuration that created this Revision
   # system generated meta
@@ -326,8 +326,9 @@ metadata:
   ...
 
 # spec contains one of several possible rollout styles
-spec:  # One of "runLatest" or "pinned"
-  # Example, only one of runLatest or pinned can be set in practice.
+spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
+
+  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   runLatest:
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
@@ -349,7 +350,7 @@ spec:  # One of "runLatest" or "pinned"
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
 
-  # Example, only one of runLatest or pinned can be set in practice.
+  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   pinned:
     revisionName: myservice-00013  # Auto-generated revision name
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
@@ -372,6 +373,36 @@ spec:  # One of "runLatest" or "pinned"
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
 
+  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
+  release:
+    # Ordered list of 1 or 2 revisions. First revision is traffic target
+    # "current" and second revision is traffic target "candidate".
+    revisions: ["myservice-00013", "myservice-00015"]
+    rolloutPercent: 50 # Percent [0-99] of traffic to route to "candidate" revision
+    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
+      # +optional. The build resource to instantiate to produce the container.
+      build: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      containerConcurrency: ... # Optional
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+
+  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
+  # Manual has no fields. It enables direct access to modify a previously created
+  # Route and Configuration
+  manual: {}
 status:
   # This information is copied from the owned Configuration and Route.
 
