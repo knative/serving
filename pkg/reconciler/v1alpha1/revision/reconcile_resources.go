@@ -95,16 +95,11 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	kpaName := resourcenames.KPA(rev)
 	logger := logging.FromContext(ctx)
 
-	desiredPa := resources.MakeKPA(rev)
-
-	original, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
-	// Don't modify the informer's copy.
-	pa := original.DeepCopy()
-
+	kpa, getKPAErr := c.kpaLister.PodAutoscalers(ns).Get(kpaName)
 	if apierrs.IsNotFound(getKPAErr) {
 		// KPA does not exist. Create it.
 		var err error
-		pa, err = c.createKPA(ctx, desiredPa)
+		kpa, err = c.createKPA(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
 			return err
@@ -113,22 +108,10 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if getKPAErr != nil {
 		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
 		return getKPAErr
-	} else {
-		// Preserve Generation
-		desiredPa.Spec.Generation = pa.Spec.Generation
-		if !equality.Semantic.DeepEqual(desiredPa.Spec, pa.Spec) || !equality.Semantic.DeepEqual(desiredPa.Annotations, pa.Annotations) {
-			logger.Info("Updating PA %q", desiredPa.Name)
-			pa.Spec = desiredPa.Spec
-			pa.Annotations = desiredPa.Annotations
-			if _, err := c.updateKPA(ctx, pa); err != nil {
-				logger.Errorf("Error updating PA %q: %v", pa.Name, err)
-				return err
-			}
-		}
 	}
 
 	// Reflect the KPA status in our own.
-	cond := pa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
+	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
 	switch {
 	case cond == nil:
 		rev.Status.MarkActivating("Deploying", "")
