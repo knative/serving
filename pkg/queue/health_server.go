@@ -32,7 +32,7 @@ const (
 
 // HealthServer registers whether a PreStop hook has been called.
 type HealthServer struct {
-	alive bool
+	Alive bool
 	mutex sync.RWMutex
 }
 
@@ -40,13 +40,13 @@ type HealthServer struct {
 func (h *HealthServer) IsAlive() bool {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
-	return h.alive
+	return h.Alive
 }
 
 // Kill marks that a PreStop hook has been called.
 func (h *HealthServer) Kill() {
 	h.mutex.Lock()
-	h.alive = false
+	h.Alive = false
 	h.mutex.Unlock()
 }
 

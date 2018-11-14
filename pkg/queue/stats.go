@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/mrmcmuffinz/serving/pkg/queue"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -120,9 +119,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 				if !health.IsAlive() {
 					lameDuck = 1
 				}
-				reporter.Report(queue.LameDuckM, lameDuck)
-				reporter.Report(queue.RequestCountM, requestCount)
-				reporter.Report(queue.AverageConcurrentRequestsM, avg)
+				reporter.Report(lameDuck, requestCount, avg)
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat

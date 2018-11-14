@@ -31,9 +31,9 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
-	kbufferutil "github.com/knative/serving/pkg/kbuffer/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
+	kbufferutil "github.com/knative/serving/pkg/kbuffer/util"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
@@ -50,11 +50,6 @@ const (
 	statReportingQueueLength = 10
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
-	// Number of seconds the /quitquitquit handler should wait before
-	// returning.  The purpose is to keep the container alive a little
-	// bit longer, that it doesn't go away until the pod is truly
-	// removed from service.
-	quitSleepSecs = 20
 )
 
 var (
@@ -74,7 +69,7 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	health = &queue.healthServer{alive: true}
+	health = &queue.HealthServer{Alive: true}
 )
 
 func initEnv() {
