@@ -65,12 +65,10 @@ var (
 		},
 	}
 
-	// Add our own PreStop hook here, which should do two things:
-	// - make the container fails the next readinessCheck to avoid
-	//   having more traffic, and
-	// - add a small delay so that the container stays alive a little
-	//   bit longer in case stoppage of traffic is not effective
-	//   immediately.
+	// This PreStop hook is actually calling an endpoint on the queue-proxy
+	// because of the way PreStop hooks are called by kubelet. We use this
+	// to block the user-container from exiting before the queue-proxy is ready
+	// to exit so we can guarantee that there are no more requests in flight.
 	userLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{

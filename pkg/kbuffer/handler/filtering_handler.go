@@ -16,19 +16,19 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/kbuffer"
 )
 
 // FilteringHandler will filter requests sent by the
-// activator itself.
+// kbuffer itself.
 type FilteringHandler struct {
 	NextHandler http.Handler
 }
 
 func (h *FilteringHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// If this header is set the request was sent by the activator itself, thus
+	// If this header is set the request was sent by the kbuffer itself, thus
 	// we immediately return a 503 to trigger a retry.
-	if r.Header.Get(activator.RequestCountHTTPHeader) != "" {
+	if r.Header.Get(kbuffer.RequestCountHTTPHeader) != "" {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

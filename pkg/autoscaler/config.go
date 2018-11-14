@@ -48,10 +48,7 @@ type Config struct {
 	PanicWindow    time.Duration
 	TickInterval   time.Duration
 
-	ScaleToZeroThreshold   time.Duration
 	ScaleToZeroGracePeriod time.Duration
-	// This is computed by ScaleToZeroThreshold - ScaleToZeroGracePeriod
-	ScaleToZeroIdlePeriod time.Duration
 }
 
 // TargetConcurrency calculates the target concurrency for a given container-concurrency
@@ -129,13 +126,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "panic-window",
 		field: &lc.PanicWindow,
 	}, {
-		key:   "scale-to-zero-threshold",
-		field: &lc.ScaleToZeroThreshold,
-	}, {
 		key:          "scale-to-zero-grace-period",
 		field:        &lc.ScaleToZeroGracePeriod,
 		optional:     true,
-		defaultValue: 2 * time.Minute,
+		defaultValue: 30 * time.Second,
 	}, {
 		key:   "tick-interval",
 		field: &lc.TickInterval,
@@ -155,12 +149,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	if lc.ScaleToZeroGracePeriod < 30*time.Second {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
-	}
-
-	lc.ScaleToZeroIdlePeriod = lc.ScaleToZeroThreshold - lc.ScaleToZeroGracePeriod
-	if lc.ScaleToZeroIdlePeriod < 30*time.Second {
-		return nil, fmt.Errorf("scale-to-zero-threshold minus scale-to-zero-grace-period must be at least 30s, got %v (%v - %v)",
-			lc.ScaleToZeroIdlePeriod, lc.ScaleToZeroThreshold, lc.ScaleToZeroGracePeriod)
 	}
 
 	return lc, nil

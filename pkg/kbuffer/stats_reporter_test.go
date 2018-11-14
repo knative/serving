@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package kbuffer
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
-func TestActivatorReporter(t *testing.T) {
+func TestKBufferReporter(t *testing.T) {
 	r := &Reporter{}
 
 	if err := r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 1); err == nil {

@@ -33,7 +33,7 @@ import (
 
 const (
 	appYaml              = "../test_images/helloworld/helloworld.yaml"
-	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
+	yamlImagePlaceholder = "github.com/knative/serving/test/test_images/helloworld"
 	namespacePlaceholder = "default"
 	ingressTimeout       = 5 * time.Minute
 	servingTimeout       = 2 * time.Minute

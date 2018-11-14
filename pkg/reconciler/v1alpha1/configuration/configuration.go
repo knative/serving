@@ -25,6 +25,14 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,15 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -139,6 +138,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(config); err != nil {
 		logger.Warn("Failed to update configuration status", zap.Error(err))
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Configuration %q: %v", config.Name, err)
 		return err
 	}
 	return err
@@ -266,19 +267,19 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	u, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
+	config, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(u.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := u.DeepCopy()
-		existing.Status = desired.Status
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
-		//	return configClient.UpdateStatus(newu)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(config.Status, desired.Status) {
+		return config, nil
 	}
-	return u, nil
+	// Don't modify the informers copy
+	existing := config.DeepCopy()
+	existing.Status = desired.Status
+	// TODO: for CRD there's no updatestatus, so use normal update
+	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
 }
 
 func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {

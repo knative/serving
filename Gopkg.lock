@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:b42dafab6bf401d145cdac6e05ce7da87b1925ee2fc79cafc0e9485cb2bb4497"
+  digest = "1:4c3d18d35d1dda79ada2a14cdee30308ce1e93b51e8e28a8e15492f5dbe3a155"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -435,12 +435,11 @@
     "test/logging",
     "test/spoof",
     "test/zipkin",
-    "testing",
     "tracker",
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "088e3f7faf9d7ed0122937f66289cc050d0a78b0"
+  revision = "4b704fa7948ad9ae8ec90d1cd5b4a34516b252ea"
 
 [[projects]]
   branch = "master"
@@ -1253,7 +1252,6 @@
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
-    "github.com/knative/pkg/testing",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",

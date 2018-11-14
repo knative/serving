@@ -105,20 +105,6 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 	a.expectScale(t, now, 1, true)
 }
 
-func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 0,
-			endConcurrency:   0,
-			durationSeconds:  60,
-			podCount:         2,
-		})
-	a.expectScale(t, now, 1, true)
-}
-
 func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -347,13 +333,13 @@ func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
-func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
+func TestAutoscaler_KBuffer_CausesInstantScale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := time.Now()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName,
+		PodName:                   KBufferPodName,
 		RequestCount:              0,
 		AverageConcurrentRequests: 100.0,
 	})
@@ -361,19 +347,19 @@ func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
-func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
+func TestAutoscaler_KBuffer_MultipleInstancesAreAggregated(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := time.Now()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
+		PodName:                   KBufferPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
+		PodName:                   KBufferPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
@@ -381,7 +367,7 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
-func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
+func TestAutoscaler_KBuffer_IsIgnored(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := a.recordLinearSeries(
@@ -398,18 +384,18 @@ func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
 
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
+		PodName:                   KBufferPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 1000.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
+		PodName:                   KBufferPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 1000.0,
 	})
 
-	// Scale should not change as the activator metric should
+	// Scale should not change as the kbuffer metric should
 	// be ignored
 	a.expectScale(t, now, 10, true)
 }
@@ -500,7 +486,6 @@ func (r *mockReporter) Report(m Measurement, v float64) error {
 func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 	stableWindow := 60 * time.Second
 	panicWindow := 6 * time.Second
-	scaleToZeroIdlePeriod := 4*time.Minute + 30*time.Second
 	scaleToZeroGracePeriod := 30 * time.Second
 	config := &Config{
 		ContainerConcurrencyTargetPercentage: 1.0, // targeting 100% makes the test easier to read
@@ -508,8 +493,6 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		MaxScaleUpRate:                       10.0,
 		StableWindow:                         stableWindow,
 		PanicWindow:                          panicWindow,
-		ScaleToZeroThreshold:                 scaleToZeroIdlePeriod + scaleToZeroGracePeriod,
-		ScaleToZeroIdlePeriod:                scaleToZeroIdlePeriod,
 		ScaleToZeroGracePeriod:               scaleToZeroGracePeriod,
 	}
 

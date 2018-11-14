@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/kbuffer/util"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
 )
@@ -30,15 +30,15 @@ import (
 // ActivationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type ActivationHandler struct {
-	Activator activator.Activator
+	Activator kbuffer.Activator
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
-	Reporter  activator.StatsReporter
+	Reporter  kbuffer.StatsReporter
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
-	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
+	namespace := pkghttp.LastHeaderValue(r.Header, kbuffer.RevisionHeaderNamespace)
+	name := pkghttp.LastHeaderValue(r.Header, kbuffer.RevisionHeaderName)
 
 	start := time.Now()
 	capture := &statusCapture{
@@ -63,18 +63,18 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	attempts := int(1) // one attempt is always needed
 	proxy.ModifyResponse = func(r *http.Response) error {
-		if numTries := r.Header.Get(activator.RequestCountHTTPHeader); numTries != "" {
+		if numTries := r.Header.Get(kbuffer.RequestCountHTTPHeader); numTries != "" {
 			if count, err := strconv.Atoi(numTries); err == nil {
 				a.Logger.Infof("got %d attempts", count)
 				attempts = count
 			} else {
-				a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.RequestCountHTTPHeader, err)
+				a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", kbuffer.RequestCountHTTPHeader, err)
 			}
 		}
 
 		// We don't return this header to the user. It's only used to transport
-		// state in the activator.
-		r.Header.Del(activator.RequestCountHTTPHeader)
+		// state in the kbuffer.
+		r.Header.Del(kbuffer.RequestCountHTTPHeader)
 
 		return nil
 	}

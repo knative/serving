@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/kbuffer"
 )
 
 func TestRequestEventHandler(t *testing.T) {
@@ -36,8 +36,8 @@ func TestRequestEventHandler(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
-	req.Header.Add(activator.RevisionHeaderNamespace, namespace)
-	req.Header.Add(activator.RevisionHeaderName, revision)
+	req.Header.Add(kbuffer.RevisionHeaderNamespace, namespace)
+	req.Header.Add(kbuffer.RevisionHeaderName, revision)
 
 	handler.ServeHTTP(resp, req)
 

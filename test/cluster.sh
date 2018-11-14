@@ -48,9 +48,8 @@ function install_knative_serving() {
   kubectl apply -f "${ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
-  # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
   if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
+    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
     kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
   else
     kubectl apply -f "${RELEASE_YAML_OVERRIDE}" || return 1
@@ -94,12 +93,6 @@ function uninstall_knative_serving() {
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f ${ISTIO_YAML} || return 1
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
-}
-
-# Creates the prometheus component
-function create_prometheus() {
-  kubectl -R -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus
 }
 
 # Create test namespace

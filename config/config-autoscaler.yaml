@@ -66,11 +66,6 @@ data:
 
   # Dynamic parameters (take effect when config map is updated):
 
-  # Scale to zero threshold is the total time between traffic dropping to
-  # zero and when its resources are deprovisioned.  Must be at least 30s
-  # more than scale-to-zero-grace-period (min: 60s)
-  scale-to-zero-threshold: "5m"
-
   # Scale to zero grace period is the time an inactive revision is left
   # running before it is scaled to zero (min: 30s).
-  scale-to-zero-grace-period: "2m"
+  scale-to-zero-grace-period: "30s"

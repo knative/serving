@@ -278,8 +278,9 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &duckv1alpha1.Condition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
+		Type:     RevisionConditionBuildSucceeded,
+		Status:   corev1.ConditionTrue,
+		Severity: duckv1alpha1.ConditionSeverityError,
 	}
 
 	rs.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
@@ -500,7 +501,6 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
 
 	// Enter a Ready state.
 	r.Status.MarkActive()
@@ -526,9 +526,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionFailedRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
 		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkInactive = %v, want %v", got, want)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From an Inactive state, start to activate the revision.
 	want = "Activating"
@@ -538,9 +536,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
 		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkInactive = %v, want %v", got, want)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From the activating state, simulate the transition back to readiness.
 	r.Status.MarkActive()

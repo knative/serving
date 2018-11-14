@@ -48,73 +48,55 @@ import (
 
 var (
 	conditionsOnFailure = duckv1alpha1.Conditions{{
-		Type:   "Active",
-		Status: "Unknown",
+		Type:     "BuildSucceeded",
+		Status:   "True",
+		Severity: "Error",
 	}, {
-		Type:   "BuildSucceeded",
-		Status: "True",
+		Type:     "ContainerHealthy",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}, {
-		Type:   "ContainerHealthy",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "Ready",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}, {
-		Type:   "Ready",
-		Status: "Unknown",
-		Reason: "Deploying",
-	}, {
-		Type:   "ResourcesAvailable",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "ResourcesAvailable",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}}
 
 	allUnknownConditions = duckv1alpha1.Conditions{{
-		Type:   "Active",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "Active",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Info",
 	}, {
-		Type:   "BuildSucceeded",
-		Status: "True",
+		Type:     "BuildSucceeded",
+		Status:   "True",
+		Severity: "Error",
 	}, {
-		Type:   "ContainerHealthy",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "ContainerHealthy",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}, {
-		Type:   "Ready",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "Ready",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}, {
-		Type:   "ResourcesAvailable",
-		Status: "Unknown",
-		Reason: "Deploying",
+		Type:     "ResourcesAvailable",
+		Status:   "Unknown",
+		Reason:   "Deploying",
+		Severity: "Error",
 	}}
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
-	rev := func(namespace, name, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, image)
-	}
-	deploy := func(namespace, name, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, image, ReconcilerTestConfig())
-	}
-	image := func(namespace, name, image string) *caching.Image {
-		i, err := getImage(namespace, name, image, ReconcilerTestConfig())
-		if err != nil {
-			t.Fatalf("Error building image: %v", err)
-		}
-		return i
-	}
-	kpa := func(namespace, name, image string) *kpav1alpha1.PodAutoscaler {
-		return getKPA(namespace, name, image)
-	}
-	svc := func(namespace, name, image string) *corev1.Service {
-		return getService(namespace, name, image)
-	}
-	endpoints := func(namespace, name, image string) *corev1.Endpoints {
-		return getEndpoints(namespace, name, image)
-	}
-
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -351,26 +333,31 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "endpoint-created-not-ready", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
 						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
+						Severity:           "Error",
 					}},
 				}),
 			kpa("foo", "endpoint-created-not-ready", "busybox"),
@@ -394,29 +381,45 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "endpoint-created-timeout", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
 						// The LTT defaults and is long enough ago that we expire waiting
 						// on the Endpoints to become ready.
+						Severity: "Error",
 					}},
 				}),
-			kpa("foo", "endpoint-created-timeout", "busybox"),
+			addKPAStatus(
+				kpa("foo", "endpoint-created-timeout", "busybox"),
+				kpav1alpha1.PodAutoscalerStatus{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
+					}, {
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
+					}},
+				}),
 			deploy("foo", "endpoint-created-timeout", "busybox"),
 			svc("foo", "endpoint-created-timeout", "busybox"),
 			endpoints("foo", "endpoint-created-timeout", "busybox"),
@@ -429,26 +432,30 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "endpoint-created-timeout", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "ServiceTimeout",
-						Message: "Timed out waiting for a service endpoint to become ready",
+						Type:     "Ready",
+						Status:   "False",
+						Reason:   "ServiceTimeout",
+						Message:  "Timed out waiting for a service endpoint to become ready",
+						Severity: "Error",
 					}, {
-						Type:    "ResourcesAvailable",
-						Status:  "False",
-						Reason:  "ServiceTimeout",
-						Message: "Timed out waiting for a service endpoint to become ready",
+						Type:     "ResourcesAvailable",
+						Status:   "False",
+						Reason:   "ServiceTimeout",
+						Message:  "Timed out waiting for a service endpoint to become ready",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -467,35 +474,42 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "endpoint-ready", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}},
 				}),
 			addKPAStatus(
 				kpa("foo", "endpoint-ready", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "True",
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
 					}, {
-						Type:   "Ready",
-						Status: "True",
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
 					}},
 				}),
 			deploy("foo", "endpoint-ready", "busybox"),
@@ -510,20 +524,25 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "endpoint-ready", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "True",
+						Type:     "Active",
+						Status:   "True",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "True",
+						Type:     "ContainerHealthy",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "True",
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "True",
+						Type:     "ResourcesAvailable",
+						Status:   "True",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -539,36 +558,43 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "kpa-not-ready", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "True",
+						Type:     "ResourcesAvailable",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "True",
+						Type:     "ContainerHealthy",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "True",
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
 					}},
 				}),
 			addKPAStatus(
 				kpa("foo", "kpa-not-ready", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    "Active",
-						Status:  "Unknown",
-						Reason:  "Something",
-						Message: "This is something longer",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Something",
+						Message:  "This is something longer",
+						Severity: "Info",
 					}, {
-						Type:    "Ready",
-						Status:  "Unknown",
-						Reason:  "Something",
-						Message: "This is something longer",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Something",
+						Message:  "This is something longer",
+						Severity: "Error",
 					}},
 				}),
 			deploy("foo", "kpa-not-ready", "busybox"),
@@ -583,24 +609,27 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "kpa-not-ready", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    "Active",
-						Status:  "Unknown",
-						Reason:  "Something",
-						Message: "This is something longer",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Something",
+						Message:  "This is something longer",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "True",
+						Type:     "ContainerHealthy",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "Unknown",
-						Reason:  "Something",
-						Message: "This is something longer",
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "True",
+						Type:     "ResourcesAvailable",
+						Status:   "True",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -615,36 +644,43 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "kpa-inactive", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "True",
+						Type:     "ResourcesAvailable",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "True",
+						Type:     "ContainerHealthy",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "True",
+						Type:     "Ready",
+						Status:   "True",
+						Severity: "Error",
 					}},
 				}),
 			addKPAStatus(
 				kpa("foo", "kpa-inactive", "busybox"),
 				kpav1alpha1.PodAutoscalerStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    "Active",
-						Status:  "False",
-						Reason:  "NoTraffic",
-						Message: "This thing is inactive.",
+						Type:     "Active",
+						Status:   "False",
+						Reason:   "NoTraffic",
+						Message:  "This thing is inactive.",
+						Severity: "Info",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "NoTraffic",
-						Message: "This thing is inactive.",
+						Type:     "Ready",
+						Status:   "False",
+						Reason:   "NoTraffic",
+						Message:  "This thing is inactive.",
+						Severity: "Error",
 					}},
 				}),
 			deploy("foo", "kpa-inactive", "busybox"),
@@ -658,26 +694,30 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "kpa-inactive", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    "Active",
-						Status:  "False",
-						Reason:  "NoTraffic",
-						Message: "This thing is inactive.",
+						Type:     "Active",
+						Status:   "False",
+						Reason:   "NoTraffic",
+						Message:  "This thing is inactive.",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "NoTraffic",
-						Message: "This thing is inactive.",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -696,22 +736,26 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "fix-mutated-service", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
 						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
+						Severity:           "Error",
 					}},
 				}),
 			kpa("foo", "fix-mutated-service", "busybox"),
@@ -728,24 +772,29 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "fix-mutated-service", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Updating",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Updating",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Updating",
+						Severity: "Error",
 					}},
 				}),
 		}, {
@@ -766,25 +815,30 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "update-user-svc-failure", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "Active",
+						Status:   "Unknown",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
 						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
+						Severity:           "Error",
 					}},
 				}),
 			kpa("foo", "update-user-svc-failure", "busybox"),
@@ -811,19 +865,22 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "deploy-timeout", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
 						LastTransitionTime: apis.VolatileTime{metav1.NewTime(time.Now())},
+						Severity:           "Error",
 					}},
 				}),
 			kpa("foo", "deploy-timeout", "busybox"),
@@ -839,26 +896,31 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "deploy-timeout", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "ProgressDeadlineExceeded",
-						Message: "Unable to create pods for more than 120 seconds.",
+						Type:     "Ready",
+						Status:   "False",
+						Reason:   "ProgressDeadlineExceeded",
+						Message:  "Unable to create pods for more than 120 seconds.",
+						Severity: "Error",
 					}, {
-						Type:    "ResourcesAvailable",
-						Status:  "False",
-						Reason:  "ProgressDeadlineExceeded",
-						Message: "Unable to create pods for more than 120 seconds.",
+						Type:     "ResourcesAvailable",
+						Status:   "False",
+						Reason:   "ProgressDeadlineExceeded",
+						Message:  "Unable to create pods for more than 120 seconds.",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -880,20 +942,21 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -909,8 +972,9 @@ func TestReconcile(t *testing.T) {
 			addBuild(rev("foo", "running-build", "busybox"), "the-build"),
 			build("foo", "the-build",
 				duckv1alpha1.Condition{
-					Type:   duckv1alpha1.ConditionSucceeded,
-					Status: corev1.ConditionUnknown,
+					Type:     duckv1alpha1.ConditionSucceeded,
+					Status:   corev1.ConditionUnknown,
+					Severity: "Error",
 				}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -919,22 +983,23 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "Unknown",
+						Reason:   "Building",
+						Severity: "Error",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
-						Reason: "Building",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Building",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Building",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -952,22 +1017,27 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:   duckv1alpha1.ConditionSucceeded,
-				Status: corev1.ConditionTrue,
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionTrue,
+				Severity: "Error",
 			}),
 		},
 		WantCreates: []metav1.Object{
@@ -984,24 +1054,29 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "done-build", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -1019,24 +1094,29 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "stable-reconcile-with-build", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Active",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Info",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}},
 				}),
 			kpa("foo", "stable-reconcile-with-build", "busybox"),
@@ -1062,24 +1142,29 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionFalse,
+				Reason:   "SomeReason",
+				Message:  "This is why the build failed.",
+				Severity: "Error",
 			}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1088,24 +1173,25 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "False",
+						Reason:   "SomeReason",
+						Message:  "This is why the build failed.",
+						Severity: "Error",
 					}, {
-						Type:    "BuildSucceeded",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "Ready",
+						Status:   "False",
+						Reason:   "SomeReason",
+						Message:  "This is why the build failed.",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -1122,31 +1208,37 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "Active",
+						Status:   "Unknown",
+						Severity: "Info",
 					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Severity: "Error",
 					}, {
-						Type:    "BuildSucceeded",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
+						Type:     "BuildSucceeded",
+						Status:   "False",
+						Reason:   "SomeReason",
+						Message:  "This is why the build failed.",
+						Severity: "Error",
 					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
+						Type:     "Ready",
+						Status:   "False",
+						Reason:   "SomeReason",
+						Message:  "This is why the build failed.",
+						Severity: "Error",
 					}},
 				}),
 			build("foo", "the-build", duckv1alpha1.Condition{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
+				Type:     duckv1alpha1.ConditionSucceeded,
+				Status:   corev1.ConditionFalse,
+				Reason:   "SomeReason",
+				Message:  "This is why the build failed.",
+				Severity: "Error",
 			}),
 		},
 		Key: "foo/failed-build-stable",
@@ -1174,30 +1266,6 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconcileWithVarLogEnabled(t *testing.T) {
-	config := ReconcilerTestConfig()
-	config.Observability.EnableVarLogCollection = true
-
-	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
-	rev := func(namespace, name, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, image)
-	}
-	deploy := func(namespace, name, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, image, config)
-	}
-	image := func(namespace, name, image string) *caching.Image {
-		i, err := getImage(namespace, name, image, config)
-		if err != nil {
-			t.Fatalf("Error building image: %v", err)
-		}
-		return i
-	}
-	kpa := func(namespace, name, image string) *kpav1alpha1.PodAutoscaler {
-		return getKPA(namespace, name, image)
-	}
-	svc := func(namespace, name, image string) *corev1.Service {
-		return getService(namespace, name, image)
-	}
-
 	table := TableTest{{
 		Name: "first revision reconciliation (with /var/log enabled)",
 		// Test a successful reconciliation flow with /var/log enabled.
@@ -1210,10 +1278,10 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile-var-log", "busybox"),
-			deploy("foo", "first-reconcile-var-log", "busybox"),
+			deploy("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
 			svc("foo", "first-reconcile-var-log", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "busybox"), config.Observability),
-			image("foo", "first-reconcile-var-log", "busybox"),
+			fluentdConfigMap("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
+			image("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: makeStatus(
@@ -1238,10 +1306,10 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "create-configmap-failure", "busybox"),
+			deploy("foo", "create-configmap-failure", "busybox", EnableVarLog),
 			svc("foo", "create-configmap-failure", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "create-configmap-failure", "busybox"), config.Observability),
-			image("foo", "create-configmap-failure", "busybox"),
+			fluentdConfigMap("foo", "create-configmap-failure", "busybox", EnableVarLog),
+			image("foo", "create-configmap-failure", "busybox", EnableVarLog),
 			// We don't create the autoscaler resources if we fail to create the fluentd configmap
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1252,23 +1320,24 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					ServiceName: svc("foo", "create-configmap-failure", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   "Active",
-						Status: "Unknown",
+						Type:     "BuildSucceeded",
+						Status:   "True",
+						Severity: "Error",
 					}, {
-						Type:   "BuildSucceeded",
-						Status: "True",
+						Type:     "ContainerHealthy",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "Ready",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Type:     "ResourcesAvailable",
+						Status:   "Unknown",
+						Reason:   "Deploying",
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -1285,10 +1354,10 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					Conditions:  allUnknownConditions,
 				}),
 			kpa("foo", "steady-state", "busybox"),
-			deploy("foo", "steady-state", "busybox"),
+			deploy("foo", "steady-state", "busybox", EnableVarLog),
 			svc("foo", "steady-state", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "steady-state", "busybox"), config.Observability),
-			image("foo", "steady-state", "busybox"),
+			fluentdConfigMap("foo", "steady-state", "busybox", EnableVarLog),
+			image("foo", "steady-state", "busybox", EnableVarLog),
 		},
 		Key: "foo/steady-state",
 	}, {
@@ -1303,26 +1372,20 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					Conditions:  allUnknownConditions,
 				}),
 			kpa("foo", "update-fluentd-config", "busybox"),
-			deploy("foo", "update-fluentd-config", "busybox"),
+			deploy("foo", "update-fluentd-config", "busybox", EnableVarLog),
 			svc("foo", "update-fluentd-config", "busybox"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: resources.MakeFluentdConfigMap(
-					rev("foo", "update-fluentd-config", "busybox"),
-					config.Observability,
-				).ObjectMeta,
+				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config", "busybox", EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
-			image("foo", "update-fluentd-config", "busybox"),
+			image("foo", "update-fluentd-config", "busybox", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: resources.MakeFluentdConfigMap(
-				rev("foo", "update-fluentd-config", "busybox"),
-				config.Observability,
-			),
+			Object: fluentdConfigMap("foo", "update-fluentd-config", "busybox", EnableVarLog),
 		}},
 		Key: "foo/update-fluentd-config",
 	}, {
@@ -1340,23 +1403,26 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					LogURL:      "http://logger.io/test-uid",
 					Conditions:  allUnknownConditions,
 				}),
-			deploy("foo", "update-configmap-failure", "busybox"),
+			deploy("foo", "update-configmap-failure", "busybox", EnableVarLog),
 			svc("foo", "update-configmap-failure", "busybox"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "busybox"), config.Observability).ObjectMeta,
+				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure", "busybox", EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
-			image("foo", "update-configmap-failure", "busybox"),
+			image("foo", "update-configmap-failure", "busybox", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "busybox"), config.Observability),
+			Object: fluentdConfigMap("foo", "update-configmap-failure", "busybox", EnableVarLog),
 		}},
 		Key: "foo/update-configmap-failure",
 	}}
+
+	config := ReconcilerTestConfig()
+	EnableVarLog(config)
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
@@ -1378,14 +1444,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 var (
 	boolTrue = true
 )
-
-func om(namespace, name string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:      name,
-		Namespace: namespace,
-		UID:       "test-uid",
-	}
-}
 
 func makeStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha1.Revision {
 	rev.Status = status
@@ -1446,41 +1504,68 @@ func build(namespace, name string, conds ...duckv1alpha1.Condition) *unstructure
 	return u
 }
 
-func getRev(namespace, name string, image string) *v1alpha1.Revision {
+func rev(namespace, name string, image string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
-		ObjectMeta: om(namespace, name),
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       "test-uid",
+		},
 		Spec: v1alpha1.RevisionSpec{
 			Container: corev1.Container{Image: image},
 		},
 	}
 }
 
-func getDeploy(namespace, name string, image string, config *config.Config) *appsv1.Deployment {
+func deploy(namespace, name string, image string, co ...ConfigOption) *appsv1.Deployment {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
 
-	rev := getRev(namespace, name, image)
+	rev := rev(namespace, name, image)
 	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 }
 
-func getImage(namespace, name string, image string, config *config.Config) (*caching.Image, error) {
-	rev := getRev(namespace, name, image)
+func image(namespace, name string, image string, co ...ConfigOption) *caching.Image {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+
+	rev := rev(namespace, name, image)
 	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
-	return resources.MakeImageCache(rev, deploy)
+	img, err := resources.MakeImageCache(rev, deploy)
+	if err != nil {
+		panic(err.Error())
+	}
+	return img
 }
 
-func getKPA(namespace, name string, image string) *kpav1alpha1.PodAutoscaler {
-	rev := getRev(namespace, name, image)
+func fluentdConfigMap(namespace, name string, image string, co ...ConfigOption) *corev1.ConfigMap {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+
+	rev := rev(namespace, name, image)
+	return resources.MakeFluentdConfigMap(rev, config.Observability)
+}
+
+func kpa(namespace, name string, image string) *kpav1alpha1.PodAutoscaler {
+	rev := rev(namespace, name, image)
 	return resources.MakeKPA(rev)
 }
 
-func getService(namespace, name string, image string) *corev1.Service {
-	rev := getRev(namespace, name, image)
+func svc(namespace, name string, image string) *corev1.Service {
+	rev := rev(namespace, name, image)
 	return resources.MakeK8sService(rev)
 }
 
-func getEndpoints(namespace, name string, image string) *corev1.Endpoints {
-	service := getService(namespace, name, image)
+func endpoints(namespace, name string, image string) *corev1.Endpoints {
+	service := svc(namespace, name, image)
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: service.Namespace,
@@ -1505,6 +1590,8 @@ func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
 
+type ConfigOption func(*config.Config)
+
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
@@ -1515,4 +1602,8 @@ func ReconcilerTestConfig() *config.Config {
 		Logging:    &logging.Config{},
 		Autoscaler: &autoscaler.Config{},
 	}
+}
+
+func EnableVarLog(cfg *config.Config) {
+	cfg.Observability.EnableVarLogCollection = true
 }
