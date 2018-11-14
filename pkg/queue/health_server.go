@@ -36,6 +36,11 @@ type HealthServer struct {
 	mutex sync.RWMutex
 }
 
+// NewHealthServer returns a HealthServer with Alive set to true.
+func NewHealthServer() *HealthServer {
+	return &HealthServer{Alive: true}
+}
+
 // IsAlive returns true until a PreStop hook has been called.
 func (h *HealthServer) IsAlive() bool {
 	h.mutex.RLock()

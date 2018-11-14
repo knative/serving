@@ -69,7 +69,7 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	health = &queue.HealthServer{Alive: true}
+	health = queue.NewHealthServer()
 )
 
 func initEnv() {

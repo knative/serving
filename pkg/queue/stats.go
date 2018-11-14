@@ -115,11 +115,24 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 					AverageConcurrentRequests: avg,
 					RequestCount:              requestCount,
 				}
-				lameDuck := 0
-				if !health.IsAlive() {
-					lameDuck = 1
+
+				// TODO(mrmcmuffinz): Should we do a nil check and if yes what should happen if the reporter
+				// is not set?
+				if reporter != nil {
+					lameDuck := 0
+					// TODO(mrmcmuffinz): Should we do a nil check and if yes what should happen if the reporter
+					// is not set?
+					if health != nil {
+						if !health.IsAlive() {
+							lameDuck = 1
+						}
+					}
+					reporter.Report(
+						float64(lameDuck),
+						float64(requestCount),
+						float64(avg),
+					)
 				}
-				reporter.Report(lameDuck, requestCount, avg)
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat

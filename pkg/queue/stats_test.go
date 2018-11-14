@@ -208,7 +208,11 @@ func newTestStats(now time.Time) *testStats {
 		ReportChan: (<-chan time.Time)(reportBiChan),
 		StatChan:   make(chan *autoscaler.Stat),
 	}
-	s := NewStats(podName, ch, now)
+	// TODO(mrmcmuffinz): this needs to be done properly. I'm not entirely convinced
+	// this is right.
+	r, _ := NewStatsReporter()
+	hs := NewHealthServer()
+	s := NewStats(podName, ch, now, r, hs)
 	t := &testStats{
 		Stats:        *s,
 		reportBiChan: reportBiChan,
