@@ -37,40 +37,26 @@ source $(dirname $0)/cluster.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly SERVING_RELEASE_YAML=https://github.com/knative/serving/releases/download/v0.2.1/release-no-mon.yaml
-
-# Cribbed from e2e-tests.sh
-# TODO(#2320): Remove this.
-function publish_test_images() {
-  echo ">> Publishing test images"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  done
-}
+readonly LATEST_SERVING_RELEASE_YAML=0.2.2
 
 function install_latest_release() {
-  header "Installing latest release"
-  set -o errexit
-  set -o pipefail
-  RELEASE_YAML_OVERRIDE=${SERVING_RELEASE_YAML} install_knative_serving
-  set +o errexit
-  set +o pipefail
+  header "Installing Knative latest public release"
+  local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_YAML}"
+  install_knative_serving \
+    "${url}/istio-crds.yaml" \
+    "${url}/istio.yaml" \
+    "${url}/release-no-mon.yaml" \
+    || fail_test "Knative latest release installation failed"
 }
 
 function install_head() {
-  header "Installing HEAD"
-  set -o errexit
-  set -o pipefail
-  install_knative_serving
-  set +o errexit
-  set +o pipefail
+  header "Installing Knative head release"
+  install_knative_serving || fail_test "Knative head release installation failed"
 }
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
   uninstall_knative_serving
-  RELEASE_YAML_OVERRIDE=${SERVING_RELEASE_YAML} uninstall_knative_serving
 }
 
 # Script entry point.
@@ -78,7 +64,6 @@ function teardown() {
 initialize $@
 
 header "Setting up environment"
-kubectl create namespace serving-tests
 publish_test_images
 
 install_latest_release

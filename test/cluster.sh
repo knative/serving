@@ -18,12 +18,16 @@
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
-CLUSTER_SH_CREATED_MANIFESTS=0
+# Current YAMLs used to install Knative Serving.
+INSTALL_ISTIO_CRD_YAML=""
+INSTALL_ISTIO_YAML=""
+INSTALL_RELEASE_YAML=""
 
 # Create all manifests required to install Knative Serving.
-function create_manifests() {
-  # Don't generate twice.
-  (( CLUSTER_SH_CREATED_MANIFESTS )) && return 0
+# This will build everything from the current source.
+# All generated YAMLs will be available and pointed by the corresponding
+# environment variables as set in /hack/generate-yamls.sh.
+function build_knative_from_source() {
   local YAML_LIST="$(mktemp)"
   # Generate manifests, capture environment variables pointing to the YAML files.
   local FULL_OUTPUT="$( \
@@ -36,24 +40,34 @@ function create_manifests() {
   echo "${LOG_OUTPUT}"
   echo -e "Generated manifests:\n${ENV_OUTPUT}"
   eval "${ENV_OUTPUT}"
-  CLUSTER_SH_CREATED_MANIFESTS=1
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
+# If no parameters are passed, installs the current source-based build.
+# Parameters: $1 - Istio CRD YAML file
+#             $2 - Istio YAML file
+#             $3 - Knative Serving YAML file
 function install_knative_serving() {
-  export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-  create_manifests
+  INSTALL_ISTIO_CRD_YAML=$1
+  INSTALL_ISTIO_YAML=$2
+  INSTALL_RELEASE_YAML=$3
+  if [[ -z "${INSTALL_ISTIO_CRD_YAML}" ]]; then
+    build_knative_from_source
+    INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
+    INSTALL_ISTIO_YAML="${ISTIO_YAML}"
+    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
+    INSTALL_RELEASE_YAML="${RELEASE_NO_MON_YAML}"
+  fi
+  echo ">> Installing Knative serving"
+  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
+  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+  echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
   echo ">> Bringing up Istio"
-  kubectl apply -f "${ISTIO_CRD_YAML}" || return 1
-  kubectl apply -f "${ISTIO_YAML}" || return 1
+  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
+  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
-  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
-    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-    kubectl apply -f "${RELEASE_NO_MON_YAML}" || return 1
-  else
-    kubectl apply -f "${RELEASE_YAML_OVERRIDE}" || return 1
-  fi
+  kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -78,32 +92,28 @@ function install_knative_serving() {
 
 # Uninstalls Knative Serving from the current cluster.
 function uninstall_knative_serving() {
-  create_manifests
+  if [[ -z "${INSTALL_RELEASE_YAML}" ]]; then
+    echo "install_knative_serving() was not called, nothing to uninstall"
+    return 0
+  fi
+  echo ">> Uninstalling Knative serving"
+  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+  echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
 
   echo ">> Bringing down Serving"
-  # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-  if [[ -z "${RELEASE_YAML_OVERRIDE}" ]]; then
-    ko delete --ignore-not-found=true -f "${RELEASE_NO_MON_YAML}" || return 1
-  else
-    ko delete --ignore-not-found=true -f "${RELEASE_YAML_OVERRIDE}" || return 1
-  fi
+  ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Bringing down Istio"
-  kubectl delete --ignore-not-found=true -f ${ISTIO_YAML} || return 1
+  kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
   kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
-}
-
-# Create test namespace
-function create_namespace() {
-  echo ">> Creating namespace serving-tests"
-  kubectl create namespace serving-tests
 }
 
 # Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
 function publish_test_images() {
   echo ">> Publishing test images"
+  kubectl create namespace serving-tests
   local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
   for image_dir in ${image_dirs}; do
     ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})" || return 1
