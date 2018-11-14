@@ -37,11 +37,11 @@ source $(dirname $0)/cluster.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly LATEST_SERVING_RELEASE_YAML=0.2.2
+readonly LATEST_SERVING_RELEASE_VERSION=0.2.2
 
 function install_latest_release() {
   header "Installing Knative latest public release"
-  local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_YAML}"
+  local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
   install_knative_serving \
     "${url}/istio-crds.yaml" \
     "${url}/istio.yaml" \
