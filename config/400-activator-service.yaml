@@ -15,13 +15,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: activator-service
+  name: kbuffer-service
   namespace: knative-serving
   labels:
-    app: activator
+    app: kbuffer
 spec:
   selector:
-    app: activator
+    app: kbuffer
   ports:
   - name: http
     protocol: TCP

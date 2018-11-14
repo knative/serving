@@ -84,7 +84,7 @@ const (
 	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
 	// The revision is not currently serving traffic, but could be made to serve
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
-	// should be pointed to the activator.
+	// should be pointed to the kbuffer.
 	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.

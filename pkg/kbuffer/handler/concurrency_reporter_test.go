@@ -42,7 +42,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 		Key: pod1,
 		Stat: autoscaler.Stat{
 			Time:                      &now,
-			PodName:                   autoscaler.ActivatorPodName,
+			PodName:                   autoscaler.KBufferPodName,
 			AverageConcurrentRequests: 2.0,
 			RequestCount:              2,
 		},
@@ -50,7 +50,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 		Key: pod2,
 		Stat: autoscaler.Stat{
 			Time:                      &now,
-			PodName:                   autoscaler.ActivatorPodName,
+			PodName:                   autoscaler.KBufferPodName,
 			AverageConcurrentRequests: 1.0,
 			RequestCount:              1,
 		},
@@ -64,7 +64,7 @@ func TestMultipleDifferentKeys(t *testing.T) {
 		Key: pod1,
 		Stat: autoscaler.Stat{
 			Time:                      &now,
-			PodName:                   autoscaler.ActivatorPodName,
+			PodName:                   autoscaler.KBufferPodName,
 			AverageConcurrentRequests: 1.0,
 			RequestCount:              0, // no new request arrived after reporting
 		},
@@ -84,7 +84,7 @@ func newTestStats() *testStats {
 		ReportChan: (<-chan time.Time)(reportBiChan),
 		StatChan:   make(chan *autoscaler.StatMessage),
 	}
-	NewConcurrencyReporter(autoscaler.ActivatorPodName, ch)
+	NewConcurrencyReporter(autoscaler.KBufferPodName, ch)
 	t := &testStats{
 		channels:     ch,
 		reportBiChan: reportBiChan,

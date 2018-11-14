@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/kmeta"
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/kbuffer"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -151,14 +151,14 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traff
 	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
 		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 			ServiceNamespace: system.Namespace,
-			ServiceName:      activator.K8sServiceName,
+			ServiceName:      kbuffer.K8sServiceName,
 			ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
 		},
 		Percent: totalInactivePercent,
 	})
 	r.AppendHeaders = map[string]string{
-		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
-		activator.RevisionHeaderNamespace: ns,
+		kbuffer.RevisionHeaderName:      maxInactiveTarget.RevisionName,
+		kbuffer.RevisionHeaderNamespace: ns,
 	}
 	return r
 }

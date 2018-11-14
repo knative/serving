@@ -7,8 +7,8 @@ Knative Serving Revisions are automatically scaled up and down according incomin
 * Knative Serving **Revision** -- a custom resource which is a running snapshot of the user's code (in a Container) and configuration.
 * Knative Serving **Route** -- a custom resource which exposes Revisions to clients via an Istio ingress rule.
 * Kubernetes **Deployment** -- a k8s resource which manages the lifecycle of individual Pods running Containers.  One of these is running user code in each Revision.
-* Knative Serving **Autoscaler** -- another k8s Deployment running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
-* Knative Serving **Activator** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
+* Knative Serving **Autoscaler** -- another k8s Deployment running single or several Pods (depending on the [configuration](../../config/kbuffer.yaml)) which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
+* Knative Serving **KBuffer** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
 * **Concurrency** -- the number of requests currently being served at a given moment.  More QPS or higher latency means more concurrent requests.
 
 ## Behavior
@@ -23,7 +23,7 @@ When a Revision is actively serving requests it will increase and decrease the n
 
 In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler (one per Revision for single-tenancy; one for all Revisions for multi-tenancy) which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent requests each second to the Autoscaler.
 
-In the Reserve state, the Revision has no scheduled Pods and consumes no CPU.  The Istio route rule for the Revision points to the single multi-tenant Activator which will catch traffic for all Reserve Revisions.  When the Activator catches a request for a Reserve Revision, it will flip the Revision to an Active state and then forward requests to the Revision when it ready.
+In the Reserve state, the Revision has no scheduled Pods and consumes no CPU.  The Istio route rule for the Revision points to the single multi-tenant KBuffer which will catch traffic for all Reserve Revisions.  When the KBuffer catches a request for a Reserve Revision, it will flip the Revision to an Active state and then forward requests to the Revision when it ready.
 
 In the Retired state, the Revision has provisioned resources.  No requests will be served for the Revision.
 
@@ -51,7 +51,7 @@ The following diagram illustrates the mechanics of the autoscaler:
              |                +------|---------------------------------+
              V         watch  |      V                                 |
        +-----------+   first  |   +- ----+  create   +------------+    |
-       | Activator |------------->| Pods |<----------| Deployment |<--------------+
+       |  KBuffer  |------------->| Pods |<----------| Deployment |<--------------+
        +-----------+          |   +------+           +------------+    |          |
              |                |       |                                |          | resize
              |   activate     |       |                                |          |
@@ -111,11 +111,11 @@ The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-sec
 
 #### Deactivation
 
-When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/knative/serving/issues/305)), it will transistion the Revision into the Reserve state.  This scales the Deployment to 0, stops any single tenant Autoscaler associated with the Revision, and routes all traffic for the Revision to the Activator.
+When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/knative/serving/issues/305)), it will transistion the Revision into the Reserve state.  This scales the Deployment to 0, stops any single tenant Autoscaler associated with the Revision, and routes all traffic for the Revision to the KBuffer.
 
-### Activator
+### KBuffer
 
-The Activator is a single multi-tenant component that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see [Design Goal #3](#design-goals)).  When the Activator gets a request for a Reserve Revision, it calls the Knative Serving control plane to transistion the Revision to an Active state.  It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the Activator in the meantime.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Knative Serving control plane will update the Istio route rules to take the Activator back out of the serving path.
+The KBuffer is a single multi-tenant component that catches traffic for all Reserve Revisions. It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods. When the KBuffer gets a request for a Reserve Revision, it calls the Knative Serving control plane to transition the Revision to an Active state. It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the KBuffer in the meantime. The KBuffer establishes a watch for Pods belonging to the target Revision. Once the first Pod comes up, all enqueued requests are proxied to that Pod. Concurrently, the Knative Serving control plane will update the Istio route rules to take the KBuffer back out of the serving path.
 
 ## Slow Brain Implementation
 
