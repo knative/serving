@@ -110,10 +110,8 @@ function parse_flags() {
   fi
 
   if (( TAG_RELEASE )); then
-    local commit="$(git rev-parse --short HEAD)"
-    if [[ "$(git describe --dirty)" == *-dirty ]]; then
-      commit+="-dirty"
-    fi
+    # Get the commit, excluding any tags but keeping the "dirty" flag
+    local commit="$(git describe --always --dirty --exclude '*')"
     # Like kubernetes, image tag is vYYYYMMDD-commit
     TAG="v$(date +%Y%m%d)-${commit}"
   fi
