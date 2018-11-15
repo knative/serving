@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -384,6 +385,28 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("container.name"),
+	}, {
+		name: "exceed max timeout",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			TimeoutSeconds: &metav1.Duration{
+				Duration: 600 * time.Second,
+			},
+		},
+		want: apis.ErrOutOfBoundsValue("10m0s", "0s", "1m0s", "timeoutSeconds"),
+	}, {
+		name: "negative timeout",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			TimeoutSeconds: &metav1.Duration{
+				Duration: -30 * time.Second,
+			},
+		},
+		want: apis.ErrOutOfBoundsValue("-30s", "0s", "1m0s", "timeoutSeconds"),
 	}}
 
 	for _, test := range tests {

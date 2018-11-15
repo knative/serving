@@ -18,14 +18,17 @@ package v1alpha1
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/knative/pkg/apis"
+	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 func (rt *Revision) Validate() *apis.FieldError {
@@ -49,7 +52,21 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
 		errs = errs.Also(err)
 	}
+
+	if err := validateTimeoutSeconds(rs.TimeoutSeconds); err != nil {
+		errs = errs.Also(err)
+	}
 	return errs
+}
+
+func validateTimeoutSeconds(timeoutSeconds *metav1.Duration) *apis.FieldError {
+	if timeoutSeconds != nil {
+		if timeoutSeconds.Duration > networkingv1alpha1.DefaultTimeout ||
+			timeoutSeconds.Duration < 0*time.Second {
+			return apis.ErrOutOfBoundsValue(timeoutSeconds.Duration.String(), "0s", networkingv1alpha1.DefaultTimeout.String(), "timeoutSeconds")
+		}
+	}
+	return nil
 }
 
 func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
