@@ -32,7 +32,7 @@ const (
 	// KBufferPodName defines the pod name of the kbuffer
 	// as defined in the metrics it sends.
 	KBufferPodName string = "kbuffer"
-	MockPodName string = "mock-pod"
+	mockPodName    string = "mock-pod"
 )
 
 // Stat defines a single measurement at a point in time
@@ -113,10 +113,19 @@ func (agg *totalAggregation) tickedStableWindow() bool  {
 
 func (agg *totalAggregation) containValuableStat() bool  {
 	for podName, podStas := range agg.perPodAggregations {
-		if !strings.EqualFold(podName, MockPodName) {
+		if !strings.EqualFold(podName, mockPodName) {
 			if podStas.accumulatedConcurrency > 0.0 {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func (agg *totalAggregation) containMockStat() bool {
+	for podName, _:= range agg.perPodAggregations {
+		if strings.EqualFold(podName, mockPodName) {
+			return true
 		}
 	}
 	return false
@@ -155,7 +164,7 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
 		}
-		if strings.HasPrefix(podName, MockPodName) {
+		if strings.HasPrefix(podName, mockPodName) {
 			containMock = true
 		}
 	}
@@ -222,6 +231,7 @@ type Autoscaler struct {
 	maxPanicPods         float64
 	reporter             StatsReporter
 	keepAliveTimes       int32
+	gotStat              bool
 }
 
 // New creates a new instance of autoscaler
@@ -232,6 +242,7 @@ func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionCon
 		stats:                make(map[statKey]Stat),
 		reporter:             reporter,
 		keepAliveTimes:       2, // should get from config
+		gotStat:              false,
 	}
 	autoscaler.mockStat(time.Now())
 	return &autoscaler
@@ -240,10 +251,10 @@ func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionCon
 // should not use mutex
 func (a *Autoscaler) mockStat(now time.Time) {
 	stat := Stat{
-		Time: &now,
-		PodName: MockPodName,
+		Time:                      &now,
+		PodName:                   mockPodName,
 		AverageConcurrentRequests: 1,
-		RequestCount: 1,
+		RequestCount:              1,
 	}
 	key := statKey{
 		podName: stat.PodName,
@@ -270,7 +281,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
@@ -289,6 +300,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
 	// accumulate stats into their respective buckets
 	for key, stat := range a.stats {
 		instant := key.time
+
+		// mark the revision is not initiating deployed
+		if a.gotStat == false && !strings.EqualFold(key.podName, mockPodName) {
+			a.gotStat = true
+		}
+
 		if instant.Add(config.PanicWindow).After(now) {
 			panicData.aggregate(stat)
 		}
@@ -309,27 +326,33 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
 		}
 	}
 
+	//// Do nothing when we have no data.
+	if (stableData.containMockStat() && stableData.observedPods(now) - 1.0 == 0.0) || stableData.observedPods(now) == 0.0 {
+		logger.Debug("No data to scale on.")
+		return 0, false
+	}
+
+	// the revision is still not ready when the first initiation
+	if !a.gotStat {
+		logger.Infof("lvjing2 got stat still false")
+		return 1, true
+	}
+
 	if stableData.containValuableStat() {
 		logger.Infof("Reset keepAliveTimes")
 		a.keepAliveTimes = 2
 	}
 	if stableData.tickedStableWindow() && a.keepAliveTimes > 0 {
-		logger.Infof("Reset the stable window")
+		logger.Infof("Mock the stat to start a new stable window")
 		a.keepAliveTimes--
 		a.mockStat(now)
-		return 1
+		return 1, true
 	}
 	// return -1, so mark this revision as inactive for updating route to activator in the last stable window
 	if a.keepAliveTimes == 1 {
 		logger.Infof("Set the kpa to inactive")
-		return -1
+		return -1, true
 	}
-
-	//// Do nothing when we have no data.
-	//if stableData.observedPods(now) < 1.0 {
-	//	logger.Debug("No data to scale on.")
-	//	return 0, false
-	//}
 
 	// Log system totals
 	totalCurrentQPS := int32(0)
@@ -342,10 +365,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
 
 	observedStableConcurrencyPerPod := float64(0.0)
 	observedPanicConcurrencyPerPod := float64(0.0)
-	if stableData.observedPods(now) > float64(0.0) {
+	if stableData.observedPods(now) > 0.0 {
 		observedStableConcurrencyPerPod = stableData.observedConcurrencyPerPod(now)
 	}
-	if panicData.observedPods(now) > float64(0.0) {
+	if panicData.observedPods(now) > 0.0 {
 		observedPanicConcurrencyPerPod = panicData.observedConcurrencyPerPod(now)
 	}
 	// Desired scaling ratio is observed concurrency over desired (stable) concurrency.
@@ -361,9 +384,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
 	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrencyPerPod)
 	a.reporter.Report(TargetConcurrencyM, config.TargetConcurrency(a.containerConcurrency))
 
-	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods. desired %v",
+	logger.Infof("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods. desired %v",
 		observedStableConcurrencyPerPod, config.StableWindow, stableData.probeCount, stableData.observedPods(now), desiredStablePodCount)
-	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods. desired %v",
+	logger.Infof("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods. desired %v",
 		observedPanicConcurrencyPerPod, config.PanicWindow, panicData.probeCount, panicData.observedPods(now), desiredPanicPodCount)
 
 	// Stop panicking after the surge has made its way into the stable metric.
@@ -399,7 +422,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) int32 {
 	}
 
 	a.reporter.Report(DesiredPodCountM, float64(desiredPodCount))
-	return desiredPodCount
+	return desiredPodCount, true
 }
 
 func (a *Autoscaler) rateLimited(desiredRate float64) float64 {

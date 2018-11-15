@@ -362,11 +362,11 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.Dyn
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) int32 {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	return u.replicas
+	return u.replicas, u.scaled
 }
 
 func (u *fakeUniScaler) setScaleResult(replicas int32, scaled bool) {

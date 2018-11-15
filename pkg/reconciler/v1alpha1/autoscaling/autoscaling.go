@@ -19,6 +19,7 @@ package autoscaling
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/knative/pkg/controller"
@@ -182,6 +183,14 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	} else if err != nil {
 		logger.Errorf("Error fetching Metric: %v", err)
 		return err
+	}
+
+	if metric.DesiredScale == math.MinInt32 {
+		logger.Infof("the init metric is meaningless")
+		return nil
+	} else if metric.DesiredScale == -1 {
+		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+		return nil
 	}
 
 	// Get the appropriate current scale from the metric, and right size

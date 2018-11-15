@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -48,7 +49,7 @@ type UniScaler interface {
 
 	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) int32
+	Scale(context.Context, time.Time) (int32, bool)
 }
 
 // UniScalerFactory creates a UniScaler for a given KPA using the given dynamic configuration.
@@ -168,15 +169,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) 
 	}
 
 	stopCh := make(chan struct{})
-	runner := &scalerRunner{scaler: scaler, stopCh: stopCh}
-	now := time.Now()
-	stat := Stat{
-		Time: &now,
-		PodName: "mock-pod",
-		AverageConcurrentRequests: 1,
-		RequestCount: 1,
-	}
-	scaler.Record(ctx, stat)
+	runner := &scalerRunner{scaler: scaler, latestScale: math.MinInt32, stopCh: stopCh}
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
@@ -218,21 +211,23 @@ func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) 
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleChan chan<- int32) {
 	logger := logging.FromContext(ctx)
-	desiredScale := scaler.Scale(ctx, time.Now())
+	desiredScale, scaled := scaler.Scale(ctx, time.Now())
 
-	// Cannot scale negative.
-	if desiredScale < 0 {
-		logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
-		return
+	if scaled {
+		// Cannot scale negative.
+		if desiredScale < 0 {
+			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
+			return
+		}
+
+		// Don't scale to zero if scale to zero is disabled.
+		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
+			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
+			return
+		}
+
+		scaleChan <- desiredScale
 	}
-
-	// Don't scale to zero if scale to zero is disabled.
-	if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
-		logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
-		return
-	}
-
-	scaleChan <- desiredScale
 }
 
 // RecordStat records some statistics for the given KPA. kpaKey should have the
