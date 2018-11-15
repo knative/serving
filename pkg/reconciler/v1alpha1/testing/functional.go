@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"fmt"
 	"time"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -46,6 +47,116 @@ var (
 		},
 	}
 )
+
+// WithRunLatestRollout configures the Service to use a "runLatest" rollout.
+func WithRunLatestRollout(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		RunLatest: &v1alpha1.RunLatestType{
+			Configuration: configSpec,
+		},
+	}
+}
+
+// WithPinnedRollout configures the Service to use a "pinned" rollout,
+// which is pinned to the named revision.
+func WithPinnedRollout(name string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec = v1alpha1.ServiceSpec{
+			Pinned: &v1alpha1.PinnedType{
+				RevisionName:  name,
+				Configuration: configSpec,
+			},
+		}
+	}
+}
+
+// WithReleaseRollout configures the Service to use a "release" rollout,
+// which spans the provided revisions.
+func WithReleaseRollout(names ...string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec = v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:     names,
+				Configuration: configSpec,
+			},
+		}
+	}
+}
+
+// WithManualRollout configures the Service to use a "manual" rollout.
+func WithManualRollout(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		Manual: &v1alpha1.ManualType{},
+	}
+}
+
+// WithInitSvcConditions initializes the Service's conditions.
+func WithInitSvcConditions(s *v1alpha1.Service) {
+	s.Status.InitializeConditions()
+}
+
+// WithManualStatus configures the Service to have the appropriate
+// status for a "manual" rollout type.
+func WithManualStatus(s *v1alpha1.Service) {
+	s.Status.SetManualStatus()
+}
+
+// WithReadyRoute reflects the Route's readiness in the Service resource.
+func WithReadyRoute(s *v1alpha1.Service) {
+	s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   "Ready",
+			Status: "True",
+		}},
+	})
+}
+
+// WithFailedRoute reflects a Route's failure in the Service resource.
+func WithFailedRoute(reason, message string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:    "Ready",
+				Status:  "False",
+				Reason:  reason,
+				Message: message,
+			}},
+		})
+	}
+}
+
+// WithReadyConfig reflects the Configuration's readiness in the Service
+// resource.  This must coincide with the setting of Latest{Created,Ready}
+// to the provided revision name.
+func WithReadyConfig(name string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+			LatestCreatedRevisionName: name,
+			LatestReadyRevisionName:   name,
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   "Ready",
+				Status: "True",
+			}},
+		})
+	}
+}
+
+// WithFailedConfig reflects the Configuration's failure in the Service
+// resource.  The failing revision's name is reflected in LatestCreated.
+func WithFailedConfig(name, reason, message string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+			LatestCreatedRevisionName: name,
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   "Ready",
+				Status: "False",
+				Reason: reason,
+				Message: fmt.Sprintf("Revision %q failed with message: %q.",
+					name, message),
+			}},
+		})
+	}
+}
 
 // RouteOption enables further configuration of a Route.
 type RouteOption func(*v1alpha1.Route)
