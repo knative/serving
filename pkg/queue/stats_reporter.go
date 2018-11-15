@@ -45,7 +45,7 @@ const (
 var (
 	measurements = []*stats.Float64Measure{
 		RequestCountM: stats.Float64(
-			"request_count",
+			"request_count_total",
 			"Number of requests received since last Stat",
 			stats.UnitNone),
 		AverageConcurrentRequestsM: stats.Float64(
@@ -65,14 +65,11 @@ type Reporter struct {
 	ctx             context.Context
 	configTagKey    tag.Key
 	namespaceTagKey tag.Key
-	numTriesKey     tag.Key
 	revisionTagKey  tag.Key
-	responseCodeKey tag.Key
-	serviceTagKey   tag.Key
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue metrics
-func NewStatsReporter() (*Reporter, error) {
+func NewStatsReporter(namespace string, config string, revision string) (*Reporter, error) {
 	var r = &Reporter{}
 
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -81,11 +78,6 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 	r.namespaceTagKey = nsTag
-	serviceTag, err := tag.NewKey("destination_service")
-	if err != nil {
-		return nil, err
-	}
-	r.serviceTagKey = serviceTag
 	configTag, err := tag.NewKey("destination_configuration")
 	if err != nil {
 		return nil, err
@@ -96,16 +88,6 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 	r.revisionTagKey = revTag
-	responseCodeTag, err := tag.NewKey("response_code")
-	if err != nil {
-		return nil, err
-	}
-	r.responseCodeKey = responseCodeTag
-	numTriesTag, err := tag.NewKey("num_tries")
-	if err != nil {
-		return nil, err
-	}
-	r.numTriesKey = numTriesTag
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -115,19 +97,19 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "Number of requests received since last Stat",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of requests currently being handled by this pod",
 			Measure:     measurements[AverageConcurrentRequestsM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 		&view.View{
 			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
 			Measure:     measurements[LameDuckM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 	)
 	if err != nil {
@@ -137,10 +119,9 @@ func NewStatsReporter() (*Reporter, error) {
 	// TODO(mrmcmuffinz): Need to look into getting the tags.
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(r.namespaceTagKey, "namespace"),
-		tag.Insert(r.serviceTagKey, "service"),
-		tag.Insert(r.configTagKey, "config"),
-		tag.Insert(r.revisionTagKey, "rev"),
+		tag.Insert(r.namespaceTagKey, namespace),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, revision),
 	)
 	if err != nil {
 		return nil, err

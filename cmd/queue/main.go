@@ -54,6 +54,7 @@ const (
 
 var (
 	podName               string
+	servingConfig         string
 	servingNamespace      string
 	servingRevision       string
 	servingRevisionKey    string
@@ -74,6 +75,7 @@ var (
 
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
@@ -202,7 +204,7 @@ func main() {
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(queue.ReportingPeriod)
-	reporter, err := queue.NewStatsReporter()
+	reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
 	if err != nil {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
