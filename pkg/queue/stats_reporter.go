@@ -62,6 +62,7 @@ var (
 // Reporter structure representing a prometheus expoerter.
 type Reporter struct {
 	initialized     bool
+	ctx             context.Context
 	configTagKey    tag.Key
 	namespaceTagKey tag.Key
 	numTriesKey     tag.Key
@@ -133,6 +134,18 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 
+	// TODO(mrmcmuffinz): Need to look into getting the tags.
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, "namespace"),
+		tag.Insert(r.serviceTagKey, "service"),
+		tag.Insert(r.configTagKey, "config"),
+		tag.Insert(r.revisionTagKey, "rev"),
+	)
+	if err != nil {
+		return nil, err
+	}
+	r.ctx = ctx
 	r.initialized = true
 	return r, nil
 }
@@ -143,19 +156,8 @@ func (r *Reporter) Report(lameDuck float64, requestCount float64, averageConcurr
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	ctx, err := tag.New(context.Background())
-	/*
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, service),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev))
-	*/
-	if err != nil {
-		return err
-	}
-
-	stats.Record(ctx, measurements[LameDuckM].M(lameDuck))
-	stats.Record(ctx, measurements[RequestCountM].M(requestCount))
-	stats.Record(ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
+	stats.Record(r.ctx, measurements[LameDuckM].M(lameDuck))
+	stats.Record(r.ctx, measurements[RequestCountM].M(requestCount))
+	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
 }
