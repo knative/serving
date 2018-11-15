@@ -12,7 +12,7 @@ to `Knative Serving`. Also take a look at:
 
 Follow the instructions below to set up your development environment. Once you
 meet these requirements, you can make changes and
-[deploy your own version of Knative Serving!](#starting-knative-serving)!
+[deploy your own version of Knative Serving](#starting-knative-serving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
