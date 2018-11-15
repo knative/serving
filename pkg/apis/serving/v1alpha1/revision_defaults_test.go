@@ -18,8 +18,10 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRevisionDefaulting(t *testing.T) {
@@ -33,17 +35,28 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 60 * time.Second,
+				},
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1},
+				ContainerConcurrency: 1,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 99 * time.Second,
+				},
+			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1},
+				ContainerConcurrency: 1,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 99 * time.Second,
+				},
+			},
 		},
 	}, {
 		name: "partially initialized",
@@ -52,7 +65,11 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0},
+				ContainerConcurrency: 0,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 60 * time.Second,
+				},
+			},
 		},
 	}, {
 		name: "fall back to concurrency model",
@@ -66,6 +83,9 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 1,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 60 * time.Second,
+				},
 			},
 		},
 	}}

@@ -217,10 +217,18 @@ func TestFailingFirstRevisionWithRecovery(t *testing.T) {
 	r.Status.InitializeConditions()
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
+	// Our first attempt to create the revision fails
+	want := "transient API server failure"
+	r.Status.MarkRevisionCreationFailed(want)
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkRevisionCreationFailed = %v, want substring %v", c.Message, want)
+	}
+
 	r.Status.SetLatestCreatedRevisionName("foo")
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
-	want := "the message"
+	// Then we create it, but it fails to come up.
+	want = "the message"
 	r.Status.MarkLatestCreatedFailed("foo", want)
 	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)

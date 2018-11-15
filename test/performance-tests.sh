@@ -21,8 +21,7 @@ source $(dirname $0)/cluster.sh
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
-  # Delete the service now that the test is done
-  RELEASE_YAML_OVERRIDE=$RELEASE_YAML uninstall_knative_serving
+  uninstall_knative_serving
 }
 
 initialize $@
@@ -33,13 +32,13 @@ header "Setting up environment"
 set +o errexit
 set +o pipefail
 
-create_manifests
-
-RELEASE_YAML_OVERRIDE=$RELEASE_YAML install_knative_serving || fail_test "Knative Serving installation failed"
+# Build Knative, but don't install the default "no monitoring" version
+build_knative_from_source
+install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${RELEASE_YAML}" \
+    || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
-create_namespace || fail_test "cannot create test namespace"
-
+# Run the tests
 go_test_e2e -tags=performance -timeout=5m ./test/performance || fail_test
 
 success
