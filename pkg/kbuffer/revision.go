@@ -75,9 +75,6 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 		return nil, errors.Wrap(err, "Unable to get revision")
 	}
 
-	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
-	r.reporter.ReportRequest(namespace, serviceName, configurationName, name, 1.0)
-
 	// Wait for the revision to not require activation.
 	if revision.Status.IsActivationRequired() {
 		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{

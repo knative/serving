@@ -23,10 +23,7 @@ import (
 func TestKBufferReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 1); err == nil {
-		t.Error("Reporter expected an error for Report call before init. Got success.")
-	}
-	if err := r.ReportResponseCount("testns", "testsvc", "testconfig", "testrev", 200, 1, 1); err == nil {
+	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 1, 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
@@ -35,19 +32,7 @@ func TestKBufferReporter(t *testing.T) {
 		t.Error("Failed to create a new reporter.")
 	}
 
-	// test ReportRequest
-	wantTags1 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_service":       "testsvc",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"serving_state":             "Reserved",
-	}
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 1) })
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testsvc", "testconfig", "testrev", 2.0) })
-	checkSumData(t, "revision_request_count", wantTags1, 3)
-
-	// test ReportResponseCount
+	// test ReportRequestCount
 	wantTags2 := map[string]string{
 		"destination_namespace":     "testns",
 		"destination_service":       "testsvc",
@@ -56,9 +41,9 @@ func TestKBufferReporter(t *testing.T) {
 		"response_code":             "200",
 		"num_tries":                 "6",
 	}
-	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
-	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
-	checkSumData(t, "revision_response_count", wantTags2, 4)
+	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
+	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
+	checkSumData(t, "revision_request_count", wantTags2, 4)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
