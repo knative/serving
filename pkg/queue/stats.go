@@ -17,6 +17,7 @@ limitations under the License.
 package queue
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
@@ -82,6 +83,14 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 			}
 		}
 
+		// REMOVEME
+		fmt.Println("######################outside of loop######################")
+		reporter.Report(0.00, 10, 100)
+		reporter.Report(0.00, 15, 200)
+		reporter.Report(0.00, 20, 300)
+		reporter.Report(0.00, 1, 10)
+		fmt.Println("######################outside of loop######################")
+
 		for {
 			select {
 			case event := <-s.ch.ReqChan:
@@ -120,18 +129,22 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 				// is not set?
 				if reporter != nil {
 					lameDuck := 0
-					// TODO(mrmcmuffinz): Should we do a nil check and if yes what should happen if the reporter
+					// TODO(mrmcmuffinz): Should we do a nil check and if yes what should happen if health
 					// is not set?
 					if health != nil {
 						if !health.IsAlive() {
 							lameDuck = 1
 						}
+					} else { // REMOVEME
+						fmt.Println("#################### NO HEALTH #######################")
 					}
 					reporter.Report(
 						float64(lameDuck),
 						float64(requestCount),
 						float64(avg),
 					)
+				} else { // REMOVEME
+					fmt.Println("#################### NO REPORTER #######################")
 				}
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
