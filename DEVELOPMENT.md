@@ -8,15 +8,15 @@ to `Knative Serving`. Also take a look at:
 * [How to add and run tests](./test/README.md)
 * [Iterating](#iterating)
 
-## Getting started
+## Prerequisites <a name="getting-started"></a>
 
-Follow the instructions below to set up your development environment.  Once you
-meet these requirements, you can
-[start Knative Serving](#starting-knative-serving)!
+Follow the instructions below to set up your development environment. Once you
+meet these requirements, you can make changes and
+[deploy your own version of Knative Serving!](#starting-knative-serving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### Prerequisites
+### Sign up for GitHub
 
 Start by creating [a GitHub account](https://github.com/join), then setup
 [GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
@@ -36,18 +36,18 @@ development.
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). NB:
-   do *not* install Istio or Knative using the instructions in that page, simply
-   create the cluster and come back here. However, if you _did_ install
-   Istio/Knative by mistake, just [clean up](#clean-up) your cluster and try
-   again.
+1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). You
+   do *not* need install Istio or Knative using the instructions in that page -
+   simply create the cluster and come back here. However, if you _did_ install
+   Istio/Knative following those instructions, that's fine too, you'll just
+   redeploy over them, below.
 1. [Set up a docker repository you can push
    to](./docs/setting-up-a-docker-registry.md)
 
 ### Setup your environment <a name="environment-setup"></a>
 
-To [start your environment](./README.md#start-knative) you'll need to set these environment
-variables (we recommend adding them to your `.bashrc`):
+To start your environment you'll need to set these environment variables (we
+recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
 `export GOPATH=...`
@@ -110,13 +110,8 @@ Once you reach this point you are ready to do a full build and deploy as describ
 
 Once you've [setup your development environment](#getting-started), stand up
 `Knative Serving`. Note that if you already installed Knative to your cluster,
-you need to [clean it up](#clean-up) first before following these instructions.
-
-1. [Setup cluster admin](#setup-cluster-admin)
-1. [Deploy istio](#deploy-istio)
-1. [Deploy build](#deploy-build)
-1. [Deploy Knative Serving](#deploy-knative-serving)
-1. [Enable log and metric collection](#enable-log-and-metric-collection)
+redeploying the new version should work fine, but if you run into trouble, you
+can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
@@ -149,12 +144,6 @@ kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
 to set up static IP for Ingresses in the cluster.
-
-### Deploy Build
-
-```shell
-kubectl apply -f ./third_party/config/build/release.yaml
-```
 
 ### Deploy Knative Serving
 
