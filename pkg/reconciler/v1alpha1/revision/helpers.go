@@ -46,11 +46,11 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 }
 
 func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
-	condCount := len(r.Status.Conditions)
-	if condCount == 0 {
+	ready := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	if ready == nil {
 		return r.CreationTimestamp.Time
 	}
-	return r.Status.Conditions[condCount-1].LastTransitionTime.Inner.Time
+	return ready.LastTransitionTime.Inner.Time
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {

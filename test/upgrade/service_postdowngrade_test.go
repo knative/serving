@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestRunLatestServicePostupgrade(t *testing.T) {
+func TestRunLatestServicePostDowngrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Add test case specific name to its own logger.

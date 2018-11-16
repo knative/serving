@@ -20,6 +20,7 @@ Classify what kind of issue this is:
 /kind good-first-issue
 /kind process
 /kind spec
+/kind proposal
 
 -->
 

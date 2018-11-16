@@ -17,9 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -37,53 +37,6 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
-var (
-	boolTrue   = true
-	configSpec = v1alpha1.ConfigurationSpec{
-		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-			},
-		},
-	}
-
-	manualConditions = duckv1alpha1.Conditions{{
-		Type:     v1alpha1.ServiceConditionConfigurationsReady,
-		Status:   corev1.ConditionUnknown,
-		Reason:   "Manual",
-		Message:  "Service is set to Manual, and is not managing underlying resources.",
-		Severity: "Error",
-	}, {
-		Type:     v1alpha1.ServiceConditionReady,
-		Status:   corev1.ConditionUnknown,
-		Reason:   "Manual",
-		Message:  "Service is set to Manual, and is not managing underlying resources.",
-		Severity: "Error",
-	}, {
-		Type:     v1alpha1.ServiceConditionRoutesReady,
-		Status:   corev1.ConditionUnknown,
-		Reason:   "Manual",
-		Message:  "Service is set to Manual, and is not managing underlying resources.",
-		Severity: "Error",
-	}}
-
-	initialConditions = duckv1alpha1.Conditions{{
-		Type:     v1alpha1.ServiceConditionConfigurationsReady,
-		Status:   corev1.ConditionUnknown,
-		Severity: "Error",
-	}, {
-		Type:     v1alpha1.ServiceConditionReady,
-		Status:   corev1.ConditionUnknown,
-		Severity: "Error",
-	}, {
-		Type:     v1alpha1.ServiceConditionRoutesReady,
-		Status:   corev1.ConditionUnknown,
-		Severity: "Error",
-	}}
-)
-
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
@@ -95,90 +48,102 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "incomplete service",
 		Objects: []runtime.Object{
-			// There is no spec.{runLatest,pinned} in this Service to trigger the error condition.
-			svc("incomplete", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
+			// There is no spec.{runLatest,pinned} in this Service to
+			// trigger the error condition.
+			svc("incomplete", "foo", WithInitSvcConditions),
 		},
 		Key:     "foo/incomplete",
 		WantErr: true,
 	}, {
 		Name: "runLatest - create route and service",
 		Objects: []runtime.Object{
-			svcRL("run-latest", "foo"),
+			svc("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcRL("run-latest", "foo")),
-			mustMakeRoute(t, svcRL("run-latest", "foo")),
+			config("run-latest", "foo", WithRunLatestRollout),
+			route("run-latest", "foo", WithRunLatestRollout),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("run-latest", "foo", initialConditions...),
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "pinned - create route and service",
 		Objects: []runtime.Object{
-			svcPin("pinned", "foo"),
+			svc("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
 		Key: "foo/pinned",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcPin("pinned", "foo")),
-			mustMakeRoute(t, svcPin("pinned", "foo")),
+			config("pinned", "foo", WithPinnedRollout("pinned-0001")),
+			route("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcPin("pinned", "foo", initialConditions...),
+			Object: svc("pinned", "foo", WithPinnedRollout("pinned-0001"),
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
-			svcRelease("release", "foo"),
+			svc("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
 		Key: "foo/release",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcRelease("release", "foo")),
-			mustMakeRoute(t, svcRelease("release", "foo")),
+			config("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
+			route("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRelease("release", "foo", initialConditions...),
+			Object: svc("release", "foo", WithReleaseRollout("release-00001", "release-00002"),
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "manual- no creates",
 		Objects: []runtime.Object{
-			svcManual("manual", "foo"),
+			svc("manual", "foo", WithManualRollout),
 		},
 		Key: "foo/manual",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcManual("manual", "foo", manualConditions...),
+			Object: svc("manual", "foo", WithManualRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithManualStatus),
 		}},
 	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
-			svcRL("no-updates", "foo", initialConditions...),
-			mustMakeRoute(t, svcRL("no-updates", "foo", initialConditions...)),
-			mustMakeConfig(t, svcRL("no-updates", "foo", initialConditions...)),
+			svc("no-updates", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("no-updates", "foo", WithRunLatestRollout),
+			config("no-updates", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/no-updates",
 	}, {
 		Name: "runLatest - update route and service",
 		Objects: []runtime.Object{
-			svcRL("update-route-and-config", "foo", initialConditions...),
-			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateConfig(mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...))),
-			mutateRoute(mustMakeRoute(t, svcRL("update-route-and-config", "foo", initialConditions...))),
+			svc("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			// Mutate the Config/Route to have a different body than we want.
+			config("update-route-and-config", "foo", WithRunLatestRollout,
+				// Change the concurrency model to ensure it is corrected.
+				WithConfigConcurrencyModel("Single")),
+			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...)),
+			Object: config("update-route-and-config", "foo", WithRunLatestRollout),
 		}, {
-			Object: mustMakeRoute(t, svcRL("update-route-and-config", "foo", initialConditions...)),
+			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
 		Objects: []runtime.Object{
 			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
 			// path updating Configuration.
-			svc("bad-config-update", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
-			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateConfig(mustMakeConfig(t, svcRL("bad-config-update", "foo", initialConditions...))),
-			mutateRoute(mustMakeRoute(t, svcRL("bad-config-update", "foo", initialConditions...))),
+			svc("bad-config-update", "foo", WithInitSvcConditions),
+			config("bad-config-update", "foo", WithRunLatestRollout,
+				// Change the concurrency model to ensure it is corrected.
+				WithConfigConcurrencyModel("Single")),
+			route("bad-config-update", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
@@ -190,15 +155,17 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "routes"),
 		},
 		Objects: []runtime.Object{
-			svcRL("create-route-failure", "foo"),
+			svc("create-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-route-failure",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcRL("create-route-failure", "foo")),
-			mustMakeRoute(t, svcRL("create-route-failure", "foo")),
+			config("create-route-failure", "foo", WithRunLatestRollout),
+			route("create-route-failure", "foo", WithRunLatestRollout),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("create-route-failure", "foo", initialConditions...),
+			Object: svc("create-route-failure", "foo", WithRunLatestRollout,
+				// First reconcile initializes conditions.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "runLatest - configuration creation failure",
@@ -208,15 +175,17 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "configurations"),
 		},
 		Objects: []runtime.Object{
-			svcRL("create-config-failure", "foo"),
+			svc("create-config-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-config-failure",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcRL("create-config-failure", "foo")),
+			config("create-config-failure", "foo", WithRunLatestRollout),
 			// We don't get to creating the Route.
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("create-config-failure", "foo", initialConditions...),
+			Object: svc("create-config-failure", "foo", WithRunLatestRollout,
+				// First reconcile initializes conditions.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "runLatest - update route failure",
@@ -226,16 +195,14 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			svcRL("update-route-failure", "foo", initialConditions...),
-			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateRoute(mustMakeRoute(t, svcRL("update-route-failure", "foo", initialConditions...))),
-			mutateConfig(mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...))),
+			svc("update-route-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			// Mutate the Route to have an unexpected body to trigger an update.
+			route("update-route-failure", "foo", WithRunLatestRollout, MutateRoute),
+			config("update-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-route-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...)),
-		}, {
-			Object: mustMakeRoute(t, svcRL("update-route-failure", "foo", initialConditions...)),
+			Object: route("update-route-failure", "foo", WithRunLatestRollout),
 		}},
 	}, {
 		Name: "runLatest - update config failure",
@@ -245,15 +212,16 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "configurations"),
 		},
 		Objects: []runtime.Object{
-			svcRL("update-config-failure", "foo", initialConditions...),
-			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			mutateRoute(mustMakeRoute(t, svcRL("update-config-failure", "foo", initialConditions...))),
-			mutateConfig(mustMakeConfig(t, svcRL("update-config-failure", "foo", initialConditions...))),
+			svc("update-config-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("update-config-failure", "foo", WithRunLatestRollout),
+			// Mutate the Config to have an unexpected body to trigger an update.
+			config("update-config-failure", "foo", WithRunLatestRollout,
+				// Change the concurrency model to ensure it is corrected.
+				WithConfigConcurrencyModel("Single")),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: mustMakeConfig(t, svcRL("update-config-failure", "foo", initialConditions...)),
-			// We don't get to updating the Route.
+			Object: config("update-config-failure", "foo", WithRunLatestRollout),
 		}},
 	}, {
 		Name: "runLatest - failure updating service status",
@@ -263,135 +231,72 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			svcRL("run-latest", "foo"),
+			svc("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
-			mustMakeConfig(t, svcRL("run-latest", "foo")),
-			mustMakeRoute(t, svcRL("run-latest", "foo")),
+			config("run-latest", "foo", WithRunLatestRollout),
+			route("run-latest", "foo", WithRunLatestRollout),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("run-latest", "foo", initialConditions...),
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// We attempt to update the Service to initialize its
+				// conditions, which is where we induce the failure.
+				WithInitSvcConditions),
 		}},
 	}, {
 		Name: "runLatest - route and config ready, propagate ready",
 		// When both route and config are ready, the service should become ready.
 		Objects: []runtime.Object{
-			svcRL("all-ready", "foo", initialConditions...),
-			routeWithStatus(mustMakeRoute(t, svcRL("all-ready", "foo", initialConditions...)),
-				v1alpha1.RouteStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.RouteConditionReady,
-						Status:   corev1.ConditionTrue,
-						Severity: "Error",
-					}},
-				}),
-			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
-				v1alpha1.ConfigurationStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.ConfigurationConditionReady,
-						Status:   corev1.ConditionTrue,
-						Severity: "Error",
-					}},
-				}),
+			svc("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("all-ready", "foo", WithRunLatestRollout, RouteReady),
+			config("all-ready", "foo", WithRunLatestRollout, WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
 		},
 		Key: "foo/all-ready",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("all-ready", "foo", duckv1alpha1.Conditions{{
-				Type:     v1alpha1.ServiceConditionConfigurationsReady,
-				Status:   corev1.ConditionTrue,
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionReady,
-				Status:   corev1.ConditionTrue,
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionRoutesReady,
-				Status:   corev1.ConditionTrue,
-				Severity: "Error",
-			}}...),
+			Object: svc("all-ready", "foo", WithRunLatestRollout,
+				// When the Route and Configuration come back with ready
+				// our initial conditions transition to Ready=True.
+				// TODO(mattmoor): Add Latest{Created,Ready}
+				WithReadyRoute, WithReadyConfig("all-ready-00001")),
 		}},
 	}, {
 		Name: "runLatest - config fails, propagate failure",
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
-			svcRL("config-fails", "foo", initialConditions...),
-			routeWithStatus(mustMakeRoute(t, svcRL("config-fails", "foo", initialConditions...)),
-				v1alpha1.RouteStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.RouteConditionReady,
-						Status:   corev1.ConditionTrue,
-						Severity: "Error",
-					}},
-				}),
-			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
-				v1alpha1.ConfigurationStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.ConfigurationConditionReady,
-						Status:   corev1.ConditionFalse,
-						Reason:   "Propagate me, please",
-						Severity: "Error",
-					}},
-				}),
+			svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+				WithLatestCreated, MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("config-fails", "foo", duckv1alpha1.Conditions{{
-				Type:     v1alpha1.ServiceConditionConfigurationsReady,
-				Status:   corev1.ConditionFalse,
-				Reason:   "Propagate me, please",
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionReady,
-				Status:   corev1.ConditionFalse,
-				Reason:   "Propagate me, please",
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionRoutesReady,
-				Status:   corev1.ConditionTrue,
-				Severity: "Error",
-			}}...),
+			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				// When the Route is Ready, and the Configuration has failed,
+				// we expect the following changes to our status conditions.
+				WithReadyRoute, WithFailedConfig(
+					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
 	}, {
 		Name: "runLatest - route fails, propagate failure",
 		// When route fails, the service should fail.
 		Objects: []runtime.Object{
-			svcRL("route-fails", "foo", initialConditions...),
-			routeWithStatus(mustMakeRoute(t, svcRL("route-fails", "foo", initialConditions...)),
-				v1alpha1.RouteStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.RouteConditionReady,
-						Status:   corev1.ConditionFalse,
-						Reason:   "Propagate me, please",
-						Severity: "Error",
-					}},
-				}),
-			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
-				v1alpha1.ConfigurationStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.ConfigurationConditionReady,
-						Status:   corev1.ConditionTrue,
-						Severity: "Error",
-					}},
-				}),
+			svc("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("route-fails", "foo", WithRunLatestRollout,
+				RouteFailed("Propagate me, please", "")),
+			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
 		},
 		Key: "foo/route-fails",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcRL("route-fails", "foo", duckv1alpha1.Conditions{{
-				Type:     v1alpha1.ServiceConditionConfigurationsReady,
-				Status:   corev1.ConditionTrue,
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionReady,
-				Status:   corev1.ConditionFalse,
-				Reason:   "Propagate me, please",
-				Severity: "Error",
-			}, {
-				Type:     v1alpha1.ServiceConditionRoutesReady,
-				Status:   corev1.ConditionFalse,
-				Reason:   "Propagate me, please",
-				Severity: "Error",
-			}}...),
+			Object: svc("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				// When the Configuration is Ready, and the Route has failed,
+				// we expect the following changed to our status conditions.
+				WithReadyConfig("route-fails-00001"),
+				WithFailedRoute("Propagate me, please", "")),
 		}},
 	}}
 
@@ -427,79 +332,66 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func svc(name, namespace string, spec v1alpha1.ServiceSpec, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
-	return &v1alpha1.Service{
+func svc(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
+	s := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: spec,
-		Status: v1alpha1.ServiceStatus{
-			Conditions: conditions,
-		},
 	}
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
 }
 
-func svcRL(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
-	return svc(name, namespace, v1alpha1.ServiceSpec{
-		RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-	}, conditions...)
-}
-
-func svcPin(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
-	return svc(name, namespace, v1alpha1.ServiceSpec{
-		Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
-	}, conditions...)
-}
-
-func svcRelease(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
-	return svc(name, namespace, v1alpha1.ServiceSpec{
-		Release: &v1alpha1.ReleaseType{Revisions: []string{"release-00001", "release-00002"}, RolloutPercent: 49, Configuration: configSpec},
-	}, conditions...)
-}
-
-func svcManual(name, namespace string, conditions ...duckv1alpha1.Condition) *v1alpha1.Service {
-	return svc(name, namespace, v1alpha1.ServiceSpec{
-		Manual: &v1alpha1.ManualType{},
-	}, conditions...)
-}
-
-func mustMakeConfig(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Configuration {
-	cfg, err := resources.MakeConfiguration(svc)
+func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
+	s := svc(name, namespace, so)
+	cfg, err := resources.MakeConfiguration(s)
 	if err != nil {
-		t.Fatalf("MakeConfiguration() = %v", err)
+		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
+	}
+	for _, opt := range co {
+		opt(cfg)
 	}
 	return cfg
 }
 
-func mustMakeRoute(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Route {
-	route, err := resources.MakeRoute(svc)
+func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1alpha1.Route {
+	s := svc(name, namespace, so)
+	route, err := resources.MakeRoute(s)
 	if err != nil {
-		t.Fatalf("MakeRoute() = %v", err)
+		panic(fmt.Sprintf("MakeRoute() = %v", err))
+	}
+	for _, opt := range ro {
+		opt(route)
 	}
 	return route
 }
 
-// mutateConfig mutates the specification of the Configuration to simulate someone editing it around our controller.
-func mutateConfig(cfg *v1alpha1.Configuration) *v1alpha1.Configuration {
-	cfg.Spec = v1alpha1.ConfigurationSpec{}
-	return cfg
-}
-
-// mutateRoute mutates the specification of the Route to simulate someone editing it around our controller.
-func mutateRoute(rt *v1alpha1.Route) *v1alpha1.Route {
+// TODO(mattmoor): Replace these when we refactor Route's table_test.go
+func MutateRoute(rt *v1alpha1.Route) {
 	rt.Spec = v1alpha1.RouteSpec{}
-	return rt
 }
 
-// TODO(#1762): Replace with builders.
-func cfgWithStatus(cfg *v1alpha1.Configuration, s v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
-	cfg.Status = s
-	return cfg
+func RouteReady(cfg *v1alpha1.Route) {
+	cfg.Status = v1alpha1.RouteStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   "Ready",
+			Status: "True",
+		}},
+	}
 }
 
-// TODO(#1762): Replace with builders.
-func routeWithStatus(rt *v1alpha1.Route, s v1alpha1.RouteStatus) *v1alpha1.Route {
-	rt.Status = s
-	return rt
+func RouteFailed(reason, message string) RouteOption {
+	return func(cfg *v1alpha1.Route) {
+		cfg.Status = v1alpha1.RouteStatus{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:    "Ready",
+				Status:  "False",
+				Reason:  reason,
+				Message: message,
+			}},
+		}
+	}
 }

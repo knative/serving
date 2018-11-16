@@ -77,6 +77,13 @@ func TestReconcile(t *testing.T) {
 		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
+		Name:                    "skip ingress not matching class key",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			addAnnotations(ingress("no-virtualservice-yet", 1234),
+				map[string]string{networking.IngressClassAnnotationKey: "fake-controller"}),
+		},
+	}, {
 		Name:                    "create VirtualService matching ClusterIngress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
@@ -165,6 +172,17 @@ func TestReconcile(t *testing.T) {
 			clusterIngressLister: listers.GetClusterIngressLister(),
 		}
 	}))
+}
+
+func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
+	if ing.ObjectMeta.Annotations == nil {
+		ing.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	for k, v := range annos {
+		ing.ObjectMeta.Annotations[k] = v
+	}
+	return ing
 }
 
 func ingressWithStatus(name string, generation int64, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {

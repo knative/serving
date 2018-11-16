@@ -28,11 +28,8 @@ import (
 type Measurement int
 
 const (
-	// RequestCountM is the requests count that are routed to the activator
-	RequestCountM Measurement = iota
-
-	//ResponseCountM is the response count when activator proxy the request
-	ResponseCountM
+	//RequestCountM is the request count when KBuffer proxy the request
+	RequestCountM = iota
 
 	// ResponseTimeInMsecM is the response time in millisecond
 	ResponseTimeInMsecM
@@ -42,11 +39,7 @@ var (
 	measurements = []*stats.Float64Measure{
 		RequestCountM: stats.Float64(
 			"revision_request_count",
-			"The number of requests that are routed to the activator",
-			stats.UnitNone),
-		ResponseCountM: stats.Float64(
-			"revision_response_count",
-			"The response count when activator proxy the request",
+			"The number of requests that are routed to KBuffer",
 			stats.UnitNone),
 		ResponseTimeInMsecM: stats.Float64(
 			"response_time_msec",
@@ -57,8 +50,7 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	ReportRequest(ns, service, config, rev string, v float64) error
-	ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error
+	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
 
@@ -112,14 +104,8 @@ func NewStatsReporter() (*Reporter, error) {
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
-			Description: "The number of requests that are routed to the activator",
+			Description: "The number of requests that are routed to KBuffer",
 			Measure:     measurements[RequestCountM],
-			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
-		},
-		&view.View{
-			Description: "The response count when activator proxy the request",
-			Measure:     measurements[ResponseCountM],
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
 		},
@@ -138,28 +124,8 @@ func NewStatsReporter() (*Reporter, error) {
 	return r, nil
 }
 
-// ReportRequest captures request metrics
-func (r *Reporter) ReportRequest(ns, service, config, rev string, v float64) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, service),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev))
-	if err != nil {
-		return err
-	}
-
-	stats.Record(ctx, measurements[RequestCountM].M(v))
-	return nil
-}
-
-// ReportResponseCount captures response count metric with value v.
-func (r *Reporter) ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
+// ReportRequestCount captures request count metric with value v.
+func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -176,7 +142,7 @@ func (r *Reporter) ReportResponseCount(ns, service, config, rev string, response
 		return err
 	}
 
-	stats.Record(ctx, measurements[ResponseCountM].M(v))
+	stats.Record(ctx, measurements[RequestCountM].M(v))
 	return nil
 }
 
