@@ -31,29 +31,29 @@ func TestIstio(t *testing.T) {
 	cm := ConfigMapFromTestFile(t, IstioConfigName)
 
 	if _, err := NewIstioFromConfigMap(cm); err != nil {
-		t.Errorf("NewNetworkFromConfigMap() = %v", err)
+		t.Errorf("NewIstioFromConfigMap() = %v", err)
 	}
 }
 
 func TestGatewayConfiguration(t *testing.T) {
 	gatewayConfigTests := []struct {
-		name           string
-		wantErr        bool
-		wantController interface{}
-		config         *corev1.ConfigMap
+		name      string
+		wantErr   bool
+		wantIstio interface{}
+		config    *corev1.ConfigMap
 	}{{
-		name:           "gateway configuration with no network input",
-		wantErr:        true,
-		wantController: (*Istio)(nil),
+		name:      "gateway configuration with no network input",
+		wantErr:   true,
+		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
 				Name:      IstioConfigName,
 			},
 		}}, {
-		name:           "gateway configuration with invalid url",
-		wantErr:        true,
-		wantController: (*Istio)(nil),
+		name:      "gateway configuration with invalid url",
+		wantErr:   true,
+		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
@@ -65,7 +65,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		}}, {
 		name:    "gateway configuration with valid url",
 		wantErr: false,
-		wantController: &Istio{
+		wantIstio: &Istio{
 			IngressGateway: "istio-ingressgateway.istio-system.svc.cluster.local",
 		},
 		config: &corev1.ConfigMap{
@@ -80,14 +80,14 @@ func TestGatewayConfiguration(t *testing.T) {
 	}
 
 	for _, tt := range gatewayConfigTests {
-		actualController, err := NewIstioFromConfigMap(tt.config)
+		actualIstio, err := NewIstioFromConfigMap(tt.config)
 
 		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewGatewayFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+			t.Fatalf("Test: %q; NewIstioFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 		}
 
-		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
+		if diff := cmp.Diff(actualIstio, tt.wantIstio); diff != "" {
+			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantIstio, actualIstio)
 		}
 	}
 }
