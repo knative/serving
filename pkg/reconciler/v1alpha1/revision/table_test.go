@@ -1517,7 +1517,7 @@ func rev(namespace, name string, image string) *v1alpha1.Revision {
 	}
 }
 
-func deploy(namespace, name string, image string, co ...ConfigOption) *appsv1.Deployment {
+func deploy(namespace, name string, image string, co ...configOption) *appsv1.Deployment {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
@@ -1528,7 +1528,7 @@ func deploy(namespace, name string, image string, co ...ConfigOption) *appsv1.De
 		config.Autoscaler, config.Controller)
 }
 
-func image(namespace, name string, image string, co ...ConfigOption) *caching.Image {
+func image(namespace, name string, image string, co ...configOption) *caching.Image {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
@@ -1544,7 +1544,7 @@ func image(namespace, name string, image string, co ...ConfigOption) *caching.Im
 	return img
 }
 
-func fluentdConfigMap(namespace, name string, image string, co ...ConfigOption) *corev1.ConfigMap {
+func fluentdConfigMap(namespace, name string, image string, co ...configOption) *corev1.ConfigMap {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
@@ -1590,7 +1590,7 @@ func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
 
-type ConfigOption func(*config.Config)
+type configOption func(*config.Config)
 
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
