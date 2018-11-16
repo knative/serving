@@ -86,6 +86,57 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
+func TestNonHpaClass(t *testing.T) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+
+	opts := reconciler.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		Logger:           TestLogger(t),
+	}
+
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+	ctl := NewController(&opts,
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
+	)
+
+	rev := newTestRevision(testNamespace, testRevision)
+	rev.Annotations = map[string]string{
+		autoscaling.ClassAnnotationKey: autoscaling.KPA, // non "hpa" class
+	}
+
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	kpa := revisionresources.MakeKPA(rev)
+	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	reconcileDone := make(chan struct{})
+	go func() {
+		defer close(reconcileDone)
+		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		if err != nil {
+			t.Errorf("Reconcile() = %v", err)
+		}
+	}()
+
+	// Wait for reconcile to finish
+	select {
+	case <-reconcileDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Reconciliation timed out")
+	}
+
+	// Verify HPA was not created
+	if hpa, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{}); err == nil {
+		t.Errorf("Wanted no HPA. Got %v", hpa)
+	}
+
+}
+
 func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
