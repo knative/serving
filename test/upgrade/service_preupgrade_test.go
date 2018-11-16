@@ -27,7 +27,7 @@ import (
 	"github.com/knative/serving/test/e2e"
 )
 
-func TestRunLatestServicePreupgrade(t *testing.T) {
+func TestRunLatestServicePreUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Add test case specific name to its own logger.
