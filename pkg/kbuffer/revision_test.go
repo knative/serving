@@ -52,11 +52,7 @@ func init() {
 
 type mockReporter struct{}
 
-func (r *mockReporter) ReportRequest(ns, service, config, rev string, v float64) error {
-	return nil
-}
-
-func (r *mockReporter) ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
+func (r *mockReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
 	return nil
 }
 

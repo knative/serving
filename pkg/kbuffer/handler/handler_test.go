@@ -101,7 +101,7 @@ func TestActivationHandler(t *testing.T) {
 			attempts:  "123",
 			reporterCalls: []reporterCall{
 				{
-					Op:         "ReportResponseCount",
+					Op:         "ReportRequestCount",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
 					Service:    "service-real-name",
@@ -129,7 +129,7 @@ func TestActivationHandler(t *testing.T) {
 			wantErr:   nil,
 			reporterCalls: []reporterCall{
 				{
-					Op:         "ReportResponseCount",
+					Op:         "ReportRequestCount",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
 					Service:    "service-real-name",
@@ -166,7 +166,7 @@ func TestActivationHandler(t *testing.T) {
 			wantErr:   errors.New("request error"),
 			reporterCalls: []reporterCall{
 				{
-					Op:         "ReportResponseCount",
+					Op:         "ReportRequestCount",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
 					Service:    "service-real-name",
@@ -195,7 +195,7 @@ func TestActivationHandler(t *testing.T) {
 			attempts:  "hi there",
 			reporterCalls: []reporterCall{
 				{
-					Op:         "ReportResponseCount",
+					Op:         "ReportRequestCount",
 					Namespace:  "real-namespace",
 					Revision:   "real-name",
 					Service:    "service-real-name",
@@ -286,13 +286,9 @@ type fakeReporter struct {
 	calls []reporterCall
 }
 
-func (f *fakeReporter) ReportRequest(ns, service, config, rev string, v float64) error {
-	return nil
-}
-
-func (f *fakeReporter) ReportResponseCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
+func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
 	f.calls = append(f.calls, reporterCall{
-		Op:         "ReportResponseCount",
+		Op:         "ReportRequestCount",
 		Namespace:  ns,
 		Service:    service,
 		Config:     config,

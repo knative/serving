@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"time"
 
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/kbuffer"
 	"github.com/knative/serving/pkg/kbuffer/util"
-	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
 )
 
@@ -86,7 +86,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	httpStatus := capture.statusCode
 	duration := time.Now().Sub(start)
 
-	a.Reporter.ReportResponseCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
+	a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
 	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
 }
 
