@@ -30,9 +30,12 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	testingK8s "k8s.io/client-go/testing"
 )
 
 const (
@@ -134,7 +137,42 @@ func TestNonHpaClass(t *testing.T) {
 	if hpa, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{}); err == nil {
 		t.Errorf("Wanted no HPA. Got %v", hpa)
 	}
+}
 
+func TestHpaCreateError(t *testing.T) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+
+	want := errors.NewBadRequest("boom!")
+
+	kubeClient.AddReactor("create", "horizontalpodautoscalers", func(action testingK8s.Action) (bool, runtime.Object, error) {
+		return true, nil, want
+	})
+
+	opts := reconciler.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		Logger:           TestLogger(t),
+	}
+
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+	ctl := NewController(&opts,
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
+	)
+
+	rev := newTestRevision(testNamespace, testRevision)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	kpa := revisionresources.MakeKPA(rev)
+	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	got := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	if got != want {
+		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	}
 }
 
 func newTestRevision(namespace string, name string) *v1alpha1.Revision {
