@@ -3,12 +3,13 @@ package kbuffer
 import (
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"sync"
 	"time"
 
 	"k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"strings"
 )
 
 func NewEndpointObserver() *EndpointObserver {
@@ -25,15 +26,6 @@ type EndpointObserver struct {
 	defaultResync time.Duration
 	stopChan      chan struct{}
 	mux           sync.Mutex
-}
-
-func (eo *EndpointObserver) Start(clientset *fakekubeclientset.Clientset) *kubeinformers.SharedInformerFactory {
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(clientset, eo.defaultResync)
-	eo.informer = kubeInformerFactory.Core().V1().Endpoints()
-
-	go eo.informer.Informer().Run(eo.stopChan)
-	kubeInformerFactory.Start(eo.stopChan)
-	return &kubeInformerFactory
 }
 
 func getEndpointAddresses(subsets *[]corev1.EndpointSubset) int {
@@ -77,16 +69,33 @@ func (eo *EndpointObserver) filter(namespace, name string) func(obj interface{})
 	}
 }
 
-func (eo *EndpointObserver) Get(id revisionID) (int, bool) {
+// Start the endpoint informer
+func (eo *EndpointObserver) Start(clientset kubernetes.Interface) *kubeinformers.SharedInformerFactory {
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(clientset, eo.defaultResync)
+	eo.informer = kubeInformerFactory.Core().V1().Endpoints()
+
+	go eo.informer.Informer().Run(eo.stopChan)
+	kubeInformerFactory.Start(eo.stopChan)
+	return &kubeInformerFactory
+}
+
+// Get the number of endpoints for a revision
+// _ok_ is true if the endpoint exists in the map
+func (eo *EndpointObserver) Get(id revisionID, postfix ...string) (int, bool) {
+	name := id.name+strings.Join(postfix,"")
+	id.name = name
 	eo.mux.Lock()
 	defer eo.mux.Unlock()
 	hosts, ok := eo.endpoints[id]
 	return hosts, ok
 }
 
-func (eo *EndpointObserver) Watch(id revisionID) {
+// Add handler function to watch a specific revision
+// Is not blocking, the updates are received via polling the _Get_ method
+func (eo *EndpointObserver) WatchEndpoint(id revisionID, postfix ...string) {
+	name := id.name+strings.Join(postfix,"")
 	eo.informer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: eo.filter(id.namespace, id.name),
+		FilterFunc: eo.filter(id.namespace, name),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    eo.add,
 			UpdateFunc: eo.update,

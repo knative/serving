@@ -22,7 +22,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
+
+var kubeclient = fakekubeclientset.NewSimpleClientset()
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
@@ -33,7 +36,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(Activator(f))
+	d := NewDedupingActivator(kubeclient, Activator(f))
 
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
 
@@ -60,7 +63,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(f)
+	d := NewDedupingActivator(kubeclient,f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, testRevision},
@@ -98,7 +101,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(f)
+	d := NewDedupingActivator(kubeclient, f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -142,7 +145,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				Error:    error2,
 			},
 		})
-	d := NewDedupingActivator(f)
+	d := NewDedupingActivator(kubeclient, f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -180,7 +183,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				Error:    failErr,
 			},
 		})
-	d := NewDedupingActivator(Activator(f))
+	d := NewDedupingActivator(kubeclient, Activator(f))
 
 	// Activation initially fails
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
@@ -234,7 +237,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(Activator(f))
+	d := NewDedupingActivator(kubeclient, Activator(f))
 	f.hold(revisionID{testNamespace, testRevision})
 
 	go func() {

@@ -6,6 +6,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"testing"
 	"time"
+	"k8s.io/client-go/kubernetes"
 )
 
 var want int
@@ -83,7 +84,7 @@ func genAddresses(hosts int) (endpoints []EndpointAddress) {
 }
 
 // Helper method to emulate endpoint creation and updates via fake kube client
-func createAndUpdateEndpoints(hostsBefore, hostsAfter int, kubeClient *fakekubeclientset.Clientset, service string) {
+func createAndUpdateEndpoints(hostsBefore, hostsAfter int, kubeClient kubernetes.Interface, service string) {
 	before := genEndpoinstFromKube(namespace, service, hostsBefore)
 	after := genEndpoinstFromKube(namespace, service, hostsAfter)
 	_, _ = kubeClient.CoreV1().Endpoints(namespace).Create(&before)
@@ -91,7 +92,7 @@ func createAndUpdateEndpoints(hostsBefore, hostsAfter int, kubeClient *fakekubec
 }
 
 // Helper method to start endpoint informer
-func initEndpointObserver(kubeClient *fakekubeclientset.Clientset) *EndpointObserver{
+func initEndpointObserver(kubeClient kubernetes.Interface) *EndpointObserver{
 	ch := make(chan struct{})
 	observer := NewEndpointObserver()
 	informer := *observer.Start(kubeClient)
@@ -170,7 +171,7 @@ func TestEndpointsObserver_Watch_Scale_Out(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 
 	observer := initEndpointObserver(kubeClient)
-	observer.Watch(revId)
+	observer.WatchEndpoint(revId)
 
 	createAndUpdateEndpoints(0, 1, kubeClient, service)
 
@@ -185,7 +186,7 @@ func TestEndpointsObserver_Watch_Scale_Down(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 
 	observer := initEndpointObserver(kubeClient)
-	observer.Watch(revId)
+	observer.WatchEndpoint(revId)
 
 	createAndUpdateEndpoints(1, 0, kubeClient, service)
 
@@ -202,8 +203,8 @@ func TestEndpointsObserver_Watch_Several_Endpoints(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 
 	observer := initEndpointObserver(kubeClient)
-	observer.Watch(firstRevision)
-	observer.Watch(secondRevision)
+	observer.WatchEndpoint(firstRevision)
+	observer.WatchEndpoint(secondRevision)
 
 	createAndUpdateEndpoints(0, 1, kubeClient, service)
 	createAndUpdateEndpoints(0, 1, kubeClient, secondServiceName)

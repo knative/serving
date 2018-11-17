@@ -13,24 +13,24 @@ var totalRequests = 2
 
 var rev = revisionID{"default", "hello"}
 
-func getMockedProcessor(actuallyProcessed *int) func([]interface{}) {
-	return func(reqs []interface{}) {
+func getMockedProcessor(actuallyProcessed *int) func([]chan ActivationResult) {
+	return func(reqs []chan ActivationResult) {
 		*actuallyProcessed+=len(reqs)
 	}
 }
 
-func endpointsGetter(endpoints int) func(id revisionID) int {
-return func(id revisionID) int {
-	return endpoints
+func endpointsGetter(endpoints int) func(id revisionID, postfix ...string) (int,bool) {
+return func(id revisionID, postfix ...string) (int,bool) {
+	return endpoints,true
 }
 }
 
 func startThrottler(actuallyProcesssed *int, totalRequests int, reqPerContainer int, sleep time.Duration, endpoints int, ticks ...int) *Throttler {
-	requests := make([]interface{}, totalRequests)
+	requests := make([]chan ActivationResult, totalRequests)
 	mockedProcessor := getMockedProcessor(actuallyProcesssed)
 	ticker := NewTicker(time.Millisecond)
-	throttler := NewThrottler(requests, reqPerContainer, endpointsGetter(endpoints), mockedProcessor, ticker)
-	go throttler.Run(rev)
+	throttler := NewThrottler(reqPerContainer, endpointsGetter(endpoints), mockedProcessor, ticker)
+	go throttler.Run(rev, requests)
 	go ticker.Tick(ticks...)
 	return throttler
 }
@@ -49,7 +49,7 @@ func TestThrottler_Process_Part_Of_The_Requests(t *testing.T) {
 	shouldBeProcessed := 1
 	shouldBeLeftInTheQueue := 1
 
-	throttler := startThrottler(&actuallyProcessed, totalRequests, reqPerContainer, tickerSleeps, endpoints,1)
+	throttler:= startThrottler(&actuallyProcessed, totalRequests, reqPerContainer, tickerSleeps, endpoints,1)
 
 	time.Sleep(tickerSleeps)
 	assertEqualRequests(shouldBeLeftInTheQueue, cap(throttler.requests), t)
@@ -122,3 +122,5 @@ func TestThrottler_More_Endpoints_Then_Requests(t *testing.T) {
 	assertEqualRequests(shouldBeLeftInTheQueue, cap(throttler.requests), t)
 	assertEqualRequests(shouldBeProcessed, actuallyProcessed, t)
 }
+
+// TODO: test the case when no endpoints are available
