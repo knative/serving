@@ -47,7 +47,7 @@ readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 #             $2 - banner message.
 function make_banner() {
     local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,]/$1}"
+    local border="${msg//[-0-9A-Za-z _.,\/]/$1}"
     echo -e "${border}\n${msg}\n${border}"
 }
 
@@ -235,8 +235,8 @@ function acquire_cluster_admin_role() {
 function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
-  local args=("${@/-v}")
-  local go_test="go test -race -v ${args[@]}"
+  local args=" $@ "
+  local go_test="go test -race -v ${args/ -v / }"
   # Just run regular go tests if not on Prow.
   if (( ! IS_PROW )); then
     ${go_test}
@@ -246,6 +246,7 @@ function report_go_test() {
   local report=$(mktemp)
   local failed=0
   local test_count=0
+  local tests_failed=0
   ${go_test} > ${report} || failed=$?
   echo "Finished run, return code is ${failed}"
   # Tests didn't run.
@@ -298,6 +299,7 @@ function report_go_test() {
         local src="${name}.sh"
         echo "exit 0" > ${src}
         if [[ "${field1}" == "FAIL:" ]]; then
+          tests_failed=$(( tests_failed + 1 ))
           [[ -z "${error}" ]] && read error
           echo "cat <<ERROR-EOF" > ${src}
           echo "${error}" >> ${src}
@@ -324,13 +326,13 @@ function report_go_test() {
       fi
     fi
   done < ${report}
-  echo "Done parsing ${test_count} tests"
+  echo "Done parsing ${test_count} tests, ${tests_failed} tests failed"
   # If any test failed, show the detailed report.
   # Otherwise, we already shown the summary.
   # Exception: when emitting metrics, dump the full report.
   if (( failed )) || [[ "$@" == *" -emitmetrics"* ]]; then
     if (( failed )); then
-      echo "At least one test failed, full log:"
+      echo "There were ${tests_failed} test failures, full log:"
     else
       echo "Dumping full log as metrics were requested:"
     fi
