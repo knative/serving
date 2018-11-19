@@ -28,7 +28,7 @@ import (
 type Measurement int
 
 const (
-	//RequestCountM is the request count when KBuffer proxy the request
+	//RequestCountM is the request count when Activator proxy the request
 	RequestCountM = iota
 
 	// ResponseTimeInMsecM is the response time in millisecond
@@ -39,7 +39,7 @@ var (
 	measurements = []*stats.Float64Measure{
 		RequestCountM: stats.Float64(
 			"revision_request_count",
-			"The number of requests that are routed to KBuffer",
+			"The number of requests that are routed to Activator",
 			stats.UnitNone),
 		ResponseTimeInMsecM: stats.Float64(
 			"response_time_msec",
@@ -104,7 +104,7 @@ func NewStatsReporter() (*Reporter, error) {
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
-			Description: "The number of requests that are routed to KBuffer",
+			Description: "The number of requests that are routed to Activator",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
