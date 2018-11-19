@@ -352,6 +352,14 @@ The following environment variables MUST be set:
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT` | Ingress `containerPort` for ingress requests and health checks. See [Inbound network connectivity](#inbound-network-connectivity) for more details. |
 
+The following environment variables SHOULD be set:
+
+| Name              | Meaning  |
+| ----------------- | -------- |
+| `K_REVISION`      | Name of the current Revision. |
+| `K_CONFIGURATION` | Name of the Configuraiton that created the current Revision. |
+| `K_SERVICE`       | If the current Revision has been created by manipulating a Knative Service object, name of this Knative Service. |
+
 Platform providers MAY set additional environment variables. Standardization of
 such variables will follow demonstrated usage and utility.
 
