@@ -109,6 +109,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
 		}, {
+			Name:  "REVISION_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds.Duration.Seconds())),
+		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
