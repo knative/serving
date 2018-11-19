@@ -340,7 +340,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "knative-serving",
-						ServiceName:      "kbuffer-service",
+						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -392,7 +392,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "knative-serving",
-						ServiceName:      "kbuffer-service",
+						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,

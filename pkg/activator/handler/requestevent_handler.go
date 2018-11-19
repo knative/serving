@@ -16,7 +16,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
@@ -54,8 +54,8 @@ type RequestEventHandler struct {
 }
 
 func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(kbuffer.RevisionHeaderNamespace)
-	name := r.Header.Get(kbuffer.RevisionHeaderName)
+	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
+	name := r.Header.Get(activator.RevisionHeaderName)
 
 	revisionKey := autoscaler.NewKpaKey(namespace, name)
 

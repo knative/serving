@@ -17,7 +17,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/activator"
 )
 
 func TestFilteringHandler(t *testing.T) {
@@ -34,13 +34,13 @@ func TestFilteringHandler(t *testing.T) {
 	},
 		{
 			label:          "filter a request containing retry header",
-			headers:        mapToHeader(map[string]string{kbuffer.RequestCountHTTPHeader: "4"}),
+			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: "4"}),
 			passed:         false,
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
 			label:          "forward a request containing empty retry header",
-			headers:        mapToHeader(map[string]string{kbuffer.RequestCountHTTPHeader: ""}),
+			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: ""}),
 			passed:         true,
 			expectedStatus: http.StatusOK,
 		},

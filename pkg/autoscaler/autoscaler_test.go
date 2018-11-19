@@ -333,13 +333,13 @@ func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
-func TestAutoscaler_KBuffer_CausesInstantScale(t *testing.T) {
+func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := time.Now()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   KBufferPodName,
+		PodName:                   ActivatorPodName,
 		RequestCount:              0,
 		AverageConcurrentRequests: 100.0,
 	})
@@ -347,19 +347,19 @@ func TestAutoscaler_KBuffer_CausesInstantScale(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
-func TestAutoscaler_KBuffer_MultipleInstancesAreAggregated(t *testing.T) {
+func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := time.Now()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   KBufferPodName + "-0",
+		PodName:                   ActivatorPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   KBufferPodName + "-1",
+		PodName:                   ActivatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
@@ -367,7 +367,7 @@ func TestAutoscaler_KBuffer_MultipleInstancesAreAggregated(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
-func TestAutoscaler_KBuffer_IsIgnored(t *testing.T) {
+func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
 	now := a.recordLinearSeries(
@@ -384,18 +384,18 @@ func TestAutoscaler_KBuffer_IsIgnored(t *testing.T) {
 
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   KBufferPodName + "-0",
+		PodName:                   ActivatorPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 1000.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   KBufferPodName + "-1",
+		PodName:                   ActivatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 1000.0,
 	})
 
-	// Scale should not change as the kbuffer metric should
+	// Scale should not change as the activator metric should
 	// be ignored
 	a.expectScale(t, now, 10, true)
 }

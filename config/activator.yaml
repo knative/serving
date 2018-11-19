@@ -15,30 +15,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kbuffer
+  name: activator
   namespace: knative-serving
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: kbuffer
-      role: kbuffer
+      app: activator
+      role: activator
   template:
     metadata:
       annotations:
         sidecar.istio.io/inject: "true"
       labels:
-        app: kbuffer
-        role: kbuffer
+        app: activator
+        role: activator
     spec:
       serviceAccountName: controller
       containers:
-      - name: kbuffer
+      - name: activator
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/kbuffer
+        image: github.com/knative/serving/cmd/activator
         ports:
-        - name: kbuffer-port
+        - name: activator-port
           containerPort: 8080
         - name: metrics-port
           containerPort: 9090

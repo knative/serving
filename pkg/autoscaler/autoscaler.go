@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	// KBufferPodName defines the pod name of the kbuffer
+	// ActivatorPodName defines the pod name of the activator
 	// as defined in the metrics it sends.
-	KBufferPodName string = "kbuffer"
+	ActivatorPodName string = "activator"
 )
 
 // Stat defines a single measurement at a point in time
@@ -68,18 +68,18 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:             window,
-		perPodAggregations: make(map[string]*perPodAggregation),
-		kbuffersContained:  make(map[string]struct{}),
+		window:              window,
+		perPodAggregations:  make(map[string]*perPodAggregation),
+		activatorsContained: make(map[string]struct{}),
 	}
 }
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window             time.Duration
-	perPodAggregations map[string]*perPodAggregation
-	probeCount         int32
-	kbuffersContained  map[string]struct{}
+	window              time.Duration
+	perPodAggregations  map[string]*perPodAggregation
+	probeCount          int32
+	activatorsContained map[string]struct{}
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -94,26 +94,26 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
 		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(stat.PodName, KBufferPodName) {
-			agg.kbuffersContained[stat.PodName] = struct{}{}
+		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
+			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
 		agg.probeCount++
 	}
 }
 
 // The number of pods that are observable via stats
-// Subtracts the kbuffer pod if its not the only pod reporting stats
+// Subtracts the activator pod if its not the only pod reporting stats
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
 		podCount += pod.usageRatio(now)
 	}
 
-	kbuffersCount := len(agg.kbuffersContained)
-	// Discount the kbuffers in the pod count.
-	if kbuffersCount > 0 {
-		discountedPodCount := podCount - float64(kbuffersCount)
-		// Report a minimum of 1 pod if the kbuffers are sending metrics.
+	activatorsCount := len(agg.activatorsContained)
+	// Discount the activators in the pod count.
+	if activatorsCount > 0 {
+		discountedPodCount := podCount - float64(activatorsCount)
+		// Report a minimum of 1 pod if the activators are sending metrics.
 		if discountedPodCount < 1.0 {
 			return 1.0
 		}
@@ -124,21 +124,21 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 
 // The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
-// Ignores kbuffer sent metrics if its not the only pod reporting stats
+// Ignores activator sent metrics if its not the only pod reporting stats
 func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	accumulatedConcurrency := float64(0)
-	kbufferConcurrency := float64(0)
+	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
 		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(podName, KBufferPodName) {
-			kbufferConcurrency += perPod.calculateAverage(now)
+		if strings.HasPrefix(podName, ActivatorPodName) {
+			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
 		}
 	}
 	if accumulatedConcurrency == 0.0 {
-		return kbufferConcurrency / observedPods
+		return activatorConcurrency / observedPods
 	}
 	return accumulatedConcurrency / observedPods
 }

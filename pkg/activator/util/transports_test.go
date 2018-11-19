@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/activator"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -141,7 +141,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		t.Run(e.label, func(t *testing.T) {
 			allRequestsGotRetryHeader := true
 			transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				if r.Header.Get(kbuffer.RequestCountHTTPHeader) == "" {
+				if r.Header.Get(activator.RequestCountHTTPHeader) == "" {
 					allRequestsGotRetryHeader = false
 				}
 
@@ -173,7 +173,7 @@ func TestRetryRoundTripper(t *testing.T) {
 			}
 
 			if resp != nil {
-				if got, want := resp.Header.Get(kbuffer.RequestCountHTTPHeader), strconv.Itoa(e.wantAttempts); got != want {
+				if got, want := resp.Header.Get(activator.RequestCountHTTPHeader), strconv.Itoa(e.wantAttempts); got != want {
 					t.Errorf("Expected retry header not the same got: %q want: %q", got, want)
 				}
 			}
