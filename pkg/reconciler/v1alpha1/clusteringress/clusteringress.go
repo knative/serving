@@ -207,7 +207,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
-		c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated",
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 			"Updated status for VirtualService %q/%q", ns, name)
 	}
 
