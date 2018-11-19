@@ -203,7 +203,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	// We should only need to wait until the Revision is routable,
-	// i.e. Ready or Inactive.  At that point, kbuffer could start
+	// i.e. Ready or Inactive.  At that point, activator could start
 	// queuing requests until the Revision wakes up.  However, due to
 	// #882 we are currently lumping the inactive splits and that
 	// would result in 100% requests reaching Blue or Green.

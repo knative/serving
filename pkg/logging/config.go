@@ -27,7 +27,7 @@ const (
 	ConfigName = "config-logging"
 )
 
-var components = []string{"controller", "queueproxy", "webhook", "kbuffer", "autoscaler"}
+var components = []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"}
 
 // NewLogger creates a logger with the supplied configuration.
 // In addition to the logger, it returns AtomicLevel that can
