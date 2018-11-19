@@ -84,20 +84,23 @@ function go_test_e2e() {
 
 # Download the k8s binaries required by kubetest.
 function download_k8s() {
-  local version=${SERVING_GKE_VERSION}
+  local version=${E2E_CLUSTER_VERSION}
+  # Fetch valid versions
+  local versions="$(gcloud container get-server-config \
+      --project=${GCP_PROJECT} \
+      --format='value(validMasterVersions)' \
+      --region=${E2E_CLUSTER_REGION})"
+  local gke_versions=(`echo -n ${versions//;/ /}`)
+  echo "Valid GKE versions are [${versions//;/, }]"
   if [[ "${version}" == "latest" ]]; then
-    # Fetch latest valid version
-    local versions="$(gcloud container get-server-config \
-        --project=${GCP_PROJECT} \
-        --format='value(validMasterVersions)' \
-        --region=${E2E_CLUSTER_REGION})"
-    local gke_versions=(`echo -n ${versions//;/ /}`)
     # Get first (latest) version, excluding the "-gke.#" suffix
     version="${gke_versions[0]%-*}"
-    echo "Latest GKE is ${version}, from [${versions//;/, }]"
+    echo "Using latest version, ${version}"
   elif [[ "${version}" == "default" ]]; then
     echo "ERROR: `default` GKE version is not supported yet"
     return 1
+  else
+    echo "Using command-line supplied version ${version}"
   fi
   # Download k8s to staging dir
   version=v${version}
@@ -125,7 +128,7 @@ function download_k8s() {
 # This is intended to be called when a test fails to provide debugging information.
 function dump_cluster_state() {
   echo "***************************************"
-  echo "***           TEST FAILED           ***"
+  echo "***         E2E TEST FAILED         ***"
   echo "***    Start of information dump    ***"
   echo "***************************************"
   echo ">>> All resources:"
@@ -136,7 +139,7 @@ function dump_cluster_state() {
   kubectl get events --all-namespaces
   function_exists dump_extra_cluster_state && dump_extra_cluster_state
   echo "***************************************"
-  echo "***           TEST FAILED           ***"
+  echo "***         E2E TEST FAILED         ***"
   echo "***     End of information dump     ***"
   echo "***************************************"
 }
@@ -273,7 +276,7 @@ function success() {
   # TODO(adrcunha): Get rid of this workaround.
   echo -n "0"> ${TEST_RESULT_FILE}
   echo "**************************************"
-  echo "***        ALL TESTS PASSED        ***"
+  echo "***        E2E TESTS PASSED        ***"
   echo "**************************************"
   exit 0
 }
@@ -282,6 +285,12 @@ RUN_TESTS=0
 EMIT_METRICS=0
 USING_EXISTING_CLUSTER=1
 E2E_SCRIPT=""
+E2E_CLUSTER_VERSION=""
+
+function abort() {
+  echo "error: $@"
+  exit 1
+}
 
 # Parse flags and initialize the test cluster.
 function initialize() {
@@ -290,6 +299,8 @@ function initialize() {
   [[ ${E2E_SCRIPT} =~ ^[\./].* ]] || E2E_SCRIPT="./$0"
   E2E_SCRIPT="$(cd ${E2E_SCRIPT%/*} && echo $PWD/${E2E_SCRIPT##*/})"
   readonly E2E_SCRIPT
+
+  E2E_CLUSTER_VERSION="${SERVING_GKE_VERSION}"
 
   cd ${REPO_ROOT_DIR}
   while [[ $# -ne 0 ]]; do
@@ -308,16 +319,22 @@ function initialize() {
     case $parameter in
       --run-tests) RUN_TESTS=1 ;;
       --emit-metrics) EMIT_METRICS=1 ;;
+      --cluster-version)
+        shift
+        [[ $# -ge 1 ]] || abort "missing version after --cluster-version"
+        [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "kubernetes version must be 'X.Y.Z'"
+        E2E_CLUSTER_VERSION=$1
+        ;;
       *)
-        echo "error: unknown option ${parameter}"
-        echo "usage: $0 [--run-tests][--emit-metrics]"
-        exit 1
+        echo "usage: $0 [--run-tests][--emit-metrics][--cluster-version X.Y.Z]"
+        abort "unknown option ${parameter}"
         ;;
     esac
     shift
   done
   readonly RUN_TESTS
   readonly EMIT_METRICS
+  readonly E2E_CLUSTER_VERSION
 
   if (( ! RUN_TESTS )); then
     create_test_cluster
