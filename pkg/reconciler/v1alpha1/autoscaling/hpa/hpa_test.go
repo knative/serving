@@ -17,25 +17,19 @@ limitations under the License.
 package hpa
 
 import (
-	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
-	testingK8s "k8s.io/client-go/testing"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgotesting "k8s.io/client-go/testing"
 )
 
 const (
@@ -44,155 +38,92 @@ const (
 )
 
 func TestReconcile(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
+	table := TableTest{{
+		Name: "create hpa",
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithHPAClass),
+		},
+		Key: key(testRevision, testNamespace),
+		WantCreates: []metav1.Object{
+			hpa(testRevision, testNamespace, WithHPAClass),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+		}},
+	}, {
+		Name: "do not create hpa when non-hpa-class pod autoscaler",
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithKPAClass),
+		},
+		Key: key(testRevision, testNamespace),
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "autoscaling",
+					Version:  "v1",
+					Resource: "horizontalpodautoscalers",
+				},
+			},
+			Name: testRevision,
+		}},
+	}}
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	reconcileDone := make(chan struct{})
-	go func() {
-		defer close(reconcileDone)
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err != nil {
-			t.Errorf("Reconcile() = %v", err)
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:      reconciler.NewBase(opt, controllerAgentName),
+			paLister:  listers.GetPodAutoscalerLister(),
+			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
-	}()
-
-	// Wait for reconcile to finish
-	select {
-	case <-reconcileDone:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Reconciliation timed out")
-	}
-
-	// Verify HPA was created
-	if _, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{}); err != nil {
-		t.Errorf("Wanted HPA. Got %v", err)
-	}
+	}))
 }
 
-func TestNonHpaClass(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
+type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	rev.Annotations = map[string]string{
-		autoscaling.ClassAnnotationKey: autoscaling.KPA, // non "hpa" class
-	}
-
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	reconcileDone := make(chan struct{})
-	go func() {
-		defer close(reconcileDone)
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	}()
-
-	// Wait for reconcile to finish
-	select {
-	case <-reconcileDone:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Reconciliation timed out")
-	}
-
-	// Verify HPA was not created
-	if hpa, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{}); err == nil {
-		t.Errorf("Wanted no HPA. Got %v", hpa)
-	}
+func key(name, namespace string) string {
+	return namespace + "/" + name
 }
 
-func TestHpaCreateError(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	want := errors.NewBadRequest("boom!")
-
-	kubeClient.AddReactor("create", "horizontalpodautoscalers", func(action testingK8s.Action) (bool, runtime.Object, error) {
-		return true, nil, want
-	})
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	got := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
-	}
-}
-
-func newTestRevision(namespace string, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func pa(name, namespace string, options ...KPAOption) *autoscalingv1alpha1.PodAutoscaler {
+	pa := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
 			Name:      name,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.HPA,
-			},
 		},
-		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{
-				Image:      "gcr.io/repo/image",
-				Command:    []string{"echo"},
-				Args:       []string{"hello", "world"},
-				WorkingDir: "/tmp",
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       name + "-deployment",
 			},
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
+			ServiceName: name + "-service",
 		},
 	}
+	for _, opt := range options {
+		opt(pa)
+	}
+	return pa
+}
+
+func hpa(name, namespace string, options ...KPAOption) *autoscalingv1.HorizontalPodAutoscaler {
+	return resources.MakeHPA(pa(name, namespace, options...))
+}
+
+// TODO(josephburnett): Move functional options below
+// knative/pkg/reconciler/v1alpha1/testing/functional.go after renaming
+// KPAOption to PAOption.
+
+func WithHPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
+}
+
+func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }

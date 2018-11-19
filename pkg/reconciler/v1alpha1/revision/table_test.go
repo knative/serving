@@ -29,8 +29,10 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,9 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
-
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -503,17 +502,17 @@ func TestReconcile(t *testing.T) {
 		t := &rtesting.NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			imageLister:      listers.GetImageLister(),
-			deploymentLister: listers.GetDeploymentLister(),
-			serviceLister:    listers.GetK8sServiceLister(),
-			endpointsLister:  listers.GetEndpointsLister(),
-			configMapLister:  listers.GetConfigMapLister(),
-			resolver:         &nopResolver{},
-			tracker:          t,
-			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:      listers.GetRevisionLister(),
+			podAutoscalerlister: listers.GetPodAutoscalerlister(),
+			imageLister:         listers.GetImageLister(),
+			deploymentLister:    listers.GetDeploymentLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
+			resolver:            &nopResolver{},
+			tracker:             t,
+			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
 
 			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
@@ -640,17 +639,17 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			imageLister:      listers.GetImageLister(),
-			deploymentLister: listers.GetDeploymentLister(),
-			serviceLister:    listers.GetK8sServiceLister(),
-			endpointsLister:  listers.GetEndpointsLister(),
-			configMapLister:  listers.GetConfigMapLister(),
-			resolver:         &nopResolver{},
-			tracker:          &rtesting.NullTracker{},
-			configStore:      &testConfigStore{config: config},
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:      listers.GetRevisionLister(),
+			podAutoscalerlister: listers.GetPodAutoscalerlister(),
+			imageLister:         listers.GetImageLister(),
+			deploymentLister:    listers.GetDeploymentLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
+			resolver:            &nopResolver{},
+			tracker:             &rtesting.NullTracker{},
+			configStore:         &testConfigStore{config: config},
 		}
 	}))
 }

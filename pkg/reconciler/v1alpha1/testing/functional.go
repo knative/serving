@@ -440,6 +440,9 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	r.Status.MarkContainerHealthy()
 }
 
+// TODO(josephburnett): rename KPAOption to PAOption because "kpa" and
+// "hpa" are specialized PA implementations. Rename is split across
+// knative/serving and knative/pkg repos so we must two it in two phases.
 // KPAOption enables further configuration of the PodAutoscaler.
 type KPAOption func(*kpav1alpha1.PodAutoscaler)
 
