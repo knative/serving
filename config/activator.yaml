@@ -13,20 +13,17 @@
 # limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: activator
   namespace: knative-serving
 spec:
-  replicas: 3
   selector:
     matchLabels:
       app: activator
       role: activator
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "true"
       labels:
         app: activator
         role: activator
@@ -58,9 +55,27 @@ spec:
         - name: config-observability
           mountPath: /etc/config-observability
       volumes:
-        - name: config-logging
-          configMap:
-            name: config-logging
-        - name: config-observability
-          configMap:
-            name: config-observability
+      - name: config-logging
+        configMap:
+          name: config-logging
+      - name: config-observability
+        configMap:
+          name: config-observability
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: activator
+  namespace: knative-serving
+spec:
+  selector:
+    app: activator
+  ports:
+  - name: activator
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    protocol: TCP
+    port: 9090
+    targetPort: 9090
