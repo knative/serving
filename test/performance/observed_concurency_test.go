@@ -136,7 +136,7 @@ func TestObservedConcurrency(t *testing.T) {
 		tc = append(tc, createTestCase(float32(val), metric))
 	}
 
-	if err = CreateTestgridXML(tc); err != nil {
+	if err = testgrid.CreateTestgridXML(tc); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
