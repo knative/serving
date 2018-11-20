@@ -474,7 +474,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
 	kpa := getTestReadyKPA(rev)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-	f := controller.Reconciler.(*Reconciler).EnqueueEndpointsRevision(controller)
+	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
 	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err != nil {
 		t.Errorf("Reconcile() = %v", err)

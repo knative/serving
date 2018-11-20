@@ -108,25 +108,15 @@ func NewController(
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueEndpointsKPA(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueEndpointsKPA(impl)),
+		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
+		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
 	})
 
 	// Have the KPAMetrics enqueue the KPAs whose metrics have changed.
 	kpaMetrics.Watch(impl.EnqueueKey)
 
 	return impl
-}
-
-func (c *Reconciler) EnqueueEndpointsKPA(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		endpoints := obj.(*corev1.Endpoints)
-		// Use the label on the Endpoints (from Service) to determine the KPA
-		// with which it is associated, and if so queue that KPA.
-		if kpaName, ok := endpoints.Labels[autoscaling.KPALabelKey]; ok {
-			impl.EnqueueKey(endpoints.Namespace + "/" + kpaName)
-		}
-	}
 }
 
 // Reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
