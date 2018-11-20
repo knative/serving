@@ -26,15 +26,14 @@ import (
 	"go.opencensus.io/tag"
 )
 
+// Measurement type for reporting.
 type Measurement int
 
-// TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
-// TODO(@mrmcmuffinz): Need to get more appropriate names.
 const (
 	// ReportingPeriod interval of time for reporting.
 	ReportingPeriod = 10 * time.Second
-	// RequestCountM number of requests received since last Stat (approximately QPS).
-	RequestCountM Measurement = iota
+	// OperationsPerSecondM number of operations per second.
+	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
 	AverageConcurrentRequestsM
 	// LameDuckM indicates this Pod has received a shutdown signal.
@@ -44,9 +43,9 @@ const (
 // TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
 var (
 	measurements = []*stats.Float64Measure{
-		RequestCountM: stats.Float64(
-			"request_count_total",
-			"Number of requests received since last Stat",
+		OperationsPerSecondM: stats.Float64(
+			"operations_per_second",
+			"Number of operations per second",
 			stats.UnitNone),
 		AverageConcurrentRequestsM: stats.Float64(
 			"average_concurrent_requests",
@@ -95,7 +94,7 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 	err = view.Register(
 		&view.View{
 			Description: "Number of requests received since last Stat",
-			Measure:     measurements[RequestCountM],
+			Measure:     measurements[OperationsPerSecondM],
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
 		},
@@ -132,13 +131,13 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 }
 
 // Report captures request metrics
-func (r *Reporter) Report(lameDuck float64, requestCount float64, averageConcurrentRequests float64) error {
+func (r *Reporter) Report(lameDuck float64, operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
 	stats.Record(r.ctx, measurements[LameDuckM].M(lameDuck))
-	stats.Record(r.ctx, measurements[RequestCountM].M(requestCount))
+	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
 }

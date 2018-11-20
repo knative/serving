@@ -50,6 +50,11 @@ const (
 	statReportingQueueLength = 10
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+	// Number of seconds the /quitquitquit handler should wait before
+	// returning.  The purpose is to keep the container alive a little
+	// bit longer, that it doesn't go away until the pod is truly
+	// removed from service.
+	quitSleepSecs = 20
 )
 
 var (
@@ -86,16 +91,23 @@ func initEnv() {
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
 }
 
-func statReporter() {
+func statReporter(reporter *queue.Reporter) {
 	for {
 		s := <-statChan
 		if statSink == nil {
 			logger.Warn("Stat sink not (yet) connected.")
 			continue
 		}
+		lameDuck := 0
 		if !health.IsAlive() {
 			s.LameDuck = true
+			lameDuck = 1
 		}
+		reporter.Report(
+			float64(lameDuck),
+			float64(s.RequestCount),
+			float64(s.AverageConcurrentRequests),
+		)
 		sm := autoscaler.StatMessage{
 			Stat: *s,
 			Key:  servingRevisionKey,
@@ -192,11 +204,6 @@ func main() {
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 
-	// Prometheous Exporter.
-	// TODO(@mrmcmuffinz): need to figure out if this is the best spot to both setup/config the
-	// prom exporter and also run the annonomyous function goroutine to handle the request.
-	// TODO(@mrmcmuffinz): Need to check if we want this always on or not.
-	// TODO(@mrmcmuffinz): Need to figure out where we actually do the work to set the measurements.
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
 	if err != nil {
@@ -218,14 +225,14 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
-	go statReporter()
+	go statReporter(reporter)
 
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker,
 		StatChan:   statChan,
-	}, time.Now(), reporter, health)
+	}, time.Now())
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),

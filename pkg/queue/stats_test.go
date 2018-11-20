@@ -17,8 +17,6 @@ limitations under the License.
 package queue
 
 import (
-	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -27,14 +25,7 @@ import (
 )
 
 const (
-	podName   = "pod"
-	namespace = "namespace"
-	config    = "config"
-	revision  = "1"
-)
-
-var (
-	reporter *Reporter
+	podName = "pod"
 )
 
 func TestNoData(t *testing.T) {
@@ -217,8 +208,7 @@ func newTestStats(now time.Time) *testStats {
 		ReportChan: (<-chan time.Time)(reportBiChan),
 		StatChan:   make(chan *autoscaler.Stat),
 	}
-	hs := NewHealthServer()
-	s := NewStats(podName, ch, now, reporter, hs)
+	s := NewStats(podName, ch, now)
 	t := &testStats{
 		Stats:        *s,
 		reportBiChan: reportBiChan,
@@ -237,18 +227,4 @@ func (s *testStats) requestEnd(now time.Time) {
 func (s *testStats) report(now time.Time) *autoscaler.Stat {
 	s.reportBiChan <- now
 	return <-s.ch.StatChan
-}
-
-func TestMain(m *testing.M) {
-	// HACK!!!!
-	// You cannot call the the NewStatsReporter multiple times because
-	// Prometheus keeps global copies of the views.
-	// TODO: Investigate how to cleanup the global views.
-	_reporter, err := NewStatsReporter(namespace, config, revision)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	reporter = _reporter
-	os.Exit(m.Run())
 }

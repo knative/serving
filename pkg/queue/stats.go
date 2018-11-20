@@ -56,7 +56,7 @@ type Stats struct {
 }
 
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time, reporter *Reporter, health *HealthServer) *Stats {
+func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	s := &Stats{
 		podName: podName,
 		ch:      channels,
@@ -116,17 +116,6 @@ func NewStats(podName string, channels Channels, startedAt time.Time, reporter *
 					RequestCount:              requestCount,
 				}
 
-				lameDuck := 0
-				if health != nil {
-					if !health.IsAlive() {
-						lameDuck = 1
-					}
-				}
-				reporter.Report(
-					float64(lameDuck),
-					float64(requestCount),
-					float64(avg),
-				)
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat
