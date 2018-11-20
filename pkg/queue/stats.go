@@ -109,13 +109,13 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 						avg += float64(c) * ratio
 					}
 				}
+
 				stat := &autoscaler.Stat{
 					Time:                      &now,
 					PodName:                   s.podName,
 					AverageConcurrentRequests: avg,
 					RequestCount:              requestCount,
 				}
-
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat
