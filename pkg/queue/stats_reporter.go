@@ -40,7 +40,6 @@ const (
 	LameDuckM
 )
 
-// TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
 var (
 	measurements = []*stats.Float64Measure{
 		// TODO(#2524): make reporting period accurate.
@@ -116,7 +115,6 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 		return nil, err
 	}
 
-	// TODO(mrmcmuffinz): Need to look into getting the tags.
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, namespace),
