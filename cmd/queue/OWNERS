@@ -2,6 +2,8 @@
 
 approvers:
 - autoscaling-approvers
+- networking-approvers
 
 reviewers:
 - autoscaling-reviewers
+- networking-reviewers
