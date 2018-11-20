@@ -50,11 +50,17 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
         volumeMounts:
+        - name: localpods
+          mountPath: /etc/localpods
         - name: config-logging
           mountPath: /etc/config-logging
         - name: config-observability
           mountPath: /etc/config-observability
       volumes:
+      - name: localpods
+        hostPath:
+          path: /etc/kubernetes/manifests
+          type: Directory
       - name: config-logging
         configMap:
           name: config-logging

@@ -58,6 +58,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
 	}
+	a.Logger.Infof("Created proxy for %v", target)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
 

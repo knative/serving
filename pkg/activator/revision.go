@@ -153,7 +153,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 		}
 	}
 
-	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+	serviceName, configurationName := GetServiceAndConfigurationLabels(revision)
 	endpoint, err := r.getRevisionEndpoint(revision)
 	if err != nil {
 		logger.Error("Failed to get revision endpoint.", zap.Error(err))
@@ -174,7 +174,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	}
 }
 
-func getServiceAndConfigurationLabels(rev *v1alpha1.Revision) (string, string) {
+func GetServiceAndConfigurationLabels(rev *v1alpha1.Revision) (string, string) {
 	if rev.Labels == nil {
 		return "", ""
 	}
