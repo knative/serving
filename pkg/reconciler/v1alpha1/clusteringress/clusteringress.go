@@ -39,7 +39,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "clusteringress-controller"
+const (
+	// IstioIngressClassName value for specifying knative's Istio
+	// ClusterIngress reconciler.
+	IstioIngressClassName = "istio.ingress.networking.knative.dev"
+
+	controllerAgentName = "clusteringress-controller"
+)
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
@@ -69,16 +75,23 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	clusterIngressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, IstioIngressClassName, true)
+	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: impl.Enqueue,
+		},
 	})
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueLabelOf("", networking.IngressLabelKey),
-		UpdateFunc: controller.PassNew(impl.EnqueueLabelOf("", networking.IngressLabelKey)),
-		DeleteFunc: impl.EnqueueLabelOf("", networking.IngressLabelKey),
+	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueLabelOf("", networking.IngressLabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOf("", networking.IngressLabelKey)),
+			DeleteFunc: impl.EnqueueLabelOf("", networking.IngressLabelKey),
+		},
 	})
 
 	return impl
@@ -194,7 +207,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
-		c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated",
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 			"Updated status for VirtualService %q/%q", ns, name)
 	}
 

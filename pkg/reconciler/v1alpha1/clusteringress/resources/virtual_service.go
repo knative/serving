@@ -42,6 +42,7 @@ func MakeVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
 			Name:            names.VirtualService(ci),
 			Namespace:       system.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
+			Annotations:     ci.ObjectMeta.Annotations,
 		},
 		Spec: *makeVirtualServiceSpec(ci),
 	}

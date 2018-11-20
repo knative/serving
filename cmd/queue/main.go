@@ -33,9 +33,9 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
+	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
-	kbufferutil "github.com/knative/serving/pkg/kbuffer/util"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
@@ -52,11 +52,6 @@ const (
 	statReportingQueueLength = 10
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
-	// Number of seconds the /quitquitquit handler should wait before
-	// returning.  The purpose is to keep the container alive a little
-	// bit longer, that it doesn't go away until the pod is truly
-	// removed from service.
-	quitSleepSecs = 20
 )
 
 var (
@@ -77,6 +72,8 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
+	server *http.Server
+
 	health = &healthServer{alive: true}
 )
 
@@ -96,29 +93,32 @@ func initEnv() {
 func statReporter(reporter *queue.Reporter) {
 	for {
 		s := <-statChan
-		if statSink == nil {
-			logger.Warn("Stat sink not (yet) connected.")
-			continue
-		}
-		lameDuck := 0
-		if !health.isAlive() {
-			s.LameDuck = true
-			lameDuck = 1
-		}
-		reporter.Report(
-			float64(lameDuck),
-			float64(s.RequestCount),
-			float64(s.AverageConcurrentRequests),
-		)
-		sm := autoscaler.StatMessage{
-			Stat: *s,
-			Key:  servingRevisionKey,
-		}
-		err := statSink.Send(sm)
-		if err != nil {
+		if err := sendStat(s); err != nil {
 			logger.Error("Error while sending stat", zap.Error(err))
 		}
 	}
+}
+
+// sendStat sends a single StatMessage to the autoscaler.
+func sendStat(s *autoscaler.Stat) error {
+	if statSink == nil {
+		return fmt.Errorf("stat sink not (yet) connected")
+	}
+	lameDuck := 0
+	if !health.isAlive() {
+		s.LameDuck = true
+		lameDuck = 1
+	}
+	reporter.Report(
+		float64(lameDuck),
+		float64(s.RequestCount),
+		float64(s.AverageConcurrentRequests),
+	)
+	sm := autoscaler.StatMessage{
+		Stat: *s,
+		Key:  servingRevisionKey,
+	}
+	return statSink.Send(sm)
 }
 
 func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
@@ -194,24 +194,36 @@ func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// quitHandler() is used for preStop hook of queue-proxy. It:
-// - marks the service as not ready, so that requests will no longer
-//   be routed to it,
-// - adds a small delay, so that the container doesn't get killed at
-//   the same time the pod is marked for removal.
+// quitHandler() is used for preStop hook of queue-proxy. It shuts down its main
+// server and blocks until it gets successfully shut down.
+// This endpoint is also called by the user-container to block its shutdown until
+// the queue-proxy's proxy server is shutdown successfully.
 func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
-	// First, we want to mark the container as not ready, so that even
-	// if the pod removal (from service) isn't yet effective, the
-	// readinessCheck will still prevent traffic to be routed to this
-	// pod.
+	// First mark the server as unhealthy to cause lameduck metrics being sent
 	h.kill()
-	// However, since both readinessCheck and pod removal from service
-	// is eventually consistent, we add here a small delay to have the
-	// container stay alive a little bit longer after.  We still have
-	// no guarantee that container termination is done only after
-	// removal from service is effective, but this has been showed to
-	// alleviate the issue.
-	time.Sleep(quitSleepSecs * time.Second)
+
+	// Force send one (empty) metric to mark the pod as a lameduck before shutting
+	// it down.
+	now := time.Now()
+	s := &autoscaler.Stat{
+		Time:     &now,
+		PodName:  podName,
+		LameDuck: true,
+	}
+	if err := sendStat(s); err != nil {
+		logger.Error("Error while sending stat", zap.Error(err))
+	}
+
+	// Shutdown the server.
+	currentServer := server
+	if currentServer != nil {
+		if err := currentServer.Shutdown(context.Background()); err != nil {
+			logger.Error("Failed to shutdown proxy-server", zap.Error(err))
+		} else {
+			logger.Debug("Proxy server shutdown successfully.")
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, "alive: false")
 }
@@ -245,8 +257,8 @@ func main() {
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
 
-	kbufferutil.SetupHeaderPruning(httpProxy)
-	kbufferutil.SetupHeaderPruning(h2cProxy)
+	activatorutil.SetupHeaderPruning(httpProxy)
+	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if containerConcurrency > 0 {
@@ -295,7 +307,7 @@ func main() {
 		Handler: nil,
 	}
 
-	server := h2c.NewServer(
+	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
 		http.HandlerFunc(handler),
 	)
@@ -310,12 +322,7 @@ func main() {
 	<-sigTermChan
 	// Calling server.Shutdown() allows pending requests to
 	// complete, while no new work is accepted.
-	logger.Debug("Received shutdown signal, attempting to gracefully shutdown servers.")
-	if err := server.Shutdown(context.Background()); err != nil {
-		logger.Error("Failed to shutdown proxy-server", zap.Error(err))
-	} else {
-		logger.Debug("Proxy server shutdown successfully.")
-	}
+	logger.Debug("Received TERM signal, attempting to gracefully shutdown servers.")
 	if err := adminServer.Shutdown(context.Background()); err != nil {
 		logger.Error("Failed to shutdown admin-server", zap.Error(err))
 	}
