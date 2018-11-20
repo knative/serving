@@ -20,12 +20,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -75,7 +77,7 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	health = queue.NewHealthServer()
+	health = &healthServer{alive: true}
 )
 
 func initEnv() {
@@ -99,7 +101,7 @@ func statReporter(reporter *queue.Reporter) {
 			continue
 		}
 		lameDuck := 0
-		if !health.IsAlive() {
+		if !health.isAlive() {
 			s.LameDuck = true
 			lameDuck = 1
 		}
@@ -160,11 +162,65 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// healthServer registers whether a PreStop hook has been called.
+type healthServer struct {
+	alive bool
+	mutex sync.RWMutex
+}
+
+// isAlive() returns true until a PreStop hook has been called.
+func (h *healthServer) isAlive() bool {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return h.alive
+}
+
+// kill() marks that a PreStop hook has been called.
+func (h *healthServer) kill() {
+	h.mutex.Lock()
+	h.alive = false
+	h.mutex.Unlock()
+}
+
+// healthHandler is used for readinessProbe/livenessCheck of
+// queue-proxy.
+func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
+	if h.isAlive() {
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "alive: true")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "alive: false")
+	}
+}
+
+// quitHandler() is used for preStop hook of queue-proxy. It:
+// - marks the service as not ready, so that requests will no longer
+//   be routed to it,
+// - adds a small delay, so that the container doesn't get killed at
+//   the same time the pod is marked for removal.
+func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
+	// First, we want to mark the container as not ready, so that even
+	// if the pod removal (from service) isn't yet effective, the
+	// readinessCheck will still prevent traffic to be routed to this
+	// pod.
+	h.kill()
+	// However, since both readinessCheck and pod removal from service
+	// is eventually consistent, we add here a small delay to have the
+	// container stay alive a little bit longer after.  We still have
+	// no guarantee that container termination is done only after
+	// removal from service is effective, but this has been showed to
+	// alleviate the issue.
+	time.Sleep(quitSleepSecs * time.Second)
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, "alive: false")
+}
+
 // Sets up /health and /quitquitquit endpoints.
 func setupAdminHandlers(server *http.Server) {
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.HealthHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.QuitHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
 	server.Handler = mux
 	server.ListenAndServe()
 }
