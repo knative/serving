@@ -88,9 +88,9 @@ func NewController(
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOf("", networking.IngressLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOf("", networking.IngressLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOf("", networking.IngressLabelKey),
+			AddFunc:    impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
+			DeleteFunc: impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
 		},
 	})
 
@@ -207,7 +207,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
-		c.Recorder.Eventf(desired, corev1.EventTypeNormal, "Updated",
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 			"Updated status for VirtualService %q/%q", ns, name)
 	}
 

@@ -58,17 +58,17 @@ func TestReconcile(t *testing.T) {
 		// We feed in a well formed Revision where none of its sub-resources exist,
 		// and we exect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
-			rev("foo", "first-reconcile", "busybox"),
+			rev("foo", "first-reconcile"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "first-reconcile", "busybox"),
-			deploy("foo", "first-reconcile", "busybox"),
-			svc("foo", "first-reconcile", "busybox"),
-			image("foo", "first-reconcile", "busybox"),
+			kpa("foo", "first-reconcile"),
+			deploy("foo", "first-reconcile"),
+			svc("foo", "first-reconcile"),
+			image("foo", "first-reconcile"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "first-reconcile", "busybox",
+			Object: rev("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
@@ -82,17 +82,17 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "revisions"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "update-status-failure", "busybox"),
-			kpa("foo", "update-status-failure", "busybox"),
+			rev("foo", "update-status-failure"),
+			kpa("foo", "update-status-failure"),
 		},
 		WantCreates: []metav1.Object{
 			// We still see the following creates before the failure is induced.
-			deploy("foo", "update-status-failure", "busybox"),
-			svc("foo", "update-status-failure", "busybox"),
-			image("foo", "update-status-failure", "busybox"),
+			deploy("foo", "update-status-failure"),
+			svc("foo", "update-status-failure"),
+			image("foo", "update-status-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "update-status-failure", "busybox",
+			Object: rev("foo", "update-status-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
@@ -106,17 +106,17 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "podautoscalers"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-kpa-failure", "busybox"),
+			rev("foo", "create-kpa-failure"),
 		},
 		WantCreates: []metav1.Object{
 			// We still see the following creates before the failure is induced.
-			kpa("foo", "create-kpa-failure", "busybox"),
-			deploy("foo", "create-kpa-failure", "busybox"),
-			svc("foo", "create-kpa-failure", "busybox"),
-			image("foo", "create-kpa-failure", "busybox"),
+			kpa("foo", "create-kpa-failure"),
+			deploy("foo", "create-kpa-failure"),
+			svc("foo", "create-kpa-failure"),
+			image("foo", "create-kpa-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-kpa-failure", "busybox",
+			Object: rev("foo", "create-kpa-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
@@ -131,15 +131,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "deployments"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-user-deploy-failure", "busybox"),
-			kpa("foo", "create-user-deploy-failure", "busybox"),
+			rev("foo", "create-user-deploy-failure"),
+			kpa("foo", "create-user-deploy-failure"),
 		},
 		WantCreates: []metav1.Object{
 			// We still see the following creates before the failure is induced.
-			deploy("foo", "create-user-deploy-failure", "busybox"),
+			deploy("foo", "create-user-deploy-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-user-deploy-failure", "busybox",
+			Object: rev("foo", "create-user-deploy-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
@@ -154,17 +154,17 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-user-service-failure", "busybox"),
-			kpa("foo", "create-user-service-failure", "busybox"),
+			rev("foo", "create-user-service-failure"),
+			kpa("foo", "create-user-service-failure"),
 		},
 		WantCreates: []metav1.Object{
 			// We still see the following creates before the failure is induced.
-			deploy("foo", "create-user-service-failure", "busybox"),
-			svc("foo", "create-user-service-failure", "busybox"),
-			image("foo", "create-user-service-failure", "busybox"),
+			deploy("foo", "create-user-service-failure"),
+			svc("foo", "create-user-service-failure"),
+			image("foo", "create-user-service-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-user-service-failure", "busybox",
+			Object: rev("foo", "create-user-service-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
@@ -177,12 +177,12 @@ func TestReconcile(t *testing.T) {
 		// state (immediately post-creation), and verify that no changes
 		// are necessary.
 		Objects: []runtime.Object{
-			rev("foo", "stable-reconcile", "busybox",
+			rev("foo", "stable-reconcile",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "stable-reconcile", "busybox"),
-			deploy("foo", "stable-reconcile", "busybox"),
-			svc("foo", "stable-reconcile", "busybox"),
-			image("foo", "stable-reconcile", "busybox"),
+			kpa("foo", "stable-reconcile"),
+			deploy("foo", "stable-reconcile"),
+			svc("foo", "stable-reconcile"),
+			image("foo", "stable-reconcile"),
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
@@ -192,15 +192,15 @@ func TestReconcile(t *testing.T) {
 		// We feed in a Revision and the resources it controls in a steady
 		// state (port-Reserve), and verify that no changes are necessary.
 		Objects: []runtime.Object{
-			rev("foo", "stable-deactivation", "busybox",
+			rev("foo", "stable-deactivation",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady,
 				MarkInactive("NoTraffic", "This thing is inactive.")),
-			kpa("foo", "stable-deactivation", "busybox",
+			kpa("foo", "stable-deactivation",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy("foo", "stable-deactivation", "busybox"),
-			endpoints("foo", "stable-deactivation", "busybox", WithSubsets),
-			svc("foo", "stable-deactivation", "busybox"),
-			image("foo", "stable-deactivation", "busybox"),
+			deploy("foo", "stable-deactivation"),
+			endpoints("foo", "stable-deactivation", WithSubsets),
+			svc("foo", "stable-deactivation"),
+			image("foo", "stable-deactivation"),
 		},
 		Key: "foo/stable-deactivation",
 	}, {
@@ -215,13 +215,13 @@ func TestReconcile(t *testing.T) {
 		// from thinking we've been waiting for this Endpoint since the beginning of time
 		// and declaring a timeout (this is the main difference from that test below).
 		Objects: []runtime.Object{
-			rev("foo", "endpoint-created-not-ready", "busybox",
+			rev("foo", "endpoint-created-not-ready",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "endpoint-created-not-ready", "busybox"),
-			deploy("foo", "endpoint-created-not-ready", "busybox"),
-			svc("foo", "endpoint-created-not-ready", "busybox"),
-			endpoints("foo", "endpoint-created-not-ready", "busybox"),
-			image("foo", "endpoint-created-not-ready", "busybox"),
+			kpa("foo", "endpoint-created-not-ready"),
+			deploy("foo", "endpoint-created-not-ready"),
+			svc("foo", "endpoint-created-not-ready"),
+			endpoints("foo", "endpoint-created-not-ready"),
+			image("foo", "endpoint-created-not-ready"),
 		},
 		// No updates, since the endpoint didn't have meaningful status.
 		Key: "foo/endpoint-created-not-ready",
@@ -232,17 +232,17 @@ func TestReconcile(t *testing.T) {
 		// we've been waiting since the dawn of time because we omit LastTransitionTime from
 		// our Conditions.  We should see an update to put us into a ServiceTimeout state.
 		Objects: []runtime.Object{
-			rev("foo", "endpoint-created-timeout", "busybox",
+			rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 				MarkActive, WithEmptyLTTs),
-			kpa("foo", "endpoint-created-timeout", "busybox", WithTraffic),
-			deploy("foo", "endpoint-created-timeout", "busybox"),
-			svc("foo", "endpoint-created-timeout", "busybox"),
-			endpoints("foo", "endpoint-created-timeout", "busybox"),
-			image("foo", "endpoint-created-timeout", "busybox"),
+			kpa("foo", "endpoint-created-timeout", WithTraffic),
+			deploy("foo", "endpoint-created-timeout"),
+			svc("foo", "endpoint-created-timeout"),
+			endpoints("foo", "endpoint-created-timeout"),
+			image("foo", "endpoint-created-timeout"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "endpoint-created-timeout", "busybox",
+			Object: rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
 				// When the LTT is cleared, a reconcile will result in the
 				// following mutation.
@@ -256,16 +256,16 @@ func TestReconcile(t *testing.T) {
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
-			rev("foo", "endpoint-ready", "busybox",
+			rev("foo", "endpoint-ready",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "endpoint-ready", "busybox", WithTraffic),
-			deploy("foo", "endpoint-ready", "busybox"),
-			svc("foo", "endpoint-ready", "busybox"),
-			endpoints("foo", "endpoint-ready", "busybox", WithSubsets),
-			image("foo", "endpoint-ready", "busybox"),
+			kpa("foo", "endpoint-ready", WithTraffic),
+			deploy("foo", "endpoint-ready"),
+			svc("foo", "endpoint-ready"),
+			endpoints("foo", "endpoint-ready", WithSubsets),
+			image("foo", "endpoint-ready"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "endpoint-ready", "busybox", WithK8sServiceName, WithLogURL,
+			Object: rev("foo", "endpoint-ready", WithK8sServiceName, WithLogURL,
 				// When the endpoint and KPA are ready, then we will see the
 				// Revision become ready.
 				MarkRevisionReady),
@@ -275,17 +275,17 @@ func TestReconcile(t *testing.T) {
 		Name: "kpa not ready",
 		// Test propagating the KPA status to the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "kpa-not-ready", "busybox",
+			rev("foo", "kpa-not-ready",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-not-ready", "busybox",
+			kpa("foo", "kpa-not-ready",
 				WithBufferedTraffic("Something", "This is something longer")),
-			deploy("foo", "kpa-not-ready", "busybox"),
-			svc("foo", "kpa-not-ready", "busybox"),
-			endpoints("foo", "kpa-not-ready", "busybox", WithSubsets),
-			image("foo", "kpa-not-ready", "busybox"),
+			deploy("foo", "kpa-not-ready"),
+			svc("foo", "kpa-not-ready"),
+			endpoints("foo", "kpa-not-ready", WithSubsets),
+			image("foo", "kpa-not-ready"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-not-ready", "busybox",
+			Object: rev("foo", "kpa-not-ready",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady,
 				// When we reconcile a ready state and our KPA is in an activating
 				// state, we should see the following mutation.
@@ -296,17 +296,17 @@ func TestReconcile(t *testing.T) {
 		Name: "kpa inactive",
 		// Test propagating the inactivity signal from the KPA to the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "kpa-inactive", "busybox",
+			rev("foo", "kpa-inactive",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-inactive", "busybox",
+			kpa("foo", "kpa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy("foo", "kpa-inactive", "busybox"),
-			svc("foo", "kpa-inactive", "busybox"),
-			endpoints("foo", "kpa-inactive", "busybox", WithSubsets),
-			image("foo", "kpa-inactive", "busybox"),
+			deploy("foo", "kpa-inactive"),
+			svc("foo", "kpa-inactive"),
+			endpoints("foo", "kpa-inactive", WithSubsets),
+			image("foo", "kpa-inactive"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-inactive", "busybox",
+			Object: rev("foo", "kpa-inactive",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady,
 				// When we reconcile an "all ready" revision when the KPA
 				// is inactive, we should see the following change.
@@ -321,22 +321,22 @@ func TestReconcile(t *testing.T) {
 		// verify that Reconcile posts the appropriate updates to correct the
 		// services back to our desired specification.
 		Objects: []runtime.Object{
-			rev("foo", "fix-mutated-service", "busybox",
+			rev("foo", "fix-mutated-service",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "fix-mutated-service", "busybox"),
-			deploy("foo", "fix-mutated-service", "busybox"),
-			svc("foo", "fix-mutated-service", "busybox", MutateK8sService),
-			endpoints("foo", "fix-mutated-service", "busybox"),
-			image("foo", "fix-mutated-service", "busybox"),
+			kpa("foo", "fix-mutated-service"),
+			deploy("foo", "fix-mutated-service"),
+			svc("foo", "fix-mutated-service", MutateK8sService),
+			endpoints("foo", "fix-mutated-service"),
+			image("foo", "fix-mutated-service"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "fix-mutated-service", "busybox",
+			Object: rev("foo", "fix-mutated-service",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
 				MarkDeploying("Updating"), MarkActivating("Deploying", "")),
 		}, {
-			Object: svc("foo", "fix-mutated-service", "busybox"),
+			Object: svc("foo", "fix-mutated-service"),
 		}},
 		Key: "foo/fix-mutated-service",
 	}, {
@@ -347,16 +347,16 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "update-user-svc-failure", "busybox",
+			rev("foo", "update-user-svc-failure",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "update-user-svc-failure", "busybox"),
-			deploy("foo", "update-user-svc-failure", "busybox"),
-			svc("foo", "update-user-svc-failure", "busybox", MutateK8sService),
-			endpoints("foo", "update-user-svc-failure", "busybox"),
-			image("foo", "update-user-svc-failure", "busybox"),
+			kpa("foo", "update-user-svc-failure"),
+			deploy("foo", "update-user-svc-failure"),
+			svc("foo", "update-user-svc-failure", MutateK8sService),
+			endpoints("foo", "update-user-svc-failure"),
+			image("foo", "update-user-svc-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("foo", "update-user-svc-failure", "busybox"),
+			Object: svc("foo", "update-user-svc-failure"),
 		}},
 		Key: "foo/update-user-svc-failure",
 	}, {
@@ -367,16 +367,16 @@ func TestReconcile(t *testing.T) {
 		// condition.  It then verifies that Reconcile propagates this into the
 		// status of the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "deploy-timeout", "busybox",
+			rev("foo", "deploy-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "deploy-timeout", "busybox", WithTraffic),
-			timeoutDeploy(deploy("foo", "deploy-timeout", "busybox")),
-			svc("foo", "deploy-timeout", "busybox"),
-			endpoints("foo", "deploy-timeout", "busybox"),
-			image("foo", "deploy-timeout", "busybox"),
+			kpa("foo", "deploy-timeout", WithTraffic),
+			timeoutDeploy(deploy("foo", "deploy-timeout")),
+			svc("foo", "deploy-timeout"),
+			endpoints("foo", "deploy-timeout"),
+			image("foo", "deploy-timeout"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "deploy-timeout", "busybox",
+			Object: rev("foo", "deploy-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
@@ -391,11 +391,11 @@ func TestReconcile(t *testing.T) {
 		// the conditions of this Revision.  It is notable that unlike the tests
 		// above, this will include a BuildSucceeded condition.
 		Objects: []runtime.Object{
-			rev("foo", "missing-build", "busybox", WithBuildRef("the-build")),
+			rev("foo", "missing-build", WithBuildRef("the-build")),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-build", "busybox", WithBuildRef("the-build"),
+			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (that's missing)
 				// we should see the following status changes.
 				WithLogURL, WithInitRevConditions),
@@ -409,11 +409,11 @@ func TestReconcile(t *testing.T) {
 		// the conditions of this Revision.  It is notable that unlike the tests
 		// above, this will include a BuildSucceeded condition.
 		Objects: []runtime.Object{
-			rev("foo", "running-build", "busybox", WithBuildRef("the-build")),
+			rev("foo", "running-build", WithBuildRef("the-build")),
 			build("foo", "the-build", WithSucceededUnknown("", "")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "running-build", "busybox", WithBuildRef("the-build"),
+			Object: rev("foo", "running-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (not done)
 				// we should see the following status changes.
 				WithLogURL, WithInitRevConditions, WithOngoingBuild),
@@ -427,18 +427,18 @@ func TestReconcile(t *testing.T) {
 		// Reconcile toggles the BuildSucceeded status and then acts similarly to
 		// the first reconcile of a BYO-Container Revision.
 		Objects: []runtime.Object{
-			rev("foo", "done-build", "busybox", WithBuildRef("the-build"), WithInitRevConditions),
+			rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions),
 			build("foo", "the-build", WithSucceededTrue),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "done-build", "busybox"),
-			deploy("foo", "done-build", "busybox"),
-			svc("foo", "done-build", "busybox"),
-			image("foo", "done-build", "busybox"),
+			kpa("foo", "done-build"),
+			deploy("foo", "done-build"),
+			svc("foo", "done-build"),
+			image("foo", "done-build"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "done-build", "busybox", WithBuildRef("the-build"), WithInitRevConditions,
+			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
 				// When we reconcile a Revision after the Build completes, we should
 				// see the following updates to its status.
 				WithK8sServiceName, WithLogURL, WithSuccessfulBuild,
@@ -452,15 +452,15 @@ func TestReconcile(t *testing.T) {
 		// state (immediately post-build completion), and verify that no changes
 		// are necessary.
 		Objects: []runtime.Object{
-			rev("foo", "stable-reconcile-with-build", "busybox",
+			rev("foo", "stable-reconcile-with-build",
 				WithBuildRef("the-build"), WithK8sServiceName, WithLogURL,
 				WithInitRevConditions, WithSuccessfulBuild,
 				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
-			kpa("foo", "stable-reconcile-with-build", "busybox"),
+			kpa("foo", "stable-reconcile-with-build"),
 			build("foo", "the-build", WithSucceededTrue),
-			deploy("foo", "stable-reconcile-with-build", "busybox"),
-			svc("foo", "stable-reconcile-with-build", "busybox"),
-			image("foo", "stable-reconcile-with-build", "busybox"),
+			deploy("foo", "stable-reconcile-with-build"),
+			svc("foo", "stable-reconcile-with-build"),
+			image("foo", "stable-reconcile-with-build"),
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile-with-build",
@@ -471,12 +471,12 @@ func TestReconcile(t *testing.T) {
 		// and a Build that has just failed. We then verify that a Reconcile toggles
 		// the BuildSucceeded status and stops.
 		Objects: []runtime.Object{
-			rev("foo", "failed-build", "busybox", WithBuildRef("the-build"), WithLogURL, WithInitRevConditions),
+			rev("foo", "failed-build", WithBuildRef("the-build"), WithLogURL, WithInitRevConditions),
 			build("foo", "the-build",
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "failed-build", "busybox",
+			Object: rev("foo", "failed-build",
 				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions,
 				// When we reconcile a Revision whose build has failed, we sill see that
 				// failure reflected in the Revision status as follows:
@@ -490,7 +490,7 @@ func TestReconcile(t *testing.T) {
 		// has failed, which has been previously reconcile. We then verify that a
 		// Reconcile has nothing to change.
 		Objects: []runtime.Object{
-			rev("foo", "failed-build-stable", "busybox", WithBuildRef("the-build"), WithInitRevConditions,
+			rev("foo", "failed-build-stable", WithBuildRef("the-build"), WithInitRevConditions,
 				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed.")),
 			build("foo", "the-build",
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
@@ -527,18 +527,18 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		// and we exect it to create them and initialize the Revision's status.
 		// This is similar to "first-reconcile", but should also create a fluentd configmap.
 		Objects: []runtime.Object{
-			rev("foo", "first-reconcile-var-log", "busybox"),
+			rev("foo", "first-reconcile-var-log"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "first-reconcile-var-log", "busybox"),
-			deploy("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
-			svc("foo", "first-reconcile-var-log", "busybox"),
-			fluentdConfigMap("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
-			image("foo", "first-reconcile-var-log", "busybox", EnableVarLog),
+			kpa("foo", "first-reconcile-var-log"),
+			deploy("foo", "first-reconcile-var-log", EnableVarLog),
+			svc("foo", "first-reconcile-var-log"),
+			fluentdConfigMap("foo", "first-reconcile-var-log", EnableVarLog),
+			image("foo", "first-reconcile-var-log", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "first-reconcile-var-log", "busybox",
+			Object: rev("foo", "first-reconcile-var-log",
 				// After the first reconciliation of a Revision the status looks like this.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
@@ -551,16 +551,16 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			InduceFailure("create", "configmaps"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-configmap-failure", "busybox"),
+			rev("foo", "create-configmap-failure"),
 		},
 		WantCreates: []metav1.Object{
-			deploy("foo", "create-configmap-failure", "busybox", EnableVarLog),
-			svc("foo", "create-configmap-failure", "busybox"),
-			fluentdConfigMap("foo", "create-configmap-failure", "busybox", EnableVarLog),
-			image("foo", "create-configmap-failure", "busybox", EnableVarLog),
+			deploy("foo", "create-configmap-failure", EnableVarLog),
+			svc("foo", "create-configmap-failure"),
+			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
+			image("foo", "create-configmap-failure", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-configmap-failure", "busybox",
+			Object: rev("foo", "create-configmap-failure",
 				// When our first reconciliation is interrupted by a failure creating
 				// the fluentd configmap, we should still see the following reflected
 				// in our status.
@@ -572,37 +572,37 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Name: "steady state after initial creation",
 		// Verify that after creating the things from an initial reconcile that we're stable.
 		Objects: []runtime.Object{
-			rev("foo", "steady-state", "busybox",
+			rev("foo", "steady-state",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "steady-state", "busybox"),
-			deploy("foo", "steady-state", "busybox", EnableVarLog),
-			svc("foo", "steady-state", "busybox"),
-			fluentdConfigMap("foo", "steady-state", "busybox", EnableVarLog),
-			image("foo", "steady-state", "busybox", EnableVarLog),
+			kpa("foo", "steady-state"),
+			deploy("foo", "steady-state", EnableVarLog),
+			svc("foo", "steady-state"),
+			fluentdConfigMap("foo", "steady-state", EnableVarLog),
+			image("foo", "steady-state", EnableVarLog),
 		},
 		Key: "foo/steady-state",
 	}, {
 		Name: "update a bad fluentd configmap",
 		// Verify that after creating the things from an initial reconcile that we're stable.
 		Objects: []runtime.Object{
-			rev("foo", "update-fluentd-config", "busybox",
+			rev("foo", "update-fluentd-config",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "update-fluentd-config", "busybox"),
-			deploy("foo", "update-fluentd-config", "busybox", EnableVarLog),
-			svc("foo", "update-fluentd-config", "busybox"),
+			kpa("foo", "update-fluentd-config"),
+			deploy("foo", "update-fluentd-config", EnableVarLog),
+			svc("foo", "update-fluentd-config"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config", "busybox",
+				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config",
 					EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
-			image("foo", "update-fluentd-config", "busybox", EnableVarLog),
+			image("foo", "update-fluentd-config", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: fluentdConfigMap("foo", "update-fluentd-config", "busybox", EnableVarLog),
+			Object: fluentdConfigMap("foo", "update-fluentd-config", EnableVarLog),
 		}},
 		Key: "foo/update-fluentd-config",
 	}, {
@@ -613,23 +613,23 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			InduceFailure("update", "configmaps"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "update-configmap-failure", "busybox",
+			rev("foo", "update-configmap-failure",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			deploy("foo", "update-configmap-failure", "busybox", EnableVarLog),
-			svc("foo", "update-configmap-failure", "busybox"),
+			deploy("foo", "update-configmap-failure", EnableVarLog),
+			svc("foo", "update-configmap-failure"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure", "busybox",
+				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure",
 					EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
-			image("foo", "update-configmap-failure", "busybox", EnableVarLog),
+			image("foo", "update-configmap-failure", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: fluentdConfigMap("foo", "update-configmap-failure", "busybox", EnableVarLog),
+			Object: fluentdConfigMap("foo", "update-configmap-failure", EnableVarLog),
 		}},
 		Key: "foo/update-configmap-failure",
 	}}
@@ -683,7 +683,7 @@ func build(namespace, name string, bo ...BuildOption) *unstructured.Unstructured
 	return u
 }
 
-func rev(namespace, name string, image string, ro ...RevisionOption) *v1alpha1.Revision {
+func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 	r := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -691,7 +691,7 @@ func rev(namespace, name string, image string, ro ...RevisionOption) *v1alpha1.R
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{Image: image},
+			Container: corev1.Container{Image: "busybox"},
 		},
 	}
 
@@ -702,7 +702,7 @@ func rev(namespace, name string, image string, ro ...RevisionOption) *v1alpha1.R
 }
 
 func WithK8sServiceName(r *v1alpha1.Revision) {
-	r.Status.ServiceName = svc(r.Namespace, r.Name, r.Spec.Container.Image).Name
+	r.Status.ServiceName = svc(r.Namespace, r.Name).Name
 }
 
 // TODO(mattmoor): Come up with a better name for this.
@@ -715,24 +715,24 @@ func AllUnknownConditions(r *v1alpha1.Revision) {
 
 type configOption func(*config.Config)
 
-func deploy(namespace, name string, image string, co ...configOption) *appsv1.Deployment {
+func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
 	}
 
-	rev := rev(namespace, name, image)
+	rev := rev(namespace, name)
 	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 }
 
-func image(namespace, name string, image string, co ...configOption) *caching.Image {
+func image(namespace, name string, co ...configOption) *caching.Image {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
 	}
 
-	rev := rev(namespace, name, image)
+	rev := rev(namespace, name)
 	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 	img, err := resources.MakeImageCache(rev, deploy)
@@ -742,18 +742,18 @@ func image(namespace, name string, image string, co ...configOption) *caching.Im
 	return img
 }
 
-func fluentdConfigMap(namespace, name string, image string, co ...configOption) *corev1.ConfigMap {
+func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
 	config := ReconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
 	}
 
-	rev := rev(namespace, name, image)
+	rev := rev(namespace, name)
 	return resources.MakeFluentdConfigMap(rev, config.Observability)
 }
 
-func kpa(namespace, name string, image string, ko ...KPAOption) *kpav1alpha1.PodAutoscaler {
-	rev := rev(namespace, name, image)
+func kpa(namespace, name string, ko ...KPAOption) *kpav1alpha1.PodAutoscaler {
+	rev := rev(namespace, name)
 	k := resources.MakeKPA(rev)
 
 	for _, opt := range ko {
@@ -762,8 +762,8 @@ func kpa(namespace, name string, image string, ko ...KPAOption) *kpav1alpha1.Pod
 	return k
 }
 
-func svc(namespace, name string, image string, so ...K8sServiceOption) *corev1.Service {
-	rev := rev(namespace, name, image)
+func svc(namespace, name string, so ...K8sServiceOption) *corev1.Service {
+	rev := rev(namespace, name)
 	s := resources.MakeK8sService(rev)
 	for _, opt := range so {
 		opt(s)
@@ -771,8 +771,8 @@ func svc(namespace, name string, image string, so ...K8sServiceOption) *corev1.S
 	return s
 }
 
-func endpoints(namespace, name string, image string, eo ...EndpointsOption) *corev1.Endpoints {
-	service := svc(namespace, name, image)
+func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
+	service := svc(namespace, name)
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: service.Namespace,

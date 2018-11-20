@@ -13,22 +13,10 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: activator-service
+  name: config-istio
   namespace: knative-serving
-  labels:
-    app: activator
-spec:
-  selector:
-    app: activator
-  ports:
-  - name: http
-    protocol: TCP
-    port: 80
-    targetPort: 8080
-  - name: metrics
-    protocol: TCP
-    port: 9090
-    targetPort: 9090
-  type: NodePort
+data:
+  # Gateway used for knative traffic. Default to istio-ingressgateway.
+  ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"

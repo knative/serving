@@ -14,31 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+// +k8s:deepcopy-gen=package
 
-import (
-	"net/http"
-	"net/http/httputil"
-
-	"github.com/knative/serving/pkg/kbuffer"
-)
-
-var headersToRemove = []string{
-	kbuffer.RequestCountHTTPHeader,
-	kbuffer.RevisionHeaderName,
-	kbuffer.RevisionHeaderNamespace,
-}
-
-// SetupHeaderPruning will cause the http.ReverseProxy
-// to not forward kbuffer headers
-func SetupHeaderPruning(p *httputil.ReverseProxy) {
-	// Director is never null - otherwise ServeHTTP panics
-	orig := p.Director
-	p.Director = func(r *http.Request) {
-		orig(r)
-
-		for _, h := range headersToRemove {
-			r.Header.Del(h)
-		}
-	}
-}
+// Package config holds the typed objects that define the schemas for
+// assorted ConfigMap objects on which the ClusterIngress controller depends.
+package config

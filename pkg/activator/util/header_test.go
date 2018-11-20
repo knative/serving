@@ -23,17 +23,17 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/knative/serving/pkg/kbuffer"
+	"github.com/knative/serving/pkg/activator"
 )
 
 func TestHeaderPruning(t *testing.T) {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(kbuffer.RevisionHeaderName) != "" {
+		if r.Header.Get(activator.RevisionHeaderName) != "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		if r.Header.Get(kbuffer.RevisionHeaderNamespace) != "" {
+		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -51,10 +51,10 @@ func TestHeaderPruning(t *testing.T) {
 		header string
 	}{{
 		name:   "revision name header",
-		header: kbuffer.RevisionHeaderName,
+		header: activator.RevisionHeaderName,
 	}, {
 		name:   "revision namespace header",
-		header: kbuffer.RevisionHeaderNamespace,
+		header: activator.RevisionHeaderNamespace,
 	}}
 
 	for _, test := range tests {
