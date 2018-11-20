@@ -73,8 +73,7 @@ var (
 	httpProxy *httputil.ReverseProxy
 
 	server *http.Server
-
-	health = &healthServer{alive: true}
+	health *healthServer
 )
 
 func initEnv() {
@@ -88,9 +87,15 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
+	health = &healthServer{alive: true}
+	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
+	if err != nil {
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+	}
+	health.reporter = _reporter
 }
 
-func statReporter(reporter *queue.Reporter) {
+func statReporter() {
 	for {
 		s := <-statChan
 		if err := sendStat(s); err != nil {
@@ -109,7 +114,7 @@ func sendStat(s *autoscaler.Stat) error {
 		s.LameDuck = true
 		lameDuck = 1
 	}
-	reporter.Report(
+	health.reporter.Report(
 		float64(lameDuck),
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
@@ -164,8 +169,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 // healthServer registers whether a PreStop hook has been called.
 type healthServer struct {
-	alive bool
-	mutex sync.RWMutex
+	alive    bool
+	mutex    sync.RWMutex
+	reporter *queue.Reporter
 }
 
 // isAlive() returns true until a PreStop hook has been called.
@@ -279,10 +285,6 @@ func main() {
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(queue.ReportingPeriod)
-	reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
-	if err != nil {
-		logger.Fatal("Failed to create stats reporter", zap.Error(err))
-	}
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promExporter)
@@ -293,7 +295,7 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
-	go statReporter(reporter)
+	go statReporter()
 
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
