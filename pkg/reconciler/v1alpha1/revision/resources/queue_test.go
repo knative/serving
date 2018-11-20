@@ -18,6 +18,7 @@ package resources
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -51,6 +52,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -83,6 +87,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "1",
 			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
 				Name: "SERVING_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -105,6 +112,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -140,6 +150,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "1",
 			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
 				Name: "SERVING_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -169,6 +182,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -201,6 +217,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
 			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
 				Name: "SERVING_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -223,6 +242,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{
@@ -260,6 +282,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
 			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
 				Name: "SERVING_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -282,6 +307,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 10,
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -313,6 +341,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "10",
+			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
 			}, {
 				Name: "SERVING_POD",
 				ValueFrom: &corev1.EnvVarSource{

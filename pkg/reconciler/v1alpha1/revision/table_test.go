@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"testing"
+	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -693,6 +694,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Container: corev1.Container{Image: "busybox"},
+			TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
 		},
 	}
 

@@ -53,18 +53,19 @@ const (
 )
 
 var (
-	podName               string
-	servingNamespace      string
-	servingRevision       string
-	servingRevisionKey    string
-	servingAutoscaler     string
-	servingAutoscalerPort string
-	containerConcurrency  int
-	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
-	statSink              *websocket.ManagedConnection
-	logger                *zap.SugaredLogger
-	breaker               *queue.Breaker
+	podName                string
+	servingNamespace       string
+	servingRevision        string
+	servingRevisionKey     string
+	servingAutoscaler      string
+	servingAutoscalerPort  string
+	containerConcurrency   int
+	revisionTimeoutSeconds int
+	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
+	statSink               *websocket.ManagedConnection
+	logger                 *zap.SugaredLogger
+	breaker                *queue.Breaker
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
@@ -81,6 +82,7 @@ func initEnv() {
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
+	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
@@ -281,8 +283,7 @@ func main() {
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
-		http.HandlerFunc(handler),
-	)
+		http.TimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	go server.ListenAndServe()
 	go setupAdminHandlers(adminServer)
