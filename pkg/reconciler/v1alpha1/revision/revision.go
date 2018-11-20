@@ -145,8 +145,9 @@ func NewController(
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueEndpointsRevision(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueEndpointsRevision(impl)),
+		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey),
 	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -209,6 +210,7 @@ func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) 
 			EventHandler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    t.OnChanged,
 				UpdateFunc: controller.PassNew(t.OnChanged),
+				DeleteFunc: t.OnChanged,
 			},
 		},
 	}
@@ -392,17 +394,6 @@ func (c *Reconciler) updateRevisionLoggingURL(
 	rev.Status.LogURL = strings.Replace(
 		config.Observability.LoggingURLTemplate,
 		"${REVISION_UID}", uid, -1)
-}
-
-func (c *Reconciler) EnqueueEndpointsRevision(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		endpoints := obj.(*corev1.Endpoints)
-		// Use the label on the Endpoints (from Service) to determine whether it is
-		// owned by a Revision, and if so queue that Revision.
-		if revisionName, ok := endpoints.Labels[serving.RevisionLabelKey]; ok {
-			impl.EnqueueKey(endpoints.Namespace + "/" + revisionName)
-		}
-	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revision, error) {

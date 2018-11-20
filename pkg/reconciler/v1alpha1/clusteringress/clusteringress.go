@@ -88,9 +88,9 @@ func NewController(
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOf("", networking.IngressLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOf("", networking.IngressLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOf("", networking.IngressLabelKey),
+			AddFunc:    impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
+			DeleteFunc: impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
 		},
 	})
 

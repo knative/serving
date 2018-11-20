@@ -136,12 +136,11 @@ func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	}
 }
 
-// EnqueueLabelOf returns with an Enqueue func that takes a resource,
-// identifies its controller resource through given namespace and name labels,
-// converts it into a namespace/name string, and passes that to EnqueueKey.
-// Callers should pass in an empty string as namespace label key for obj
-// whose controller is of cluster-scoped resource.
-func (c *Impl) EnqueueLabelOf(namespaceLabel, nameLabel string) func(obj interface{}) {
+// EnqueueLabelOfNamespaceScopedResource returns with an Enqueue func that
+// takes a resource, identifies its controller resource through given namespace
+// and name labels, converts it into a namespace/name string, and passes that
+// to EnqueueKey. The controller resource must be of namespace-scoped.
+func (c *Impl) EnqueueLabelOfNamespaceScopedResource(namespaceLabel, nameLabel string) func(obj interface{}) {
 	return func(obj interface{}) {
 		object, err := kmeta.DeletionHandlingAccessor(obj)
 		if err != nil {
@@ -165,7 +164,36 @@ func (c *Impl) EnqueueLabelOf(namespaceLabel, nameLabel string) func(obj interfa
 				return
 			}
 
-			controllerKey = fmt.Sprintf("%s/%s", controllerNamespace, controllerKey)
+			c.EnqueueKey(fmt.Sprintf("%s/%s", controllerNamespace, controllerKey))
+			return
+		}
+
+		// Pass through namespace of the object itself if no namespace label specified.
+		// This is for the scenario that object and the parent resource are of same namespace,
+		// e.g. to enqueue the revision of an endpoint.
+		c.EnqueueKey(fmt.Sprintf("%s/%s", object.GetNamespace(), controllerKey))
+	}
+}
+
+
+// EnqueueLabelOfClusterScopedResource returns with an Enqueue func
+// that takes a resource, identifies its controller resource through
+// given name label, and passes it to EnqueueKey.
+// The controller resource must be of cluster-scoped.
+func (c *Impl) EnqueueLabelOfClusterScopedResource(nameLabel string) func(obj interface{}) {
+	return func(obj interface{}) {
+		object, err := kmeta.DeletionHandlingAccessor(obj)
+		if err != nil {
+			c.logger.Error(err)
+			return
+		}
+
+		labels := object.GetLabels()
+		controllerKey, ok := labels[nameLabel]
+		if !ok {
+			c.logger.Infof("Object %s/%s does not have a referring name label %s",
+				object.GetNamespace(), object.GetName(), nameLabel)
+			return
 		}
 
 		c.EnqueueKey(controllerKey)
