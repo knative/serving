@@ -23,6 +23,9 @@ import (
 
 func (r *PodAutoscaler) SetDefaults() {
 	r.Spec.SetDefaults()
+	if r.Annotations == nil {
+		r.Annotations = make(map[string]string)
+	}
 	if _, ok := r.Annotations[autoscaling.ClassAnnotationKey]; !ok {
 		// Default class to KPA.
 		r.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA

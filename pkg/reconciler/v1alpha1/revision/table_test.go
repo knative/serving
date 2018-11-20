@@ -504,7 +504,7 @@ func TestReconcile(t *testing.T) {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
-			podAutoscalerlister: listers.GetPodAutoscalerlister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -641,7 +641,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
-			podAutoscalerlister: listers.GetPodAutoscalerlister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
