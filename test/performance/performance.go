@@ -21,14 +21,12 @@ package performance
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/prometheus"
-	"github.com/knative/test-infra/tools/testgrid"
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
 
@@ -72,20 +70,6 @@ func TearDown(client *PerformanceClient, logger *logging.BaseLogger, names test.
 	if client.PromClient != nil {
 		client.PromClient.Teardown(logger)
 	}
-}
-
-// Get the aritfacts directory where we should put the artifacts
-func getArtifactsDir() string {
-	dir := os.Getenv("ARTIFACTS")
-	if dir == "" {
-		return "./artifacts"
-	}
-	return dir
-}
-
-func CreateTestgridXML(tc []testgrid.TestCase) error {
-	ts := testgrid.TestSuite{TestCases: tc}
-	return testgrid.CreateXMLOutput(ts, getArtifactsDir())
 }
 
 // RunLoadTest runs the load test with fortio and returns the reponse
