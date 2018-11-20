@@ -68,6 +68,32 @@ func TestReconcile(t *testing.T) {
 			},
 			Name: testRevision,
 		}},
+	}, {
+		Name:    "delete when pa does not exist",
+		Objects: []runtime.Object{},
+		Key:     key(testRevision, testNamespace),
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "autoscaling",
+					Version:  "v1",
+					Resource: "horizontalpodautoscalers",
+				},
+			},
+			Name: testRevision,
+		}},
+	}, {
+		Name: "update hpa with target usage",
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation),
+			hpa(testRevision, testNamespace, WithHPAClass),
+		},
+		Key: key(testRevision, testNamespace),
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -126,4 +152,11 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = make(map[string]string)
 	}
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+}
+
+func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
 }

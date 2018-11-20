@@ -147,7 +147,7 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 
 func (pa *PodAutoscaler) MetricTarget() (target int32, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
-		if i, err := strconv.ParseInt(s, 10, 32); err != nil {
+		if i, err := strconv.Atoi(s); err == nil {
 			return int32(i), true
 		}
 	}
