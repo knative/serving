@@ -43,6 +43,7 @@ const (
 // TODO(@mrmcmuffinz): Need to move this to a more appropriate place.
 var (
 	measurements = []*stats.Float64Measure{
+		// TODO(#2524): make reporting period accurate.
 		OperationsPerSecondM: stats.Float64(
 			"operations_per_second",
 			"Number of operations per second",
