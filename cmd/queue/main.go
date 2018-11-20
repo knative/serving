@@ -113,7 +113,7 @@ func sendStat(s *autoscaler.Stat) error {
 		s.LameDuck = true
 	}
 	health.reporter.Report(
-		s.lameDuck,
+		s.LameDuck,
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
 	)
