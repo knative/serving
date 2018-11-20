@@ -109,13 +109,11 @@ func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
 		return fmt.Errorf("stat sink not (yet) connected")
 	}
-	lameDuck := 0
 	if !health.isAlive() {
 		s.LameDuck = true
-		lameDuck = 1
 	}
 	health.reporter.Report(
-		float64(lameDuck),
+		s.lameDuck,
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
 	)

@@ -130,12 +130,15 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 }
 
 // Report captures request metrics
-func (r *Reporter) Report(lameDuck float64, operationsPerSecond float64, averageConcurrentRequests float64) error {
+func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
-
-	stats.Record(r.ctx, measurements[LameDuckM].M(lameDuck))
+	_lameDuck := float64(0)
+	if !lameDuck {
+		_lameDuck = float64(1)
+	}
+	stats.Record(r.ctx, measurements[LameDuckM].M(_lameDuck))
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
