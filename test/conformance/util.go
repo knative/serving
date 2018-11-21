@@ -33,6 +33,7 @@ const (
 	pizzaPlanet2 = "pizzaplanetv2"
 	helloworld   = "helloworld"
 	httpproxy    = "httpproxy"
+	timeout      = "timeout"
 )
 
 func setup(t *testing.T) *test.Clients {
