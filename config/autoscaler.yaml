@@ -35,6 +35,15 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/autoscaler
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 30m
+            memory: 40Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 300m
+            memory: 400Mi
         ports:
         - name: websocket
           containerPort: 8080

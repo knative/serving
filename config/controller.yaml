@@ -35,6 +35,15 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/controller
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
         ports:
         - name: metrics
           containerPort: 9090
