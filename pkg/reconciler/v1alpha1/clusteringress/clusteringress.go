@@ -102,10 +102,14 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncIngressesOnIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
+	// On config update, we'll:
+	// 1. Resync ingress instances.
+	// 2. Update gateway label selector.
+	onIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
 		impl.GlobalResync(clusterIngressInformer.Informer())
+		c.updateGatewayLabelSelector()
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnIstioConfigChange)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), onIstioConfigChange)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
