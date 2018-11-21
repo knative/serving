@@ -95,7 +95,13 @@ func TestSingleConcurrency(t *testing.T) {
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582
 	logger.Infof("Probing domain %s", domain)
-	if err := test.ProbeDomain(logger, clients, domain); err != nil {
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		domain,
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
