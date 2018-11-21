@@ -183,7 +183,13 @@ func TestRevisionTimeout(t *testing.T) {
 	rev5sDomain := fmt.Sprintf("%s.%s", rev5s.TrafficTarget, route.Status.Domain)
 
 	logger.Infof("Probing domain %s", rev5sDomain)
-	if err := test.ProbeDomain(logger, clients, rev5sDomain); err != nil {
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		rev5sDomain,
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)
 	}
 
