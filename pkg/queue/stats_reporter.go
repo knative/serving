@@ -32,6 +32,12 @@ type Measurement int
 const (
 	// ReportingPeriod interval of time for reporting.
 	ReportingPeriod = 10 * time.Second
+
+	// View Names
+	operationsPerSecondN       = "operations_per_second"
+	averageConcurrentRequestsN = "average_concurrent_requests"
+	lameDuckN                  = "lame_duck"
+
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
@@ -44,15 +50,15 @@ var (
 	measurements = []*stats.Float64Measure{
 		// TODO(#2524): make reporting period accurate.
 		OperationsPerSecondM: stats.Float64(
-			"operations_per_second",
+			operationsPerSecondN,
 			"Number of operations per second",
 			stats.UnitNone),
 		AverageConcurrentRequestsM: stats.Float64(
-			"average_concurrent_requests",
+			averageConcurrentRequestsN,
 			"Number of requests currently being handled by this pod",
 			stats.UnitNone),
 		LameDuckM: stats.Float64(
-			"lame_duck",
+			lameDuckN,
 			"Indicates this Pod has received a shutdown signal with 1 else 0",
 			stats.UnitNone),
 	}
@@ -70,6 +76,15 @@ type Reporter struct {
 // NewStatsReporter creates a reporter that collects and reports queue metrics
 func NewStatsReporter(namespace string, config string, revision string) (*Reporter, error) {
 	var r = &Reporter{}
+	if len(namespace) < 1 {
+		return nil, errors.New("Namespace must not be empty")
+	}
+	if len(config) < 1 {
+		return nil, errors.New("Config must not be empty")
+	}
+	if len(revision) < 1 {
+		return nil, errors.New("Revision must not be empty")
+	}
 
 	// Create the tag keys that will be used to add tags to our measurements.
 	nsTag, err := tag.NewKey("destination_namespace")
@@ -142,4 +157,22 @@ func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageCon
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
+}
+
+// UnregisterViews Unregister views
+func (r *Reporter) UnregisterViews() {
+	if r.initialized != true {
+		return
+	}
+	var views []*view.View
+	if v := view.Find(operationsPerSecondN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(averageConcurrentRequestsN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(lameDuckN); v != nil {
+		views = append(views, v)
+	}
+	view.Unregister(views...)
 }
