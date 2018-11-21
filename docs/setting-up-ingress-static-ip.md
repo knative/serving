@@ -53,8 +53,8 @@ kubectl get svc istio-ingressgateway -n istio-system
 The result should be something like
 
 ```console
-NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                                      AGE
-istio-ingressgateway   LoadBalancer   10.50.250.120   35.210.48.100   80:31380/TCP,443:31390/TCP,31400:31400/TCP...   5h
+NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                                         AGE
+istio-ingressgateway     LoadBalancer   10.50.250.120   35.210.48.100   80:31380/TCP,443:31390/TCP,31400:31400/TCP...   5h
 ```
 
 The external IP will be eventually set to the static IP. This process could
