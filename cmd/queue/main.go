@@ -72,8 +72,9 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server *http.Server
-	health *healthServer
+	server   *http.Server
+	health   *healthServer
+	reporter *queue.Reporter // Promethues stats reporter.
 )
 
 func initEnv() {
@@ -92,7 +93,7 @@ func initEnv() {
 	if err != nil {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
-	health.reporter = _reporter
+	reporter = _reporter
 }
 
 func statReporter() {
@@ -112,7 +113,7 @@ func sendStat(s *autoscaler.Stat) error {
 	if !health.isAlive() {
 		s.LameDuck = true
 	}
-	health.reporter.Report(
+	reporter.Report(
 		s.LameDuck,
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
