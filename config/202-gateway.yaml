@@ -97,7 +97,7 @@ spec:
       targetPort: 15031
 ---
 # This is the corresponding Deployment to backed the aforementioned Service.
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: knative-ingressgateway
