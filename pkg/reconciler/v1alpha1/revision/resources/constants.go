@@ -39,7 +39,7 @@ const (
 	autoscalerPort = 8080
 
 	// ServicePortName is the name of the external port of the service
-	ServicePortName = "http"
+	ServicePortName = "http2"
 	// ServicePort is the external port of the service
 	ServicePort = int32(80)
 	// MetricsPortName is the name of the external port of the service for metrics
