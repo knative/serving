@@ -14,6 +14,7 @@ limitations under the License.
 package h2c
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -42,6 +43,6 @@ func ListenAndServe(addr string, h http.Handler) error {
 var DefaultTransport http.RoundTripper = &http2.Transport{
 	AllowHTTP: true,
 	DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
-		return net.Dial(netw, addr)
+		return http.DefaultTransport.(*http.Transport).DialContext(context.Background(), netw, addr)
 	},
 }
