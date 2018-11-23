@@ -2,73 +2,99 @@ package activator
 
 import (
 	"github.com/knative/serving/pkg/queue"
-	"k8s.io/client-go/informers/core/v1"
 	corev1 "k8s.io/api/core/v1"
-	kubeinformers "k8s.io/client-go/informers"
-	"time"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sync"
 	"fmt"
+	"net/http"
+	"github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
-func NewThrottler(queueDepth int32, maxConcurrency int32) *Throttler {
-	stopChan := make(chan struct{})
-	defaultResync := 100 * time.Millisecond
-	breakers := make(map[revisionID]*queue.Breaker)
-	return &Throttler{stopChan: stopChan, defaultResync: defaultResync, queueDepth: queueDepth, maxConcurrency: maxConcurrency, breakers: breakers}
+func NewThrottler(queueDepth int32, maxConcurrency int32, rev RevisionID, revisionInformer v1alpha1.RevisionInformer) *Throttler {
+	breaker := queue.NewBreaker(queueDepth, maxConcurrency, true)
+	return &Throttler{queueDepth: queueDepth, maxConcurrency: maxConcurrency, Breaker: breaker, revisionID: rev, revisionInformer: revisionInformer}
 }
 
 type Throttler struct {
-	breakers       map[revisionID]*queue.Breaker
-	informer       v1.EndpointsInformer
-	defaultResync  time.Duration
-	queueDepth     int32
-	maxConcurrency int32
-	stopChan       chan struct{}
-	mux            sync.Mutex
+	revisionID       RevisionID
+	Breaker          *queue.Breaker
+	revisionInformer v1alpha1.RevisionInformer
+	queueDepth       int32
+	maxConcurrency   int32
+	mux              sync.Mutex
 }
 
-func (t *Throttler) Start(clientset kubernetes.Interface) *kubeinformers.SharedInformerFactory {
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(clientset, t.defaultResync)
-	t.informer = kubeInformerFactory.Core().V1().Endpoints()
-
-	go t.informer.Informer().Run(t.stopChan)
-	kubeInformerFactory.Start(t.stopChan)
-	return &kubeInformerFactory
+func ServiceName(name string) string {
+	return name + "-service"
 }
 
-func (t *Throttler) WatchEndpoints() {
-	t.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: t.update,
-	})
+// TODO: Rename the method
+func (t *Throttler) ActiveEndpoint(namespace, name string) ActivationResult {
+	var err error
+	// TODO: update the generic function for this
+	serviceName := ServiceName(name)
+
+	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
+
+	revisionKey := cache.ExplicitKey(namespace + "/" + name)
+	rev, exists, err := t.revisionInformer.Informer().GetIndexer().Get(revisionKey)
+	if !exists {
+		fmt.Println("Revision doesn't exist yet")
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	revision := rev.(*v1alpha12.Revision)
+
+	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+
+	// TODO: use the service client to get the port
+	port := int32(80)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	endpoint := Endpoint{FQDN: fqdn, Port: port}
+
+	return ActivationResult{
+		Status:            http.StatusOK,
+		Endpoint:          endpoint,
+		ServiceName:       serviceName,
+		ConfigurationName: configurationName,
+		Error:             err,
+	}
 }
 
-func (t *Throttler) update(oldObj, newObj interface{}) {
+func (t *Throttler) Update(oldObj, newObj interface{}) {
 	old := oldObj.(*corev1.Endpoints)
 	new := newObj.(*corev1.Endpoints)
-	if len(old.Subsets) != 0 || len(new.Subsets) != 0 {
-		oldAddresses := getEndpointAddresses(&old.Subsets)
-		newAddresses := getEndpointAddresses(&new.Subsets)
-		if oldAddresses != newAddresses {
-			fmt.Printf("old: %d, new: %d\n", oldAddresses, newAddresses)
-			diff := newAddresses - oldAddresses
-			rev := revisionID{name: new.Name, namespace: new.Namespace}
-			t.updateBreaker(rev, diff)
+	rev := RevisionID{Name: new.Name, Namespace: new.Namespace}
+	fmt.Println(old)
+	fmt.Println(new)
+	if rev.Namespace == t.revisionID.Namespace && rev.Name == t.revisionID.Name {
+		if len(old.Subsets) != 0 || len(new.Subsets) != 0 {
+			oldAddresses := getEndpointAddresses(&old.Subsets)
+			newAddresses := getEndpointAddresses(&new.Subsets)
+			if oldAddresses != newAddresses {
+				fmt.Printf("old: %d, new: %d\n", oldAddresses, newAddresses)
+				diff := newAddresses - oldAddresses
+				t.updateBreaker(rev, diff)
+			}
 		}
 	}
 }
 
-// Put the tokens to the semaphore of a corresponding breaker
-func (t *Throttler) updateBreaker(rev revisionID, diff int) {
+// depending on whether the delta is positive or negative - Release or Acquire the Lock
+func (t *Throttler) updateBreaker(rev RevisionID, diff int) {
 	defer t.mux.Unlock()
 	t.mux.Lock()
-	if breaker, ok := t.breakers[rev]; ok {
-		if diff > 0 {
-			breaker.Sem.Put(diff)
-		} else {
-			breaker.Sem.Get()
-		}
+	if diff > 0 {
+		t.Breaker.Sem.Put(diff)
+	} else {
+		t.Breaker.Sem.Get()
 	}
 }
 
@@ -83,4 +109,11 @@ func getEndpointAddresses(subsets *[]corev1.EndpointSubset) int {
 		total += len(addresses)
 	}
 	return total
+}
+
+func getServiceAndConfigurationLabels(rev *v1alpha12.Revision) (string, string) {
+	if rev.Labels == nil {
+		return "", ""
+	}
+	return rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey]
 }

@@ -35,6 +35,9 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	kubeinformers "k8s.io/client-go/informers"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
+	corev1 "k8s.io/api/core/v1"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
@@ -44,6 +47,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/knative/serving/pkg/websocket"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -119,9 +123,6 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
-	a = activator.NewDedupingActivator(a)
-
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
@@ -146,26 +147,42 @@ func main() {
 		ReportChan: time.NewTicker(time.Second).C,
 	})
 
+	// set up signals so we handle the first shutdown signal gracefully
+	stopCh := signals.SetupSignalHandler()
+
+	// TODO: pack these calls to not look that bulky
+	defaultResync := 100 * time.Millisecond
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResync)
+	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResync)
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	throttlers := make(map[activator.RevisionID]*activator.Throttler)
+	go endpointInformer.Informer().Run(stopCh)
+	go revisionInformer.Informer().Run(stopCh)
+	servingInformerFactory.Start(stopCh)
+	kubeInformerFactory.Start(stopCh)
+
+	endpointInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: Update(&throttlers),
+	})
+
+	kubeInformerFactory.WaitForCacheSync(stopCh)
+	servingInformerFactory.WaitForCacheSync(stopCh)
+
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
 			&activatorhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &activatorhandler.ActivationHandler{
-					Activator: a,
-					Transport: rt,
-					Logger:    logger,
-					Reporter:  reporter,
+					Transport:        rt,
+					Logger:           logger,
+					Reporter:         reporter,
+					Throttlers:       &throttlers,
+					RevisionInformer: revisionInformer,
 				},
 			},
 		),
 	}
-
-	// set up signals so we handle the first shutdown signal gracefully
-	stopCh := signals.SetupSignalHandler()
-	go func() {
-		<-stopCh
-		a.Shutdown()
-	}()
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
@@ -177,4 +194,17 @@ func main() {
 	}
 
 	h2c.ListenAndServe(":8080", ah)
+}
+
+func Update(throttlers *map[activator.RevisionID]*activator.Throttler) func(oldObj, newObj interface{}) {
+	update := func(oldObj, newObj interface{}) {
+		new := newObj.(*corev1.Endpoints)
+		rev := activator.RevisionID{Name: new.Name, Namespace: new.Namespace}
+		if throttler, ok := (*throttlers)[rev]; ok {
+			throttler.Update(oldObj, newObj)
+		} else {
+			fmt.Println("Error: couldn't find the throttler in the list")
+		}
+	}
+	return update
 }

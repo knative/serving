@@ -17,14 +17,14 @@ limitations under the License.
 package activator
 
 const (
-	// K8sServiceName is the name of the activator service
+	// K8sServiceName is the Name of the activator service
 	K8sServiceName = "activator-service"
 	// RequestCountHTTPHeader is the header key for number of tries
 	RequestCountHTTPHeader string = "knative-activator-num-retries"
-	// RevisionHeaderName is the header key for revision name
+	// RevisionHeaderName is the header key for revision Name
 	RevisionHeaderName string = "knative-serving-revision"
-	// RevisionHeaderNamespace is the header key for revision's namespace
-	RevisionHeaderNamespace string = "knative-serving-namespace"
+	// RevisionHeaderNamespace is the header key for revision's Namespace
+	RevisionHeaderNamespace string = "knative-serving-Namespace"
 )
 
 // Activator provides an active endpoint for a revision or an error and
@@ -34,12 +34,12 @@ type Activator interface {
 	Shutdown()
 }
 
-type revisionID struct {
-	namespace string
-	name      string
+type RevisionID struct {
+	Namespace string
+	Name      string
 }
 
-// Endpoint is a fully-qualified domain name / port pair for an active revision.
+// Endpoint is a fully-qualified domain Name / port pair for an active revision.
 type Endpoint struct {
 	FQDN string
 	Port int32
