@@ -85,6 +85,18 @@ function install_knative_serving() {
   echo ">> Patching Istio"
   kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
 
+  # There are reports of Envoy failing (503) when istio-pilot is overloaded.
+  # We generously add more pilot instances here to verify if we can reduce flakes.
+  if kubectl get hpa -n istio-system istio-pilot ; then
+    # If HPA exists, update it.  Since patching will return non-zero if no change
+    # is made, we don't return on failure here.
+    kubectl patch hpa -n istio-system istio-pilot \
+      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}'
+  else
+    # Some versions of Istio doesn't provide an HPA for pilot.
+    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+  fi
+
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
 
