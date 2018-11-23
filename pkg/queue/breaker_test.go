@@ -37,7 +37,7 @@ func (r *request) wait() {
 }
 
 func TestBreakerOverload(t *testing.T) {
-	b := NewBreaker(1, 1)             // Breaker capacity = 2
+	b := NewBreaker(1, 1, false)      // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
 	locks := b.concurrentRequests(3)
@@ -51,7 +51,7 @@ func TestBreakerOverload(t *testing.T) {
 }
 
 func TestBreakerNoOverload(t *testing.T) {
-	b := NewBreaker(1, 1)                  // Breaker capacity = 2
+	b := NewBreaker(1, 1, false)           // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
 
 	locks := make([]request, 4)
@@ -70,7 +70,7 @@ func TestBreakerNoOverload(t *testing.T) {
 }
 
 func TestBreakerRecover(t *testing.T) {
-	b := NewBreaker(1, 1)                                // Breaker capacity = 2
+	b := NewBreaker(1, 1, false)                         // Breaker capacity = 2
 	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
 	locks := b.concurrentRequests(4)
@@ -86,8 +86,8 @@ func TestBreakerRecover(t *testing.T) {
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
-	b := NewBreaker(5, 45)    // Breaker capacity = 50
-	want := make([]bool, 150) // Process 150 requests
+	b := NewBreaker(5, 45, false) // Breaker capacity = 50
+	want := make([]bool, 150)     // Process 150 requests
 	for i := 0; i < 50; i++ {
 		want[i] = true // First 50 will fill the breaker capacity
 	}
@@ -121,9 +121,9 @@ func (b *Breaker) concurrentRequest() request {
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
 
-	if len(b.activeRequests) < cap(b.activeRequests) {
+	if len(b.Sem.activeRequests) < cap(b.Sem.activeRequests) {
 		// Expect request to be performed
-		defer waitForQueue(b.activeRequests, len(b.activeRequests)+1)
+		defer waitForQueue(b.Sem.activeRequests, len(b.Sem.activeRequests)+1)
 	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
 		// Expect request to be queued
 		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)

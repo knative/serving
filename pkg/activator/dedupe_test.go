@@ -36,7 +36,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(kubeclient, Activator(f))
+	d := NewDedupingActivator(Activator(f))
 
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
 
@@ -63,7 +63,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(kubeclient,f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, testRevision},
@@ -101,7 +101,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(kubeclient, f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -145,7 +145,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				Error:    error2,
 			},
 		})
-	d := NewDedupingActivator(kubeclient, f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		{testNamespace, "rev1"},
@@ -183,7 +183,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				Error:    failErr,
 			},
 		})
-	d := NewDedupingActivator(kubeclient, Activator(f))
+	d := NewDedupingActivator(Activator(f))
 
 	// Activation initially fails
 	ar := d.ActiveEndpoint(testNamespace, testRevision)
@@ -237,7 +237,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 				Status:   http.StatusOK,
 			},
 		})
-	d := NewDedupingActivator(kubeclient, Activator(f))
+	d := NewDedupingActivator(Activator(f))
 	f.hold(revisionID{testNamespace, testRevision})
 
 	go func() {

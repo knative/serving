@@ -16,7 +16,9 @@ limitations under the License.
 
 package queue
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type token struct{}
 
@@ -28,21 +30,25 @@ type Breaker struct {
 	maxConcurrency  int32
 	pendingRequests chan token
 	activeRequests  chan token
+	Sem             *Semaphore
 }
 
 // NewBreaker creates a Breaker with the desired queue depth and
 // concurrency limit.
-func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
+func NewBreaker(queueDepth, maxConcurrency int32, empty bool) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
 	if maxConcurrency < 0 {
 		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", maxConcurrency))
 	}
+
+	sem := NewSemaphore(maxConcurrency, empty)
 	return &Breaker{
 		maxConcurrency:  maxConcurrency,
 		pendingRequests: make(chan token, queueDepth+maxConcurrency),
 		activeRequests:  make(chan token, maxConcurrency),
+		Sem:             sem,
 	}
 }
 
@@ -60,12 +66,48 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	case b.pendingRequests <- t:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		b.activeRequests <- t
+		//b.activeRequests <- t
+		b.Sem.Get()
 		// Defer releasing capacity in the active and pending request queue.
-		defer func() { <-b.activeRequests; <-b.pendingRequests }()
+		//defer func() { <-b.activeRequests; <-b.pendingRequests }()
+		defer func() { b.Sem.Put(1); <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success
 		return true
+	}
+}
+
+func (b *Breaker) Total() int {
+	return cap(b.pendingRequests)
+}
+
+func NewSemaphore(size int32, empty bool) *Semaphore {
+	ch := make(chan token, size)
+	return &Semaphore{activeRequests: ch, empty: empty}
+}
+
+type Semaphore struct {
+	activeRequests chan token
+	empty          bool
+}
+
+func (s *Semaphore) Get() {
+	var t token
+	if s.empty {
+		<-s.activeRequests
+	} else {
+		s.activeRequests <- t
+	}
+}
+
+func (s *Semaphore) Put(size int) {
+	var t token
+	for i := 0; i < size; i++ {
+		if s.empty {
+			s.activeRequests <- t
+		} else {
+			<-s.activeRequests
+		}
 	}
 }

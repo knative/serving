@@ -1,101 +1,86 @@
-package kbuffer
+package activator
 
 import (
-	"sync"
+	"github.com/knative/serving/pkg/queue"
+	"k8s.io/client-go/informers/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	kubeinformers "k8s.io/client-go/informers"
 	"time"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"sync"
 	"fmt"
 )
 
-func NewThrottler(concurrency int, endpoints func(id revisionID, postfix ...string) (int,bool), processor func([]chan ActivationResult), ticker *Ticker) *Throttler {
-	return &Throttler{concurrency: concurrency, endpoints: endpoints, processor: processor, ticker: ticker}
+func NewThrottler(queueDepth int32, maxConcurrency int32) *Throttler {
+	stopChan := make(chan struct{})
+	defaultResync := 100 * time.Millisecond
+	breakers := make(map[revisionID]*queue.Breaker)
+	return &Throttler{stopChan: stopChan, defaultResync: defaultResync, queueDepth: queueDepth, maxConcurrency: maxConcurrency, breakers: breakers}
 }
 
 type Throttler struct {
-	concurrency int
-	endpoints   func(id revisionID, postfix ...string) (int,bool)
-	processor   func([]chan ActivationResult)
-	requests []chan ActivationResult
-	ticker      *Ticker
-	stopChan    chan struct{}
-	stopped     bool
-	mux         sync.Mutex
+	breakers       map[revisionID]*queue.Breaker
+	informer       v1.EndpointsInformer
+	defaultResync  time.Duration
+	queueDepth     int32
+	maxConcurrency int32
+	stopChan       chan struct{}
+	mux            sync.Mutex
 }
 
-func (t *Throttler) requestsToProcess(id revisionID) int{
-	endpoints,_ := t.endpoints(id, postfix)
-	// TODO: use a proper logger
-	fmt.Printf("Revision with name: %s, namespace: %s has %b endpoints available", id.name, id.namespace, endpoints)
-	r := endpoints * t.concurrency
-	if r > cap(t.requests){
-		r = cap(t.requests)
+func (t *Throttler) Start(clientset kubernetes.Interface) *kubeinformers.SharedInformerFactory {
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(clientset, t.defaultResync)
+	t.informer = kubeInformerFactory.Core().V1().Endpoints()
+
+	go t.informer.Informer().Run(t.stopChan)
+	kubeInformerFactory.Start(t.stopChan)
+	return &kubeInformerFactory
+}
+
+func (t *Throttler) WatchEndpoints() {
+	t.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: t.update,
+	})
+}
+
+func (t *Throttler) update(oldObj, newObj interface{}) {
+	old := oldObj.(*corev1.Endpoints)
+	new := newObj.(*corev1.Endpoints)
+	if len(old.Subsets) != 0 || len(new.Subsets) != 0 {
+		oldAddresses := getEndpointAddresses(&old.Subsets)
+		newAddresses := getEndpointAddresses(&new.Subsets)
+		if oldAddresses != newAddresses {
+			fmt.Printf("old: %d, new: %d\n", oldAddresses, newAddresses)
+			diff := newAddresses - oldAddresses
+			rev := revisionID{name: new.Name, namespace: new.Namespace}
+			t.updateBreaker(rev, diff)
+		}
 	}
-	return r
 }
 
-func (t *Throttler) process(id revisionID) {
+// Put the tokens to the semaphore of a corresponding breaker
+func (t *Throttler) updateBreaker(rev revisionID, diff int) {
 	defer t.mux.Unlock()
 	t.mux.Lock()
-	sliceSize := t.requestsToProcess(id)
-	toProcess := t.requests[:sliceSize]
-	t.requests = t.requests[sliceSize:]
-	// start processing in a new go-routine to release the mutex as fast as possible
-	go t.processor(toProcess)
-}
-
-func (t *Throttler) Run(id revisionID, requests []chan ActivationResult) {
-	t.requests = requests
-	defer func(){
-		t.stopped = true
-	}()
-	for {
-		<-t.ticker.tickChan
-		if (cap(t.requests)) > 0 {
-			go t.process(id)
+	if breaker, ok := t.breakers[rev]; ok {
+		if diff > 0 {
+			breaker.Sem.Put(diff)
 		} else {
-			t.ticker.stopChan <- struct{}{}
-			return
+			breaker.Sem.Get()
 		}
 	}
 }
 
-func NewTicker(period time.Duration) *Ticker {
-	stopChan := make(chan struct{})
-	tickChan := make(chan struct{})
-	return &Ticker{period: period, tickChan: tickChan, stopChan: stopChan}
-}
-
-type Ticker struct {
-	period   time.Duration
-	tickChan chan struct{}
-	stopChan chan struct{}
-	stopped  bool
-}
-
-// Tick until a message from stopChan is received or the number of ticks is exhausted
-func (tk *Ticker) Tick(ticks ...int) {
-	defer func() {
-		tk.stopped = true
-	}()
-	var ticked int
-	var tick = func() {
-		tk.tickChan <- struct{}{}
-		time.Sleep(tk.period)
+func getEndpointAddresses(subsets *[]corev1.EndpointSubset) int {
+	var total int
+	subsetLength := len(*subsets)
+	if subsetLength == 0 {
+		return 0
 	}
-	for {
-		select {
-		case <-tk.stopChan:
-			return
-		default:
-			if ticks == nil {
-				tick()
-			} else {
-				if ticked < ticks[0] {
-					tick()
-					ticked++
-				} else {
-					return
-				}
-			}
-		}
+	for s := 0; s < subsetLength; s++ {
+		addresses := (*subsets)[s].Addresses
+		total += len(addresses)
 	}
+	return total
 }

@@ -120,7 +120,7 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
-	a = activator.NewDedupingActivator(kubeClient, a)
+	a = activator.NewDedupingActivator(a)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
