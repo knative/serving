@@ -14,8 +14,26 @@ limitations under the License.
 package handler
 
 import (
+	"io"
 	"net/http"
 )
+
+func limitReadCloser(rc io.ReadCloser, l int64) io.ReadCloser {
+	return &readCloser{io.LimitReader(rc, l), rc}
+}
+
+type readCloser struct {
+	Reader io.Reader
+	Closer io.Closer
+}
+
+func (lrc *readCloser) Read(b []byte) (int, error) {
+	return lrc.Reader.Read(b)
+}
+
+func (lrc *readCloser) Close() error {
+	return lrc.Closer.Close()
+}
 
 // EnforceMaxContentLengthHandler prevents uploads larger than `MaxContentLengthBytes`
 type EnforceMaxContentLengthHandler struct {
@@ -24,10 +42,14 @@ type EnforceMaxContentLengthHandler struct {
 }
 
 func (h *EnforceMaxContentLengthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If we have a ContentLength, we can fail early
 	if r.ContentLength > h.MaxContentLengthBytes {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
+
+	// Enforce MaxContentLengthBytes
+	r.Body = limitReadCloser(r.Body, h.MaxContentLengthBytes)
 
 	h.NextHandler.ServeHTTP(w, r)
 }
