@@ -16,6 +16,7 @@ import (
 	"bufio"
 	"io"
 	"io/ioutil"
+	"strings"
 	"testing"
 )
 
@@ -74,4 +75,31 @@ func TestRewinder(t *testing.T) {
 	gotAll, err = ioutil.ReadAll(out)
 	t.Log("Checking chunks #1-3 again")
 	expectStr("s1:s2:s3:", string(gotAll), err)
+}
+
+func TestRewinder_Cleanup(t *testing.T) {
+	want := "foo"
+
+	in := &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(want))}
+	rewinder := NewRewinder(in)
+
+	got, err := ioutil.ReadAll(rewinder)
+	if err != nil {
+		t.Fatalf("Expected to read string, got error: %v", err)
+	}
+	if want != string(got) {
+		t.Errorf("Unexpected string, want %q, got %q", want, got)
+	}
+
+	rewinder.Close()
+
+	if !in.Closed {
+		t.Error("Input ReadCloser not closed")
+	}
+
+	ioutil.ReadAll(rewinder)
+
+	if in.ReadAfterClose {
+		t.Error("Read() after Close() in input ReadCloser")
+	}
 }

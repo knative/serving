@@ -15,7 +15,7 @@ package util
 import "io"
 
 type spyReadCloser struct {
-	io.Reader
+	io.ReadCloser
 	Closed         bool
 	ReadAfterClose bool
 }
@@ -25,11 +25,11 @@ func (s *spyReadCloser) Read(b []byte) (n int, err error) {
 		s.ReadAfterClose = true
 	}
 
-	return s.Reader.Read(b)
+	return s.ReadCloser.Read(b)
 }
 
 func (s *spyReadCloser) Close() error {
 	s.Closed = true
 
-	return nil
+	return s.ReadCloser.Close()
 }

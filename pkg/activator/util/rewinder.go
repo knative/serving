@@ -57,15 +57,22 @@ func (r *rewinder) Close() error {
 	r.Lock()
 	defer r.Unlock()
 
+	// Start = what we've read already + what we haven't read yet
+	start := io.MultiReader(r.next, r.current)
+
 	// Close the original ReadCloser if we have read it to the end
 	if r.eof && r.original != nil {
+
+		if r.current == r.original {
+			// Start = only what we've read already
+			start = r.next
+		}
+
 		r.original.Close()
 		r.original = nil
 	}
 
-	// Rewind back to the beginning
-	start := io.MultiReader(r.next, r.current)
-
+	// Rewind back to the start
 	r.next = new(bytes.Buffer)
 	r.current = start
 
