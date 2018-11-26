@@ -123,11 +123,11 @@ func (pa *PodAutoscaler) Class() string {
 	if c, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; ok {
 		return c
 	}
-	// Default to "pa" class for backward compatibility.
+	// Default to "kpa" class for backward compatibility.
 	return autoscaling.KPA
 }
 
-func (pa *PodAutoscaler) scaleBoundInt32(key string) int32 {
+func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation
 		i, _ := strconv.ParseInt(s, 10, 32)
@@ -140,8 +140,8 @@ func (pa *PodAutoscaler) scaleBoundInt32(key string) int32 {
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	min = pa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
-	max = pa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
+	min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
 	return
 }
 
