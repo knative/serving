@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
@@ -56,11 +57,17 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
 	}
-	rev := activator.RevisionID{namespace, activator.ServiceName(name)}
+	rev := activator.RevisionID{namespace, reconciler.GetServingK8SServiceNameForObj(name)}
 	if throttler, ok = a.Throttlers[rev]; !ok {
 		defer a.mux.Unlock()
-		// TODO: specify max concurrency as defined in the revision
-		throttler = *activator.NewThrottler(defaultQueueSize, 1, rev, a.RevisionInformer, a.EndpointsInformer)
+		revision, err := activator.GetRevision(namespace, name, a.RevisionInformer)
+		if err != nil {
+			a.Logger.Error(err)
+			// TODO: return a proper http response code in case of failure
+			return
+		}
+		maxConcurrency := int32(revision.Spec.ContainerConcurrency)
+		throttler = *activator.NewThrottler(defaultQueueSize, maxConcurrency, rev, a.RevisionInformer, a.EndpointsInformer, a.Logger)
 		go throttler.Tick(endpointsResync)
 		go throttler.CheckEndpoints(rev)
 		a.mux.Lock()
