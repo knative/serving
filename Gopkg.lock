@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:b028867f15b96c170a232a6f8e17fad9333760a3a42c0578d21ebef9fd13bf2a"
+  digest = "1:e0f8a12fc45f4fa1087f78d08b15e340ba0fdc43db1e9b92d6229b390b7f3936"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -430,6 +430,7 @@
     "logging/logkey",
     "logging/testing",
     "metrics",
+    "metrics/metricskey",
     "signals",
     "test",
     "test/logging",
@@ -439,11 +440,11 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "a5c260df2a830d8f90f82518d9d7e35c4d74c517"
+  revision = "acfd173abd8d2063ddceedb3487599f97ac93db8"
 
 [[projects]]
   branch = "master"
-  digest = "1:124364e4841cc6cccdba11f6d5992c0e4ae0fbf4c4e5a3018aca3587ea4c140c"
+  digest = "1:a294d4d6fda3d2f4b9119eaa9e7965975fed86bfbd7a3ba357069f538a3aba83"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -1248,6 +1249,7 @@
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
     "github.com/knative/pkg/metrics",
+    "github.com/knative/pkg/metrics/metricskey",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
