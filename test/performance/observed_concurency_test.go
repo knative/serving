@@ -43,7 +43,7 @@ const (
 )
 
 func createTestCase(val float32, name string) testgrid.TestCase {
-	tp := []testgrid.TestProperty{testgrid.TestProperty{Name: perfLatency, Value: val}}
+	tp := []testgrid.TestProperty{{Name: perfLatency, Value: val}}
 	tc := testgrid.TestCase{
 		ClassName:  tName,
 		Name:       fmt.Sprintf("%s/%s", tName, name),
