@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -71,22 +72,22 @@ func NewStatsReporter() (*Reporter, error) {
 	var r = &Reporter{}
 
 	// Create the tag keys that will be used to add tags to our measurements.
-	nsTag, err := tag.NewKey("destination_namespace")
+	nsTag, err := tag.NewKey(metricskey.LabelNamespaceName)
 	if err != nil {
 		return nil, err
 	}
 	r.namespaceTagKey = nsTag
-	serviceTag, err := tag.NewKey("destination_service")
+	serviceTag, err := tag.NewKey(metricskey.LabelServiceName)
 	if err != nil {
 		return nil, err
 	}
 	r.serviceTagKey = serviceTag
-	configTag, err := tag.NewKey("destination_configuration")
+	configTag, err := tag.NewKey(metricskey.LabelConfigurationName)
 	if err != nil {
 		return nil, err
 	}
 	r.configTagKey = configTag
-	revTag, err := tag.NewKey("destination_revision")
+	revTag, err := tag.NewKey(metricskey.LabelRevisionName)
 	if err != nil {
 		return nil, err
 	}
