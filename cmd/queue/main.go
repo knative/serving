@@ -166,12 +166,12 @@ func isProbe(r *http.Request) bool {
 
 func timeoutHandler(h http.Handler, d time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		done := make(chan bool)
+		done := make(chan struct{})
 
 		go func() {
-			h.ServeHTTP(w, r)
+			defer close(done)
 
-			done <- true
+			h.ServeHTTP(w, r)
 		}()
 
 		select {
