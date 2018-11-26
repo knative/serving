@@ -27,23 +27,26 @@ import (
 	"go.uber.org/zap"
 	"sync"
 	"github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	"k8s.io/client-go/informers/core/v1"
 )
 
 const defaultQueueSize = 10000
+const endpointsResync = 100 * time.Millisecond
 
 // ActivationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type ActivationHandler struct {
-	Logger           *zap.SugaredLogger
-	Transport        http.RoundTripper
-	Reporter         activator.StatsReporter
-	Throttlers       *map[activator.RevisionID]*activator.Throttler
-	RevisionInformer v1alpha1.RevisionInformer
-	mux              sync.Mutex
+	Logger            *zap.SugaredLogger
+	Transport         http.RoundTripper
+	Reporter          activator.StatsReporter
+	Throttlers        map[activator.RevisionID]activator.Throttler
+	RevisionInformer  v1alpha1.RevisionInformer
+	EndpointsInformer v1.EndpointsInformer
+	mux               sync.Mutex
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var throttler *activator.Throttler
+	var throttler activator.Throttler
 	var ok bool
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
@@ -54,14 +57,16 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		statusCode:     http.StatusOK,
 	}
 	rev := activator.RevisionID{namespace, activator.ServiceName(name)}
-	if throttler, ok = (*a.Throttlers)[rev]; !ok {
+	if throttler, ok = a.Throttlers[rev]; !ok {
 		defer a.mux.Unlock()
 		// TODO: specify max concurrency as defined in the revision
-		throttler = activator.NewThrottler(defaultQueueSize, 1, rev, a.RevisionInformer)
+		throttler = *activator.NewThrottler(defaultQueueSize, 1, rev, a.RevisionInformer, a.EndpointsInformer)
+		go throttler.Tick(endpointsResync)
+		go throttler.CheckEndpoints(rev)
 		a.mux.Lock()
-		(*a.Throttlers)[rev] = throttler
+		a.Throttlers[rev] = throttler
 	}
-	
+
 	throttler.Breaker.Maybe(func() {
 		ar := throttler.ActiveEndpoint(namespace, name)
 		if ar.Error != nil {

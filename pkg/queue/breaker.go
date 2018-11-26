@@ -101,9 +101,9 @@ func (s *Semaphore) Get() {
 	}
 }
 
-func (s *Semaphore) Put(size int) {
+func (s *Semaphore) Put(size int32) {
 	var t token
-	for i := 0; i < size; i++ {
+	for i := int32(0); i < size; i++ {
 		if s.empty {
 			s.activeRequests <- t
 		} else {

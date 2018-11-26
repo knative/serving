@@ -10,24 +10,72 @@ import (
 	"github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
+	"k8s.io/client-go/informers/core/v1"
+	"time"
 )
 
-func NewThrottler(queueDepth int32, maxConcurrency int32, rev RevisionID, revisionInformer v1alpha1.RevisionInformer) *Throttler {
+func NewThrottler(queueDepth int32, maxConcurrency int32, rev RevisionID, revisionInformer v1alpha1.RevisionInformer, endpointInformer v1.EndpointsInformer) *Throttler {
 	breaker := queue.NewBreaker(queueDepth, maxConcurrency, true)
-	return &Throttler{queueDepth: queueDepth, maxConcurrency: maxConcurrency, Breaker: breaker, revisionID: rev, revisionInformer: revisionInformer}
+	tickChan := make(chan struct{})
+	stopChan := make(chan struct{})
+	return &Throttler{queueDepth: queueDepth, maxConcurrency: maxConcurrency, Breaker: breaker, revisionID: rev, revisionInformer: revisionInformer, endpointsInformer: endpointInformer, tickChan: tickChan, stopChan: stopChan}
 }
 
 type Throttler struct {
-	revisionID       RevisionID
-	Breaker          *queue.Breaker
-	revisionInformer v1alpha1.RevisionInformer
-	queueDepth       int32
-	maxConcurrency   int32
-	mux              sync.Mutex
+	revisionID        RevisionID
+	Breaker           *queue.Breaker
+	revisionInformer  v1alpha1.RevisionInformer
+	endpointsInformer v1.EndpointsInformer
+	queueDepth        int32
+	maxConcurrency    int32
+	endpoints         int32
+	tickChan          chan struct{}
+	stopChan          chan struct{}
+	mux               sync.Mutex
 }
 
 func ServiceName(name string) string {
 	return name + "-service"
+}
+
+func (t *Throttler) Tick(interval time.Duration) error {
+	for {
+		t.tickChan <- struct{}{}
+		time.Sleep(interval)
+	}
+}
+
+func (t *Throttler) CheckEndpoints(rev RevisionID) {
+	for {
+		select {
+		case <-t.tickChan:
+			t.checkAndUpdate(rev)
+		case <-t.stopChan:
+			return
+		}
+	}
+}
+
+func (t *Throttler) checkAndUpdate(rev RevisionID) {
+	defer t.mux.Unlock()
+	t.mux.Lock()
+	key := cache.ExplicitKey(rev.Namespace + "/" + rev.Name)
+	e, exists, err := t.endpointsInformer.Informer().GetIndexer().Get(key)
+	if !exists {
+		fmt.Println("No endpoint exist yet for the revision: " + key)
+		return
+	}
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	endpoints := e.(*corev1.Endpoints)
+	addresses := getEndpointAddresses(&endpoints.Subsets)
+	delta := int32(addresses) - t.endpoints
+	if delta != 0 {
+		t.updateBreaker(rev, delta)
+		t.endpoints += delta
+	}
 }
 
 // TODO: Rename the method
@@ -68,29 +116,8 @@ func (t *Throttler) ActiveEndpoint(namespace, name string) ActivationResult {
 	}
 }
 
-func (t *Throttler) Update(oldObj, newObj interface{}) {
-	old := oldObj.(*corev1.Endpoints)
-	new := newObj.(*corev1.Endpoints)
-	rev := RevisionID{Name: new.Name, Namespace: new.Namespace}
-	fmt.Println(old)
-	fmt.Println(new)
-	if rev.Namespace == t.revisionID.Namespace && rev.Name == t.revisionID.Name {
-		if len(old.Subsets) != 0 || len(new.Subsets) != 0 {
-			oldAddresses := getEndpointAddresses(&old.Subsets)
-			newAddresses := getEndpointAddresses(&new.Subsets)
-			if oldAddresses != newAddresses {
-				fmt.Printf("old: %d, new: %d\n", oldAddresses, newAddresses)
-				diff := newAddresses - oldAddresses
-				t.updateBreaker(rev, diff)
-			}
-		}
-	}
-}
-
 // depending on whether the delta is positive or negative - Release or Acquire the Lock
-func (t *Throttler) updateBreaker(rev RevisionID, diff int) {
-	defer t.mux.Unlock()
-	t.mux.Lock()
+func (t *Throttler) updateBreaker(rev RevisionID, diff int32) {
 	if diff > 0 {
 		t.Breaker.Sem.Put(diff)
 	} else {

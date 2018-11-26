@@ -37,7 +37,6 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	kubeinformers "k8s.io/client-go/informers"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	corev1 "k8s.io/api/core/v1"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
@@ -47,7 +46,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/knative/serving/pkg/websocket"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -156,15 +154,11 @@ func main() {
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResync)
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
-	throttlers := make(map[activator.RevisionID]*activator.Throttler)
+	throttlers := make(map[activator.RevisionID]activator.Throttler)
 	go endpointInformer.Informer().Run(stopCh)
 	go revisionInformer.Informer().Run(stopCh)
 	servingInformerFactory.Start(stopCh)
 	kubeInformerFactory.Start(stopCh)
-
-	endpointInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: Update(&throttlers),
-	})
 
 	kubeInformerFactory.WaitForCacheSync(stopCh)
 	servingInformerFactory.WaitForCacheSync(stopCh)
@@ -174,11 +168,12 @@ func main() {
 			&activatorhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &activatorhandler.ActivationHandler{
-					Transport:        rt,
-					Logger:           logger,
-					Reporter:         reporter,
-					Throttlers:       &throttlers,
-					RevisionInformer: revisionInformer,
+					Transport:         rt,
+					Logger:            logger,
+					Reporter:          reporter,
+					Throttlers:        throttlers,
+					RevisionInformer:  revisionInformer,
+					EndpointsInformer: endpointInformer,
 				},
 			},
 		),
@@ -194,17 +189,4 @@ func main() {
 	}
 
 	h2c.ListenAndServe(":8080", ah)
-}
-
-func Update(throttlers *map[activator.RevisionID]*activator.Throttler) func(oldObj, newObj interface{}) {
-	update := func(oldObj, newObj interface{}) {
-		new := newObj.(*corev1.Endpoints)
-		rev := activator.RevisionID{Name: new.Name, Namespace: new.Namespace}
-		if throttler, ok := (*throttlers)[rev]; ok {
-			throttler.Update(oldObj, newObj)
-		} else {
-			fmt.Println("Error: couldn't find the throttler in the list")
-		}
-	}
-	return update
 }
