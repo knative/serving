@@ -14,26 +14,10 @@ limitations under the License.
 package handler
 
 import (
-	"io"
 	"net/http"
+
+	"github.com/knative/serving/pkg/activator/util"
 )
-
-func limitReadCloser(rc io.ReadCloser, l int64) io.ReadCloser {
-	return &readCloser{io.LimitReader(rc, l), rc}
-}
-
-type readCloser struct {
-	Reader io.Reader
-	Closer io.Closer
-}
-
-func (lrc *readCloser) Read(b []byte) (int, error) {
-	return lrc.Reader.Read(b)
-}
-
-func (lrc *readCloser) Close() error {
-	return lrc.Closer.Close()
-}
 
 // EnforceMaxContentLengthHandler prevents uploads larger than `MaxContentLengthBytes`
 type EnforceMaxContentLengthHandler struct {
@@ -49,7 +33,7 @@ func (h *EnforceMaxContentLengthHandler) ServeHTTP(w http.ResponseWriter, r *htt
 	}
 
 	// Enforce MaxContentLengthBytes
-	r.Body = limitReadCloser(r.Body, h.MaxContentLengthBytes)
+	r.Body = util.LimitReadCloser(r.Body, h.MaxContentLengthBytes)
 
 	h.NextHandler.ServeHTTP(w, r)
 }
