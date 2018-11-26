@@ -693,7 +693,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{Image: "busybox"},
+			Container:      corev1.Container{Image: "busybox"},
 			TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
 		},
 	}
