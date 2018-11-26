@@ -123,7 +123,7 @@ func (pa *PodAutoscaler) Class() string {
 	if c, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; ok {
 		return c
 	}
-	// Default to "pa" class for backward compatibility.
+	// Default to "kpa" class for backward compatibility.
 	return autoscaling.KPA
 }
 
