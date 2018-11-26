@@ -46,8 +46,6 @@ const (
 	MetricAnnotationKey = GroupName + "/metric"
 	// Concurrency is the number of requests in-flight at any given time.
 	Concurrency = "concurrency"
-	// OPS is the number of requests (operations) arriving per second.
-	OPS = "ops"
 	// CPU is the amount of the requested cpu actually being consumed by the Pod.
 	CPU = "cpu"
 
