@@ -14,10 +14,10 @@ limitations under the License.
 package h2c
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -43,6 +43,12 @@ func ListenAndServe(addr string, h http.Handler) error {
 var DefaultTransport http.RoundTripper = &http2.Transport{
 	AllowHTTP: true,
 	DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
-		return http.DefaultTransport.(*http.Transport).DialContext(context.Background(), netw, addr)
+		d := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}
+
+		return d.Dial(netw, addr)
 	},
 }
