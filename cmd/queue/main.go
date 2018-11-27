@@ -50,6 +50,11 @@ const (
 	statReportingQueueLength = 10
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+	// Duration the /quitquitquit handler should wait before returning.
+	// This is to give Istio a little bit more time to remove the pod
+	// from its configuration and propagate that to all istio-proxies
+	// in the mesh.
+	quitSleepDuration = 20 * time.Second
 )
 
 var (
@@ -204,6 +209,8 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 	if err := sendStat(s); err != nil {
 		logger.Error("Error while sending stat", zap.Error(err))
 	}
+
+	time.Sleep(quitSleepDuration)
 
 	// Shutdown the server.
 	currentServer := server
