@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/metrics/metricskey"
+
 	"go.opencensus.io/stats/view"
 )
 
@@ -34,12 +36,13 @@ func TestActivatorReporter(t *testing.T) {
 
 	// test ReportRequestCount
 	wantTags2 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_service":       "testsvc",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"response_code":             "200",
-		"num_tries":                 "6",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
+		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
 	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
@@ -47,11 +50,12 @@ func TestActivatorReporter(t *testing.T) {
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_service":       "testsvc",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"response_code":             "200",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
 		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 1100*time.Millisecond)

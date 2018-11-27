@@ -69,6 +69,9 @@ function install_knative_serving() {
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
+  echo ">> Adding more activator pods."
+  kubectl scale deploy --replicas=2 -n knative-serving activator || return 1
+
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
   # However, since network configurations may reach different ingress pods at slightly

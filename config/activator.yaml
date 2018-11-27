@@ -18,7 +18,7 @@ metadata:
   name: activator
   namespace: knative-serving
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: activator
