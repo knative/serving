@@ -281,7 +281,7 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency))
+		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency), false)
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 

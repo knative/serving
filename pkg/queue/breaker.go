@@ -25,24 +25,25 @@ type token struct{}
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	maxConcurrency  int32
 	pendingRequests chan token
-	activeRequests  chan token
+	Sem             *Semaphore
 }
 
 // NewBreaker creates a Breaker with the desired queue depth and
 // concurrency limit.
-func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
+// `startEmpty` toggle defines whether the Breaker starts with empty capacity,
+// e.g. the incoming requests will accrue in the pending queue until someone explicitly adds tokens to the semaphore
+func NewBreaker(queueDepth, maxConcurrency int32, startEmpty bool) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
 	if maxConcurrency < 0 {
 		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", maxConcurrency))
 	}
+	sem := NewSemaphore(maxConcurrency, startEmpty)
 	return &Breaker{
-		maxConcurrency:  maxConcurrency,
 		pendingRequests: make(chan token, queueDepth+maxConcurrency),
-		activeRequests:  make(chan token, maxConcurrency),
+		Sem:             sem,
 	}
 }
 
@@ -60,12 +61,45 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	case b.pendingRequests <- t:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		b.activeRequests <- t
+		b.Sem.Get()
 		// Defer releasing capacity in the active and pending request queue.
-		defer func() { <-b.activeRequests; <-b.pendingRequests }()
+		defer func() { b.Sem.Put(1); <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success
 		return true
+	}
+}
+
+// Creates a new semaphore of a given size, could be initially full or empty
+func NewSemaphore(size int32, empty bool) *Semaphore {
+	ch := make(chan token, size)
+	return &Semaphore{activeRequests: ch, empty: empty}
+}
+
+// Implementation of a semaphore
+type Semaphore struct {
+	activeRequests chan token
+	empty          bool
+	token          token
+}
+
+// Acquire a lock from the semaphore, potentially blocking
+func (s *Semaphore) Get() {
+	if s.empty {
+		<-s.activeRequests
+	} else {
+		s.activeRequests <- s.token
+	}
+}
+
+// Put the lock back to the semaphore, blocks if the activeRequests buffer is full
+func (s *Semaphore) Put(size int32) {
+	for i := int32(0); i < size; i++ {
+		if s.empty {
+			s.activeRequests <- s.token
+		} else {
+			<-s.activeRequests
+		}
 	}
 }
