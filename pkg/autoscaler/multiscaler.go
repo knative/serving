@@ -24,10 +24,10 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
-
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 const (
@@ -49,12 +49,15 @@ type UniScaler interface {
 	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
 	Scale(context.Context, time.Time) (int32, bool)
+
+	// Target returns the average concurrency the autoscaler is trying to achieve.
+	Target() float64
 }
 
 // UniScalerFactory creates a UniScaler for a given KPA using the given dynamic configuration.
 type UniScalerFactory func(*kpa.PodAutoscaler, *DynamicConfig) (UniScaler, error)
 
-// scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
+// scalerRunner wraps an Autoscaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
@@ -86,7 +89,7 @@ func NewKpaKey(namespace string, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
-// MultiScaler maintains a collection of UniScalers.
+// MultiScaler maintains a collection of Autoscalers.
 type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
@@ -116,13 +119,13 @@ func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerF
 func (m *MultiScaler) Get(ctx context.Context, key string) (*Metric, error) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
-	scaler, exists := m.scalers[key]
+	runner, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
 		return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
 	return &Metric{
-		DesiredScale: scaler.getLatestScale(),
+		DesiredScale: runner.getLatestScale(),
 	}, nil
 }
 
@@ -161,14 +164,19 @@ func (m *MultiScaler) Watch(fn func(string)) {
 	m.watcher = fn
 }
 
-func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(kpa, m.dynConfig)
+func (m *MultiScaler) createScaler(ctx context.Context, pa *kpa.PodAutoscaler) (*scalerRunner, error) {
+
+	scaler, err := m.uniScalerFactory(pa, m.dynConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	stopCh := make(chan struct{})
-	runner := &scalerRunner{scaler: scaler, latestScale: -1, stopCh: stopCh}
+	runner := &scalerRunner{
+		scaler:      scaler,
+		stopCh:      stopCh,
+		latestScale: -1,
+	}
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
@@ -189,7 +197,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, kpa *kpa.PodAutoscaler) 
 		}
 	}()
 
-	kpaKey := NewKpaKey(kpa.Namespace, kpa.Name)
+	kpaKey := NewKpaKey(pa.Namespace, pa.Name)
 	go func() {
 		for {
 			select {
@@ -241,4 +249,20 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 		ctx := logging.WithLogger(context.TODO(), logger)
 		scaler.scaler.Record(ctx, stat)
 	}
+}
+
+func NewUniScaler(pa *kpa.PodAutoscaler, dynConfig *DynamicConfig) (UniScaler, error) {
+	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+	reporter, err := NewStatsReporter(pa.Namespace,
+		labelValueOrEmpty(pa, serving.ServiceLabelKey), labelValueOrEmpty(pa, serving.ConfigurationLabelKey), pa.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	target := dynConfig.Current().TargetConcurrency(pa.Spec.ContainerConcurrency)
+	if customTarget, ok := pa.MetricTarget(); ok {
+		target = float64(customTarget)
+	}
+
+	return New(dynConfig, target, reporter), nil
 }

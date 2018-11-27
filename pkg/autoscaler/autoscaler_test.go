@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	. "github.com/knative/pkg/logging/testing"
 	"go.uber.org/zap"
 )
@@ -500,7 +498,7 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		config: config,
 		logger: zap.NewNop().Sugar(),
 	}
-	return New(dynConfig, v1alpha1.RevisionContainerConcurrencyType(containerConcurrency), &mockReporter{})
+	return New(dynConfig, float64(containerConcurrency), &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the

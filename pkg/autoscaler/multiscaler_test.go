@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/knative/pkg/logging/testing"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -31,8 +32,6 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
@@ -360,6 +359,10 @@ type fakeUniScaler struct {
 
 func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
+}
+
+func (u *fakeUniScaler) Target() float64 {
+	return 1.0
 }
 
 func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {

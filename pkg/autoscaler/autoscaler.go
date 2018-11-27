@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
-
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -187,6 +187,8 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
+	key                  string
+	target               float64
 	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
 	stats                map[statKey]Stat
 	statsMutex           sync.Mutex
@@ -197,13 +199,18 @@ type Autoscaler struct {
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
+func New(dynamicConfig *DynamicConfig, target float64, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		DynamicConfig:        dynamicConfig,
-		containerConcurrency: containerConcurrency,
-		stats:                make(map[statKey]Stat),
-		reporter:             reporter,
+		DynamicConfig: dynamicConfig,
+		target:        target,
+		stats:         make(map[statKey]Stat),
+		reporter:      reporter,
 	}
+}
+
+// Target returns the average concurrency the autoscaler is trying to achieve.
+func (a *Autoscaler) Target() float64 {
+	return a.target
 }
 
 // Record a data point.
@@ -282,8 +289,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
 	// Desired scaling ratio is observed concurrency over desired (stable) concurrency.
 	// Rate limited to within MaxScaleUpRate.
-	desiredStableScalingRatio := a.rateLimited(observedStableConcurrencyPerPod / config.TargetConcurrency(a.containerConcurrency))
-	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrencyPerPod / config.TargetConcurrency(a.containerConcurrency))
+	desiredStableScalingRatio := a.rateLimited(observedStableConcurrencyPerPod / a.target)
+	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrencyPerPod / a.target)
 
 	desiredStablePodCount := desiredStableScalingRatio * stableData.observedPods(now)
 	desiredPanicPodCount := desiredPanicScalingRatio * stableData.observedPods(now)
@@ -291,7 +298,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods(now)))
 	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrencyPerPod)
 	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrencyPerPod)
-	a.reporter.Report(TargetConcurrencyM, config.TargetConcurrency(a.containerConcurrency))
+	a.reporter.Report(TargetConcurrencyM, a.target)
 
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrencyPerPod, config.StableWindow, stableData.probeCount, stableData.observedPods(now))
@@ -308,7 +315,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && panicData.observedPods(now) > 0.0 && observedPanicConcurrencyPerPod >= (config.TargetConcurrency(a.containerConcurrency)*2) {
+	if !a.panicking && panicData.observedPods(now) > 0.0 && observedPanicConcurrencyPerPod >= (a.target*2) {
 		logger.Info("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
@@ -339,4 +346,13 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 		return a.Current().MaxScaleUpRate
 	}
 	return desiredRate
+}
+
+func labelValueOrEmpty(pa *autoscalingv1alpha1.PodAutoscaler, labelKey string) string {
+	if pa.Labels != nil {
+		if value, ok := pa.Labels[labelKey]; ok {
+			return value
+		}
+	}
+	return ""
 }
