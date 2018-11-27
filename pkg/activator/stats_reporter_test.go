@@ -41,6 +41,7 @@ func TestActivatorReporter(t *testing.T) {
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
 		"response_code":                   "200",
+		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
@@ -54,6 +55,7 @@ func TestActivatorReporter(t *testing.T) {
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
 		"response_code":                   "200",
+		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
 		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 1100*time.Millisecond)
