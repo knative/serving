@@ -15,6 +15,7 @@ package util
 
 import "io"
 
+// LimitReadCloser returns a ReadCloser wrapped with an `io.LimitReader`
 func LimitReadCloser(rc io.ReadCloser, l int64) io.ReadCloser {
 	return &readCloser{io.LimitReader(rc, l), rc}
 }
