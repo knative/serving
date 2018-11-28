@@ -26,24 +26,25 @@ type token struct{}
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
 	pendingRequests chan token
-	Sem             *Semaphore
+	sem             *Semaphore
 }
 
-// NewBreaker creates a Breaker with the desired queue depth and
-// concurrency limit.
-// `startEmpty` toggle defines whether the Breaker starts with empty capacity,
-// e.g. the incoming requests will accrue in the pending queue until someone explicitly adds tokens to the semaphore
-func NewBreaker(queueDepth, maxConcurrency int32, startEmpty bool) *Breaker {
+// NewBreaker creates a Breaker with the desired queue depth,
+// concurrency limit and initial capacity
+func NewBreaker(queueDepth, maxConcurrency int32, initialCapacity int32) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
 	if maxConcurrency < 0 {
 		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", maxConcurrency))
 	}
-	sem := NewSemaphore(maxConcurrency, startEmpty)
+	if initialCapacity < 0 || initialCapacity > maxConcurrency {
+		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", initialCapacity))
+	}
+	sem := NewSemaphore(maxConcurrency, initialCapacity)
 	return &Breaker{
 		pendingRequests: make(chan token, queueDepth+maxConcurrency),
-		Sem:             sem,
+		sem:             sem,
 	}
 }
 
@@ -61,9 +62,9 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	case b.pendingRequests <- t:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		b.Sem.Get()
+		b.sem.Get()
 		// Defer releasing capacity in the active and pending request queue.
-		defer func() { b.Sem.Put(1); <-b.pendingRequests }()
+		defer func() { b.sem.Put(1); <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success
@@ -71,35 +72,35 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	}
 }
 
-// NewSemaphore creates a new semaphore of a given size, could be initially full or empty
-func NewSemaphore(size int32, empty bool) *Semaphore {
+// NewSemaphore creates a new semaphore of a given size with initial capacity
+func NewSemaphore(size int32, initialCapacity int32) *Semaphore {
 	ch := make(chan token, size)
-	return &Semaphore{activeRequests: ch, empty: empty}
+	if initialCapacity < 0 || initialCapacity > size {
+		panic(fmt.Sprintf("Initial capacity must be between 0 and size. Got %v.", initialCapacity))
+	}
+	sem := Semaphore{activeRequests: ch}
+	if initialCapacity > 0 {
+		for i := int32(0); i < initialCapacity; i++ {
+			sem.activeRequests <- sem.token
+		}
+	}
+	return &sem
 }
 
 // Semaphore is an implementation of a semaphore based on Go channels
 type Semaphore struct {
 	activeRequests chan token
-	empty          bool
 	token          token
 }
 
 // Get acquires the lock from the semaphore, potentially blocking
 func (s *Semaphore) Get() {
-	if s.empty {
-		<-s.activeRequests
-	} else {
-		s.activeRequests <- s.token
-	}
+	<-s.activeRequests
 }
 
 // Put the lock back to the semaphore, blocks if the activeRequests buffer is full
 func (s *Semaphore) Put(size int32) {
 	for i := int32(0); i < size; i++ {
-		if s.empty {
-			s.activeRequests <- s.token
-		} else {
-			<-s.activeRequests
-		}
+		s.activeRequests <- s.token
 	}
 }
