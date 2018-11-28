@@ -126,7 +126,7 @@ func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
 
 	// wait in case `acquired` changes
 	time.Sleep(semSleepInterval)
-	assertEqual(want, acquired, t)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
 }
 
 // Test empty semaphore, add capacity, token can be acquired
@@ -139,7 +139,7 @@ func TestSemaphore_Get_HasCapacity(t *testing.T) {
 
 	// to allow `acquired` to change
 	time.Sleep(semSleepInterval)
-	assertEqual(want, acquired, t)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
 }
 
 //Test all put items can be consumed
@@ -154,7 +154,7 @@ func TestSemaphore_Put(t *testing.T) {
 	sem.Put(2)
 
 	time.Sleep(semSleepInterval)
-	assertEqual(want, acquired, t)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
