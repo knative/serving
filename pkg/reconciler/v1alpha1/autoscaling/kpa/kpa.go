@@ -185,7 +185,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.kpaScaler.Scale(ctx, pa, metric.DesiredScale)
+	want, err := c.kpaScaler.Scale(ctx, pa, metric.Status.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err

@@ -542,7 +542,7 @@ func (km *testKPAMetrics) Get(ctx context.Context, key string) (*autoscaler.Metr
 func (km *testKPAMetrics) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
 	km.createCallCount.Add(1)
 	km.createdCh <- struct{}{}
-	return &autoscaler.Metric{1}, nil
+	return &autoscaler.Metric{Status: autoscaler.MetricStatus{1}}, nil
 }
 
 func (km *testKPAMetrics) Delete(ctx context.Context, key string) error {

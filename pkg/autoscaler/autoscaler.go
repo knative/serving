@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -188,7 +188,6 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 type Autoscaler struct {
 	*DynamicConfig
 	key                  string
-	target               float64
 	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
 	stats                map[statKey]Stat
 	statsMutex           sync.Mutex
@@ -196,21 +195,32 @@ type Autoscaler struct {
 	panicTime            *time.Time
 	maxPanicPods         float64
 	reporter             StatsReporter
+	targetMutex          sync.RWMutex
+	target               float64
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, target float64, reporter StatsReporter) *Autoscaler {
+func New(metric *Metric, dynamicConfig *DynamicConfig) (*Autoscaler, error) {
+	// Create a stats reporter which tags statistics by namespace, configuration name, and name.
+	reporter, err := NewStatsReporter(metric.Namespace,
+		labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
+	if err != nil {
+		return nil, err
+	}
 	return &Autoscaler{
 		DynamicConfig: dynamicConfig,
-		target:        target,
+		target:        metric.Spec.TargetConcurrency,
 		stats:         make(map[statKey]Stat),
 		reporter:      reporter,
-	}
+	}, nil
 }
 
-// Target returns the average concurrency the autoscaler is trying to achieve.
-func (a *Autoscaler) Target() float64 {
-	return a.target
+// Update reconfigures the UniScaler according to the MetricSpec.
+func (a *Autoscaler) Update(spec MetricSpec) error {
+	a.targetMutex.Lock()
+	defer a.targetMutex.Unlock()
+	a.target = spec.TargetConcurrency
+	return nil
 }
 
 // Record a data point.
@@ -233,6 +243,10 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 // Scale calculates the desired scale based on current statistics given the current time.
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
+
+	a.targetMutex.RLock()
+	defer a.targetMutex.RUnlock()
+
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -348,9 +362,9 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 	return desiredRate
 }
 
-func labelValueOrEmpty(pa *autoscalingv1alpha1.PodAutoscaler, labelKey string) string {
-	if pa.Labels != nil {
-		if value, ok := pa.Labels[labelKey]; ok {
+func labelValueOrEmpty(metric *Metric, labelKey string) string {
+	if metric.Labels != nil {
+		if value, ok := metric.Labels[labelKey]; ok {
 			return value
 		}
 	}

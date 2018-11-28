@@ -117,7 +117,7 @@ func main() {
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, autoscaler.NewUniScaler, logger)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, autoscaler.New, logger)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
