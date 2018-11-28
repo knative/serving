@@ -217,9 +217,11 @@ func New(metric *Metric, dynamicConfig *DynamicConfig) (*Autoscaler, error) {
 
 // Update reconfigures the UniScaler according to the MetricSpec.
 func (a *Autoscaler) Update(spec MetricSpec) error {
+	a.logger.Infof("DO NOT SUBMIT: updating in the autoscaler")
 	a.targetMutex.Lock()
 	defer a.targetMutex.Unlock()
 	a.target = spec.TargetConcurrency
+	a.logger.Infof("DO NOT SUBMIT: successfully updated in the autoscaler")
 	return nil
 }
 

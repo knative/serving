@@ -171,6 +171,7 @@ func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, erro
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
+		m.logger.Infof("DO NOT SUBMIT: updating in the multi scaler")
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
 		scaler.metric = *metric

@@ -171,34 +171,49 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
+	logger.Infof("DO NOT SUBMIT: reconciling pa %v", pa.Name)
+
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
 	// TODO: compute this correctly
 	target, _ := pa.MetricTarget()
+	logger.Infof("DO NOT SUBMIT: target is %v", target)
 	desiredMetric := &autoscaler.Metric{
+		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.MetricSpec{
 			TargetConcurrency: float64(target),
 		},
 	}
+	logger.Infof("DO NOT SUBMIT: desired metric is +%v", desiredMetric)
 
 	metric, err := c.kpaMetrics.Get(ctx, pa.Namespace, pa.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.kpaMetrics.Create(ctx, metric)
+		logger.Infof("DO NOT SUBMIT: did not find metric")
+		metric, err = c.kpaMetrics.Create(ctx, desiredMetric)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
 			return err
 		}
 	} else if err != nil {
+		logger.Infof("DO NOT SUBMIT: error getting metric: %v", err)
 		logger.Errorf("Error fetching Metric: %v", err)
 		return err
-	} else if desiredMetric.Spec != metric.Spec {
-		metric.Spec = desiredMetric.Spec
-		metric, err = c.kpaMetrics.Update(ctx, metric)
+	}
+
+	logger.Infof("DO NOT SUBMIT: now have target %v", metric.Spec.TargetConcurrency)
+
+	// Ignore status when reconciling
+	desiredMetric.Status = metric.Status
+	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+		logger.Infof("DO NOT SUBMIT: not equal, updating")
+		logger.Infof("DO NOT SUBMIT: updating to target %v", desiredMetric.Spec.TargetConcurrency)
+		metric, err = c.kpaMetrics.Update(ctx, desiredMetric)
 		if err != nil {
 			logger.Errorf("Error update Metric: %v", err)
 			return err
 		}
+		logger.Infof("DO NOT SUBMIT: successfully updated")
 	}
 
 	// Get the appropriate current scale from the metric, and right size
