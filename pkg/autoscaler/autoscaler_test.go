@@ -498,7 +498,8 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		config: config,
 		logger: zap.NewNop().Sugar(),
 	}
-	return New(dynConfig, float64(containerConcurrency), &mockReporter{})
+	a, _ := New(&Metric{Spec: MetricSpec{float64(containerConcurrency)}}, dynConfig)
+	return a
 }
 
 // Record a data point every second, for every pod, for duration of the

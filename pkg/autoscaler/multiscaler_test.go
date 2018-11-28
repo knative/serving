@@ -56,7 +56,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	uniScaler.setScaleResult(1, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, kpaKey)
+	m, err := ms.Get(ctx, kpa.Namespace, kpa.Name)
 	if !errors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -71,11 +71,11 @@ func TestMultiScalerScaling(t *testing.T) {
 		if key != kpaKey {
 			t.Errorf("Watch() = %v, wanted %v", key, kpaKey)
 		}
-		m, err := ms.Get(ctx, key)
+		m, err := ms.Get(ctx, namespace, name)
 		if err != nil {
 			t.Errorf("Get() = %v", err)
 		}
-		if got, want := m.DesiredScale, int32(1); got != want {
+		if got, want := m.Status.DesiredScale, int32(1); got != want {
 			t.Errorf("Get() = %v, wanted %v", got, want)
 		}
 	})
