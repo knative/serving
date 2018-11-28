@@ -50,8 +50,17 @@ function patch_network_config_gke() {
   local target_line="  istio.sidecar.includeOutboundIPRanges: \"${ip_ranges?}\""
   sed -i "s#${source_line_regex}#${target_line}#g" "${tmp_config_file}"
 
-  # Apply the temp yaml file.
-  kubectl apply -f "${tmp_config_file}"
+  echo "The following configuration will be applied:"
+  echo
+  cat "${tmp_config_file}"
+  echo
+  read -p "Do you want to apply the changes (y/N)? " -n 1 -r
+  echo
+  if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+    kubectl apply -f "${tmp_config_file}"
+  else
+    echo "No changes applied"
+  fi
   rm -f "${tmp_config_file}"
 }
 
