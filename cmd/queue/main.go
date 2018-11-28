@@ -61,7 +61,7 @@ const (
 
 var (
 	podName                string
-	servingConfig         string
+	servingConfig          string
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
@@ -175,9 +175,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 // healthServer registers whether a PreStop hook has been called.
 type healthServer struct {
-	alive    bool
-	mutex    sync.RWMutex
-	reporter *queue.Reporter
+	alive bool
+	mutex sync.RWMutex
 }
 
 // isAlive() returns true until a PreStop hook has been called.
