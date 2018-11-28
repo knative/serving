@@ -35,7 +35,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Revision is an immutable snapshot of code and configuration.  A revision
-// references a container image, and optionally a build that is responsible for
+// references a container image, adn optionally a build that is responsible for
 // materializing that container image from source. Revisions are created by
 // updates to a Configuration.
 //
