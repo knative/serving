@@ -151,6 +151,8 @@ func (c *ManagedConnection) keepalive() (err error) {
 				if _, _, err = conn.NextReader(); err != nil {
 					conn.Close()
 				}
+			} else {
+				err = ErrConnectionNotEstablished
 			}
 		}()
 
