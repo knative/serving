@@ -495,7 +495,8 @@ the resources underlying a Revision to zero.
 ### Inactive Revision
 
 When a Revision becomes inactive this is reflected by setting the `Active`
-condition to `False`.
+condition to `False`. Note that the Revision may stay Ready while it is
+scaled to zero.
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
@@ -506,12 +507,11 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 status:
   conditions:
   - type: Ready
-    status: False
-    reason: NoTraffic
-    message: The target is not receiving traffic.
+    status: True
   - type: Active
     status: False
     reason: NoTraffic
+    severity: Info
     message: The target is not receiving traffic.
 ```
 
@@ -530,12 +530,11 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 status:
   conditions:
   - type: Ready
-    status: Unknown
-    reason: Queued
-    message: Requests to the target are being buffered as resources are provisioned.
+    status: True
   - type: Active
     status: Unknown
     reason: Queued
+    severity: Info
     message: Requests to the target are being buffered as resources are provisioned.
 ```
 
@@ -556,4 +555,5 @@ status:
     status: True
   - type: Active
     status: True
+    severity: Info
 ```
