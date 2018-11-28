@@ -19,8 +19,13 @@ package reconciler
 import (
 	"time"
 
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
@@ -28,11 +33,6 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 )
 
 // Options defines the common reconciler options.
@@ -44,6 +44,7 @@ type Options struct {
 	ServingClientSet clientset.Interface
 	DynamicClientSet dynamic.Interface
 	CachingClientSet cachingclientset.Interface
+	Recorder         record.EventRecorder
 
 	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
@@ -98,13 +99,16 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
-	// Create event broadcaster
-	logger.Debug("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(
-		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	recorder := opt.Recorder
+	if recorder == nil {
+		// Create event broadcaster
+		logger.Debug("Creating event broadcaster")
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+		recorder = eventBroadcaster.NewRecorder(
+			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	}
 
 	base := &Base{
 		KubeClientSet:    opt.KubeClientSet,

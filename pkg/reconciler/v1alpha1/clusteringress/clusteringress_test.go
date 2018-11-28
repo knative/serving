@@ -116,6 +116,9 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "no-virtualservice-yet"),
+		},
 		Key: "no-virtualservice-yet",
 	}, {
 		Name:                    "reconcile VirtualService to match desired one",
@@ -162,6 +165,10 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q",
+				system.Namespace, "reconcile-virtualservice"),
+		},
 		Key: "reconcile-virtualservice",
 	}}
 

@@ -73,6 +73,9 @@ func TestReconcile(t *testing.T) {
 				// Configuration and a Revision is created.
 				WithLatestCreated, WithObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-01234"),
+		},
 		Key: "foo/no-revisions-yet",
 	}, {
 		Name: "webhook validation failure",
@@ -89,6 +92,12 @@ func TestReconcile(t *testing.T) {
 				// Expect Revision creation to fail with the following error.
 				MarkRevisionCreationFailed(`invalid value "Bogus": spec.concurrencyModel`)),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v",
+				"validation-failure-01234", `invalid value "Bogus": spec.concurrencyModel`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
+				"validation-failure", `invalid value "Bogus": spec.revisionTemplate.spec.concurrencyModel`),
+		},
 		Key: "foo/validation-failure",
 	}, {
 		Name: "elide build when a matching one already exists",
@@ -106,6 +115,9 @@ func TestReconcile(t *testing.T) {
 				// that stamps out a Revision with an existing Build.
 				WithLatestCreated, WithObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "need-rev-and-build-99998"),
+		},
 		Key: "foo/need-rev-and-build",
 	}, {
 		Name: "create revision matching generation with build",
@@ -122,6 +134,10 @@ func TestReconcile(t *testing.T) {
 				// that stamps our a Revision and a Build.
 				WithLatestCreated, WithObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Build %q", "need-rev-and-build-99998"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "need-rev-and-build-99998"),
+		},
 		Key: "foo/need-rev-and-build",
 	}, {
 		Name: "reconcile revision matching generation (ready: unknown)",
@@ -149,6 +165,11 @@ func TestReconcile(t *testing.T) {
 				// update the latest ready revision.
 				WithLatestReady),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready"),
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q",
+				"matching-revision-done-05555"),
+		},
 		Key: "foo/matching-revision-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
@@ -173,6 +194,10 @@ func TestReconcile(t *testing.T) {
 				// then we surface that failure.
 				MarkLatestCreatedFailed("It's the end of the world as we know it")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "LatestCreatedFailed", "Latest created revision %q has failed",
+				"matching-revision-failed-05555"),
+		},
 		Key: "foo/matching-revision-failed",
 	}, {
 		Name: "reconcile revision matching generation (ready: bad)",
@@ -208,6 +233,10 @@ func TestReconcile(t *testing.T) {
 				// the Configuration status.
 				MarkRevisionCreationFailed("inducing failure for create builds")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v",
+				"create-build-failure-99998", "inducing failure for create builds"),
+		},
 		Key: "foo/create-build-failure",
 	}, {
 		Name: "failure creating revision",
@@ -228,6 +257,10 @@ func TestReconcile(t *testing.T) {
 				// the Configuration status.
 				MarkRevisionCreationFailed("inducing failure for create revisions")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v",
+				"create-revision-failure-99998", "inducing failure for create revisions"),
+		},
 		Key: "foo/create-revision-failure",
 	}, {
 		Name: "failure updating configuration status",
@@ -249,6 +282,11 @@ func TestReconcile(t *testing.T) {
 				// where we've induced a failure.
 				WithLatestCreated, WithObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-01234"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
+				"update-config-failure", "inducing failure for update configurations"),
+		},
 		Key: "foo/update-config-failure",
 	}, {
 		Name: "failed revision recovers",
