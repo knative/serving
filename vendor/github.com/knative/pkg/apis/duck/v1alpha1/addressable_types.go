@@ -37,7 +37,6 @@ type Addressable struct {
 	Hostname string `json:"hostname,omitempty"`
 }
 
-
 // Addressable is an Implementable "duck type".
 var _ duck.Implementable = (*Addressable)(nil)
 

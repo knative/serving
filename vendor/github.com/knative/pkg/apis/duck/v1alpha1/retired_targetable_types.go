@@ -37,7 +37,6 @@ type Targetable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
-
 // Targetable is an Implementable "duck type".
 var _ duck.Implementable = (*Targetable)(nil)
 

@@ -151,7 +151,7 @@ func (c *Impl) EnqueueLabelOfNamespaceScopedResource(namespaceLabel, nameLabel s
 		labels := object.GetLabels()
 		controllerKey, ok := labels[nameLabel]
 		if !ok {
-			c.logger.Infof("Object %s/%s does not have a referring name label %s",
+			c.logger.Debugf("Object %s/%s does not have a referring name label %s",
 				object.GetNamespace(), object.GetName(), nameLabel)
 			return
 		}
@@ -159,7 +159,7 @@ func (c *Impl) EnqueueLabelOfNamespaceScopedResource(namespaceLabel, nameLabel s
 		if namespaceLabel != "" {
 			controllerNamespace, ok := labels[namespaceLabel]
 			if !ok {
-				c.logger.Infof("Object %s/%s does not have a referring namespace label %s",
+				c.logger.Debugf("Object %s/%s does not have a referring namespace label %s",
 					object.GetNamespace(), object.GetName(), namespaceLabel)
 				return
 			}
@@ -174,7 +174,6 @@ func (c *Impl) EnqueueLabelOfNamespaceScopedResource(namespaceLabel, nameLabel s
 		c.EnqueueKey(fmt.Sprintf("%s/%s", object.GetNamespace(), controllerKey))
 	}
 }
-
 
 // EnqueueLabelOfClusterScopedResource returns with an Enqueue func
 // that takes a resource, identifies its controller resource through
@@ -191,7 +190,7 @@ func (c *Impl) EnqueueLabelOfClusterScopedResource(nameLabel string) func(obj in
 		labels := object.GetLabels()
 		controllerKey, ok := labels[nameLabel]
 		if !ok {
-			c.logger.Infof("Object %s/%s does not have a referring name label %s",
+			c.logger.Debugf("Object %s/%s does not have a referring name label %s",
 				object.GetNamespace(), object.GetName(), nameLabel)
 			return
 		}

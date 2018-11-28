@@ -30,6 +30,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	zipkin "github.com/knative/pkg/test/zipkin"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -43,9 +44,13 @@ const (
 	requestInterval = 1 * time.Second
 	requestTimeout  = 5 * time.Minute
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
-	ingressName      = "knative-ingressgateway"
 	ingressNamespace = "istio-system"
 )
+
+// Temporary work around the upgrade test issue for knative/serving#2434.
+// TODO(lichuqiang): remove the backward compatibility for knative-ingressgateway
+// once knative/serving#2434 is merged
+var ingressNames = []string{"knative-ingressgateway", "istio-ingressgateway"}
 
 // Response is a stripped down subset of http.Response. The is primarily useful
 // for ResponseCheckers to inspect the response body without consuming it.
@@ -121,10 +126,18 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 // GetServiceEndpoint gets the endpoint IP or hostname to use for the service
 func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
 	var endpoint string
-	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+	var ingress *v1.Service
+	var err error
+	for _, ingressName := range ingressNames {
+		ingress, err = kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	ingresses := ingress.Status.LoadBalancer.Ingress
 	if len(ingresses) != 1 {
 		return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
@@ -132,7 +145,7 @@ func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
 	ingressToUse := ingresses[0]
 	if ingressToUse.IP == "" {
 		if ingressToUse.Hostname == "" {
-			return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", ingressName)
+			return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", ingress.Name)
 		}
 		endpoint = ingressToUse.Hostname
 	} else {

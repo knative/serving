@@ -46,13 +46,13 @@ const (
 var (
 	// KnativeRevisionLabels stores the set of resource labels for resource type knative_revision
 	KnativeRevisionLabels = map[string]struct{}{
-		LabelProject:           struct{}{},
-		LabelLocation:          struct{}{},
-		LabelClusterName:       struct{}{},
-		LabelNamespaceName:     struct{}{},
-		LabelServiceName:       struct{}{},
-		LabelConfigurationName: struct{}{},
-		LabelRevisionName:      struct{}{},
+		LabelProject:           {},
+		LabelLocation:          {},
+		LabelClusterName:       {},
+		LabelNamespaceName:     {},
+		LabelServiceName:       {},
+		LabelConfigurationName: {},
+		LabelRevisionName:      {},
 	}
 
 	// ResourceTypeToLabelsMap maps resource type to the set of resource labels
