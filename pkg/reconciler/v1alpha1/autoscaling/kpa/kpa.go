@@ -47,13 +47,13 @@ const (
 // KPAMetrics is an interface for notifying the presence or absence of KPAs.
 type KPAMetrics interface {
 	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, key string) (*autoscaler.Metric, error)
+	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
 
 	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Metric, error)
+	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 
 	// Delete removes the Metric resource for a given key, returning any errors.
-	Delete(ctx context.Context, key string) error
+	Delete(ctx context.Context, namespace, name string) error
 
 	// Watch registers a function to call when Metrics change.
 	Watch(watcher func(string))
@@ -61,7 +61,7 @@ type KPAMetrics interface {
 
 // KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
 type KPAScaler interface {
-	// Scale attempts to scale the given PA's target to the desired scale.
+	// Scale attempts to scale the given PA's target to the desire135d scale.
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
@@ -132,14 +132,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.kpaMetrics.Delete(ctx, key)
+		return c.kpaMetrics.Delete(ctx, original.Namespace, original.Name)
 	} else if err != nil {
 		return err
 	}
 
 	if original.Class() != autoscaling.KPA {
 		logger.Debug("Ignoring non-kpa-class PA")
-		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
+		if err := c.kpaMetrics.Delete(ctx, original.Namespace, original.Name); err != nil {
 			logger.Errorf("Error deleting KPA for non-kpa-class PA %q: %v", name, err)
 		}
 		return nil
@@ -150,7 +150,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, key, pa)
+	err = c.reconcile(ctx, pa)
 	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -165,15 +165,15 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.PodAutoscaler) error {
+func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	metric, err := c.kpaMetrics.Get(ctx, key)
+	metric, err := c.kpaMetrics.Get(ctx, pa.Namespace, pa.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.kpaMetrics.Create(ctx, pa)
+		metric, err = c.kpaMetrics.Create(ctx, metric)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
 			return err

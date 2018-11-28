@@ -83,7 +83,7 @@ func initEnv() {
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
-	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
+	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
 }
 
 func statReporter() {
