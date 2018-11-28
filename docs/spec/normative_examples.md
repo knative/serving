@@ -545,19 +545,19 @@ current         100%     def   2018-01-18 20:34    user1        a6f92d1
 $ knative release --service my-service begin ghi
 
 $ knative revisions list --service my-service
-Route           Traffic  Id    Date                Deployer     Git SHA
-next,latest     0%       ghi   2018-01-19 12:16    user1        a6f92d1
-current         100%     def   2018-01-18 20:34    user1        a6f92d1
-                         abc   2018-01-17 10:32    user1        33643fc
+Route             Traffic  Id    Date                Deployer     Git SHA
+candidate,latest  0%       ghi   2018-01-19 12:16    user1        a6f92d1
+current           100%     def   2018-01-18 20:34    user1        a6f92d1
+                           abc   2018-01-17 10:32    user1        33643fc
 
 $ knative release percent 5
 [...]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id    Date                Deployer     Git SHA
-next,latest     5%       ghi   2018-01-19 12:16    user1        a6f92d1
-current         95%     def   2018-01-18 20:34    user1        a6f92d1
-                         abc   2018-01-17 10:32    user1        33643fc
+Route             Traffic  Id    Date                Deployer     Git SHA
+candidate,latest  5%       ghi   2018-01-19 12:16    user1        a6f92d1
+current           95%      def   2018-01-18 20:34    user1        a6f92d1
+                           abc   2018-01-17 10:32    user1        33643fc
 
 $ knative release --service my-service percent 50
 [...]
@@ -565,10 +565,10 @@ $ knative release --service my-service finish
 [...]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id    Date                Deployer      Git SHA
-current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
-                         def   2018-01-18 20:34    user1         a6f92d1
-                         abc   2018-01-17 10:32    user1         33643fc
+Route             Traffic  Id    Date                Deployer      Git SHA
+current,latest    100%     ghi   2018-01-19 12:16    user1         a6f92d1
+                           def   2018-01-18 20:34    user1         a6f92d1
+                           abc   2018-01-17 10:32    user1         33643fc
 ```
 
 **Steps**:
@@ -579,9 +579,9 @@ current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
 * Update the Service with the new configuration (env var).
 
 * Update the Service include the new revision in its revision list, which makes
-  it address the new Revision as `next`.
+  it address the new Revision as `candidate`.
 
-* Adjust the `percentRollout` controlling the traffic on `next`.
+* Adjust the `percentRollout` controlling the traffic on `candidate`.
 
 * Complete the rollout so the new revision is `current`.
 
@@ -589,8 +589,8 @@ current,latest  100%     ghi   2018-01-19 12:16    user1         a6f92d1
 
 * The system creates the new revision from the configuration, addressable at
   `latest.my-service...`, but traffic is not routed to it until the rollout to
-  that revision is begun (which marks it as `next.my-service...`) and the
-  percentage is manually ramped up. Upon completing the rollout, the next
+  that revision is begun (which marks it as `candidate.my-service...`) and the
+  percentage is manually ramped up. Upon completing the rollout, the candidate
   revision is now the current revision.
 
 ![Release mode](images/release_mode.png)
@@ -732,11 +732,11 @@ spec:
     rolloutPercent: 0
 ```
 
-This makes the route update the `next` name to point to the revision `ghi`. (The
+This makes the route update the `candidate` name to point to the revision `ghi`. (The
 list of revisions can contain one or two items. If two, the first is `current`
-and the latter is `next`.) The new revision will still not receive any traffic,
+and the latter is `candidate`.) The new revision will still not receive any traffic,
 but can be accessed for testing, verification, etc under the
-`next.my-service...` name.
+`candidate.my-service...` name.
 
 To put traffic on `ghi`, the user can adjust `rolloutPercent`:
 
@@ -769,7 +769,7 @@ spec:
       name: current  # addressable as current.my-service.default.mydomain.com
       percent: 95
     - revisionName: ghi
-      name: next # addressable as next.my-service.default.mydomain.com
+      name: candidate # addressable as candidate.my-service.default.mydomain.com
       percent: 5
     - configurationName: my-service  # LatestReadyRevision of my-service
       name: latest  # addressable as latest.my-service.default.mydomain.com
@@ -781,7 +781,7 @@ status:
     name: current  # addressable as current.my-service.default.mydomain.com
     percent: 95
   - revisionName: ghi
-    name: next # addressable as next.my-service.default.mydomain.com
+    name: candidate # addressable as candidate.my-service.default.mydomain.com
     percent: 5
   - configurationName: my-service  # LatestReadyRevision of my-service
     name: latest
@@ -792,7 +792,7 @@ status:
 ```
 
 After testing and gradually rolling out the new revision at
-`next.my-service.default.mydomain.com`, it can be promoted to a fully-rolled-out
+`candidate.my-service.default.mydomain.com`, it can be promoted to a fully-rolled-out
 `current` revision by updating the service to list only `ghi` in the revision
 list.
 
@@ -814,7 +814,7 @@ This causes the service to update the route to assign 100% of traffic to ghi.
 
 Once the update has been completed, if the latest ready revision is the same as
 the current revision, the names `current` and `latest` will point to the same
-revision. The name `next` is inactive until you're rolling out a revision again.
+revision. The name `candidate` is inactive until you're rolling out a revision again.
 
 Note that throughout this whole process, `latest` remains pointing to the latest
 ready revision of the service. This allows your team to continue to pre-check
