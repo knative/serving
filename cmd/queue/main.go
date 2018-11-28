@@ -40,6 +40,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/websocket"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 )
 
@@ -59,6 +61,7 @@ const (
 
 var (
 	podName                string
+	servingConfig          string
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
@@ -75,13 +78,14 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server *http.Server
-
-	health = &healthServer{alive: true}
+	server   *http.Server
+	health   *healthServer
+	reporter *queue.Reporter // Prometheus stats reporter.
 )
 
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
@@ -91,6 +95,12 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
+	health = &healthServer{alive: true}
+	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
+	if err != nil {
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+	}
+	reporter = _reporter
 }
 
 func statReporter() {
@@ -110,6 +120,11 @@ func sendStat(s *autoscaler.Stat) error {
 	if !health.isAlive() {
 		s.LameDuck = true
 	}
+	reporter.Report(
+		s.LameDuck,
+		float64(s.RequestCount),
+		float64(s.AverageConcurrentRequests),
+	)
 	sm := autoscaler.StatMessage{
 		Stat: *s,
 		Key:  servingRevisionKey,
@@ -269,6 +284,19 @@ func main() {
 		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency))
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
+
+	logger.Info("Initializing OpenCensus Prometheus exporter.")
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
+	if err != nil {
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
+	}
+	view.RegisterExporter(promExporter)
+	view.SetReportingPeriod(queue.ReportingPeriod)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
