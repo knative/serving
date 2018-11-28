@@ -204,8 +204,7 @@ As you make changes to the code-base, there are two special cases to be aware of
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
 These are both idempotent, and we expect that running these at `HEAD` to have no diffs.
-Code generation is automatically checked to produce no diffs for each pull request.
-Dependencies are not yet automatically checked (see [issue 1711](https://github.com/knative/serving/issues/1711)).
+Code generation and dependencies are automatically checked to produce no diffs for each pull request.
 
 update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies are required, you
 need to run "dep ensure -update package-name" manually.
