@@ -71,20 +71,20 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	}
 }
 
-// Creates a new semaphore of a given size, could be initially full or empty
+// NewSemaphore creates a new semaphore of a given size, could be initially full or empty
 func NewSemaphore(size int32, empty bool) *Semaphore {
 	ch := make(chan token, size)
 	return &Semaphore{activeRequests: ch, empty: empty}
 }
 
-// Implementation of a semaphore
+// Semaphore is an implementation of a semaphore based on Go channels
 type Semaphore struct {
 	activeRequests chan token
 	empty          bool
 	token          token
 }
 
-// Acquire a lock from the semaphore, potentially blocking
+// Get acquires the lock from the semaphore, potentially blocking
 func (s *Semaphore) Get() {
 	if s.empty {
 		<-s.activeRequests
