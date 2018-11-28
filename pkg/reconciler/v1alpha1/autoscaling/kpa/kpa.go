@@ -57,6 +57,9 @@ type KPAMetrics interface {
 
 	// Watch registers a function to call when Metrics change.
 	Watch(watcher func(string))
+
+	// Update update the Metric resource, return the new Metric or any errors.
+	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
 // KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
@@ -171,6 +174,14 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
+	// TODO: compute this correctly
+	target, _ := pa.MetricTarget()
+	desiredMetric := &autoscaler.Metric{
+		Spec: autoscaler.MetricSpec{
+			TargetConcurrency: float64(target),
+		},
+	}
+
 	metric, err := c.kpaMetrics.Get(ctx, pa.Namespace, pa.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.kpaMetrics.Create(ctx, metric)
@@ -181,6 +192,13 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	} else if err != nil {
 		logger.Errorf("Error fetching Metric: %v", err)
 		return err
+	} else if desiredMetric.Spec != metric.Spec {
+		metric.Spec = desiredMetric.Spec
+		metric, err = c.kpaMetrics.Update(ctx, metric)
+		if err != nil {
+			logger.Errorf("Error update Metric: %v", err)
+			return err
+		}
 	}
 
 	// Get the appropriate current scale from the metric, and right size
