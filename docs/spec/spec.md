@@ -332,22 +332,23 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   pinned:
@@ -355,23 +356,24 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-        resources: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+            resources: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
@@ -382,22 +384,24 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+            resources: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   # Manual has no fields. It enables direct access to modify a previously created
