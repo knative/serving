@@ -121,7 +121,8 @@ func (c *ManagedConnection) connect() (err error) {
 		Steps:    20,
 		Jitter:   0.5,
 	}, func() (bool, error) {
-		conn, err := connFactory(c.target)
+		var conn rawConnection
+		conn, err = connFactory(c.target)
 		if err != nil {
 			return false, nil
 		}
