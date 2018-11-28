@@ -103,6 +103,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 						Image: imagePath,
 					},
 					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+					TimeoutSeconds:       &metav1.Duration{Duration: options.RevisionTimeout},
 				},
 			},
 		},
