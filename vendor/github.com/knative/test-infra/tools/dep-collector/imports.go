@@ -62,7 +62,7 @@ func CollectTransitiveImports(binaries []string) ([]string, error) {
 func qualifyLocalImport(ip string) (string, error) {
 	gopathsrc := filepath.Join(gb.Default.GOPATH, "src")
 	if !strings.HasPrefix(WorkingDir, gopathsrc) {
-		return "", fmt.Errorf("working directory must be on ${GOPATH}/src = ", gopathsrc)
+		return "", fmt.Errorf("working directory must be on ${GOPATH}/src = %s", gopathsrc)
 	}
 	return filepath.Join(strings.TrimPrefix(WorkingDir, gopathsrc+string(filepath.Separator)), ip), nil
 }
