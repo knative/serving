@@ -103,11 +103,15 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 						Image: imagePath,
 					},
 					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
-					TimeoutSeconds:       &metav1.Duration{Duration: options.RevisionTimeout},
 				},
 			},
 		},
 	}
+
+	if options.RevisionTimeout > 0 {
+		config.Spec.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{Duration: options.RevisionTimeout}
+	}
+
 	if options.EnvVars != nil && len(options.EnvVars) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
 	}
