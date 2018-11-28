@@ -33,10 +33,12 @@ const (
 	// ReportingPeriod interval of time for reporting.
 	ReportingPeriod = 10 * time.Second
 
-	// View Names
-	operationsPerSecondN       = "operations_per_second"
-	averageConcurrentRequestsN = "average_concurrent_requests"
-	lameDuckN                  = "lame_duck"
+	// OperationsPerSecondN
+	OperationsPerSecondN = "operations_per_second"
+	// AverageConcurrentRequestsN
+	AverageConcurrentRequestsN = "average_concurrent_requests"
+	// LameDuckN
+	LameDuckN = "lame_duck"
 
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
@@ -50,15 +52,15 @@ var (
 	measurements = []*stats.Float64Measure{
 		// TODO(#2524): make reporting period accurate.
 		OperationsPerSecondM: stats.Float64(
-			operationsPerSecondN,
+			OperationsPerSecondN,
 			"Number of operations per second",
 			stats.UnitNone),
 		AverageConcurrentRequestsM: stats.Float64(
-			averageConcurrentRequestsN,
+			AverageConcurrentRequestsN,
 			"Number of requests currently being handled by this pod",
 			stats.UnitNone),
 		LameDuckM: stats.Float64(
-			lameDuckN,
+			LameDuckN,
 			"Indicates this Pod has received a shutdown signal with 1 else 0",
 			stats.UnitNone),
 	}
@@ -66,7 +68,7 @@ var (
 
 // Reporter structure representing a prometheus expoerter.
 type Reporter struct {
-	initialized     bool
+	Initialized     bool
 	ctx             context.Context
 	configTagKey    tag.Key
 	namespaceTagKey tag.Key
@@ -140,14 +142,14 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 		return nil, err
 	}
 	r.ctx = ctx
-	r.initialized = true
+	r.Initialized = true
 	return r, nil
 }
 
 // Report captures request metrics
 func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageConcurrentRequests float64) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
+	if !r.Initialized {
+		return errors.New("StatsReporter is not Initialized yet")
 	}
 	_lameDuck := float64(0)
 	if !lameDuck {
@@ -160,19 +162,21 @@ func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageCon
 }
 
 // UnregisterViews Unregister views
-func (r *Reporter) UnregisterViews() {
-	if r.initialized != true {
-		return
+func (r *Reporter) UnregisterViews() error {
+	if r.Initialized != true {
+		return errors.New("Reporter is not initialized")
 	}
 	var views []*view.View
-	if v := view.Find(operationsPerSecondN); v != nil {
+	if v := view.Find(OperationsPerSecondN); v != nil {
 		views = append(views, v)
 	}
-	if v := view.Find(averageConcurrentRequestsN); v != nil {
+	if v := view.Find(AverageConcurrentRequestsN); v != nil {
 		views = append(views, v)
 	}
-	if v := view.Find(lameDuckN); v != nil {
+	if v := view.Find(LameDuckN); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)
+	r.Initialized = false
+	return nil
 }

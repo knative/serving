@@ -19,6 +19,8 @@ package queue
 import (
 	"errors"
 	"testing"
+
+	"go.opencensus.io/stats/view"
 )
 
 const (
@@ -80,16 +82,39 @@ func TestNewStatsReporter_doubledeclare(t *testing.T) {
 		t.Error("Something went wrong with double declaration of reporter.")
 	}
 	reporter.UnregisterViews()
+	if reporter.Initialized {
+		t.Error("Reporter should not be initialized")
+	}
 }
 
 func TestReporter_Report(t *testing.T) {
 	reporter, err := NewStatsReporter(namespace, config, revision)
 	if err != nil {
-		t.Error("Something went wrong with creating a reporter.")
+		t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 	}
 	if err := reporter.Report(true, float64(39), float64(3)); err != nil {
 		t.Error(err)
 	}
-	// need to check reported data here.
-	reporter.UnregisterViews()
+	checkData(t, LameDuckN, 0)
+	checkData(t, OperationsPerSecondN, 39)
+	checkData(t, AverageConcurrentRequestsN, 3)
+	if err := reporter.UnregisterViews(); err != nil {
+		t.Errorf("Error with unregistering views, %v", err)
+	}
+	if reporter.Initialized {
+		t.Error("Reporter should not be initialized")
+	}
+	if err := reporter.UnregisterViews(); err == nil {
+		t.Errorf("Error with unregistering views, %v", err)
+	}
+}
+
+func checkData(t *testing.T, measurementName string, wanted float64) {
+	if v, err := view.RetrieveData(measurementName); err != nil {
+		t.Errorf("Reporter.Report() error = %v", err)
+	} else {
+		if got := v[0].Data.(*view.LastValueData); wanted != got.Value {
+			t.Errorf("Wanted %v, Got %v", wanted, got.Value)
+		}
+	}
 }
