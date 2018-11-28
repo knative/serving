@@ -80,7 +80,7 @@ var (
 
 	server   *http.Server
 	health   *healthServer
-	reporter *queue.Reporter // Promethues stats reporter.
+	reporter *queue.Reporter // Prometheus stats reporter.
 )
 
 func initEnv() {
