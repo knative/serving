@@ -39,11 +39,11 @@ const (
 var (
 	measurements = []*stats.Float64Measure{
 		RequestCountM: stats.Float64(
-			"revision_request_count",
+			"request_count",
 			"The number of requests that are routed to Activator",
 			stats.UnitNone),
 		ResponseTimeInMsecM: stats.Float64(
-			"response_time_msec",
+			"request_latencies",
 			"The response time in millisecond",
 			stats.UnitNone),
 	}
