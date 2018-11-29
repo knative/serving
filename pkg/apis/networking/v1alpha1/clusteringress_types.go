@@ -211,6 +211,9 @@ type ClusterIngressBackendSplit struct {
 	//
 	// NOTE: This differs from K8s Ingress to allow percentage split.
 	Percent int `json:"percent,omitempty"`
+
+	// Specifies headers to append per split
+	AppendRequestHeaders map[string]string
 }
 
 // ClusterIngressBackend describes all endpoints for a given service and port.

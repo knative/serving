@@ -98,15 +98,16 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	for _, host := range hosts {
 		matches = append(matches, makeMatch(host, http.Path))
 	}
-	weights := []v1alpha3.DestinationWeight{}
+	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
-		weights = append(weights, v1alpha3.DestinationWeight{
+		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
 				Host: reconciler.GetK8sServiceFullname(
 					split.ServiceName, split.ServiceNamespace),
 				Port: makePortSelector(split.ServicePort),
 			},
-			Weight: split.Percent,
+			Weight:               split.Percent,
+			AppendRequestHeaders: split.AppendRequestHeaders,
 		})
 	}
 	return &v1alpha3.HTTPRoute{
@@ -117,7 +118,6 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		AppendHeaders: http.AppendHeaders,
 	}
 }
 

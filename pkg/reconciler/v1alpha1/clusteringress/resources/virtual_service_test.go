@@ -132,7 +132,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns"},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "v2-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
@@ -149,7 +149,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Exact: "v1.domain.com"},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "v1-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
@@ -195,7 +195,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		}, {
 			Authority: &istiov1alpha1.StringMatch{Exact: "b.org"},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
@@ -243,7 +243,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Authority: &istiov1alpha1.StringMatch{Exact: "test.org"},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},

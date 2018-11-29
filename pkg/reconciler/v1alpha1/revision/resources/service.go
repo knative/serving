@@ -52,6 +52,27 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
+			Ports:        servicePorts,
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: names.ActivatorOrInternalK8sService(rev),
+		},
+	}
+}
+
+// MakeK8sServiceInternal creates a Kubernetes Service that targets all pods with the same
+// serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
+func MakeK8sServiceInternal(rev *v1alpha1.Revision) *corev1.Service {
+	labels := makeLabels(rev)
+	labels[autoscaling.KPALabelKey] = names.KPA(rev)
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            names.K8sServiceInternal(rev),
+			Namespace:       rev.Namespace,
+			Labels:          labels,
+			Annotations:     makeAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
+		},
+		Spec: corev1.ServiceSpec{
 			Ports: servicePorts,
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,

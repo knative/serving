@@ -76,6 +76,13 @@ func (in *ClusterIngressBackend) DeepCopy() *ClusterIngressBackend {
 func (in *ClusterIngressBackendSplit) DeepCopyInto(out *ClusterIngressBackendSplit) {
 	*out = *in
 	out.ClusterIngressBackend = in.ClusterIngressBackend
+	if in.AppendRequestHeaders != nil {
+		in, out := &in.AppendRequestHeaders, &out.AppendRequestHeaders
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -180,7 +187,9 @@ func (in *HTTPClusterIngressPath) DeepCopyInto(out *HTTPClusterIngressPath) {
 	if in.Splits != nil {
 		in, out := &in.Splits, &out.Splits
 		*out = make([]ClusterIngressBackendSplit, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AppendHeaders != nil {
 		in, out := &in.AppendHeaders, &out.AppendHeaders

@@ -32,7 +32,6 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/system"
 )
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
@@ -90,22 +89,9 @@ func getRouteDomains(targetName string, r *servingv1alpha1.Route, domain string)
 	return []string{fmt.Sprintf("%s.%s", targetName, domain)}
 }
 
-// groupTargets group given targets into active ones and inactive ones.
-func groupTargets(targets []traffic.RevisionTarget) (active []traffic.RevisionTarget, inactive []traffic.RevisionTarget) {
-	for _, t := range targets {
-		if t.Active {
-			active = append(active, t)
-		} else {
-			inactive = append(inactive, t)
-		}
-	}
-	return active, inactive
-}
-
 func makeClusterIngressRule(domains []string, ns string, targets []traffic.RevisionTarget) *v1alpha1.ClusterIngressRule {
-	active, inactive := groupTargets(targets)
 	splits := []v1alpha1.ClusterIngressBackendSplit{}
-	for _, t := range active {
+	for _, t := range targets {
 		if t.Percent == 0 {
 			// Don't include 0% routes.
 			continue
@@ -117,6 +103,10 @@ func makeClusterIngressRule(domains []string, ns string, targets []traffic.Revis
 				ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
 			},
 			Percent: t.Percent,
+			AppendRequestHeaders: map[string]string{
+				activator.RevisionHeaderName:      t.RevisionName,
+				activator.RevisionHeaderNamespace: ns,
+			},
 		})
 	}
 	path := v1alpha1.HTTPClusterIngressPath{
@@ -129,39 +119,10 @@ func makeClusterIngressRule(domains []string, ns string, targets []traffic.Revis
 		Hosts: domains,
 		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []v1alpha1.HTTPClusterIngressPath{
-				*addInactive(&path, ns, inactive),
+				path,
 			},
 		},
 	}
-}
-
-// addInactive constructs Splits for the inactive targets, and add into given IngressPath.
-func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traffic.RevisionTarget) *v1alpha1.HTTPClusterIngressPath {
-	totalInactivePercent := 0
-	maxInactiveTarget := traffic.RevisionTarget{}
-	for _, t := range inactive {
-		totalInactivePercent += t.Percent
-		if t.Percent >= maxInactiveTarget.Percent {
-			maxInactiveTarget = t
-		}
-	}
-	if totalInactivePercent == 0 {
-		// There is actually no inactive Revisions.
-		return r
-	}
-	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
-		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
-			ServiceNamespace: system.Namespace,
-			ServiceName:      activator.K8sServiceName,
-			ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
-		},
-		Percent: totalInactivePercent,
-	})
-	r.AppendHeaders = map[string]string{
-		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
-		activator.RevisionHeaderNamespace: ns,
-	}
-	return r
 }
 
 func dedup(strs []string) []string {

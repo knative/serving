@@ -17,7 +17,9 @@ limitations under the License.
 package names
 
 import (
+	activator "github.com/knative/serving/pkg/activator/names"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/system"
 )
 
 func Deployment(rev *v1alpha1.Revision) string {
@@ -38,6 +40,18 @@ func K8sService(rev *v1alpha1.Revision) string {
 	return rev.Name + "-service"
 }
 
+func K8sServiceInternal(rev *v1alpha1.Revision) string {
+	return rev.Name + "-service-internal"
+}
+
 func FluentdConfigMap(rev *v1alpha1.Revision) string {
 	return rev.Name + "-fluentd"
+}
+
+func ActivatorOrInternalK8sService(rev *v1alpha1.Revision) string {
+	const suffix = ".svc.cluster.local"
+	if rev.Status.IsActivationRequired() {
+		return activator.K8sServiceName + "." + system.Namespace + suffix
+	}
+	return K8sServiceInternal(rev) + "." + rev.Namespace + suffix
 }

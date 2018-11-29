@@ -64,19 +64,18 @@ func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kp
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
 
-func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory) (*corev1.Service, error) {
+func (c *Reconciler) createService(ctx context.Context, service *corev1.Service) (*corev1.Service, error) {
 	// Create the service.
-	service := sf(rev)
-
 	return c.KubeClientSet.CoreV1().Services(service.Namespace).Create(service)
 }
 
-func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
+func (c *Reconciler) checkAndUpdateService(ctx context.Context, rawDesiredService *corev1.Service, service *corev1.Service) (*corev1.Service, Changed, error) {
 	logger := logging.FromContext(ctx)
 
 	// Note: only reconcile the spec we set.
-	rawDesiredService := sf(rev)
 	desiredService := service.DeepCopy()
+	desiredService.Spec.Type = rawDesiredService.Spec.Type
+	desiredService.Spec.ExternalName = rawDesiredService.Spec.ExternalName
 	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
 	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
 

@@ -39,6 +39,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -358,7 +359,10 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			f:    c.reconcileDeployment,
 		}, {
 			name: "user k8s service",
-			f:    c.reconcileService,
+			f:    c.reconcileService(resources.MakeK8sService),
+		}, {
+			name: "internal k8s service",
+			f:    c.reconcileService(resources.MakeK8sServiceInternal),
 		}, {
 			// Ensures our namespace has the configuration for the fluentd sidecar.
 			name: "fluentd configmap",
