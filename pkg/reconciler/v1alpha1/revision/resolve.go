@@ -37,18 +37,20 @@ type digestResolver struct {
 const (
 	// Kubernetes CA certificate bundle is mounted into the pod here, see:
 	// https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/#trusting-tls-in-a-cluster
-	k8sCert = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
-// newResolverTransport returns an http.Transport that trusts the same certs
-// as the cluster by appending the k8s cert bundle to the system cert pool.
-func newResolverTransport() (*http.Transport, error) {
+// newResolverTransport returns an http.Transport that appends the certs bundle
+// at path to the system cert pool.
+//
+// Use this with k8sCertPath to trust the same certs as the cluster.
+func newResolverTransport(path string) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		pool = x509.NewCertPool()
 	}
 
-	if crt, err := ioutil.ReadFile(k8sCert); err != nil {
+	if crt, err := ioutil.ReadFile(path); err != nil {
 		return nil, err
 	} else if ok := pool.AppendCertsFromPEM(crt); !ok {
 		return nil, fmt.Errorf("Failed to append k8s cert bundle to cert pool.")

@@ -120,7 +120,7 @@ func NewController(
 	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 	transport := http.DefaultTransport
-	if rt, err := newResolverTransport(); err != nil {
+	if rt, err := newResolverTransport(k8sCertPath); err != nil {
 		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
 	} else {
 		transport = rt
