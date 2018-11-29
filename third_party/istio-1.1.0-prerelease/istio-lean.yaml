@@ -3068,7 +3068,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.1.0-snapshot.2"
+          image: "imikushin/istio-pilot:1.1.0-snapshot3-01"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
