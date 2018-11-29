@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -53,9 +54,11 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "no",
-				Name:        "build-00012",
-				Annotations: map[string]string{},
+				Namespace: "no",
+				Name:      "build-00012",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -105,9 +108,11 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "build-00099",
-				Annotations: map[string]string{},
+				Namespace: "with",
+				Name:      "build-00099",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -158,9 +163,11 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "labels-00099",
-				Annotations: map[string]string{},
+				Namespace: "with",
+				Name:      "labels-00099",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -197,6 +204,7 @@ func TestMakeRevisions(t *testing.T) {
 						Annotations: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
+							autoscaling.ClassAnnotationKey: autoscaling.HPA,
 						},
 					},
 					Spec: v1alpha1.RevisionSpec{
@@ -226,6 +234,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{

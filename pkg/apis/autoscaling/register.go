@@ -30,7 +30,12 @@ const (
 	MinScaleAnnotationKey = GroupName + "/minScale"
 	MaxScaleAnnotationKey = GroupName + "/maxScale"
 
+	// HPA is the value of ClassAnnotationKey for PodAutoscaler of HPA.
+	HPA = "hpa"
+	// KPA is the value of ClassAnnotationKey for PodAutoscaler of KPA.
+	KPA = "kpa"
+
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + "/kpa"
+	KPALabelKey = GroupName + KPA
 )

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
@@ -46,9 +47,11 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	rev.Labels[serving.ServiceLabelKey] = configLabels[serving.ServiceLabelKey]
 	rev.Labels[serving.ConfigurationGenerationLabelKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
-	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
+	}
+	if rev.Annotations[autoscaling.ClassAnnotationKey] == "" {
+		rev.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
 	// Populate OwnerReferences so that deletes cascade.

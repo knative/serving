@@ -136,6 +136,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
+	// Don't reconcile for none kpa class PodAutoscaler.
+	if original.Annotations[autoscaling.ClassAnnotationKey] != autoscaling.KPA {
+		logger.Debug("PodAutoscaler %s does not have %q as %q annotation. No reconciling",
+			name, autoscaling.KPA, autoscaling.ClassAnnotationKey)
+		return nil
+	}
+
 	// Don't modify the informer's copy.
 	kpa := original.DeepCopy()
 
