@@ -128,7 +128,10 @@ eval $(minikube docker-env)
 
 ### Adding new test images
 
-New test images should be placed in `./test/test_images`.
+New test images should be placed in `./test/test_images`. For each image create a new sub-folder
+and include a Go file that will be an entry point to the application. This Go file should use the
+package "main" and include the function main(). It is a good practice to include a readme file as well.
+When uploading test images, `ko` will build an image from this folder.
 
 ## Flags
 

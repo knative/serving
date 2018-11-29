@@ -34,4 +34,4 @@ spec:
       - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/test/controller
+        image: github.com/knative/serving/test/test_images/controller
