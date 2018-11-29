@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 )
 
 const (
@@ -201,5 +202,31 @@ func TestDurableConnectionWhenConnectionBreaksDown(t *testing.T) {
 	}
 	if len(testConn.nextReaderCalls) > 1 {
 		t.Fatalf("Expected at most one calls to 'NextReader', got %v", len(testConn.nextReaderCalls))
+	}
+}
+
+func TestConnectFailureReturnsError(t *testing.T) {
+	connFactory = func(_ string) (rawConnection, error) {
+		return nil, ErrConnectionNotEstablished
+	}
+
+	conn := newConnection(target)
+
+	// Shorten the connection backoff duration for this test
+	conn.connectionBackoff.Duration = 1 * time.Millisecond
+
+	got := conn.connect()
+
+	if got == nil {
+		t.Fatal("Expected an error but got none")
+	}
+}
+
+func TestKeepaliveWithNoConnectionReturnsError(t *testing.T) {
+	conn := newConnection(target)
+	got := conn.keepalive()
+
+	if got == nil {
+		t.Fatal("Expected an error but got none")
 	}
 }

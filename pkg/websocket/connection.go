@@ -65,6 +65,9 @@ type ManagedConnection struct {
 	// one writer are allowed concurrently.
 	readerLock sync.Mutex
 	writerLock sync.Mutex
+
+	// Used for the exponential backoff when connecting
+	connectionBackoff wait.Backoff
 }
 
 // NewDurableSendingConnection creates a new websocket connection
@@ -108,6 +111,12 @@ func newConnection(target string) *ManagedConnection {
 	conn := &ManagedConnection{
 		target:    target,
 		closeChan: make(chan struct{}, 1),
+		connectionBackoff: wait.Backoff{
+			Duration: 100 * time.Millisecond,
+			Factor:   1.3,
+			Steps:    20,
+			Jitter:   0.5,
+		},
 	}
 
 	return conn
@@ -115,12 +124,7 @@ func newConnection(target string) *ManagedConnection {
 
 // connect tries to establish a websocket connection.
 func (c *ManagedConnection) connect() (err error) {
-	wait.ExponentialBackoff(wait.Backoff{
-		Duration: 100 * time.Millisecond,
-		Factor:   1.3,
-		Steps:    20,
-		Jitter:   0.5,
-	}, func() (bool, error) {
+	wait.ExponentialBackoff(c.connectionBackoff, func() (bool, error) {
 		var conn rawConnection
 		conn, err = connFactory(c.target)
 		if err != nil {
