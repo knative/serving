@@ -87,8 +87,6 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
-
 func key(name, namespace string) string {
 	return namespace + "/" + name
 }
