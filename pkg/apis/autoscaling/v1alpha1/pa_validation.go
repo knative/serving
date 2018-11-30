@@ -108,7 +108,7 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 		}
 	}
 	// Verify the PA class does not change.
-	// For backward compatability, we allow a new class where there was none before.
+	// For backward compatibility, we allow a new class where there was none before.
 	if oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]; ok {
 		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
 			return &apis.FieldError{
