@@ -315,7 +315,10 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	assertNumberOfPods(ctx, numPods, numPods+1)
+	// Relaxing the pod count requirement a little bit to avoid being too flaky.
+	minPods := numPods - 1
+	maxPods := numPods + 1
+	assertNumberOfPods(ctx, minPods, maxPods)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
