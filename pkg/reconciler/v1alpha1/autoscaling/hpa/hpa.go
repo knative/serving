@@ -64,16 +64,23 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up hpa-class event handlers")
-	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
+	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: impl.Enqueue,
+		},
 	})
 
-	hpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-		DeleteFunc: impl.EnqueueControllerOf,
+	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			DeleteFunc: impl.EnqueueControllerOf,
+		},
 	})
 
 	return impl
@@ -94,14 +101,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return c.deleteHpa(ctx, key)
 	} else if err != nil {
 		return err
-	}
-
-	if original.Class() != autoscaling.HPA {
-		logger.Debug("Ignoring non-hpa-class PA")
-		if err := c.deleteHpa(ctx, key); err != nil {
-			logger.Errorf("Error deleting HPA for non-hpa-class PA %q: %v", name, err)
-		}
-		return nil
 	}
 
 	// Don't modify the informer's copy.

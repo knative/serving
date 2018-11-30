@@ -101,16 +101,24 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up kpa-class event handlers")
-	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
+	// Handler PodAutoscalers missing the class annotation for backward compatability.
+	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: impl.Enqueue,
+		},
 	})
 
-	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
-		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
-		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
+			DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
+		},
 	})
 
 	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
@@ -135,14 +143,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return c.kpaMetrics.Delete(ctx, key)
 	} else if err != nil {
 		return err
-	}
-
-	if original.Class() != autoscaling.KPA {
-		logger.Debug("Ignoring non-kpa-class PA")
-		if err := c.kpaMetrics.Delete(ctx, key); err != nil {
-			logger.Errorf("Error deleting KPA for non-kpa-class PA %q: %v", name, err)
-		}
-		return nil
 	}
 
 	// Don't modify the informer's copy.
