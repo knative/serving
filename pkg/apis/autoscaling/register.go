@@ -37,7 +37,7 @@ const (
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + KPA
+	KPALabelKey = GroupName + "/" + KPA
 )
 
 // SupportedPAClasses is the set of currently supported PodAutoscaler classes.
