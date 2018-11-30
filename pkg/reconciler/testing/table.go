@@ -55,8 +55,11 @@ type TableRow struct {
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
-	// WantPatches holds the set of Patch calls we expect during reconcilliation
+	// WantPatches holds the set of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
+
+	// WantEvents holds the set of events we expect during reconciliation.
+	WantEvents []string
 
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
@@ -67,10 +70,12 @@ type TableRow struct {
 	SkipNamespaceValidation bool
 }
 
-type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList)
+// Factory returns a Reconciler.Interface to perform reconciliation in table test and
+// ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation.
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList)
 
 func (r *TableRow) Test(t *testing.T, factory Factory) {
-	c, recorderList := factory(t, r)
+	c, recorderList, eventList := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
@@ -160,6 +165,23 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
 		for _, extra := range actions.Patches[want:] {
 			t.Errorf("Extra patch: %#v", extra)
+		}
+	}
+
+	gotEvents := eventList.Events()
+	for i, want := range r.WantEvents {
+		if i >= len(gotEvents) {
+			t.Errorf("Missing event: %s", want)
+			continue
+		}
+
+		if diff := cmp.Diff(want, gotEvents[i]); diff != "" {
+			t.Errorf("unexpected event(-want +got): %s", diff)
+		}
+	}
+	if got, want := len(gotEvents), len(r.WantEvents); got > want {
+		for _, extra := range gotEvents[want:] {
+			t.Errorf("Extra event: %s", extra)
 		}
 	}
 }

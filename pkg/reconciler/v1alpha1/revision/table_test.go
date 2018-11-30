@@ -98,6 +98,10 @@ func TestReconcile(t *testing.T) {
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Revision %q: %v",
+				"update-status-failure", "inducing failure for update revisions"),
+		},
 		Key: "foo/update-status-failure",
 	}, {
 		Name: "failure creating kpa",
@@ -204,6 +208,10 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"stable-deactivation-service"),
+		},
 		Key: "foo/stable-deactivation",
 	}, {
 		Name: "endpoint is created (not ready)",
@@ -250,6 +258,10 @@ func TestReconcile(t *testing.T) {
 				// following mutation.
 				MarkServiceTimeout),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q",
+				"endpoint-created-timeout-service"),
+		},
 		Key: "foo/endpoint-created-timeout",
 	}, {
 		Name: "endpoint and kpa are ready",
@@ -272,6 +284,10 @@ func TestReconcile(t *testing.T) {
 				// Revision become ready.
 				MarkRevisionReady),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"endpoint-ready-service"),
+		},
 		Key: "foo/endpoint-ready",
 	}, {
 		Name: "kpa not ready",
@@ -293,6 +309,10 @@ func TestReconcile(t *testing.T) {
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-not-ready-service"),
+		},
 		Key: "foo/kpa-not-ready",
 	}, {
 		Name: "kpa inactive",
@@ -314,6 +334,10 @@ func TestReconcile(t *testing.T) {
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-inactive-service"),
+		},
 		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
@@ -384,6 +408,10 @@ func TestReconcile(t *testing.T) {
 				// timed out, we should see it marked with the PDE state.
 				MarkProgressDeadlineExceeded),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout",
+				"deploy-timeout"),
+		},
 		Key: "foo/deploy-timeout",
 	}, {
 		Name: "build missing",
@@ -446,6 +474,9 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName, WithLogURL, WithSuccessfulBuild,
 				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "BuildSucceeded", ""),
+		},
 		Key: "foo/done-build",
 	}, {
 		Name: "stable revision reconciliation (with build)",
@@ -484,6 +515,9 @@ func TestReconcile(t *testing.T) {
 				// failure reflected in the Revision status as follows:
 				WithFailedBuild("SomeReason", "This is why the build failed.")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "BuildFailed", "This is why the build failed."),
+		},
 		Key: "foo/failed-build",
 	}, {
 		Name: "build failed stable",
