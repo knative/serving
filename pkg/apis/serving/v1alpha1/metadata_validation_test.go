@@ -18,10 +18,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/knative/pkg/apis"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"reflect"
 	"testing"
+
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
