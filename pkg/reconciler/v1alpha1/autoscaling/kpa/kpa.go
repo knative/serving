@@ -64,7 +64,7 @@ type KPAMetrics interface {
 
 // KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
 type KPAScaler interface {
-	// Scale attempts to scale the given PA's target to the desire135d scale.
+	// Scale attempts to scale the given PA's target to the desired scale.
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 }
 

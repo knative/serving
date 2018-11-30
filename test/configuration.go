@@ -30,6 +30,7 @@ type Options struct {
 	EnvVars              []corev1.EnvVar
 	ContainerConcurrency int
 	RevisionTimeout      time.Duration
+	ContainerResources   corev1.ResourceRequirements
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
