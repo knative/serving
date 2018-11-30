@@ -39,3 +39,8 @@ const (
 	// which services/endpoints should trigger reconciles.
 	KPALabelKey = GroupName + KPA
 )
+
+// SupportedPAClasses is the set of currently supported PodAutoscaler classes.
+var SupportedPAClasses = map[string]struct{}{
+	KPA: struct{}{},
+}

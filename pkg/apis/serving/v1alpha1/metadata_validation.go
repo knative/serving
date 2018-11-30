@@ -43,6 +43,10 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 		}
 	}
 
+	if err := validateScaleClassAnnotations(meta.GetAnnotations()); err != nil {
+		return err.ViaField("annotations")
+	}
+
 	if err := validateScaleBoundsAnnotations(meta.GetAnnotations()); err != nil {
 		return err.ViaField("annotations")
 	}
@@ -63,6 +67,26 @@ func getIntGT0(m map[string]string, k string) (int64, *apis.FieldError) {
 		return i, nil
 	}
 	return 0, nil
+}
+
+func validateScaleClassAnnotations(annotations map[string]string) *apis.FieldError {
+	if annotations == nil {
+		return nil
+	}
+
+	class := annotations[autoscaling.ClassAnnotationKey]
+	if class == "" {
+		// Will use default kpa type.
+		return nil
+	}
+	if _, ok := autoscaling.SupportedPAClasses[class]; !ok {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Unsupported %q value %q", autoscaling.ClassAnnotationKey, class),
+			Paths:   []string{autoscaling.ClassAnnotationKey},
+		}
+	}
+
+	return nil
 }
 
 func validateScaleBoundsAnnotations(annotations map[string]string) *apis.FieldError {

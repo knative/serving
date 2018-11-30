@@ -18,10 +18,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/knative/pkg/apis"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"reflect"
 	"testing"
+
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
@@ -89,6 +90,42 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := validateScaleBoundsAnnotations(c.annotations)
+			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%+v', Got: '%+v'", c.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateScaleClassAnnotations(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		expectErr   *apis.FieldError
+	}{{
+		name:        "nil annotations",
+		annotations: nil,
+		expectErr:   nil,
+	}, {
+		name:        "empty annotations",
+		annotations: map[string]string{},
+		expectErr:   nil,
+	}, {
+		name:        "supportted class",
+		annotations: map[string]string{autoscaling.ClassAnnotationKey: autoscaling.KPA},
+		expectErr:   nil,
+	}, {
+		name:        "unsupportted",
+		annotations: map[string]string{autoscaling.ClassAnnotationKey: "whatever"},
+		expectErr: &apis.FieldError{
+			Message: fmt.Sprintf("Unsupported %q value %q", autoscaling.ClassAnnotationKey, "whatever"),
+			Paths:   []string{autoscaling.ClassAnnotationKey},
+		},
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateScaleClassAnnotations(c.annotations)
 			if !reflect.DeepEqual(c.expectErr, err) {
 				t.Errorf("Expected: '%+v', Got: '%+v'", c.expectErr, err)
 			}
