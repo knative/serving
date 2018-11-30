@@ -62,12 +62,20 @@ func NewController(
 		hpaLister: hpaInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
+
 	c.Logger.Info("Setting up hpa-class event handlers")
 	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 		DeleteFunc: impl.Enqueue,
 	})
+
+	hpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.EnqueueControllerOf,
+		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+		DeleteFunc: impl.EnqueueControllerOf,
+	})
+
 	return impl
 }
 
