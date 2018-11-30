@@ -101,7 +101,7 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up kpa-class event handlers")
-	// Handler PodAutoscalers missing the class annotation for backward compatability.
+	// Handler PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
