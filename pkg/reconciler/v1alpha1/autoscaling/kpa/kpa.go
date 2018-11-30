@@ -112,13 +112,10 @@ func NewController(
 		},
 	})
 
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
-			DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
-		},
+	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
+		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
 	})
 
 	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
