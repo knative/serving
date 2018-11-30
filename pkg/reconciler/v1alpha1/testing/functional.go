@@ -23,7 +23,8 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
@@ -554,31 +555,51 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	r.Status.MarkContainerHealthy()
 }
 
-// TODO(josephburnett): rename KPAOption to PAOption because "kpa" and
-// "hpa" are specialized PA implementations. Rename is split across
-// knative/serving and knative/pkg repos so we must two it in two phases.
-// KPAOption enables further configuration of the PodAutoscaler.
-type KPAOption func(*kpav1alpha1.PodAutoscaler)
+type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
-// WithTraffic updates the KPA to reflect it receiving traffic.
-func WithTraffic(kpa *kpav1alpha1.PodAutoscaler) {
-	kpa.Status.MarkActive()
+// WithTraffic updates the PA to reflect it receiving traffic.
+func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Status.MarkActive()
 }
 
-// WithBufferedTraffic updates the KPA to reflect that it has received
+// WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
-func WithBufferedTraffic(reason, message string) KPAOption {
-	return func(kpa *kpav1alpha1.PodAutoscaler) {
-		kpa.Status.MarkActivating(reason, message)
+func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkActivating(reason, message)
 	}
 }
 
-// WithNoTraffic updates the KPA to reflect the fact that it is not
+// WithNoTraffic updates the PA to reflect the fact that it is not
 // receiving traffic.
-func WithNoTraffic(reason, message string) KPAOption {
-	return func(kpa *kpav1alpha1.PodAutoscaler) {
-		kpa.Status.MarkInactive(reason, message)
+func WithNoTraffic(reason, message string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkInactive(reason, message)
 	}
+}
+
+// WithHPAClass updates the PA to add the hpa class annotation.
+func WithHPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
+}
+
+// WithKPAClass updates the PA to add the kpa class annotation.
+func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+}
+
+// WithTargetAnnotation adds a target annotation to the PA.
+func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.

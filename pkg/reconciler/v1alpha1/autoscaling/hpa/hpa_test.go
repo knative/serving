@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
@@ -91,7 +90,7 @@ func key(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-func pa(name, namespace string, options ...KPAOption) *autoscalingv1alpha1.PodAutoscaler {
+func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	pa := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -112,31 +111,6 @@ func pa(name, namespace string, options ...KPAOption) *autoscalingv1alpha1.PodAu
 	return pa
 }
 
-func hpa(name, namespace string, options ...KPAOption) *autoscalingv1.HorizontalPodAutoscaler {
+func hpa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1.HorizontalPodAutoscaler {
 	return resources.MakeHPA(pa(name, namespace, options...))
-}
-
-// TODO(josephburnett): Move functional options below
-// knative/pkg/reconciler/v1alpha1/testing/functional.go after renaming
-// KPAOption to PAOption.
-
-func WithHPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
-	}
-	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
-}
-
-func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
-	}
-	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-}
-
-func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
-	}
-	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
 }

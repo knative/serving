@@ -26,7 +26,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
@@ -788,7 +788,7 @@ func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.Config
 	return resources.MakeFluentdConfigMap(rev, config.Observability)
 }
 
-func kpa(namespace, name string, ko ...KPAOption) *kpav1alpha1.PodAutoscaler {
+func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := rev(namespace, name)
 	k := resources.MakeKPA(rev)
 
