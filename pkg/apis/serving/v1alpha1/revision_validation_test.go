@@ -63,7 +63,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("resources"),
+		want: nil,
 	}, {
 		name: "has ports",
 		c: corev1.Container{
@@ -137,11 +137,6 @@ func TestContainerValidation(t *testing.T) {
 		name: "has numerous problems",
 		c: corev1.Container{
 			Name: "foo",
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse("25m"),
-				},
-			},
 			Ports: []corev1.ContainerPort{{
 				Name:          "http",
 				ContainerPort: 8080,
@@ -152,7 +147,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "ports", "volumeMounts", "lifecycle"),
 	}}
 
 	for _, test := range tests {
@@ -599,6 +594,40 @@ func TestImmutableFields(t *testing.T) {
 		},
 		old:  &notARevision{},
 		want: &apis.FieldError{Message: "The provided original was not a Revision"},
+	}, {
+		name: "bad (resources image change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName("cpu"): resource.MustParse("50m"),
+						},
+					},
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName("cpu"): resource.MustParse("100m"),
+						},
+					},
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.Container.Resources.Requests["cpu"]:
+	-: resource.Quantity{i: resource.int64Amount{value: 100, scale: resource.Scale(-3)}, s: "100m", Format: resource.Format("DecimalSI")}
+	+: resource.Quantity{i: resource.int64Amount{value: 50, scale: resource.Scale(-3)}, s: "50m", Format: resource.Format("DecimalSI")}
+`,
+		},
 	}, {
 		name: "bad (container image change)",
 		new: &Revision{

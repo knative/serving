@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPodAutoscalerDefaulting(t *testing.T) {
@@ -31,6 +33,12 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		name: "empty",
 		in:   &PodAutoscaler{},
 		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 			},
@@ -43,6 +51,12 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			},
 		},
 		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 1,
 			},
@@ -53,6 +67,12 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			Spec: PodAutoscalerSpec{},
 		},
 		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 			},
@@ -66,9 +86,35 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			},
 		},
 		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
 			Spec: PodAutoscalerSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 1,
+			},
+		},
+	}, {
+		name: "hpa class is not overwritten and defaults to cpu",
+		in: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
+				},
+			},
+		},
+		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: autoscaling.CPU,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ContainerConcurrency: 0,
 			},
 		},
 	}}

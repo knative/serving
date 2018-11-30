@@ -53,7 +53,7 @@ func TestPodAutoscalerDuckTypes(t *testing.T) {
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
 	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty kpa generation should be 0 was: %d", a)
+		t.Errorf("empty pa generation should be 0 was: %d", a)
 	}
 
 	r.SetGeneration(5)

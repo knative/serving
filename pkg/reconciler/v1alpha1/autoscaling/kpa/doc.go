@@ -16,8 +16,8 @@ limitations under the License.
 
 /*
 
-Package autoscaling implements a kubernetes controller which tracks revisions and
+Package kpa implements a kubernetes controller which tracks revisions and
 notifies a callback interface.
 
 */
-package autoscaling
+package kpa

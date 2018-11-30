@@ -26,12 +26,14 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,9 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
-
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -98,6 +97,10 @@ func TestReconcile(t *testing.T) {
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Revision %q: %v",
+				"update-status-failure", "inducing failure for update revisions"),
+		},
 		Key: "foo/update-status-failure",
 	}, {
 		Name: "failure creating kpa",
@@ -204,6 +207,10 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"stable-deactivation-service"),
+		},
 		Key: "foo/stable-deactivation",
 	}, {
 		Name: "endpoint is created (not ready)",
@@ -250,6 +257,10 @@ func TestReconcile(t *testing.T) {
 				// following mutation.
 				MarkServiceTimeout),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q",
+				"endpoint-created-timeout-service"),
+		},
 		Key: "foo/endpoint-created-timeout",
 	}, {
 		Name: "endpoint and kpa are ready",
@@ -272,6 +283,10 @@ func TestReconcile(t *testing.T) {
 				// Revision become ready.
 				MarkRevisionReady),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"endpoint-ready-service"),
+		},
 		Key: "foo/endpoint-ready",
 	}, {
 		Name: "kpa not ready",
@@ -293,6 +308,10 @@ func TestReconcile(t *testing.T) {
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-not-ready-service"),
+		},
 		Key: "foo/kpa-not-ready",
 	}, {
 		Name: "kpa inactive",
@@ -314,6 +333,10 @@ func TestReconcile(t *testing.T) {
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-inactive-service"),
+		},
 		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
@@ -384,6 +407,10 @@ func TestReconcile(t *testing.T) {
 				// timed out, we should see it marked with the PDE state.
 				MarkProgressDeadlineExceeded),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout",
+				"deploy-timeout"),
+		},
 		Key: "foo/deploy-timeout",
 	}, {
 		Name: "build missing",
@@ -446,6 +473,9 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName, WithLogURL, WithSuccessfulBuild,
 				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "BuildSucceeded", ""),
+		},
 		Key: "foo/done-build",
 	}, {
 		Name: "stable revision reconciliation (with build)",
@@ -484,6 +514,9 @@ func TestReconcile(t *testing.T) {
 				// failure reflected in the Revision status as follows:
 				WithFailedBuild("SomeReason", "This is why the build failed.")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "BuildFailed", "This is why the build failed."),
+		},
 		Key: "foo/failed-build",
 	}, {
 		Name: "build failed stable",
@@ -504,17 +537,17 @@ func TestReconcile(t *testing.T) {
 		t := &rtesting.NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			imageLister:      listers.GetImageLister(),
-			deploymentLister: listers.GetDeploymentLister(),
-			serviceLister:    listers.GetK8sServiceLister(),
-			endpointsLister:  listers.GetEndpointsLister(),
-			configMapLister:  listers.GetConfigMapLister(),
-			resolver:         &nopResolver{},
-			tracker:          t,
-			configStore:      &testConfigStore{config: ReconcilerTestConfig()},
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:      listers.GetRevisionLister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
+			imageLister:         listers.GetImageLister(),
+			deploymentLister:    listers.GetDeploymentLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
+			resolver:            &nopResolver{},
+			tracker:             t,
+			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
 
 			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
@@ -641,17 +674,17 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:             reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:   listers.GetRevisionLister(),
-			kpaLister:        listers.GetKPALister(),
-			imageLister:      listers.GetImageLister(),
-			deploymentLister: listers.GetDeploymentLister(),
-			serviceLister:    listers.GetK8sServiceLister(),
-			endpointsLister:  listers.GetEndpointsLister(),
-			configMapLister:  listers.GetConfigMapLister(),
-			resolver:         &nopResolver{},
-			tracker:          &rtesting.NullTracker{},
-			configStore:      &testConfigStore{config: config},
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			revisionLister:      listers.GetRevisionLister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
+			imageLister:         listers.GetImageLister(),
+			deploymentLister:    listers.GetDeploymentLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
+			resolver:            &nopResolver{},
+			tracker:             &rtesting.NullTracker{},
+			configStore:         &testConfigStore{config: config},
 		}
 	}))
 }
@@ -755,7 +788,7 @@ func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.Config
 	return resources.MakeFluentdConfigMap(rev, config.Observability)
 }
 
-func kpa(namespace, name string, ko ...KPAOption) *kpav1alpha1.PodAutoscaler {
+func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := rev(namespace, name)
 	k := resources.MakeKPA(rev)
 

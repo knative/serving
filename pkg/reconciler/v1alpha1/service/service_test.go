@@ -20,11 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	clientgotesting "k8s.io/client-go/testing"
-
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
@@ -33,8 +28,12 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
-
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	clientgotesting "k8s.io/client-go/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -54,6 +53,10 @@ func TestReconcile(t *testing.T) {
 		},
 		Key:     "foo/incomplete",
 		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
+				"incomplete", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
+		},
 	}, {
 		Name: "runLatest - create route and service",
 		Objects: []runtime.Object{
@@ -69,6 +72,10 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
+		},
 	}, {
 		Name: "pinned - create route and service",
 		Objects: []runtime.Object{
@@ -84,6 +91,10 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
+		},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
@@ -99,6 +110,10 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release"),
+		},
 	}, {
 		Name: "manual- no creates",
 		Objects: []runtime.Object{
@@ -167,6 +182,11 @@ func TestReconcile(t *testing.T) {
 				// First reconcile initializes conditions.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "create-route-failure"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v",
+				"create-route-failure", "inducing failure for create routes"),
+		},
 	}, {
 		Name: "runLatest - configuration creation failure",
 		// Induce a failure during configuration creation
@@ -187,6 +207,10 @@ func TestReconcile(t *testing.T) {
 				// First reconcile initializes conditions.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
+				"create-config-failure", "inducing failure for create configurations"),
+		},
 	}, {
 		Name: "runLatest - update route failure",
 		// Induce a failure updating the route
@@ -244,6 +268,12 @@ func TestReconcile(t *testing.T) {
 				// conditions, which is where we induce the failure.
 				WithInitSvcConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Service %q: %v",
+				"run-latest", "inducing failure for update services"),
+		},
 	}, {
 		Name: "runLatest - route and config ready, propagate ready",
 		// When both route and config are ready, the service should become ready.

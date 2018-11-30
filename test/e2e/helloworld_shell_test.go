@@ -102,7 +102,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
 		serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
-		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
+		serviceIP = noStderrShell("kubectl", "get", "svc", "istio-ingressgateway", "-n", "istio-system",
 			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval

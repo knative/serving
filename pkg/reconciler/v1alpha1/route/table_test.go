@@ -93,6 +93,10 @@ func TestReconcile(t *testing.T) {
 			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Route %q: %v",
+				"first-reconcile", "inducing failure for update routes"),
+		},
 		Key: "default/first-reconcile",
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
@@ -128,6 +132,9 @@ func TestReconcile(t *testing.T) {
 					Percent:      100,
 				})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
 		SkipNamespaceValidation: true,
@@ -167,6 +174,9 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created service %q", "becomes-ready"),
+		},
 		Key: "default/becomes-ready",
 	}, {
 		Name: "failure creating k8s placeholder service",
@@ -210,6 +220,10 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v",
+				"create-svc-failure", "inducing failure for create services"),
+		},
 		Key: "default/create-svc-failure",
 	}, {
 		Name: "failure creating cluster ingress",
@@ -253,6 +267,10 @@ func TestReconcile(t *testing.T) {
 					Percent:      100,
 				})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create ClusterIngress for route %s/%s: %v",
+				"default", "ingress-create-failure", "inducing failure for create clusteringresses"),
+		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
 	}, {
@@ -915,6 +933,9 @@ func TestReconcile(t *testing.T) {
 						Percent:      50,
 					})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
 		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
 	}, {
@@ -999,6 +1020,9 @@ func TestReconcile(t *testing.T) {
 						Percent:      50,
 					})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
 		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
 	}, {
@@ -1185,7 +1209,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+		{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
 	})
 
 	return status
