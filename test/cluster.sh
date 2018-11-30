@@ -111,6 +111,9 @@ function install_knative_serving() {
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
+  if kubectl get -n istio-system knative-ingressgateway; then
+    wait_until_service_has_external_ip istio-system istio-ingressgateway
+  fi
   wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
