@@ -28,11 +28,10 @@ import (
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
-	errs := servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").Also(rt.Spec.Validate().ViaField("spec"))
-	if err := rt.validateMetric(); err != nil {
-		errs = errs.Also(err)
-	}
-	return errs
+	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).
+		ViaField("metadata").
+		Also(rt.Spec.Validate().ViaField("spec")).
+		Also(rt.validateMetric())
 }
 
 func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
