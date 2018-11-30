@@ -19,6 +19,7 @@ package revision
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -53,7 +54,7 @@ func newResolverTransport(path string) (*http.Transport, error) {
 	if crt, err := ioutil.ReadFile(path); err != nil {
 		return nil, err
 	} else if ok := pool.AppendCertsFromPEM(crt); !ok {
-		return nil, fmt.Errorf("Failed to append k8s cert bundle to cert pool.")
+		return nil, errors.New("Failed to append k8s cert bundle to cert pool.")
 	}
 
 	return &http.Transport{
