@@ -54,7 +54,7 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 	b := NewBreaker(1, 1, 0)          // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests are processed
 
-	b.sem.Put(1)
+	b.sem.Put()
 	locks := b.concurrentRequests(3, true)
 
 	unlockAll(locks)
@@ -135,7 +135,7 @@ func TestSemaphore_Get_HasCapacity(t *testing.T) {
 	acquired := int32(0)
 	sem := NewSemaphore(1, 0)
 	tryAcquire(sem, &acquired, 0)
-	sem.Put(1)
+	sem.Put()
 
 	// to allow `acquired` to change
 	time.Sleep(semSleepInterval)
@@ -151,10 +151,28 @@ func TestSemaphore_Put(t *testing.T) {
 	for i := 0; i < requests; i++ {
 		tryAcquire(sem, &acquired, i)
 	}
-	sem.Put(2)
+	sem.Put()
+	sem.Put()
 
 	time.Sleep(semSleepInterval)
 	assertEqual(want, atomic.LoadInt32(&acquired), t)
+}
+
+func TestSemaphore_AddCapacity(t *testing.T) {
+	sem := NewSemaphore(2, 1)
+	assertEqual(int32(1), sem.capacity, t)
+	sem.Get()
+	sem.AddCapacity(2)
+	assertEqual(int32(2), sem.available, t)
+	assertEqual(int32(3), sem.capacity, t)
+}
+
+func TestSemaphore_ReduceCapacity(t *testing.T) {
+	sem := NewSemaphore(1, 0)
+	sem.AddCapacity(int32(1))
+	sem.ReduceCapacity(1)
+	assertEqual(int32(0), sem.available, t)
+	assertEqual(int32(0), sem.capacity, t)
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
@@ -163,9 +181,9 @@ func (b *Breaker) concurrentRequest(empty bool) request {
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
 
-	if len(b.sem.activeRequests) > 0 {
+	if len(b.sem.waitersQueue) > 0 {
 		// Expect request to be performed
-		defer waitForQueue(b.sem.activeRequests, len(b.sem.activeRequests)-1)
+		defer waitForQueue(b.sem.waitersQueue, len(b.sem.waitersQueue)-1)
 	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
 		// Expect request to be queued
 		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)
