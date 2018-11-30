@@ -18,6 +18,7 @@ package resources
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -37,6 +38,10 @@ import (
 var (
 	one int32 = 1
 )
+
+func refInt64(num int64) *int64 {
+	return &num
+}
 
 func TestMakePodSpec(t *testing.T) {
 	labels := map[string]string{serving.ConfigurationLabelKey: "cfg", serving.ServiceLabelKey: "svc"}
@@ -61,6 +66,9 @@ func TestMakePodSpec(t *testing.T) {
 				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -113,6 +121,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "1",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -125,7 +136,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "simple concurrency=single no owner digest resolved",
@@ -140,6 +152,9 @@ func TestMakePodSpec(t *testing.T) {
 				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 			Status: v1alpha1.RevisionStatus{
@@ -195,6 +210,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "1",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -207,7 +225,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "simple concurrency=single with owner",
@@ -229,6 +248,9 @@ func TestMakePodSpec(t *testing.T) {
 				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -281,6 +303,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "1",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -293,7 +318,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "simple concurrency=multi http readiness probe",
@@ -316,6 +342,9 @@ func TestMakePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -376,6 +405,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "0",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -388,7 +420,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "concurrency=multi, readinessprobe=shell",
@@ -410,6 +443,9 @@ func TestMakePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -469,6 +505,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "0",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -481,7 +520,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "concurrency=multi, readinessprobe=http",
@@ -503,6 +543,9 @@ func TestMakePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -564,6 +607,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "0",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -576,7 +622,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "concurrency=multi, livenessprobe=tcp",
@@ -596,6 +643,9 @@ func TestMakePodSpec(t *testing.T) {
 							TCPSocket: &corev1.TCPSocketAction{},
 						},
 					},
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -655,6 +705,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "0",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -667,7 +720,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "with /var/log collection",
@@ -682,6 +736,9 @@ func TestMakePodSpec(t *testing.T) {
 				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -737,6 +794,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "1",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -787,6 +847,7 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "complex pod spec",
@@ -809,6 +870,9 @@ func TestMakePodSpec(t *testing.T) {
 						Name:  "BAZ",
 						Value: "blah",
 					}},
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -871,6 +935,9 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "CONTAINER_CONCURRENCY",
 					Value: "1",
 				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
 					Name: "SERVING_POD",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -883,7 +950,8 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes: []corev1.Volume{varLogVolume},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}}
 
@@ -919,6 +987,9 @@ func TestMakeDeployment(t *testing.T) {
 				ContainerConcurrency: 1,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -991,6 +1062,9 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -1054,6 +1128,9 @@ func TestMakeDeployment(t *testing.T) {
 				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},
@@ -1124,6 +1201,9 @@ func TestMakeDeployment(t *testing.T) {
 				ContainerConcurrency: 0,
 				Container: corev1.Container{
 					Image: "busybox",
+				},
+				TimeoutSeconds: &metav1.Duration{
+					Duration: 45 * time.Second,
 				},
 			},
 		},

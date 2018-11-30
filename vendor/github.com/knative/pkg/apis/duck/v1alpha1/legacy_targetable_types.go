@@ -41,7 +41,6 @@ type LegacyTargetable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
 }
 
-
 // LegacyTargetable is an Implementable "duck type".
 var _ duck.Implementable = (*LegacyTargetable)(nil)
 

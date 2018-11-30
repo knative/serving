@@ -37,7 +37,7 @@ import (
 const (
 	istioNS      = "istio-system"
 	monitoringNS = "knative-monitoring"
-	gateway      = "knative-ingressgateway"
+	gateway      = "istio-ingressgateway"
 )
 
 type PerformanceClient struct {
@@ -72,7 +72,7 @@ func TearDown(client *PerformanceClient, logger *logging.BaseLogger, names test.
 	}
 }
 
-// RunLoadTest runs the load test with fortio and returns the reponse
+// RunLoadTest runs the load test with fortio and returns the response
 func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain string) (*fhttp.HTTPRunnerResults, error) {
 	o := fhttp.NewHTTPOptions(url)
 	o.NumConnections = nConnections

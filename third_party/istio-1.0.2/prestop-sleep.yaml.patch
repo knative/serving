@@ -3,5 +3,5 @@
 >         lifecycle:
 >           preStop:
 >             exec:
->               command: ["sh", "-c", 'until curl -s localhost:15000/clusters | grep "inbound|80|" | grep "rq_active" | grep "rq_active::0"; do sleep 1; done;']
+>               command: ["sh", "-c", 'sleep 20; until curl -s localhost:15000/clusters | grep "inbound|80|" | grep "rq_active" | grep "rq_active::0"; do sleep 1; done;']
 >         # PATCH #2 ends.

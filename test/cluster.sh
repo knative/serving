@@ -62,12 +62,24 @@ function install_knative_serving() {
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
+  # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
+  # This is so that the upgrade tests can pass between versions that have knative-ingressgateway and versions
+  # that don't.
+  # TODO(nghia): Remove this when knative-ingressgateway is removed.
+  if ! kubectl create -f "${INSTALL_RELEASE_YAML}" --dry-run -lknative=ingressgateway; then
+    kubectl delete svc -n istio-system knative-ingressgateway --ignore-not-found
+    kubectl delete deploy -n istio-system knative-ingressgateway --ignore-not-found
+  fi
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  echo ">> Adding more activator pods."
+  kubectl scale deploy --replicas=2 -n knative-serving activator || return 1
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -80,14 +92,14 @@ function install_knative_serving() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
+  kubectl patch hpa -n istio-system istio-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
 
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system knative-ingressgateway
+  wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
 # Uninstalls Knative Serving from the current cluster.

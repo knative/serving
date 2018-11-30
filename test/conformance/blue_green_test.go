@@ -249,7 +249,13 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Since we are updating the route the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	logger.Infof("Probing domain %s", greenDomain)
-	if err := test.ProbeDomain(logger, clients, greenDomain); err != nil {
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		greenDomain,
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", greenDomain, err)
 	}
 

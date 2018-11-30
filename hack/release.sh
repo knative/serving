@@ -17,8 +17,8 @@
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
 # Set default GCS/GCR
-: ${SERVING_RELEASE_GCS:="knative-releases/serving"}
-: ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
+: ${SERVING_RELEASE_GCS:="knative-nightly/serving"}
+: ${SERVING_RELEASE_GCR:="gcr.io/knative-nightly"}
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 

@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	corev1 "k8s.io/api/core/v1"
@@ -204,6 +205,109 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 // RouteOption enables further configuration of a Route.
 type RouteOption func(*v1alpha1.Route)
 
+// WithSpecTraffic sets the Route's traffic block to the specified traffic targets.
+func WithSpecTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.Spec.Traffic = traffic
+	}
+}
+
+// WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
+func WithConfigTarget(config string) RouteOption {
+	return WithSpecTraffic(v1alpha1.TrafficTarget{
+		ConfigurationName: config,
+		Percent:           100,
+	})
+}
+
+// WithRevTarget sets the Route's traffic block to point at a particular Revision.
+func WithRevTarget(revision string) RouteOption {
+	return WithSpecTraffic(v1alpha1.TrafficTarget{
+		RevisionName: revision,
+		Percent:      100,
+	})
+}
+
+// WithStatusTraffic sets the Route's status traffic block to the specified traffic targets.
+func WithStatusTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.Status.Traffic = traffic
+	}
+}
+
+// WithDomain sets the .Status.Domain field to the prototypical domain.
+func WithDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace)
+}
+
+// WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
+func WithDomainInternal(r *v1alpha1.Route) {
+	r.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+}
+
+// WithAddress sets the .Status.Address field to the prototypical internal hostname.
+func WithAddress(r *v1alpha1.Route) {
+	r.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+	}
+}
+
+// WithAnotherDomain sets the .Status.Domain field to an atypical domain.
+func WithAnotherDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
+}
+
+// WithInitRouteConditions initializes the Service's conditions.
+func WithInitRouteConditions(rt *v1alpha1.Route) {
+	rt.Status.InitializeConditions()
+}
+
+// MarkTrafficAssigned calls the method of the same name on .Status
+func MarkTrafficAssigned(r *v1alpha1.Route) {
+	r.Status.MarkTrafficAssigned()
+}
+
+// MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
+func MarkIngressReady(r *v1alpha1.Route) {
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   "Ready",
+			Status: "True",
+		}},
+	})
+}
+
+// MarkMissingTrafficTarget calls the method of the same name on .Status
+func MarkMissingTrafficTarget(kind, revision string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.Status.MarkMissingTrafficTarget(kind, revision)
+	}
+}
+
+// MarkConfigurationNotReady calls the method of the same name on .Status
+func MarkConfigurationNotReady(name string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.Status.MarkConfigurationNotReady(name)
+	}
+}
+
+// MarkConfigurationFailed calls the method of the same name on .Status
+func MarkConfigurationFailed(name string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.Status.MarkConfigurationFailed(name)
+	}
+}
+
+// WithRouteLabel sets the specified label on the Route.
+func WithRouteLabel(key, value string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+		r.Labels[key] = value
+	}
+}
+
 // ConfigOption enables further configuration of a Configuration.
 type ConfigOption func(*v1alpha1.Configuration)
 
@@ -271,6 +375,16 @@ func MarkRevisionCreationFailed(msg string) ConfigOption {
 func MarkLatestCreatedFailed(msg string) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Status.MarkLatestCreatedFailed(cfg.Status.LatestCreatedRevisionName, msg)
+	}
+}
+
+// WithConfigLabel attaches a particular label to the configuration.
+func WithConfigLabel(key, value string) ConfigOption {
+	return func(config *v1alpha1.Configuration) {
+		if config.Labels == nil {
+			config.Labels = make(map[string]string)
+		}
+		config.Labels[key] = value
 	}
 }
 
@@ -474,6 +588,18 @@ type K8sServiceOption func(*corev1.Service)
 func MutateK8sService(svc *corev1.Service) {
 	// An effective hammer ;-P
 	svc.Spec = corev1.ServiceSpec{}
+}
+
+func WithClusterIP(ip string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		svc.Spec.ClusterIP = ip
+	}
+}
+
+func WithExternalName(name string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		svc.Spec.ExternalName = name
+	}
 }
 
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.

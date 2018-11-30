@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/metrics/metricskey"
+
 	"go.opencensus.io/stats/view"
 )
 
@@ -47,10 +49,10 @@ func TestReporter_Report(t *testing.T) {
 
 	r, _ = NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
 	wantTags := map[string]string{
-		"configuration_namespace": "testns",
-		"service":                 "testsvc",
-		"configuration":           "testconfig",
-		"revision":                "testrev",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
 	}
 
 	// Send statistics only once and observe the results
