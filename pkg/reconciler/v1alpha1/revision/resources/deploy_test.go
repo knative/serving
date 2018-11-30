@@ -39,10 +39,6 @@ var (
 	one int32 = 1
 )
 
-func refInt64(num int64) *int64 {
-	return &num
-}
-
 func TestMakePodSpec(t *testing.T) {
 	labels := map[string]string{serving.ConfigurationLabelKey: "cfg", serving.ServiceLabelKey: "svc"}
 	tests := []struct {
@@ -136,8 +132,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "simple concurrency=single no owner digest resolved",
@@ -225,8 +220,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "simple concurrency=single with owner",
@@ -318,8 +312,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "simple concurrency=multi http readiness probe",
@@ -420,8 +413,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "concurrency=multi, readinessprobe=shell",
@@ -520,8 +512,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "concurrency=multi, readinessprobe=http",
@@ -622,8 +613,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "concurrency=multi, livenessprobe=tcp",
@@ -720,8 +710,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
 		name: "with /var/log collection",
@@ -847,7 +836,6 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}},
-			TerminationGracePeriodSeconds: refInt64(45),
 		},
 	}, {
 		name: "complex pod spec",
@@ -950,8 +938,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}},
-			Volumes:                       []corev1.Volume{varLogVolume},
-			TerminationGracePeriodSeconds: refInt64(45),
+			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}}
 

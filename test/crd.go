@@ -107,11 +107,6 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 			},
 		},
 	}
-
-	if options.RevisionTimeout > 0 {
-		config.Spec.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{Duration: options.RevisionTimeout}
-	}
-
 	if options.EnvVars != nil && len(options.EnvVars) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
 	}

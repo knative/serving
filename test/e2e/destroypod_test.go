@@ -36,8 +36,7 @@ import (
 
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
-	revisionTimeout        = 45 * time.Second
-	timeoutRequestDuration = 43 * time.Second
+	timeoutRequestDuration = 25 * time.Second
 )
 
 func TestDestroyPodInflight(t *testing.T) {
@@ -49,7 +48,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	var imagePath = test.ImagePath("timeout")
 
 	logger.Info("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{RevisionTimeout: revisionTimeout})
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

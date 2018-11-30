@@ -113,16 +113,13 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	rewriteUserProbe(userContainer.ReadinessProbe)
 	rewriteUserProbe(userContainer.LivenessProbe)
 
-	revisionTimeout := int64(rev.Spec.TimeoutSeconds.Duration.Seconds())
-
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
 			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
 		},
-		Volumes:                       []corev1.Volume{varLogVolume},
-		ServiceAccountName:            rev.Spec.ServiceAccountName,
-		TerminationGracePeriodSeconds: &revisionTimeout,
+		Volumes:            []corev1.Volume{varLogVolume},
+		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
