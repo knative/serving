@@ -52,7 +52,7 @@ const (
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
-	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilizationa
+	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilization
 	TargetAnnotationKey = GroupName + "/target"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
