@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:6d9c501941230af17732369af427b34f5ef00301386c2bf3d5d56dea4bf7fc32"
+  digest = "1:27e2a5275392fa6c3057e8aaafe1e5502297ed6ab44ba670a6ebb2f2c39526dd"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -440,7 +440,7 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "c8d3a5af38f949b328698a5d98389324d703417f"
+  revision = "1a7c2f052c926d5bd0472c785fedcb472b3f5f09"
   source = "https://github.com/imikushin/pkg.git"
 
 [[projects]]
@@ -1306,12 +1306,14 @@
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
+    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
