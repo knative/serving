@@ -17,16 +17,21 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-
-	"github.com/knative/pkg/apis"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func (rt *PodAutoscaler) Validate() *apis.FieldError {
-	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").Also(rt.Spec.Validate().ViaField("spec"))
+	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).
+		ViaField("metadata").
+		Also(rt.Spec.Validate().ViaField("spec")).
+		Also(rt.validateMetric())
 }
 
 func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
@@ -62,6 +67,33 @@ func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.Fiel
 	return errs
 }
 
+func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
+	if metric, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
+		switch pa.Class() {
+		case autoscaling.KPA:
+			switch metric {
+			case autoscaling.Concurrency:
+				return nil
+			}
+		case autoscaling.HPA:
+			switch metric {
+			case autoscaling.CPU:
+				return nil
+			}
+			// TODO: implement OPS autoscaling.
+		default:
+			// Leave other classes of PodAutoscaler alone.
+			return nil
+		}
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
+				metric, pa.Class()),
+			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
+		}
+	}
+	return nil
+}
+
 func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*PodAutoscaler)
 	if !ok {
@@ -73,6 +105,16 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: diff,
+		}
+	}
+	// Verify the PA class does not change.
+	// For backward compatability, we allow a new class where there was none before.
+	if oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]; ok {
+		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
+				Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
+			}
 		}
 	}
 	return nil

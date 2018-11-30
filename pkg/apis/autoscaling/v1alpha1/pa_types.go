@@ -20,14 +20,14 @@ import (
 	"strconv"
 	"time"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -120,8 +120,20 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
-	if s, ok := kpa.Annotations[key]; ok {
+func (ps *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("PodAutoscaler")
+}
+
+func (pa *PodAutoscaler) Class() string {
+	if c, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; ok {
+		return c
+	}
+	// Default to "kpa" class for backward compatibility.
+	return autoscaling.KPA
+}
+
+func (pa *PodAutoscaler) annotationInt32(key string) int32 {
+	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation
 		i, _ := strconv.ParseInt(s, 10, 32)
 		return int32(i)
@@ -132,10 +144,19 @@ func (kpa *PodAutoscaler) scaleBoundInt32(key string) int32 {
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
-func (kpa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	min = kpa.scaleBoundInt32(autoscaling.MinScaleAnnotationKey)
-	max = kpa.scaleBoundInt32(autoscaling.MaxScaleAnnotationKey)
+func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
+	min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
 	return
+}
+
+func (pa *PodAutoscaler) MetricTarget() (target int32, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
+		if i, err := strconv.Atoi(s); err == nil {
+			return int32(i), true
+		}
+	}
+	return 0, false
 }
 
 // IsReady looks at the conditions and if the Status has a condition

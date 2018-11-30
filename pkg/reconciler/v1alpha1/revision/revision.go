@@ -33,7 +33,7 @@ import (
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -85,13 +85,13 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// lister indexes properties about Revision
-	revisionLister   listers.RevisionLister
-	kpaLister        kpalisters.PodAutoscalerLister
-	imageLister      cachinglisters.ImageLister
-	deploymentLister appsv1listers.DeploymentLister
-	serviceLister    corev1listers.ServiceLister
-	endpointsLister  corev1listers.EndpointsLister
-	configMapLister  corev1listers.ConfigMapLister
+	revisionLister      listers.RevisionLister
+	podAutoscalerLister kpalisters.PodAutoscalerLister
+	imageLister         cachinglisters.ImageLister
+	deploymentLister    appsv1listers.DeploymentLister
+	serviceLister       corev1listers.ServiceLister
+	endpointsLister     corev1listers.EndpointsLister
+	configMapLister     corev1listers.ConfigMapLister
 
 	buildInformerFactory duck.InformerFactory
 
@@ -111,7 +111,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opt reconciler.Options,
 	revisionInformer servinginformers.RevisionInformer,
-	kpaInformer kpainformers.PodAutoscalerInformer,
+	podAutoscalerInformer painformers.PodAutoscalerInformer,
 	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
@@ -121,14 +121,14 @@ func NewController(
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:             reconciler.NewBase(opt, controllerAgentName),
-		revisionLister:   revisionInformer.Lister(),
-		kpaLister:        kpaInformer.Lister(),
-		imageLister:      imageInformer.Lister(),
-		deploymentLister: deploymentInformer.Lister(),
-		serviceLister:    serviceInformer.Lister(),
-		endpointsLister:  endpointsInformer.Lister(),
-		configMapLister:  configMapInformer.Lister(),
+		Base:                reconciler.NewBase(opt, controllerAgentName),
+		revisionLister:      revisionInformer.Lister(),
+		podAutoscalerLister: podAutoscalerInformer.Lister(),
+		imageLister:         imageInformer.Lister(),
+		deploymentLister:    deploymentInformer.Lister(),
+		serviceLister:       serviceInformer.Lister(),
+		endpointsLister:     endpointsInformer.Lister(),
+		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
 			transport: http.DefaultTransport,
@@ -159,7 +159,7 @@ func NewController(
 		},
 	})
 
-	kpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	podAutoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,

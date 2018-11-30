@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaling
+package kpa
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	controllerAgentName = "autoscaling-controller"
+	controllerAgentName = "kpa-class-podautoscaler-controller"
 )
 
 // KPAMetrics is an interface for notifying the presence or absence of KPAs.
@@ -50,7 +50,7 @@ type KPAMetrics interface {
 	Get(ctx context.Context, key string) (*autoscaler.Metric, error)
 
 	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error)
+	Create(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Metric, error)
 
 	// Delete removes the Metric resource for a given key, returning any errors.
 	Delete(ctx context.Context, key string) error
@@ -59,18 +59,18 @@ type KPAMetrics interface {
 	Watch(watcher func(string))
 }
 
-// KPAScaler knows how to scale the targets of KPAs
+// KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
 type KPAScaler interface {
-	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error)
+	// Scale attempts to scale the given PA's target to the desired scale.
+	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
-// Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
+// Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from KPAMetrics.
 type Reconciler struct {
 	*reconciler.Base
 
-	kpaLister       listers.PodAutoscalerLister
+	paLister        listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
 
 	kpaMetrics KPAMetrics
@@ -84,7 +84,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opts *reconciler.Options,
 
-	kpaInformer informers.PodAutoscalerInformer,
+	paInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 
 	kpaMetrics KPAMetrics,
@@ -93,18 +93,23 @@ func NewController(
 
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
-		kpaLister:       kpaInformer.Lister(),
+		paLister:        paInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Autoscaling", reconciler.MustNewStatsReporter("Autoscaling", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
-	c.Logger.Info("Setting up event handlers")
-	kpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
+	c.Logger.Info("Setting up kpa-class event handlers")
+	// Handler PodAutoscalers missing the class annotation for backward compatability.
+	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: impl.Enqueue,
+		},
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -113,13 +118,13 @@ func NewController(
 		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
 	})
 
-	// Have the KPAMetrics enqueue the KPAs whose metrics have changed.
+	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
 	kpaMetrics.Watch(impl.EnqueueKey)
 
 	return impl
 }
 
-// Reconcile right sizes KPA ScaleTargetRefs based on the state of metrics in KPAMetrics.
+// Reconcile right sizes PA ScaleTargetRefs based on the state of metrics in KPAMetrics.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -127,44 +132,45 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-	logger.Debug("Reconcile KPA")
+	logger.Debug("Reconcile kpa-class PodAutoscaler")
 
-	original, err := c.kpaLister.PodAutoscalers(namespace).Get(name)
+	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
-		logger.Debug("KPA no longer exists")
+		logger.Debug("PA no longer exists")
 		return c.kpaMetrics.Delete(ctx, key)
 	} else if err != nil {
 		return err
 	}
-	// Don't modify the informer's copy.
-	kpa := original.DeepCopy()
 
-	// Reconcile this copy of the kpa and then write back any status
+	// Don't modify the informer's copy.
+	pa := original.DeepCopy()
+
+	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, key, kpa)
-	if equality.Semantic.DeepEqual(original.Status, kpa.Status) {
+	err = c.reconcile(ctx, key, pa)
+	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(kpa); err != nil {
+	} else if _, err := c.updateStatus(pa); err != nil {
 		logger.Warn("Failed to update kpa status", zap.Error(err))
-		c.Recorder.Eventf(kpa, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for KPA %q: %v", kpa.Name, err)
+		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
 	}
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAutoscaler) error {
+func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	kpa.Status.InitializeConditions()
-	logger.Debug("KPA exists")
+	pa.Status.InitializeConditions()
+	logger.Debug("PA exists")
 
 	metric, err := c.kpaMetrics.Get(ctx, key)
 	if errors.IsNotFound(err) {
-		metric, err = c.kpaMetrics.Create(ctx, kpa)
+		metric, err = c.kpaMetrics.Create(ctx, pa)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
 			return err
@@ -176,7 +182,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	want, err := c.kpaScaler.Scale(ctx, pa, metric.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
@@ -186,12 +192,12 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	got := 0
 
 	// Look up the Endpoints resource to determine the available resources.
-	endpoints, err := c.endpointsLister.Endpoints(kpa.Namespace).Get(kpa.Spec.ServiceName)
+	endpoints, err := c.endpointsLister.Endpoints(pa.Namespace).Get(pa.Spec.ServiceName)
 	if errors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
 		// or it has been torn down.
 	} else if err != nil {
-		logger.Errorf("Error checking Endpoints %q: %v", kpa.Spec.ServiceName, err)
+		logger.Errorf("Error checking Endpoints %q: %v", pa.Spec.ServiceName, err)
 		return err
 	} else {
 		for _, es := range endpoints.Subsets {
@@ -199,15 +205,15 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 		}
 	}
 
-	logger.Infof("KPA got=%v, want=%v", got, want)
+	logger.Infof("PA got=%v, want=%v", got, want)
 
 	var serviceLabel string
 	var configLabel string
-	if kpa.Labels != nil {
-		serviceLabel = kpa.Labels[serving.ServiceLabelKey]
-		configLabel = kpa.Labels[serving.ConfigurationLabelKey]
+	if pa.Labels != nil {
+		serviceLabel = pa.Labels[serving.ServiceLabelKey]
+		configLabel = pa.Labels[serving.ConfigurationLabelKey]
 	}
-	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, serviceLabel, configLabel, kpa.Name)
+	reporter, err := autoscaler.NewStatsReporter(pa.Namespace, serviceLabel, configLabel, pa.Name)
 	if err != nil {
 		return err
 	}
@@ -220,32 +226,32 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	switch {
 	case want == 0:
-		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
 	case got == 0 && want != 0:
-		kpa.Status.MarkActivating(
+		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
 	case got > 0:
-		kpa.Status.MarkActive()
+		pa.Status.MarkActive()
 	}
 
 	return nil
 }
 
-func (c *Reconciler) updateStatus(desired *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
-	kpa, err := c.kpaLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
+func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {
+	pa, err := c.paLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
 	// If there's nothing to update, just return.
-	if reflect.DeepEqual(kpa.Status, desired.Status) {
-		return kpa, nil
+	if reflect.DeepEqual(pa.Status, desired.Status) {
+		return pa, nil
 	}
 	// Don't modify the informers copy
-	existing := kpa.DeepCopy()
+	existing := pa.DeepCopy()
 	existing.Status = desired.Status
 
 	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(existing)
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(existing)
 }
