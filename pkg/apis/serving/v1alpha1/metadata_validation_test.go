@@ -111,11 +111,11 @@ func TestValidateScaleClassAnnotations(t *testing.T) {
 		annotations: map[string]string{},
 		expectErr:   nil,
 	}, {
-		name:        "supportted class",
+		name:        "supported class",
 		annotations: map[string]string{autoscaling.ClassAnnotationKey: autoscaling.KPA},
 		expectErr:   nil,
 	}, {
-		name:        "unsupportted",
+		name:        "unsupported",
 		annotations: map[string]string{autoscaling.ClassAnnotationKey: "whatever"},
 		expectErr: &apis.FieldError{
 			Message: fmt.Sprintf("Unsupported %q value %q", autoscaling.ClassAnnotationKey, "whatever"),
