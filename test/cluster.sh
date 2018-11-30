@@ -62,11 +62,20 @@ function install_knative_serving() {
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
+  # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
+  # This is so that the upgrade tests can pass between versions that have knative-ingressgateway and versions
+  # that don't.
+  # TODO(nghia): Remove this when knative-ingressgateway is removed.
+  if ! kubectl create -f "${INSTALL_RELEASE_YAML}" --dry-run -lknative=ingressgateway; then
+    kubectl delete svc -n istio-system knative-ingressgateway --ignore-not-found
+    kubectl delete deploy -n istio-system knative-ingressgateway --ignore-not-found
+  fi
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Adding more activator pods."
