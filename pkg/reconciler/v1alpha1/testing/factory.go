@@ -19,20 +19,28 @@ package testing
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
+
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
-	"k8s.io/apimachinery/pkg/runtime"
-	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+)
+
+const (
+	// maxEventBufferSize is the estimated max number of event notifications that
+	// can be buffered during reconciliation.
+	maxEventBufferSize = 10
 )
 
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
 func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList) {
+	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList) {
 		ls := NewListers(r.Objects)
 
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
@@ -40,6 +48,7 @@ func MakeFactory(ctor Ctor) Factory {
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme(), ls.GetBuildObjects()...)
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
+		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 
 		// Set up our Controller from the fakes.
 		c := ctor(&ls, reconciler.Options{
@@ -48,6 +57,7 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
+			Recorder:         eventRecorder,
 			Logger:           TestLogger(t),
 		})
 
@@ -63,6 +73,9 @@ func MakeFactory(ctor Ctor) Factory {
 		client.PrependReactor("create", "*", ValidateCreates)
 		client.PrependReactor("update", "*", ValidateUpdates)
 
-		return c, ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
+		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
+		eventList := EventList{eventRecorder}
+
+		return c, actionRecorderList, eventList
 	}
 }

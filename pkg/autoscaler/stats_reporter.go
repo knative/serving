@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/knative/pkg/metrics/metricskey"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -96,19 +98,19 @@ func init() {
 	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
-	namespaceTagKey, err = tag.NewKey("configuration_namespace")
+	namespaceTagKey, err = tag.NewKey(metricskey.LabelNamespaceName)
 	if err != nil {
 		panic(err)
 	}
-	serviceTagKey, err = tag.NewKey("service")
+	serviceTagKey, err = tag.NewKey(metricskey.LabelServiceName)
 	if err != nil {
 		panic(err)
 	}
-	configTagKey, err = tag.NewKey("configuration")
+	configTagKey, err = tag.NewKey(metricskey.LabelConfigurationName)
 	if err != nil {
 		panic(err)
 	}
-	revisionTagKey, err = tag.NewKey("revision")
+	revisionTagKey, err = tag.NewKey(metricskey.LabelRevisionName)
 	if err != nil {
 		panic(err)
 	}

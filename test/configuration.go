@@ -19,6 +19,8 @@ limitations under the License.
 package test
 
 import (
+	"time"
+
 	"github.com/knative/pkg/test/logging"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -27,6 +29,7 @@ import (
 type Options struct {
 	EnvVars              []corev1.EnvVar
 	ContainerConcurrency int
+	RevisionTimeout      time.Duration
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config

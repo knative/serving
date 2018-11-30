@@ -40,6 +40,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/websocket"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 )
 
@@ -50,40 +52,55 @@ const (
 	statReportingQueueLength = 10
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+	// Duration the /quitquitquit handler should wait before returning.
+	// This is to give Istio a little bit more time to remove the pod
+	// from its configuration and propagate that to all istio-proxies
+	// in the mesh.
+	quitSleepDuration = 20 * time.Second
 )
 
 var (
-	podName               string
-	servingNamespace      string
-	servingRevision       string
-	servingRevisionKey    string
-	servingAutoscaler     string
-	servingAutoscalerPort string
-	containerConcurrency  int
-	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
-	statSink              *websocket.ManagedConnection
-	logger                *zap.SugaredLogger
-	breaker               *queue.Breaker
+	podName                string
+	servingConfig          string
+	servingNamespace       string
+	servingRevision        string
+	servingRevisionKey     string
+	servingAutoscaler      string
+	servingAutoscalerPort  string
+	containerConcurrency   int
+	revisionTimeoutSeconds int
+	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
+	statSink               *websocket.ManagedConnection
+	logger                 *zap.SugaredLogger
+	breaker                *queue.Breaker
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server *http.Server
-
-	health = &healthServer{alive: true}
+	server   *http.Server
+	health   *healthServer
+	reporter *queue.Reporter // Prometheus stats reporter.
 )
 
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
+	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
+	health = &healthServer{alive: true}
+	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
+	if err != nil {
+		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+	}
+	reporter = _reporter
 }
 
 func statReporter() {
@@ -103,6 +120,11 @@ func sendStat(s *autoscaler.Stat) error {
 	if !health.isAlive() {
 		s.LameDuck = true
 	}
+	reporter.Report(
+		s.LameDuck,
+		float64(s.RequestCount),
+		float64(s.AverageConcurrentRequests),
+	)
 	sm := autoscaler.StatMessage{
 		Stat: *s,
 		Key:  servingRevisionKey,
@@ -203,6 +225,8 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("Error while sending stat", zap.Error(err))
 	}
 
+	time.Sleep(quitSleepDuration)
+
 	// Shutdown the server.
 	currentServer := server
 	if currentServer != nil {
@@ -261,6 +285,19 @@ func main() {
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 
+	logger.Info("Initializing OpenCensus Prometheus exporter.")
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
+	if err != nil {
+		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
+	}
+	view.RegisterExporter(promExporter)
+	view.SetReportingPeriod(queue.ReportingPeriod)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promExporter)
+		http.ListenAndServe(":9090", mux)
+	}()
+
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%s", servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
@@ -281,8 +318,7 @@ func main() {
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
-		http.HandlerFunc(handler),
-	)
+		http.TimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	go server.ListenAndServe()
 	go setupAdminHandlers(adminServer)

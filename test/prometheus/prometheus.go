@@ -21,16 +21,16 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"	
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
+	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/test"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/test"
 )
 
 const (
@@ -53,7 +53,7 @@ func (p *PromProxy) Setup(ctx context.Context, logger *logging.BaseLogger) error
 func (p *PromProxy) Teardown(logger *logging.BaseLogger) error {
 	logger.Info("Cleaning up prom proxy")
 	if p.portFwdProcess != nil {
-		return p.portFwdProcess.Kill()		
+		return p.portFwdProcess.Kill()
 	}
 	return nil
 }
@@ -82,7 +82,7 @@ func (p *PromProxy) portForward(ctx context.Context, logger *logging.BaseLogger,
 
 // RunBackground starts a background process and returns the Process if succeed
 func (p *PromProxy) executeCmdBackground(logger *logging.BaseLogger, format string, args ...interface{}) (*os.Process, error) {
-	cmd := fmt.Sprintf(format, args...)	
+	cmd := fmt.Sprintf(format, args...)
 	logger.Infof("Executing command: %s", cmd)
 	parts := strings.Split(cmd, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
@@ -99,7 +99,7 @@ func (p *PromProxy) execShellCmd(ctx context.Context, logger *logging.BaseLogger
 	cmd := fmt.Sprintf(format, args...)
 	logger.Infof("Executing command: %s", cmd)
 	c := exec.CommandContext(ctx, "sh", "-c", cmd) // #nosec
-	bytes, err := c.CombinedOutput()	
+	bytes, err := c.CombinedOutput()
 	if err != nil {
 		logger.Infof("Command error: %v", err)
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
@@ -108,7 +108,7 @@ func (p *PromProxy) execShellCmd(ctx context.Context, logger *logging.BaseLogger
 	if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
 		logger.Infof("Command output: \n%s", output)
 	}
-	
+
 	return string(bytes), nil
 }
 
@@ -136,7 +136,7 @@ func RunQuery(ctx context.Context, logger *logging.BaseLogger, promAPI v1.API, m
 	if err != nil {
 		logger.Errorf("Could not get metrics from prometheus: %v", err)
 	}
-	
+
 	return VectorValue(value)
 }
 
@@ -148,4 +148,3 @@ func VectorValue(val model.Value) float64 {
 	value := val.(model.Vector)
 	return float64(value[0].Value)
 }
-

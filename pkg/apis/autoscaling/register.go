@@ -27,9 +27,9 @@ const (
 	// This uses a different domain because unlike the resource, it is user-facing.
 	ClassAnnotationKey = GroupName + "/class"
 	// KPA is Knative Horizontal Pod Autoscaler
-	KPA = "kpa"
+	KPA = "kpa.autoscaling.knative.dev"
 	// HPA is Kubernetes Horizontal Pod Autoscaler
-	HPA = "hpa"
+	HPA = "hpa.autoscaling.knative.dev"
 
 	// MinScaleAnnotationKey is the annotation to specify the minimum number of Pods
 	// the PodAutoscaler should provision. For example,
@@ -52,10 +52,10 @@ const (
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
-	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilizationa
+	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilization
 	TargetAnnotationKey = GroupName + "/target"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + "/" + KPA
+	KPALabelKey = GroupName + "/kpa"
 )

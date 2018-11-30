@@ -1056,7 +1056,7 @@ spec:
               value: world
 
           # serializes requests for function. Default value for functions
-          concurrencyModel: SingleThreaded
+          containerConcurrency: 1
           # max time allowed to respond to request
           timeoutSeconds: 20
 ```

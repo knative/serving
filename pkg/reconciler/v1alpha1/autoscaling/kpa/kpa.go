@@ -104,10 +104,15 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up kpa-class event handlers")
-	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
+	// Handler PodAutoscalers missing the class annotation for backward compatability.
+	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: impl.Enqueue,
+		},
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -138,14 +143,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return c.kpaMetrics.Delete(ctx, original.Namespace, original.Name)
 	} else if err != nil {
 		return err
-	}
-
-	if original.Class() != autoscaling.KPA {
-		logger.Debug("Ignoring non-kpa-class PA")
-		if err := c.kpaMetrics.Delete(ctx, original.Namespace, original.Name); err != nil {
-			logger.Errorf("Error deleting KPA for non-kpa-class PA %q: %v", name, err)
-		}
-		return nil
 	}
 
 	// Don't modify the informer's copy.
@@ -255,7 +252,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	reporter.Report(autoscaler.ActualPodCountM, float64(got))
-	reporter.Report(autoscaler.RequestedPodCountM, float64(want))
+	// negative "want" values represent an empty metrics pipeline and thus no specific request is being made
+	if want >= 0 {
+		reporter.Report(autoscaler.RequestedPodCountM, float64(want))
+	}
 
 	switch {
 	case want == 0:

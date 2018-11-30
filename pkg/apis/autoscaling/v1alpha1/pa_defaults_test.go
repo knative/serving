@@ -97,6 +97,26 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				ContainerConcurrency: 1,
 			},
 		},
+	}, {
+		name: "hpa class is not overwritten and defaults to cpu",
+		in: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
+				},
+			},
+		},
+		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: autoscaling.CPU,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+			},
+		},
 	}}
 
 	for _, test := range tests {
