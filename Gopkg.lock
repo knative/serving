@@ -444,15 +444,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:93d9d7037434ea3f51ba964c20f625ecb7257e0f13b7adda101d77e516d850c9"
+  digest = "1:d3c877a0f50ca9d2aec77a430c25806b40f10e4618b6e89950e8f7282712badd"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
+    "tools/prometheus",
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2a11b760d21b3a969d80d9ccf18323e1d5ed03a6"
+  revision = "2377fbc40f81501f2bc09a4e1e359a7ec7c3528e"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1258,6 +1259,7 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/prometheus",
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",

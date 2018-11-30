@@ -29,7 +29,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/prometheus"
+	"github.com/knative/test-infra/tools/prometheus"
 	"github.com/knative/test-infra/tools/testgrid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -132,8 +132,13 @@ func TestObservedConcurrency(t *testing.T) {
 	// Add concurrency metrics
 	metrics := []string{"autoscaler_observed_stable_concurrency", "autoscaler_observed_panic_concurrency", "autoscaler_target_concurrency_per_pod"}
 	for _, metric := range metrics {
-		val := prometheus.RunQuery(context.Background(), logger, promAPI, metric, names)
-		tc = append(tc, createTestCase(float32(val), metric))
+		query := fmt.Sprintf("%s{configuration_namespace=\"%s\", configuration=\"%s\", revision=\"%s\"}", metric, test.ServingNamespace, names.Config, names.Revision)
+		val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)
+		if err != nil {
+			logger.Infof("Error querying metric %s: %v", metric, err)
+		} else {
+			tc = append(tc, createTestCase(float32(val), metric))
+		}
 	}
 
 	if err = testgrid.CreateTestgridXML(tc); err != nil {
