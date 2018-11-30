@@ -88,7 +88,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		return &apis.FieldError{
 			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
 				metric, pa.Class()),
-			Paths: []string{"annotations", "autoscaling.knative.dev/metric"},
+			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
 		}
 	}
 	return nil
@@ -113,7 +113,7 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
 			return &apis.FieldError{
 				Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
-				Paths:   []string{"annotations", "autoscaling.knative.dev/class"},
+				Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
 			}
 		}
 	}
