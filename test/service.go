@@ -20,6 +20,7 @@ package test
 
 import (
 	"fmt"
+
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

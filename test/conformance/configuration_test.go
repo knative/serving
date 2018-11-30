@@ -19,12 +19,13 @@ limitations under the License.
 package conformance
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-	"testing"
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
