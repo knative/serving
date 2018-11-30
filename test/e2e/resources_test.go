@@ -106,12 +106,24 @@ func TestCustomResourcesLimits(t *testing.T) {
 
 	logger.Info("pods are running with the desired configuration.")
 
+	want := "Moo!"
+
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		domain,
+		pkgTest.Retrying(pkgTest.MatchesBody(want), http.StatusNotFound),
+		"ResourceTestServesText",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
 	pokeCowForMB := func(mb int) error {
 		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, fmt.Sprintf("memory_in_mb=%d", mb))
 		if err != nil {
 			return err
 		}
-		want := "Moo!"
 		if want != strings.TrimSpace(string(response.Body)) {
 			return fmt.Errorf("The response '%s' is not equal to expected response '%s'.", string(response.Body), want)
 		}

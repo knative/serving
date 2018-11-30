@@ -31,8 +31,9 @@ func bloat(mb int) {
 	fmt.Printf("Bloat %v Mb of memory.\n", mb)
 
 	b := make([]byte, mb*1024*1024)
-	b[0] = 1
-	b[len(b)-1] = 1
+	for i := 0; i < len(b); i++ {
+		b[i] = 1
+	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
