@@ -19,6 +19,7 @@ package resources
 import (
 	"math"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler 
 			Namespace:       pa.Namespace,
 			Labels:          pa.Labels,
 			Annotations:     pa.Annotations,
-			OwnerReferences: pa.OwnerReferences,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: autoscalingv1.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: pa.Spec.ScaleTargetRef,

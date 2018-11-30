@@ -27,6 +27,7 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -117,6 +118,10 @@ type PodAutoscalerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PodAutoscaler `json:"items"`
+}
+
+func (ps *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("PodAutoscaler")
 }
 
 func (pa *PodAutoscaler) Class() string {
