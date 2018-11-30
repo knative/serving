@@ -37,7 +37,7 @@ import (
 const (
 	istioNS      = "istio-system"
 	monitoringNS = "knative-monitoring"
-	gateway      = "knative-ingressgateway"
+	gateway      = "istio-ingressgateway"
 )
 
 type PerformanceClient struct {

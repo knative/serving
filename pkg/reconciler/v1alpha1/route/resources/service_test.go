@@ -104,13 +104,13 @@ func TestNewMakeK8SService(t *testing.T) {
 			ingress: &netv1alpha1.ClusterIngress{
 				Status: netv1alpha1.IngressStatus{
 					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "knative-ingressgateway.istio-system.svc.cluster.local"}},
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
 					},
 				},
 			},
 			expectedSpec: corev1.ServiceSpec{
 				Type:         corev1.ServiceTypeExternalName,
-				ExternalName: "knative-ingressgateway.istio-system.svc.cluster.local",
+				ExternalName: "istio-ingressgateway.istio-system.svc.cluster.local",
 			},
 		},
 	}
