@@ -39,13 +39,13 @@ func bloat(mb int) {
 func handler(w http.ResponseWriter, r *http.Request) {
 	memoryInMB := r.URL.Query().Get("memory_in_mb")
 	if memoryInMB != "" {
-		if mb, err := strconv.Atoi(memoryInMB); err != nil {
+		mb, err := strconv.Atoi(memoryInMB)
+		if err != nil {
 			fmt.Fprintf(w, "cannot convert %s to int", memoryInMB)
 			w.WriteHeader(http.StatusBadRequest)
 			return
-		} else {
-			bloat(mb)
 		}
+		bloat(mb)
 	}
 
 	log.Print("Moo!")

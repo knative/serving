@@ -89,10 +89,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 							}
 
 							if !equality.Semantic.DeepEqual(c.Resources, want) {
-								return false, fmt.Errorf("Invalid resource configuration for pod %v. Want: %+v, got: %+v.", pod.Name, want, c.Resources)
-							} else {
-								return true, nil
+								return false, fmt.Errorf("invalid resource configuration for pod %v. Want: %+v, got: %+v", pod.Name, want, c.Resources)
 							}
+							return true, nil
 						}
 					}
 				}
@@ -125,7 +124,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 			return err
 		}
 		if want != strings.TrimSpace(string(response.Body)) {
-			return fmt.Errorf("The response '%s' is not equal to expected response '%s'.", string(response.Body), want)
+			return fmt.Errorf("the response %q is not equal to expected response %q", string(response.Body), want)
 		}
 		return nil
 	}
