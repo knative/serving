@@ -29,7 +29,6 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
 
