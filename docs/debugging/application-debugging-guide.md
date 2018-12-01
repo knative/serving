@@ -120,18 +120,18 @@ conditions:
 
 If you see this condition, check the following to continue debugging:
 
-* [Check Pod status](#check-pod-status)
-* [Check application logs](#check-application-logs)
-* [Check Istio routing](#check-istio-routing)
+- [Check Pod status](#check-pod-status)
+- [Check application logs](#check-application-logs)
+- [Check Istio routing](#check-istio-routing)
 
 If you see other conditions, to debug further:
 
-* Look up the meaning of the conditions in Knative
-    [Error Conditions and Reporting](../spec/errors.md). Note: some of them
-    are not implemented yet. An alternative is to
-    [check Pod status](#check-pod-status).
-* If you are using `BUILD` to deploy and the `BuildComplete` condition is not
-    `True`, [check BUILD status](#check-build-status).
+- Look up the meaning of the conditions in Knative
+  [Error Conditions and Reporting](../spec/errors.md). Note: some of them
+  are not implemented yet. An alternative is to
+  [check Pod status](#check-pod-status).
+- If you are using `BUILD` to deploy and the `BuildComplete` condition is not
+  `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
 
@@ -171,6 +171,6 @@ Use any of the following filters within Kibana UI to
 see build logs. _(See [telemetry guide](../telemetry.md) for more information on
 logging and monitoring features of Knative Serving.)_
 
-* All build logs: `_exists_:"kubernetes.labels.build-name"`
-* Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
-* Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
+- All build logs: `_exists_:"kubernetes.labels.build-name"`
+- Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
+- Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`

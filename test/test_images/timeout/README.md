@@ -10,4 +10,3 @@ When called, the server sleeps for the amount of milliseconds passed in via the 
 
 For details about building and adding new images, see the [section about test
 images](/test/README.md#test-images).
-

@@ -2,8 +2,8 @@
 
 This doc describes two options for creating a k8s cluster:
 
-* Setup a [GKE cluster](#gke)
-* Run [minikube](#minikube) locally
+- Setup a [GKE cluster](#gke)
+- Run [minikube](#minikube) locally
 
 ## GKE
 
@@ -35,12 +35,12 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
 1. Take note of the workarounds required for:
 
-   * [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
-   * [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
-   * [Loadbalancer support](#loadbalancer-support-in-minikube)
-   * [`ko`](#minikube-with-ko)
-   * [Images](#enabling-knative-to-use-images-in-minikube)
-   * [GCR](#minikube-with-gcr)
+   - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
+   - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
+   - [Loadbalancer support](#loadbalancer-support-in-minikube)
+   - [`ko`](#minikube-with-ko)
+   - [Images](#enabling-knative-to-use-images-in-minikube)
+   - [GCR](#minikube-with-gcr)
 
 ### `LoadBalancer` Support in Minikube
 

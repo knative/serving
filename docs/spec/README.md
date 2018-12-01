@@ -10,8 +10,8 @@ tests](/test/conformance).** ([#780](https://github.com/knative/serving/issues/7
 
 Docs in this directory:
 
-* [Motivation and goals](motivation.md)
-* [Resource type overview](overview.md)
-* [Knative Serving API spec](spec.md)
-* [Error conditions and reporting](errors.md)
-* [Sample API usage](normative_examples.md)
+- [Motivation and goals](motivation.md)
+- [Resource type overview](overview.md)
+- [Knative Serving API spec](spec.md)
+- [Error conditions and reporting](errors.md)
+- [Sample API usage](normative_examples.md)

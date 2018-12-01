@@ -16,11 +16,11 @@ from the menu on top left of the page. You will see a page like below:
 
 This dashboard gives visibility into the following for each revision:
 
-* Request volume
-* Request volume per HTTP response code
-* Response time
-* Response time per HTTP response code
-* Request and response sizes
+- Request volume
+- Request volume per HTTP response code
+- Response time
+- Response time per HTTP response code
+- Request and response sizes
 
 This dashboard can show traffic volume or latency discrepancies between different revisions.
 If, for example, a revision's latency is higher than others revisions, then
@@ -48,6 +48,7 @@ Grafana URL is taking the most time and investigation should focus on why
 that URL is taking that long.
 
 ## Autoscaler metrics
+
 If request metrics or traces do not show any obvious hot spots, or if they show
 that most of the time is spent in your own code, autoscaler metrics should be
 looked next. To open autoscaler dashboard, open Grafana UI and select
@@ -57,13 +58,13 @@ looked next. To open autoscaler dashboard, open Grafana UI and select
 
 This view shows four key metrics from Knative Serving autoscaler:
 
-* Actual pod count: # of pods that are running a given revision
-* Desired pod count: # of pods that autoscaler thinks that should serve the
+- Actual pod count: # of pods that are running a given revision
+- Desired pod count: # of pods that autoscaler thinks that should serve the
   revision
-* Requested pod count: # of pods that autoscaler requested from Kubernetes
-* Panic mode:
-    If 0, autoscaler is operating in [stable mode](../../pkg/autoscaler/README.md#stable-mode).
-    If 1, autoscaler is operating in [panic mode](../../pkg/autoscaler/README.md#panic-mode).
+- Requested pod count: # of pods that autoscaler requested from Kubernetes
+- Panic mode:
+  If 0, autoscaler is operating in [stable mode](../../pkg/autoscaler/README.md#stable-mode).
+  If 1, autoscaler is operating in [panic mode](../../pkg/autoscaler/README.md#panic-mode).
 
 If there is a large gap between actual pod count and requested pod count, that
 means that the Kubernetes cluster is unable to keep up allocating new
@@ -89,12 +90,12 @@ The first chart shows rate of the CPU usage across all pods serving the revision
 The second chart shows total memory consumed across all pods serving the revision.
 Both of these metrics are further divided into per container usage.
 
-* user-container: This container runs the user code (application, function or container).
-* [istio-proxy](https://github.com/istio/proxy): Sidecar container to form an
-[Istio](https://istio.io/docs/concepts/what-is-istio/overview.html) mesh.
-* queue-proxy: Knative Serving owned sidecar container to enforce request concurrency limits.
-* autoscaler: Knative Serving owned sidecar container to provide auto scaling for the revision.
-* fluentd-proxy: Sidecar container to collect logs from /var/log.
+- user-container: This container runs the user code (application, function or container).
+- [istio-proxy](https://github.com/istio/proxy): Sidecar container to form an
+  [Istio](https://istio.io/docs/concepts/what-is-istio/overview.html) mesh.
+- queue-proxy: Knative Serving owned sidecar container to enforce request concurrency limits.
+- autoscaler: Knative Serving owned sidecar container to provide auto scaling for the revision.
+- fluentd-proxy: Sidecar container to collect logs from /var/log.
 
 ## Profiling
 

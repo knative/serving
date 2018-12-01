@@ -10,4 +10,3 @@ When called, the server emits a message containing the values of the environment
 
 For details about building and adding new images, see the [section about test
 images](/test/README.md#test-images).
-
