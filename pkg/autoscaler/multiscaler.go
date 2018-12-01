@@ -59,7 +59,7 @@ func (m *Metric) clone() *Metric {
 	}
 }
 
-// UniScaler records statistics for a particular KPA and proposes the scale for the KPA's target based on those statistics.
+// UniScaler records statistics for a particular Metric and proposes the scale for the Metric's target based on those statistics.
 type UniScaler interface {
 	// Record records the given statistics.
 	Record(context.Context, Stat)
@@ -72,10 +72,10 @@ type UniScaler interface {
 	Update(MetricSpec) error
 }
 
-// UniScalerFactory creates a UniScaler for a given KPA using the given dynamic configuration.
+// UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
 
-// scalerRunner wraps an Autoscaler and a channel for implementing shutdown behavior.
+// scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
@@ -101,13 +101,13 @@ func (sr *scalerRunner) updateLatestScale(new int32) bool {
 	return false
 }
 
-// NewMetricKey identifies a KPA in the multiscaler. Stats send in
+// NewMetricKey identifies a UniScaler in the multiscaler. Stats send in
 // are identified and routed via this key.
 func NewMetricKey(namespace string, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
-// MultiScaler maintains a collection of Autoscalers.
+// MultiScaler maintains a collection of Uniscalers.
 type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
@@ -171,7 +171,6 @@ func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, erro
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
-		m.logger.Infof("DO NOT SUBMIT: updating in the multi scaler")
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
 		scaler.metric = *metric
@@ -275,8 +274,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 	}
 }
 
-// RecordStat records some statistics for the given KPA. kpaKey should have the
-// form namespace/name.
+// RecordStat records some statistics for the given Metric.
 func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
