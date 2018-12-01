@@ -30,6 +30,8 @@ Classify what kind of issue this is:
 
 ## Steps to Reproduce the Problem
 
-1. 2. 3.
+1.
+2.
+3.
 
 ## Additional Info
