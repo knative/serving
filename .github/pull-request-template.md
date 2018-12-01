@@ -8,7 +8,9 @@ Fixes #
 
 ## Proposed Changes
 
-\* \* \*
+*
+*
+*
 
 **Release Note**
 
