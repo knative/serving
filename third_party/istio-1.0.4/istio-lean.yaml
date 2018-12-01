@@ -16,7 +16,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-galley
-    chart: galley-1.0.1
+    chart: galley-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: mixer
@@ -29,7 +29,7 @@ data:
       namespace: istio-system
       labels:
         app: istio-galley
-        chart: galley-1.0.1
+        chart: galley-1.0.4
         release: RELEASE-NAME
         heritage: Tiller
     webhooks:
@@ -82,8 +82,7 @@ data:
             - destinationrules
             - envoyfilters
             - gateways
-            # disabled per @costinm's request
-            # - serviceentries
+            - serviceentries
             - virtualservices
         failurePolicy: Fail
       - name: mixer.validation.istio.io
@@ -142,7 +141,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-statsd-prom-bridge
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: mixer
@@ -158,12 +157,26 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-security
-    chart: security-1.0.1
+    chart: security-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: security
 data:
-  custom-resources.yaml: |-
+  custom-resources.yaml: |-    
+    # Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
+    apiVersion: "authentication.istio.io/v1alpha1"
+    kind: "MeshPolicy"
+    metadata:
+      name: "default"
+      labels:
+        app: istio-security
+        chart: security-1.0.4
+        release: RELEASE-NAME
+        heritage: Tiller
+    spec:
+      peers:
+      - mtls:
+          mode: PERMISSIVE
   run.sh: |-    
     #!/bin/sh
     
@@ -207,14 +220,14 @@ metadata:
   namespace: istio-system
   labels:
     app: istio
-    chart: istio-1.0.1
+    chart: istio-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
+    disablePolicyChecks: true
 
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
@@ -225,6 +238,10 @@ data:
     # Deprecated: mixer is using EDS
     mixerCheckServer: istio-policy.istio-system.svc.cluster.local:9091
     mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:9091
+
+    # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+    # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+    policyCheckFailOpen: false
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
@@ -278,9 +295,6 @@ data:
       # Zipkin trace collector
       zipkinAddress: zipkin.istio-system:9411
       #
-      # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-statsd-prom-bridge.istio-system:9125
-      #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
@@ -296,7 +310,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-galley
-    chart: galley-1.0.1
+    chart: galley-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 
@@ -310,7 +324,7 @@ metadata:
   namespace: istio-system
   labels:
     app: egressgateway
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 ---
@@ -321,7 +335,7 @@ metadata:
   namespace: istio-system
   labels:
     app: ingressgateway
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 ---
@@ -335,7 +349,7 @@ metadata:
   namespace: istio-system
   labels:
     app: mixer
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 
@@ -348,7 +362,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-pilot
-    chart: pilot-1.0.1
+    chart: pilot-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 
@@ -374,7 +388,7 @@ metadata:
     "helm.sh/hook-weight": "1"
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 ---
@@ -388,7 +402,7 @@ metadata:
     "helm.sh/hook-weight": "1"
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 rules:
@@ -406,7 +420,7 @@ metadata:
     "helm.sh/hook-weight": "2"
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 roleRef:
@@ -429,7 +443,7 @@ metadata:
     "helm.sh/hook-weight": "3"
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
 spec:
@@ -456,6 +470,96 @@ spec:
       restartPolicy: OnFailure
 
 ---
+# Source: istio/charts/security/templates/create-custom-resources-job.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-security-post-install-account
+  namespace: istio-system
+  labels:
+    app: istio-security
+    chart: security-1.0.4
+    heritage: Tiller
+    release: RELEASE-NAME
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio-security-post-install-istio-system
+  labels:
+    app: istio-security
+    chart: security-1.0.4
+    heritage: Tiller
+    release: RELEASE-NAME
+rules:
+- apiGroups: ["authentication.istio.io"] # needed to create default authn policy
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.istio.io"] # needed to create security destination rules
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get"]
+- apiGroups: ["extensions"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-security-post-install-role-binding-istio-system
+  labels:
+    app: istio-security
+    chart: security-1.0.4
+    heritage: Tiller
+    release: RELEASE-NAME
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-security-post-install-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-security-post-install-account
+    namespace: istio-system
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-security-post-install
+  namespace: istio-system
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: istio-security
+    chart: security-1.0.4
+    release: RELEASE-NAME
+    heritage: Tiller
+spec:
+  template:
+    metadata:
+      name: istio-security-post-install
+      labels:
+        app: istio-security
+        release: RELEASE-NAME
+    spec:
+      serviceAccountName: istio-security-post-install-account
+      containers:
+        - name: hyperkube
+          image: "quay.io/coreos/hyperkube:v1.7.6_coreos.0"
+          command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
+          volumeMounts:
+            - mountPath: "/tmp/security"
+              name: tmp-configmap-security
+      volumes:
+        - name: tmp-configmap-security
+          configMap:
+            name: istio-security-custom-resources
+      restartPolicy: OnFailure
+
+---
 # Source: istio/charts/security/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -464,7 +568,7 @@ metadata:
   namespace: istio-system
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 
@@ -1548,6 +1652,7 @@ spec:
 ---
 #
 # 
+
 ---
 # Source: istio/charts/galley/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -1556,7 +1661,7 @@ metadata:
   name: istio-galley-istio-system
   labels:
     app: istio-galley
-    chart: galley-1.0.1
+    chart: galley-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 rules:
@@ -1583,7 +1688,7 @@ kind: ClusterRole
 metadata:
   labels:
     app: gateways
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
   name: istio-egressgateway-istio-system
@@ -1597,7 +1702,7 @@ kind: ClusterRole
 metadata:
   labels:
     app: gateways
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
   name: istio-ingressgateway-istio-system
@@ -1615,7 +1720,7 @@ metadata:
   name: istio-mixer-istio-system
   labels:
     app: mixer
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 rules:
@@ -1629,7 +1734,7 @@ rules:
   resources: ["customresourcedefinitions"]
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets"]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets", "replicationcontrollers"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions"]
   resources: ["replicasets"]
@@ -1646,7 +1751,7 @@ metadata:
   name: istio-pilot-istio-system
   labels:
     app: istio-pilot
-    chart: pilot-1.0.1
+    chart: pilot-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 rules:
@@ -1686,7 +1791,7 @@ metadata:
   name: istio-citadel-istio-system
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 rules:
@@ -1708,7 +1813,7 @@ metadata:
   name: istio-galley-admin-role-binding-istio-system
   labels:
     app: istio-galley
-    chart: galley-1.0.1
+    chart: galley-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 roleRef:
@@ -1758,7 +1863,7 @@ metadata:
   name: istio-mixer-admin-role-binding-istio-system
   labels:
     app: mixer
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 roleRef:
@@ -1778,7 +1883,7 @@ metadata:
   name: istio-pilot-istio-system
   labels:
     app: istio-pilot
-    chart: pilot-1.0.1
+    chart: pilot-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 roleRef:
@@ -1798,7 +1903,7 @@ metadata:
   name: istio-citadel-istio-system
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     heritage: Tiller
     release: RELEASE-NAME
 roleRef:
@@ -1838,7 +1943,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     app: istio-egressgateway
@@ -1863,7 +1968,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     app: istio-ingressgateway
@@ -1918,7 +2023,7 @@ metadata:
   name: istio-policy
   namespace: istio-system
   labels:
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     release: RELEASE-NAME
     istio: mixer
 spec:
@@ -1939,7 +2044,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     release: RELEASE-NAME
     istio: mixer
 spec:
@@ -1958,71 +2063,6 @@ spec:
 ---
 
 ---
-# Source: istio/charts/mixer/templates/statsdtoprom.yaml
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-statsd-prom-bridge
-  namespace: istio-system
-  labels:
-    chart: mixer-1.0.1
-    release: RELEASE-NAME
-    istio: statsd-prom-bridge
-spec:
-  ports:
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  selector:
-    istio: statsd-prom-bridge
-
----
-
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-statsd-prom-bridge
-  namespace: istio-system
-  labels:
-    chart: mixer-1.0.1
-    release: RELEASE-NAME
-    istio: mixer
-spec:
-  template:
-    metadata:
-      labels:
-        istio: statsd-prom-bridge
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: istio-mixer-service-account
-      volumes:
-      - name: config-volume
-        configMap:
-          name: istio-statsd-prom-bridge
-      containers:
-      - name: statsd-prom-bridge
-        image: "docker.io/prom/statsd-exporter:v0.6.0"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9102
-        - containerPort: 9125
-          protocol: UDP
-        args:
-        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
-        resources:
-          requests:
-            cpu: 10m
-          
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/statsd
-
----
 # Source: istio/charts/pilot/templates/service.yaml
 apiVersion: v1
 kind: Service
@@ -2031,7 +2071,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-pilot
-    chart: pilot-1.0.1
+    chart: pilot-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
 spec:
@@ -2078,7 +2118,7 @@ metadata:
   namespace: istio-system
   labels:
     app: galley
-    chart: galley-1.0.1
+    chart: galley-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: galley
@@ -2099,7 +2139,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: validator
-          image: "docker.io/istio/galley:1.0.2"
+          image: "docker.io/istio/galley:1.0.4"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -2194,7 +2234,7 @@ metadata:
   name: istio-egressgateway
   namespace: istio-system
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     app: istio-egressgateway
@@ -2213,11 +2253,16 @@ spec:
       serviceAccountName: istio-egressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.2"
+          image: "docker.io/istio/proxyv2:1.0.4"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
             - containerPort: 443
+
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+
           args:
           - proxy
           - router
@@ -2235,8 +2280,6 @@ spec:
           - istio-egressgateway
           - --zipkinAddress
           - zipkin:9411
-          - --statsdUdpAddress
-          - istio-statsd-prom-bridge:9125
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -2330,7 +2373,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
-    chart: gateways-1.0.1
+    chart: gateways-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     app: istio-ingressgateway
@@ -2349,7 +2392,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.2"
+          image: "docker.io/istio/proxyv2:1.0.4"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -2360,6 +2403,11 @@ spec:
             - containerPort: 853
             - containerPort: 15030
             - containerPort: 15031
+
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+
           args:
           - proxy
           - router
@@ -2377,8 +2425,6 @@ spec:
           - istio-ingressgateway
           - --zipkinAddress
           - zipkin:9411
-          - --statsdUdpAddress
-          - istio-statsd-prom-bridge:9125
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -2476,7 +2522,7 @@ metadata:
   name: istio-policy
   namespace: istio-system
   labels:
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     release: RELEASE-NAME
     istio: mixer
 spec:
@@ -2534,7 +2580,7 @@ spec:
                 - s390x
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.0.2"
+        image: "docker.io/istio/mixer:1.0.4"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9093
@@ -2545,6 +2591,9 @@ spec:
           - --configStoreURL=k8s://
           - --configDefaultNamespace=istio-system
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        env:
+        - name: GODEBUG
+          value: "gctrace=2"
         resources:
           requests:
             cpu: 10m
@@ -2559,11 +2608,17 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/istio/proxyv2:1.0.2"
+        image: "docker.io/istio/proxyv2:1.0.4"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
         - containerPort: 15004
+
+        ports:
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+
         args:
         - proxy
         - --serviceCluster
@@ -2606,7 +2661,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
-    chart: mixer-1.0.1
+    chart: mixer-1.0.4
     release: RELEASE-NAME
     istio: mixer
 spec:
@@ -2631,7 +2686,7 @@ spec:
         emptyDir: {}
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.0.2"
+        image: "docker.io/istio/mixer:1.0.4"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9093
@@ -2642,6 +2697,9 @@ spec:
           - --configStoreURL=k8s://
           - --configDefaultNamespace=istio-system
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        env:
+        - name: GODEBUG
+          value: "gctrace=2"
         resources:
           requests:
             cpu: 10m
@@ -2656,11 +2714,17 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/istio/proxyv2:1.0.2"
+        image: "docker.io/istio/proxyv2:1.0.4"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
         - containerPort: 15004
+
+        ports:
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+
         args:
         - proxy
         - --serviceCluster
@@ -2708,7 +2772,7 @@ metadata:
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
-    chart: pilot-1.0.1
+    chart: pilot-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: pilot
@@ -2728,7 +2792,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.0.2"
+          image: "docker.io/istio/pilot:1.0.4"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -2760,7 +2824,7 @@ spec:
           - name: PILOT_PUSH_THROTTLE_COUNT
             value: "100"
           - name: PILOT_TRACE_SAMPLING
-            value: "100"
+            value: "1"
           resources:
             requests:
               cpu: 500m
@@ -2773,7 +2837,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.2"
+          image: "docker.io/istio/proxyv2:1.0.4"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 15003
@@ -2864,7 +2928,7 @@ metadata:
   namespace: istio-system
   labels:
     app: security
-    chart: security-1.0.1
+    chart: security-1.0.4
     release: RELEASE-NAME
     heritage: Tiller
     istio: citadel
@@ -2881,7 +2945,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.0.2"
+          image: "docker.io/istio/citadel:1.0.4"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
@@ -3035,6 +3099,7 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
     name: istio-pilot
+    namespace: istio-system
 spec:
     maxReplicas: 5
     minReplicas: 1
@@ -3058,11 +3123,11 @@ spec:
 
 
 ---
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
+# Source: istio/charts/security/templates/enable-mesh-mtls.yaml
 
 
 ---
-# Source: istio/charts/security/templates/enable-mesh-mtls.yaml
+# Source: istio/charts/security/templates/enable-mesh-permissive.yaml
 
 
 ---

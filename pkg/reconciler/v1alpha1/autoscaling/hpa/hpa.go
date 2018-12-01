@@ -93,7 +93,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-	logger.Debug("Reconcile hpa-clas PodAutoscaler")
+	logger.Debug("Reconcile hpa-class PodAutoscaler")
 
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
@@ -101,6 +101,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return c.deleteHpa(ctx, key)
 	} else if err != nil {
 		return err
+	}
+
+	if original.Class() != autoscaling.HPA {
+		logger.Warn("Ignoring non-hpa-class PA")
+		return nil
 	}
 
 	// Don't modify the informer's copy.

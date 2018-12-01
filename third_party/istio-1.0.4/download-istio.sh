@@ -1,5 +1,5 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.0.2
+ISTIO_VERSION=1.0.4
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
@@ -9,19 +9,31 @@ cd istio-${ISTIO_VERSION}
 # Copy CRDs template
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
 
-# Create template
+# A template with sidecar injection enabled.
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=true \
   --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
   --set global.proxy.autoInject=disabled \
+  --set global.disablePolicyChecks=true \
   --set prometheus.enabled=false \
+  `# Disable mixer policy check, since in our template we set no policy.` \
+  --set global.disablePolicyChecks=true \
+  `# Set a generous number of pilot replicas to avoid Pilot being overloaded.` \
+  --set pilot.autoscaleMin=3 \
+  --set pilot.autoscaleMax=10 \
+  --set pilot.cpu.targetAverageUtilization=60 \
   install/kubernetes/helm/istio > ../istio.yaml
 
+# A liter template, with no sidecar injection.  We could probably remove
+# more from this template.
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=false \
   --set global.proxy.autoInject=disabled \
   --set global.omitSidecarInjectorConfigMap=true \
+  --set global.disablePolicyChecks=true \
   --set prometheus.enabled=false \
+  `# Disable mixer policy check, since in our template we set no policy.` \
+  --set global.disablePolicyChecks=true \
   install/kubernetes/helm/istio > ../istio-lean.yaml
 
 # Clean up.

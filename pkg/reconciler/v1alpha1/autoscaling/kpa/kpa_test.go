@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -158,6 +159,66 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	if fakeMetrics.deleteBeforeCreate.Load() {
 		t.Fatal("Delete ran before OnPresent")
+	}
+}
+
+func TestNonKpaClass(t *testing.T) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+
+	stopCh := make(chan struct{})
+	createdCh := make(chan struct{})
+	defer close(createdCh)
+
+	opts := reconciler.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		Logger:           TestLogger(t),
+	}
+
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+	scaleClient := &scalefake.FakeScaleClient{}
+	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+
+	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	ctl := NewController(&opts,
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Endpoints(),
+		fakeMetrics,
+		kpaScaler,
+	)
+
+	rev := newTestRevision(testNamespace, testRevision)
+	rev.Annotations = map[string]string{
+		autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
+	}
+
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	kpa := revisionresources.MakeKPA(rev)
+	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	reconcileDone := make(chan struct{})
+	go func() {
+		defer close(reconcileDone)
+		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		if err != nil {
+			t.Errorf("Reconcile() = %v", err)
+		}
+	}()
+
+	// Wait for reconcile to finish
+	select {
+	case <-reconcileDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Reconciliation timed out")
+	}
+
+	// Verify no KPAMetrics were created
+	if fakeMetrics.createCallCount.Load() != 0 {
+		t.Errorf("Unexpected KPAMetrics created")
 	}
 }
 
