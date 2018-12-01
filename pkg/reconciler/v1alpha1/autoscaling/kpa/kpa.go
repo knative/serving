@@ -72,12 +72,11 @@ type KPAScaler interface {
 // information from KPAMetrics.
 type Reconciler struct {
 	*reconciler.Base
-
 	paLister        listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
-
-	kpaMetrics KPAMetrics
-	kpaScaler  KPAScaler
+	kpaMetrics      KPAMetrics
+	kpaScaler       KPAScaler
+	dynConfig       *autoscaler.DynamicConfig
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -86,12 +85,11 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // NewController creates an autoscaling Controller.
 func NewController(
 	opts *reconciler.Options,
-
 	paInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-
 	kpaMetrics KPAMetrics,
 	kpaScaler KPAScaler,
+	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -100,6 +98,7 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
+		dynConfig:       dynConfig,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
@@ -173,13 +172,21 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	// TODO: compute this correctly
-	target, _ := pa.MetricTarget()
+	target := c.dynConfig.Current().TargetConcurrency(pa.Spec.ContainerConcurrency)
+	if mt, ok := pa.MetricTarget(); ok {
+		customTarget := float64(mt)
+		if target >= customTarget {
+			target = customTarget
+		} else {
+			logger.Infof("Ignoring %v annotation of %v because it would underprovision the Revision.",
+				autoscaling.ClassAnnotationKey, customTarget)
+		}
+	}
 	logger.Infof("DO NOT SUBMIT: target is %v", target)
 	desiredMetric := &autoscaler.Metric{
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.MetricSpec{
-			TargetConcurrency: float64(target),
+			TargetConcurrency: target,
 		},
 	}
 	logger.Infof("DO NOT SUBMIT: desired metric is +%v", desiredMetric)
