@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -26,17 +27,40 @@ import (
 	"github.com/knative/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Env vars test app received a request.")
-	svc := os.Getenv("K_SERVICE")
-	cfg := os.Getenv("K_CONFIGURATION")
-	rev := os.Getenv("K_REVISION")
-	fmt.Fprintf(w, "Here are our env vars service:%s - configuration:%s - revision:%s", svc, cfg, rev)
+var SHOULD_SET = []string{ "K_SERVICE", "K_CONFIGURATION", "K_REVISION"}
+var MUST_SET = []string{"PORT"}
+
+func fetchEnvVariables(envVars []string) map[string]string {
+	m := make(map[string]string)
+	for _, envVar := range envVars {
+		m[envVar] = os.Getenv(envVar)
+	}
+
+	return m
+}
+
+func handlRequest(w http.ResponseWriter, envVarsSet []string) {
+	envVars := fetchEnvVariables(envVarsSet)
+	resp, err := json.Marshal(envVars)
+	if err != nil {
+		fmt.Fprintf(w, fmt.Sprint("error building response : %v", err))
+	}
+	fmt.Fprintf(w, string(resp))
+}
+
+func shouldSetHandler(w http.ResponseWriter, r *http.Request) {
+	handlRequest(w, SHOULD_SET)
+}
+
+func mustSetHandler(w http.ResponseWriter, r *http.Request) {
+	handlRequest(w, MUST_SET)
 }
 
 func main() {
 	flag.Parse()
 	log.Print("Env vars test app started.")
-
-	test.ListenAndServeGracefully(":8080", handler)
+	test.ListenAndServeGracefullyWithPattern(":8080", map[string]func(w http.ResponseWriter, r *http.Request){
+		"/envvars/should": shouldSetHandler,
+		"/envvars/must": mustSetHandler,
+	})
 }
