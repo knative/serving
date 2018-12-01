@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/metrics/metricskey"
-
 	"go.opencensus.io/stats/view"
 )
 
