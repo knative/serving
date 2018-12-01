@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 const (
@@ -187,32 +185,25 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	key                  string
-	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
-	stats                map[statKey]Stat
-	statsMutex           sync.Mutex
-	panicking            bool
-	panicTime            *time.Time
-	maxPanicPods         float64
-	reporter             StatsReporter
-	targetMutex          sync.RWMutex
-	target               float64
+	key          string
+	target       float64
+	stats        map[statKey]Stat
+	statsMutex   sync.Mutex
+	panicking    bool
+	panicTime    *time.Time
+	maxPanicPods float64
+	reporter     StatsReporter
+	targetMutex  sync.RWMutex
 }
 
 // New creates a new instance of autoscaler
-func New(metric *Metric, dynamicConfig *DynamicConfig) (*Autoscaler, error) {
-	// Create a stats reporter which tags statistics by namespace, configuration name, and name.
-	reporter, err := NewStatsReporter(metric.Namespace,
-		labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
-	if err != nil {
-		return nil, err
-	}
+func New(dynamicConfig *DynamicConfig, target float64, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
 		DynamicConfig: dynamicConfig,
-		target:        metric.Spec.TargetConcurrency,
+		target:        target,
 		stats:         make(map[statKey]Stat),
 		reporter:      reporter,
-	}, nil
+	}
 }
 
 // Update reconfigures the UniScaler according to the MetricSpec.

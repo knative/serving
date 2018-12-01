@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -209,6 +210,22 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 	return rm
 }
 
-func newUniScaler(metric *autoscaler.Metric, dynConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	return autoscaler.New(metric, dynConfig)
+func uniScalerFactory(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+	reporter, err := autoscaler.NewStatsReporter(metric.Namespace,
+		labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return autoscaler.New(dynamicConfig, metric.Spec.TargetConcurrency, reporter), nil
+}
+
+func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
+	if metric.Labels != nil {
+		if value, ok := metric.Labels[labelKey]; ok {
+			return value
+		}
+	}
+	return ""
 }
