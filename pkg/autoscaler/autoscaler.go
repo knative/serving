@@ -354,12 +354,3 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 	}
 	return desiredRate
 }
-
-func labelValueOrEmpty(metric *Metric, labelKey string) string {
-	if metric.Labels != nil {
-		if value, ok := metric.Labels[labelKey]; ok {
-			return value
-		}
-	}
-	return ""
-}
