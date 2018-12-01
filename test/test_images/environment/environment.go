@@ -17,26 +17,36 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/knative/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Env vars test app received a request.")
-	svc := os.Getenv("K_SERVICE")
-	cfg := os.Getenv("K_CONFIGURATION")
-	rev := os.Getenv("K_REVISION")
-	fmt.Fprintf(w, "Here are our env vars service:%s - configuration:%s - revision:%s", svc, cfg, rev)
+func envvarsHandler(w http.ResponseWriter, r *http.Request) {
+	envvars := make(map[string]string)
+	for _, pair := range os.Environ() {
+		tokens := strings.Split(pair, "=")
+		envvars[tokens[0]] = tokens[1]
+	}
+
+	if resp, err := json.Marshal(envvars); err != nil {
+		fmt.Fprintf(w, fmt.Sprintf("error building response : %v", err))
+	} else {
+		fmt.Fprintf(w, string(resp))
+	}
 }
 
 func main() {
 	flag.Parse()
-	log.Print("Env vars test app started.")
-
-	test.ListenAndServeGracefully(":8080", handler)
+	log.Print("Environment test app started.")
+	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request) {
+		test.EnvImageEnvVarsPath : envvarsHandler,
+	})
 }
+
