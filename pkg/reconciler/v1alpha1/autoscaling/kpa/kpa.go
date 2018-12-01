@@ -139,7 +139,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.kpaMetrics.Delete(ctx, original.Namespace, original.Name)
+		return c.kpaMetrics.Delete(ctx, namespace, name)
 	} else if err != nil {
 		return err
 	}

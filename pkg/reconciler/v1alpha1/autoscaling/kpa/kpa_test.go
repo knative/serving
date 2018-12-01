@@ -42,27 +42,35 @@ import (
 )
 
 var (
-	gracePeriod = 60 * time.Second
-	idlePeriod  = 9 * time.Minute
+	gracePeriod   = 60 * time.Second
+	idlePeriod    = 9 * time.Minute
+	configMapData = map[string]string{
+		"max-scale-up-rate":                       "1.0",
+		"container-concurrency-target-percentage": "0.5",
+		"container-concurrency-target-default":    "10.0",
+		"stable-window":                           "5m",
+		"panic-window":                            "10s",
+		"scale-to-zero-grace-period":              gracePeriod.String(),
+		"tick-interval":                           "2s",
+	}
 )
 
 func newConfigWatcher() configmap.Watcher {
-	return configmap.NewStaticWatcher(
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
-				Name:      autoscaler.ConfigName,
-			},
-			Data: map[string]string{
-				"max-scale-up-rate":                       "1.0",
-				"container-concurrency-target-percentage": "0.5",
-				"container-concurrency-target-default":    "10.0",
-				"stable-window":                           "5m",
-				"panic-window":                            "10s",
-				"scale-to-zero-grace-period":              gracePeriod.String(),
-				"tick-interval":                           "2s",
-			},
-		})
+	return configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      autoscaler.ConfigName,
+		},
+		Data: configMapData,
+	})
+}
+
+func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
+	dynConfig, err := autoscaler.NewDynamicConfigFromMap(configMapData, TestLogger(t))
+	if err != nil {
+		t.Errorf("Error creating DynamicConfig: %v", err)
+	}
+	return dynConfig
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
@@ -91,6 +99,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -178,6 +187,7 @@ func TestNoEndpoints(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -239,6 +249,7 @@ func TestEmptyEndpoints(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -300,6 +311,7 @@ func TestControllerCreateError(t *testing.T) {
 			createErr: want,
 		},
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -338,6 +350,7 @@ func TestControllerUpdateError(t *testing.T) {
 			createErr: want,
 		},
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -375,6 +388,7 @@ func TestControllerGetError(t *testing.T) {
 			getErr: want,
 		},
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -413,6 +427,7 @@ func TestScaleFailure(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
@@ -454,6 +469,7 @@ func TestBadKey(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{},
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	err := ctl.Reconciler.Reconcile(context.TODO(), "too/many/parts")
@@ -474,17 +490,17 @@ type testKPAMetrics struct {
 	stopCh             chan struct{}
 }
 
-func (km *testKPAMetrics) Get(ctx context.Context, key string) (*autoscaler.Metric, error) {
-	return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
+func (km *testKPAMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+	return nil, errors.NewNotFound(kpa.Resource("Metrics"), autoscaler.NewMetricKey(namespace, name))
 }
 
-func (km *testKPAMetrics) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
+func (km *testKPAMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
 	km.createCallCount.Add(1)
 	km.createdCh <- struct{}{}
-	return &autoscaler.Metric{Status: autoscaler.MetricStatus{1}}, nil
+	return metric, nil
 }
 
-func (km *testKPAMetrics) Delete(ctx context.Context, key string) error {
+func (km *testKPAMetrics) Delete(ctx context.Context, namespace, name string) error {
 	km.deleteCallCount.Add(1)
 	if km.createCallCount.Load() > 0 {
 		// OnAbsent may be called more than once
@@ -497,6 +513,10 @@ func (km *testKPAMetrics) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (km *testKPAMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+	return metric, nil
+}
+
 func (km *testKPAMetrics) Watch(fn func(string)) {
 }
 
@@ -506,19 +526,23 @@ type failingKPAMetrics struct {
 	deleteErr error
 }
 
-func (km *failingKPAMetrics) Get(ctx context.Context, key string) (*autoscaler.Metric, error) {
+func (km *failingKPAMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
 	return nil, km.getErr
 }
 
-func (km *failingKPAMetrics) Create(ctx context.Context, kpa *kpa.PodAutoscaler) (*autoscaler.Metric, error) {
+func (km *failingKPAMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
 	return nil, km.createErr
 }
 
-func (km *failingKPAMetrics) Delete(ctx context.Context, key string) error {
+func (km *failingKPAMetrics) Delete(ctx context.Context, namespace, name string) error {
 	return km.deleteErr
 }
 
 func (km *failingKPAMetrics) Watch(fn func(string)) {
+}
+
+func (km *failingKPAMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+	return metric, nil
 }
 
 func newTestRevision(namespace string, name string) *v1alpha1.Revision {
