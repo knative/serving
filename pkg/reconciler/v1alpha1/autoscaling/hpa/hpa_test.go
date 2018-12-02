@@ -50,12 +50,6 @@ func TestReconcile(t *testing.T) {
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 		}},
 	}, {
-		Name: "do not create hpa when non-hpa-class pod autoscaler",
-		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithKPAClass),
-		},
-		Key: key(testRevision, testNamespace),
-	}, {
 		Name:    "delete when pa does not exist",
 		Objects: []runtime.Object{},
 		Key:     key(testRevision, testNamespace),
