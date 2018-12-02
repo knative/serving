@@ -74,6 +74,8 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
+// TODO(josephburnett): Convert KPA tests to table tests.
+
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
