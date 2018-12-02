@@ -74,12 +74,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, WithHPAClass),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation),
+			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation("1")),
 		}},
 	}}
 

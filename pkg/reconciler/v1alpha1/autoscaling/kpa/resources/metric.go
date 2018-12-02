@@ -29,12 +29,15 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 
 	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
 	if mt, ok := pa.MetricTarget(); ok {
-		customTarget := float64(mt)
-		if customTarget < target {
-			logger.Infof("Ignoring target of %v because it would underprovision the Revision.", customTarget)
+		annotationTarget := float64(mt)
+		if target != 0 && annotationTarget > target {
+			// If the annotation target would cause the autoscaler to maintain
+			// more requests per pod than the container can handle, we ignore
+			// the annotation and use a containerConcurrency based target instead.
+			logger.Infof("Ignoring target of %v because it would underprovision the Revision.", annotationTarget)
 		} else {
-			logger.Debugf("Using target of %v", customTarget)
-			target = customTarget
+			logger.Debugf("Using target of %v", annotationTarget)
+			target = annotationTarget
 		}
 	}
 	return &autoscaler.Metric{

@@ -32,19 +32,33 @@ import (
 
 func TestMakeMetric(t *testing.T) {
 	cases := []struct {
-		name   string
-		pa     *v1alpha1.PodAutoscaler
-		config *autoscaler.Config
-		want   *autoscaler.Metric
+		name string
+		pa   *v1alpha1.PodAutoscaler
+		want *autoscaler.Metric
 	}{{
-		name:   "defaults",
-		pa:     pa(),
-		config: config(),
-		want:   metric(),
+		name: "defaults",
+		pa:   pa(),
+		want: metric(withTarget(100.0)),
+	}, {
+		name: "with container concurrency 1",
+		pa:   pa(WithContainerConcurrency(1)),
+		want: metric(withTarget(1.0)),
+	}, {
+		name: "with target annotation 1",
+		pa:   pa(WithTargetAnnotation("1")),
+		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+	}, {
+		name: "with container concurrency greater than target annotation (ok)",
+		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
+		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+	}, {
+		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
+		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
+		want: metric(withTarget(1.0), withTargetAnnotation("10")),
 	}}
 
 	for _, tc := range cases {
-		if diff := cmp.Diff(tc.want, MakeMetric(context.TODO(), tc.pa, tc.config)); diff != "" {
+		if diff := cmp.Diff(tc.want, MakeMetric(context.TODO(), tc.pa, config)); diff != "" {
 			t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 		}
 	}
@@ -70,23 +84,6 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-func config(options ...AutoscalerConfigOption) *autoscaler.Config {
-	c := &autoscaler.Config{
-		EnableScaleToZero:                    true,
-		ContainerConcurrencyTargetPercentage: 1.0,
-		ContainerConcurrencyTargetDefault:    100.0,
-		MaxScaleUpRate:                       10.0,
-		StableWindow:                         60 * time.Second,
-		PanicWindow:                          6 * time.Second,
-		TickInterval:                         2 * time.Second,
-		ScaleToZeroGracePeriod:               30 * time.Second,
-	}
-	for _, fn := range options {
-		fn(c)
-	}
-	return c
-}
-
 func metric(options ...MetricOption) *autoscaler.Metric {
 	m := &autoscaler.Metric{
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,10 +103,27 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 	return m
 }
 
-type AutoscalerConfigOption func(*autoscaler.Config)
-
 type MetricOption func(*autoscaler.Metric)
 
-func withTarget1(metric *autoscaler.Metric) {
-	metric.Spec.TargetConcurrency = 1
+func withTarget(target float64) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Spec.TargetConcurrency = target
+	}
+}
+
+func withTargetAnnotation(target string) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
+}
+
+var config = &autoscaler.Config{
+	EnableScaleToZero:                    true,
+	ContainerConcurrencyTargetPercentage: 1.0,
+	ContainerConcurrencyTargetDefault:    100.0,
+	MaxScaleUpRate:                       10.0,
+	StableWindow:                         60 * time.Second,
+	PanicWindow:                          6 * time.Second,
+	TickInterval:                         2 * time.Second,
+	ScaleToZeroGracePeriod:               30 * time.Second,
 }

@@ -594,17 +594,24 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
-// WithTargetAnnotation adds a target annotation to the PA.
-func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+// WithContainerConcurrency returns a PodAutoscalerOption which sets
+// the PodAutoscaler containerConcurrency to the provided value.
+func WithContainerConcurrency(cc int32) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(cc)
 	}
-	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
 }
 
-// WithContainerConcurrency add containerConcurrency to the PA.
-func WithContainerConcurrency(pa *autoscalingv1alpha1.PodAutoscaler) {
-	pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(1)
+// WithTargetAnnotations returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/target to the provided
+// value.
+func WithTargetAnnotation(target string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.
