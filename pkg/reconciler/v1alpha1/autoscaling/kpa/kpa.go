@@ -30,6 +30,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -175,24 +176,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	target := c.dynConfig.Current().TargetConcurrency(pa.Spec.ContainerConcurrency)
-	if mt, ok := pa.MetricTarget(); ok {
-		customTarget := float64(mt)
-		if target >= customTarget {
-			target = customTarget
-		} else {
-			logger.Infof("Ignoring %v annotation of %v because it would underprovision the Revision.",
-				autoscaling.ClassAnnotationKey, customTarget)
-		}
-	}
-	desiredMetric := &autoscaler.Metric{
-		ObjectMeta: pa.ObjectMeta,
-		Spec: autoscaler.MetricSpec{
-			TargetConcurrency: target,
-		},
-	}
-
-	metric, err := c.kpaMetrics.Get(ctx, pa.Namespace, pa.Name)
+	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
+	metric, err := c.kpaMetrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.kpaMetrics.Create(ctx, desiredMetric)
 		if err != nil {

@@ -190,6 +190,7 @@ func TestNonKpaClass(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
+		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)

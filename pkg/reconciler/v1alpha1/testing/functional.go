@@ -602,6 +602,11 @@ func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
 }
 
+// WithContainerConcurrency add containerConcurrency to the PA.
+func WithContainerConcurrency(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(1)
+}
+
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
