@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -80,6 +81,10 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
+
+	// We run 6 controllers, so bump the defaults.
+	cfg.QPS = 6 * rest.DefaultQPS
+	cfg.Burst = 6 * rest.DefaultBurst
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
