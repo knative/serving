@@ -18,14 +18,14 @@ package main
 import (
 	"testing"
 
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 )
 
 func TestLabelValueOrEmpty(t *testing.T) {
-	kpa := &kpa.PodAutoscaler{}
-	kpa.Labels = make(map[string]string)
-	kpa.Labels["test1"] = "test1val"
-	kpa.Labels["test2"] = ""
+	metric := &autoscaler.Metric{}
+	metric.Labels = make(map[string]string)
+	metric.Labels["test1"] = "test1val"
+	metric.Labels["test2"] = ""
 
 	cases := []struct {
 		name string
@@ -47,7 +47,7 @@ func TestLabelValueOrEmpty(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := labelValueOrEmpty(kpa, c.key); got != c.want {
+			if got := labelValueOrEmpty(metric, c.key); got != c.want {
 				t.Errorf("%q expected: %v got: %v", c.name, got, c.want)
 			}
 		})
