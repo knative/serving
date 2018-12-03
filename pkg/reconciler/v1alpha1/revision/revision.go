@@ -119,6 +119,12 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
+	transport := http.DefaultTransport
+	if rt, err := newResolverTransport(k8sCertPath); err != nil {
+		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
+	} else {
+		transport = rt
+	}
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -131,7 +137,7 @@ func NewController(
 		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
-			transport: http.DefaultTransport,
+			transport: transport,
 		},
 	}
 	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
