@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
@@ -44,6 +45,8 @@ const controllerAgentName = "service-controller"
 type Reconciler struct {
 	*reconciler.Base
 
+	statsReporter *reconciler.StatsReporter
+
 	// listers index properties about resources
 	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
@@ -64,6 +67,7 @@ func NewController(
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
+		statsReporter:       reconciler.NewStatsReporter(),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
@@ -220,11 +224,17 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if reflect.DeepEqual(service.Status, desired.Status) {
 		return service, nil
 	}
+	becomesRdy := desired.Status.IsReady() && !service.Status.IsReady()
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	return c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+	if err == nil && becomesRdy {
+		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
+		c.statsReporter.ReportDuration(reconciler.ServiceTimeUntilReadyM, duration)
+	}
+	return svc, err
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
