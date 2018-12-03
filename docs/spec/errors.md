@@ -120,7 +120,6 @@ GET /api/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-servi
 
 ```yaml
 
----
 status:
   latestReadyRevisionName: abc
   latestCreatedRevisionName: bcd # Hasn't become "Ready"
@@ -137,7 +136,6 @@ GET /api/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 
 ```yaml
 
----
 status:
   latestReadyRevisionName: abc
   latestCreatedRevisionName: bcd # Hasn't become "Ready"
@@ -169,7 +167,6 @@ GET /apis/build.knative.dev/v1alpha1/namespaces/default/builds/build-1acub3
 
 ```yaml
 
----
 status:
   # Link to log stream; could be ELK or Stackdriver, for example
   buildLogsLink: "http://logging.infra.mycompany.com/...?filter=..."
@@ -186,7 +183,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -213,7 +209,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -247,7 +242,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -281,7 +275,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 
 ```yaml
 
----
 status:
   logUrl: "http://logging.infra.mycompany.com/...?filter=revision_uid=a1e34&..."
   conditions:
@@ -316,7 +309,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -346,7 +338,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 
 ```yaml
 
----
 status:
   domain: my-service.default.mydomain.com
   traffic:
@@ -365,7 +356,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 
 ```yaml
 
----
 status:
   latestCreatedRevisionname: abc
   # no latestReadyRevisionName, because abc failed
@@ -396,7 +386,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 
 ```yaml
 
----
 status:
   traffic:
     - revisionName: abc
@@ -426,7 +415,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 
 ```yaml
 
----
 status:
   traffic: []
   conditions:
@@ -485,7 +473,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 
 ```yaml
 
----
 status:
   traffic:
     - revisionName: abc
@@ -517,7 +504,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -541,7 +527,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
@@ -564,7 +549,6 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 
 ```yaml
 
----
 status:
   conditions:
     - type: Ready
