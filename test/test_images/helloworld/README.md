@@ -10,4 +10,3 @@ When called, the server emits a "hello world" message.
 
 For details about building and adding new images, see the [section about test
 images](/test/README.md#test-images).
-

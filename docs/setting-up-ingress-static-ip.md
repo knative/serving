@@ -19,7 +19,7 @@ See [instructions](../setting-up-custom-ingress-gateway.md) for more details.
 
 If you are running Knative cluster on GKE, you can follow the [instructions](https://cloud.google.com/compute/docs/ip-addresses/reserve-static-external-ip-address#reserve_new_static) to reserve a REGIONAL
 IP address. The region of the IP address should be the region your Knative
- cluster is running in (e.g. us-east1, us-central1, etc.).
+cluster is running in (e.g. us-east1, us-central1, etc.).
 
 TODO: add documentation on reserving static IP in other cloud platforms.
 

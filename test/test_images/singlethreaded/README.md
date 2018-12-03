@@ -13,4 +13,3 @@ does detect concurrent requests, it instead returns a 500 status.
 
 For details about building and adding new images, see the [section about test
 images](/test/README.md#test-images).
-

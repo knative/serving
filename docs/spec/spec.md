@@ -33,7 +33,6 @@ For example:
 prod.my-service.default.mydomain.com
 ```
 
-
 ## Resource YAML Definitions
 
 YAMLs for the Knative Serving API resources are described below, describing the
@@ -418,7 +417,7 @@ status:
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
- 
+
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
