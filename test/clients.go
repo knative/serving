@@ -106,7 +106,7 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 	}
 
 	return &ServingClients{
-		Configs : cs.ServingV1alpha1().Configurations(namespace)
+		Configs:   cs.ServingV1alpha1().Configurations(namespace),
 		Revisions: cs.ServingV1alpha1().Revisions(namespace),
 		Routes:    cs.ServingV1alpha1().Routes(namespace),
 		Services:  cs.ServingV1alpha1().Services(namespace),
