@@ -134,6 +134,14 @@ func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names Res
 	return svc, err
 }
 
+// CreateLatestServiceWithResources creates a service in namespace with the name names.Service
+// that uses the image specified by imagePath
+func CreateLatestServiceWithResources(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
+	service := LatestServiceWithResources(ServingNamespace, names, imagePath)
+	LogResourceObject(logger, ResourceObjects{Service: service})
+	return clients.ServingClient.Services.Create(service)
+}
+
 // PatchReleaseService patches an existing service in namespace with the name names.Service
 func PatchReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, revisions []string, rolloutPercent int) (*v1alpha1.Service, error) {
 	newSvc := ReleaseService(svc, revisions, rolloutPercent)
