@@ -96,6 +96,27 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
 		},
 	}, {
+		// Pinned rollouts are deprecated, so test the same functionality
+		// using Release.
+		Name: "pinned - create route and service - via release",
+		Objects: []runtime.Object{
+			svc("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+		},
+		Key: "foo/pinned",
+		WantCreates: []metav1.Object{
+			config("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+			route("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("pinned", "foo", WithPinnedRollout2("pinned-0001"),
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
+		},
+	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
 			svc("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
