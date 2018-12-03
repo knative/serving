@@ -37,16 +37,15 @@ func TestEnvVars(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestEnvVars")
 
-	var imagePath = test.ImagePath("envvars")
-
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("yashiki", logger)
+	names.Image = "envvars"
 
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
+	svc, err := test.CreateLatestService(logger, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

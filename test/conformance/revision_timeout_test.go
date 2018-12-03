@@ -119,7 +119,7 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 
 	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	revisionName, err := test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
 	}
@@ -130,8 +130,8 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
-	_, err = test.UpdateManualService(logger, clients, svc)
+	logger.Info("Patching to a Manual Service to allow configuration and route to be manually modified")
+	_, err = test.PatchManualService(logger, clients, svc)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
@@ -146,7 +146,7 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Revision = rev2s.Revision
 
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	rev5s.Revision, err = getNextRevisionName(clients, names)
+	rev5s.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision with timeout 5s: %v", names.Config, err)
 	}

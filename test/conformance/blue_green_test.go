@@ -29,7 +29,6 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +43,9 @@ const (
 	// This might be a bad assumption.
 	minSplitPercentage = 0.25
 
-	expectedBlue  = "What a spaceport!"
-	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
+	// This test uses the two pizza planet test images for the blue and green deployment.
+	expectedBlue  = pizzaPlanetText1
+	expectedGreen = pizzaPlanetText2
 )
 
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
@@ -156,73 +156,46 @@ func TestBlueGreenRoute(t *testing.T) {
 	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
-	names.Service = test.AppendRandomString("pizzaplanet", logger)
-
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
-
-	logger.Info("Creating a new Service in runLatest")
-	svc, err := test.CreateLatestService(logger, clients, names, imagePaths[0])
-	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
-	}
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-	}
-	blue.Revision = revisionName
-
-	logger.Info("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
-	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
-	_, err = test.UpdateManualService(logger, clients, svc)
-	if err != nil {
-		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
-	}
-
-	logger.Infof("Updating the Configuration to use a different image")
-	err = updateConfigWithImage(clients, names, imagePaths)
-	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
-	}
-
-	// getNextRevisionName waits for names.Revision to change, so we set it to the blue revision and wait for the (new) green revision.
-	names.Revision = blue.Revision
-
-	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	green.Revision, err = getNextRevisionName(clients, names)
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
-	}
-
-	// We should only need to wait until the Revision is routable,
-	// i.e. Ready or Inactive.  At that point, activator could start
-	// queuing requests until the Revision wakes up.  However, due to
-	// #882 we are currently lumping the inactive splits and that
-	// would result in 100% requests reaching Blue or Green.
-	//
-	// TODO: After we implement #1583 and honor the split percentage
-	// for inactive cases, change this wait to allow for inactive
-	// revisions as well.
-	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q still can't serve traffic: %v", blue.Revision, err)
-	}
-	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q still can't serve traffic: %v", green.Revision, err)
-	}
+	// Set Service and Image for names to create the initial service
+	names.Service = test.AppendRandomString("test-blue-green-route-", logger)
+	names.Image = pizzaPlanet1
 
 	// Set names for traffic targets to make them directly routable.
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
+
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer tearDown(clients, names)
+
+	// Setup Initial Service
+	logger.Info("Creating a new Service in runLatest")
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// The first revision created is "blue"
+	blue.Revision = names.Revision
+
+	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
+	svc, err := test.PatchManualService(logger, clients, objects.Service)
+	if err != nil {
+		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
+	}
+	objects.Service = svc
+
+	logger.Infof("Updating the Configuration to use a different image")
+	cfg, err := test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
+	if err != nil {
+		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
+	}
+	objects.Config = cfg
+
+	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	green.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
+	}
 
 	logger.Infof("Updating Route")
 	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, blue, green); err != nil {

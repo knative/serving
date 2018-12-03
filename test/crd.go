@@ -37,13 +37,16 @@ type ResourceNames struct {
 	Revision      string
 	Service       string
 	TrafficTarget string
+	Domain        string
+	Image         string
 }
 
 // ResourceObjects holds types of the resource objects.
 type ResourceObjects struct {
-	Route         *v1alpha1.Route
-	Configuration *v1alpha1.Configuration
-	Service       *v1alpha1.Service
+	Route    *v1alpha1.Route
+	Config   *v1alpha1.Configuration
+	Service  *v1alpha1.Service
+	Revision *v1alpha1.Revision
 }
 
 // Route returns a Route object in namespace using the route and configuration

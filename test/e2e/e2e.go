@@ -44,9 +44,9 @@ func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, ima
 	names.Config = test.AppendRandomString(configName, logger)
 	names.Route = test.AppendRandomString(routeName, logger)
 
-	if err := test.CreateConfiguration(logger, clients, names, imagePath, options); err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, imagePath, options); err != nil {
 		return test.ResourceNames{}, err
 	}
-	err := test.CreateRoute(logger, clients, names)
+	_, err := test.CreateRoute(logger, clients, names)
 	return names, err
 }
