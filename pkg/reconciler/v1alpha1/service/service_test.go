@@ -96,26 +96,53 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
 		},
 	}, {
-		// Pinned rollouts are deprecated, so test the same functionality
-		// using Release.
-		Name: "pinned - create route and service - via release",
+		Name: "pinned via release create route and service",
 		Objects: []runtime.Object{
-			svc("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+			svc("pinned2", "foo", WithPinnedRollout2("pinned2-0001")),
 		},
-		Key: "foo/pinned",
+		Key: "foo/pinned2",
 		WantCreates: []metav1.Object{
-			config("pinned", "foo", WithPinnedRollout2("pinned-0001")),
-			route("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+			config("pinned2", "foo", WithPinnedRollout2("pinned2-0001")),
+			route("pinned2", "foo", WithPinnedRollout2("pinned2-0001")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("pinned", "foo", WithPinnedRollout2("pinned-0001"),
+			Object: svc("pinned2", "foo", WithPinnedRollout2("pinned2-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned2"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned2"),
 		},
+	}, {
+		Name: "pinned - with ready config and route",
+		Objects: []runtime.Object{
+			svc("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+				WithInitSvcConditions),
+			config("pinned3", "foo", WithPinnedRollout2("pinned3-0001"), WithGeneration(1),
+				WithLatestCreated, WithObservedGen,
+				// When we see the LatestCreatedRevision become Ready, then we
+				// update the latest ready revision.
+				WithLatestReady),
+			route("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "pinned3-0001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key:         "foo/pinned3",
+		WantCreates: []metav1.Object{},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+				WithReadyConfig("pinned3-00001"), WithReadyRoute, WithSvcStatusDomain,
+				WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "pinned3-0001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
