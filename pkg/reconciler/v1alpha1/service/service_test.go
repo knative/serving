@@ -75,6 +75,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "run-latest"),
 		},
 	}, {
 		Name: "pinned - create route and service",
@@ -94,6 +95,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned"),
 		},
 	}, {
 		// Pinned rollouts are deprecated, so test the same functionality
@@ -115,6 +117,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned2"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned2"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned2"),
 		},
 	}, {
 		Name: "release - create route and service",
@@ -134,6 +137,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release"),
 		},
 	}, {
 		Name: "manual- no creates",
@@ -146,6 +150,9 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithManualStatus),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "manual"),
+		},
 	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
@@ -313,6 +320,9 @@ func TestReconcile(t *testing.T) {
 				// TODO(mattmoor): Add Latest{Created,Ready}
 				WithReadyRoute, WithReadyConfig("all-ready-00001")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
+		},
 	}, {
 		Name: "runLatest - config fails, propagate failure",
 		// When config fails, the service should fail.
@@ -330,6 +340,9 @@ func TestReconcile(t *testing.T) {
 				WithReadyRoute, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
+		},
 	}, {
 		Name: "runLatest - route fails, propagate failure",
 		// When route fails, the service should fail.
@@ -349,6 +362,9 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("route-fails-00001"),
 				WithFailedRoute("Propagate me, please", "")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {

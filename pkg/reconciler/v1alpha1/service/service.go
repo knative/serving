@@ -137,11 +137,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(service); err != nil {
-		logger.Warn("Failed to update service status", zap.Error(err))
+	} else if _, uErr := c.updateStatus(service); uErr != nil {
+		logger.Warn("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Service %q: %v", service.Name, err)
-		return err
+			"Failed to update status for Service %q: %v", service.Name, uErr)
+		return uErr
+	} else if err == nil {
+		// If there was a difference and there was no error.
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
 	}
 	return err
 }
