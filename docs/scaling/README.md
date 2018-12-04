@@ -4,9 +4,12 @@ TODO: write developer/operator facing documentation.
 
 ## Scale Bounds
 
-There are cases when Operators need to set lower and upper bounds on the number of pods serving their apps (e.g. avoiding cold-start, control compute costs, etc).
+There are cases when Operators need to set lower and upper bounds on the number
+of pods serving their apps (e.g. avoiding cold-start, control compute costs,
+etc).
 
-The following annotations can be used on `configuration.revisionTemplate` or `revision` (propagated to `kpa` objects) to do exactly that:
+The following annotations can be used on `configuration.revisionTemplate` or
+`revision` (propagated to `kpa` objects) to do exactly that:
 
 ```yaml
 # +optional

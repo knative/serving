@@ -1,17 +1,17 @@
 # Knative Serving Personas
 
-When discussing user actions, it is often helpful to [define specific
-user roles](<https://en.wikipedia.org/wiki/Persona_(user_experience)>) who
-might want to do the action.
+When discussing user actions, it is often helpful to
+[define specific user roles](<https://en.wikipedia.org/wiki/Persona_(user_experience)>)
+who might want to do the action.
 
 ## Knative Serving Compute
 
 ### Developer Personas
 
-The developer personas are software engineers looking to build and run
-a stateless application without concern about the underlying
-infrastructure. Developers expect to have tools which integrate with
-their native language tooling or business processes.
+The developer personas are software engineers looking to build and run a
+stateless application without concern about the underlying infrastructure.
+Developers expect to have tools which integrate with their native language
+tooling or business processes.
 
 - Hobbyist
 - Backend SWE
@@ -28,9 +28,9 @@ User stories:
 
 ### Operator Personas
 
-The operator personas are focused on deploying and managing both
-Knative Serving and the underlying Kubernetes cluster, as well as applying
-organization policy and security patches.
+The operator personas are focused on deploying and managing both Knative Serving
+and the underlying Kubernetes cluster, as well as applying organization policy
+and security patches.
 
 - Hobbyist / Contributor
 - Cluster administrator
