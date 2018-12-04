@@ -6,10 +6,10 @@ for reporting configuration errors and current state of the system by writing th
 report in the `status` section. There are two mechanisms commonly used
 in `status`:
 
-* **Conditions** represent true/false statements about the current
+- **Conditions** represent true/false statements about the current
   state of the resource.
 
-* **Other fields** may provide status on the most recently retrieved state
+- **Other fields** may provide status on the most recently retrieved state
   of the system as it relates to the resource (example: number of
   replicas or traffic assignments).
 
@@ -37,30 +37,30 @@ Where it makes sense, resources should define a top-level "happy
 state" condition `type` which indicates that the resource is set up
 correctly and ready to serve.
 
-* For long-running resources, this condition `type` should be
+- For long-running resources, this condition `type` should be
   `Ready`.
-* For objects which run to completion, the condition `type` should
+- For objects which run to completion, the condition `type` should
   be `Succeeded`.
 
 ### Knative Serving condition `status`
 
 Each condition's `status` should be one of:
 
-* `Unknown` when the controller is actively working to achieve the
+- `Unknown` when the controller is actively working to achieve the
   condition.
-* `False` when the reconciliation has failed. This should be a terminal
+- `False` when the reconciliation has failed. This should be a terminal
   failure state until user action occurs.
-* `True` when the reconciliation has succeeded. Once all transition
+- `True` when the reconciliation has succeeded. Once all transition
   conditions have succeeded, the "happy state" condition should be set
   to `True`.
 
 Type names should be chosen such that these interpretations are clear:
 
-* `BuildSucceeded` works because `True` = success and `False` = failure.
-* `BuildCompleted` does not, because `False` could mean "in-progress".
+- `BuildSucceeded` works because `True` = success and `False` = failure.
+- `BuildCompleted` does not, because `False` could mean "in-progress".
 
 Conditions may also be omitted entirely if it doesn't pertain to the
-resource at hand.  e.g. Revisions that take pre-build containers may
+resource at hand. e.g. Revisions that take pre-build containers may
 elide Build-related conditions.
 
 Conditions with a status of `False` will also supply additional details
@@ -83,23 +83,23 @@ is the long-form of this.
 Example user and system error scenarios are included below along with
 how the status is presented to CLI and UI tools via the API.
 
-* [Deployment-Related Failures](#deployment-related-failures)
-  * [Revision failed to become Ready](#revision-failed-to-become-ready)
-  * [Build failed](#build-failed)
-  * [Resource exhausted while creating a revision](#resource-exhausted-while-creating-a-revision)
-  * [Container image not present in repository](#container-image-not-present-in-repository)
-  * [Container image fails at startup on Revision](#container-image-fails-at-startup-on-revision)
-  * [Deployment progressing slowly/stuck](#deployment-progressing-slowly-stuck)
-* [Routing-Related Failures](#routing-related-failures)
-  * [Traffic not assigned](#traffic-not-assigned)
-  * [Revision not found by Route](#revision-not-found-by-route)
-  * [Configuration not found by Route](#configuration-not-found-by-route)
-  * [Latest Revision of a Configuration deleted](#latest-revision-of-a-configuration-deleted)
-  * [Traffic shift progressing slowly/stuck](#traffic-shift-progressing-slowly-stuck)
-* [Scale-to-Zero](#scale-to-zero)
-  * [Inactive Revision](#inactive-revision)
-  * [Activating Revision](#activating-revision)
-  * [Active Revision](#active-revision)
+- [Deployment-Related Failures](#deployment-related-failures)
+  - [Revision failed to become Ready](#revision-failed-to-become-ready)
+  - [Build failed](#build-failed)
+  - [Resource exhausted while creating a revision](#resource-exhausted-while-creating-a-revision)
+  - [Container image not present in repository](#container-image-not-present-in-repository)
+  - [Container image fails at startup on Revision](#container-image-fails-at-startup-on-revision)
+  - [Deployment progressing slowly/stuck](#deployment-progressing-slowly-stuck)
+- [Routing-Related Failures](#routing-related-failures)
+  - [Traffic not assigned](#traffic-not-assigned)
+  - [Revision not found by Route](#revision-not-found-by-route)
+  - [Configuration not found by Route](#configuration-not-found-by-route)
+  - [Latest Revision of a Configuration deleted](#latest-revision-of-a-configuration-deleted)
+  - [Traffic shift progressing slowly/stuck](#traffic-shift-progressing-slowly-stuck)
+- [Scale-to-Zero](#scale-to-zero)
+  - [Inactive Revision](#inactive-revision)
+  - [Activating Revision](#activating-revision)
+  - [Active Revision](#active-revision)
 
 ## Deployment-Related Failures
 
@@ -119,15 +119,15 @@ GET /api/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-servi
 ```
 
 ```yaml
-...
+
 status:
   latestReadyRevisionName: abc
-  latestCreatedRevisionName: bcd  # Hasn't become "Ready"
+  latestCreatedRevisionName: bcd # Hasn't become "Ready"
   conditions:
-  - type: Ready
-    status: False
-    reason: BuildFailed
-    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    - type: Ready
+      status: False
+      reason: BuildFailed
+      message: "Build Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 ```http
@@ -135,21 +135,21 @@ GET /api/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 
 ```yaml
-...
+
 status:
   latestReadyRevisionName: abc
-  latestCreatedRevisionName: bcd  # Hasn't become "Ready"
+  latestCreatedRevisionName: bcd # Hasn't become "Ready"
   conditions:
-  - type: Ready
-    status: False
-    reason: BuildFailed
-    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
-  - type: ConfigurationsReady
-    status: False
-    reason: BuildFailed
-    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
-  - type: RoutesReady
-    status: True
+    - type: Ready
+      status: False
+      reason: BuildFailed
+      message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    - type: ConfigurationsReady
+      status: False
+      reason: BuildFailed
+      message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    - type: RoutesReady
+      status: True
 ```
 
 ### Build failed
@@ -166,15 +166,15 @@ GET /apis/build.knative.dev/v1alpha1/namespaces/default/builds/build-1acub3
 ```
 
 ```yaml
-...
+
 status:
   # Link to log stream; could be ELK or Stackdriver, for example
   buildLogsLink: "http://logging.infra.mycompany.com/...?filter=..."
   conditions:
-  - type: Failed
-    status: True
-    reason: BuildStepFailed  # could also be SourceMissing, etc
-    message: "Step XYZ failed with error message: $LASTLOGLINE"
+    - type: Failed
+      status: True
+      reason: BuildStepFailed # could also be SourceMissing, etc
+      message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 ```http
@@ -182,17 +182,17 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: False
-    reason: BuildFailed
-    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
-  - type: BuildSucceeded
-    status: False
-    reason: BuildStepFailed
-    message: "Step XYZ failed with error message: $LASTLOGLINE"
+    - type: Ready
+      status: False
+      reason: BuildFailed
+      message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    - type: BuildSucceeded
+      status: False
+      reason: BuildStepFailed
+      message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 ### Resource exhausted while creating a revision
@@ -208,17 +208,17 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: False
-    reason: NoDeployment
-    message: "The controller could not create a deployment named abc-e13ac."
-  - type: ResourcesProvisioned
-    status: False
-    reason: NoDeployment
-    message: "The controller could not create a deployment named abc-e13ac."
+    - type: Ready
+      status: False
+      reason: NoDeployment
+      message: "The controller could not create a deployment named abc-e13ac."
+    - type: ResourcesProvisioned
+      status: False
+      reason: NoDeployment
+      message: "The controller could not create a deployment named abc-e13ac."
 ```
 
 ### Container image not present in repository
@@ -241,17 +241,17 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: False
-    reason: ContainerMissing
-    message: "Unable to fetch image 'gcr.io/...': <literal error>"
-  - type: ContainerHealthy
-    status: False
-    reason: ContainerMissing
-    message: "Unable to fetch image 'gcr.io/...': <literal error>"
+    - type: Ready
+      status: False
+      reason: ContainerMissing
+      message: "Unable to fetch image 'gcr.io/...': <literal error>"
+    - type: ContainerHealthy
+      status: False
+      reason: ContainerMissing
+      message: "Unable to fetch image 'gcr.io/...': <literal error>"
 ```
 
 ### Container image fails at startup on Revision
@@ -274,18 +274,18 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
-...
+
 status:
   logUrl: "http://logging.infra.mycompany.com/...?filter=revision_uid=a1e34&..."
   conditions:
-  - type: Ready
-    status: False
-    reason: ExitCode127
-    message: "Container failed with: SyntaxError: Unexpected identifier"
-  - type: ContainerHealthy
-    status: False
-    reason: ExitCode127
-    message: "Container failed with: SyntaxError: Unexpected identifier"
+    - type: Ready
+      status: False
+      reason: ExitCode127
+      message: "Container failed with: SyntaxError: Unexpected identifier"
+    - type: ContainerHealthy
+      status: False
+      reason: ExitCode127
+      message: "Container failed with: SyntaxError: Unexpected identifier"
 ```
 
 ### Deployment progressing slowly/stuck
@@ -308,13 +308,13 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: False
-    reason: ProgressDeadlineExceeded
-    message: "Did not pass readiness checks in 120 seconds."
+    - type: Ready
+      status: False
+      reason: ProgressDeadlineExceeded
+      message: "Did not pass readiness checks in 120 seconds."
 ```
 
 ## Routing-Related Failures
@@ -337,17 +337,17 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
-...
+
 status:
   domain: my-service.default.mydomain.com
   traffic:
-  - revisionName: "Not found"
-    percent: 100
+    - revisionName: "Not found"
+      percent: 100
   conditions:
-  - type: Ready
-    status: False
-    reason: RevisionMissing
-    message: "Configuration 'abc' does not have a LatestReadyRevision."
+    - type: Ready
+      status: False
+      reason: RevisionMissing
+      message: "Configuration 'abc' does not have a LatestReadyRevision."
 ```
 
 ```http
@@ -355,22 +355,22 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 
 ```yaml
-...
+
 status:
   latestCreatedRevisionname: abc
   # no latestReadyRevisionName, because abc failed
   domain: my-service.default.mydomain.com
   conditions:
-  - type: Ready
-    status: False
-    reason: RevisionMissing
-    message: "Configuration 'abc' does not have a LatestReadyRevision."
-  - type: RoutesReady
-    status: False
-    reason: RevisionMissing
-    message: "Configuration 'abc' does not have a LatestReadyRevision."
-  - type: ConfigurationsReady
-    status: True
+    - type: Ready
+      status: False
+      reason: RevisionMissing
+      message: "Configuration 'abc' does not have a LatestReadyRevision."
+    - type: RoutesReady
+      status: False
+      reason: RevisionMissing
+      message: "Configuration 'abc' does not have a LatestReadyRevision."
+    - type: ConfigurationsReady
+      status: True
 ```
 
 ### Revision not found by Route
@@ -378,28 +378,28 @@ status:
 If a Revision is referenced in a Route's `spec.traffic`, and the Revision
 cannot be found, the `AllTrafficAssigned` condition will be marked as False
 with a reason of `RevisionMissing`, and the Revision will be omitted from the
-Route's  `status.traffic`.
+Route's `status.traffic`.
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
-...
+
 status:
   traffic:
-  - revisionName: abc
-    name: current
-    percent: 100
+    - revisionName: abc
+      name: current
+      percent: 100
   conditions:
-  - type: Ready
-    status: False
-    reason: RevisionMissing
-    message: "Revision 'qyzz' referenced in traffic not found"
-  - type: AllTrafficAssigned
-    status: False
-    reason: RevisionMissing
-    message: "Revision 'qyzz' referenced in traffic not found"
+    - type: Ready
+      status: False
+      reason: RevisionMissing
+      message: "Revision 'qyzz' referenced in traffic not found"
+    - type: AllTrafficAssigned
+      status: False
+      reason: RevisionMissing
+      message: "Revision 'qyzz' referenced in traffic not found"
 ```
 
 ### Configuration not found by Route
@@ -407,25 +407,25 @@ status:
 If a Route references the `latestReadyRevisionName` of a Configuration
 and the Configuration cannot be found, the `AllTrafficAssigned` condition
 will be marked as False with a reason of `ConfigurationMissing`, and the
-Revision will be omitted from the Route's  `status.traffic`.
+Revision will be omitted from the Route's `status.traffic`.
 
 ```http
 GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
-...
+
 status:
   traffic: []
   conditions:
-  - type: Ready
-    status: False
-    reason: ConfigurationMissing
-    message: "Configuration 'abc' referenced in traffic not found"
-  - type: AllTrafficAssigned
-    status: False
-    reason: ConfigurationMissing
-    message: "Configuration 'abc' referenced in traffic not found"
+    - type: Ready
+      status: False
+      reason: ConfigurationMissing
+      message: "Configuration 'abc' referenced in traffic not found"
+    - type: AllTrafficAssigned
+      status: False
+      reason: ConfigurationMissing
+      message: "Configuration 'abc' referenced in traffic not found"
 ```
 
 ### Latest Revision of a Configuration deleted
@@ -472,19 +472,19 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
-...
+
 status:
   traffic:
-  - revisionName: abc
-    percent: 75
-  - revisionName: def
-    percent: 25
+    - revisionName: abc
+      percent: 75
+    - revisionName: def
+      percent: 25
   conditions:
-  - type: Ready
-    status: False
-    reason: ProgressDeadlineExceeded
-    # reason is a short status, message provides error details
-    message: "Unable to update traffic split for more than 120 seconds."
+    - type: Ready
+      status: False
+      reason: ProgressDeadlineExceeded
+      # reason is a short status, message provides error details
+      message: "Unable to update traffic split for more than 120 seconds."
 ```
 
 ## Scale to Zero
@@ -503,16 +503,16 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: True
-  - type: Active
-    status: False
-    reason: NoTraffic
-    severity: Info
-    message: The target is not receiving traffic.
+    - type: Ready
+      status: True
+    - type: Active
+      status: False
+      reason: NoTraffic
+      severity: Info
+      message: The target is not receiving traffic.
 ```
 
 ### Activating Revision
@@ -526,16 +526,16 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: True
-  - type: Active
-    status: Unknown
-    reason: Queued
-    severity: Info
-    message: Requests to the target are being buffered as resources are provisioned.
+    - type: Ready
+      status: True
+    - type: Active
+      status: Unknown
+      reason: Queued
+      severity: Info
+      message: Requests to the target are being buffered as resources are provisioned.
 ```
 
 ### Active Revision
@@ -548,12 +548,12 @@ GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/my-rev-00001
 ```
 
 ```yaml
-...
+
 status:
   conditions:
-  - type: Ready
-    status: True
-  - type: Active
-    status: True
-    severity: Info
+    - type: Ready
+      status: True
+    - type: Active
+      status: True
+      severity: Info
 ```

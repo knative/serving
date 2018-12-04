@@ -5,9 +5,9 @@ framework for serverless workloads.
 
 We define serverless workloads as computing workloads that are:
 
-* Stateless
-* Amenable to the process scale-out model
-* Primarily driven by application level (L7 -- HTTP, for example)
+- Stateless
+- Amenable to the process scale-out model
+- Primarily driven by application level (L7 -- HTTP, for example)
   request traffic
 
 While Kubernetes provides basic primitives like Deployment, and Service in

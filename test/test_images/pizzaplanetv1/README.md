@@ -11,4 +11,3 @@ When called, the server emits the message "What a spaceport!".
 
 For details about building and adding new images, see the [section about test
 images](/test/README.md#test-images).
-

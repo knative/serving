@@ -3,13 +3,13 @@
 The primary resources in the Knative Serving API are Routes, Revisions,
 Configurations, and Services:
 
-* A **Route** provides a named endpoint and a mechanism for routing traffic to
+- A **Route** provides a named endpoint and a mechanism for routing traffic to
 
-* **Revisions**, which are immutable snapshots of code + config, created by a
+- **Revisions**, which are immutable snapshots of code + config, created by a
 
-* **Configuration**, which acts as a stream of environments for Revisions.
+- **Configuration**, which acts as a stream of environments for Revisions.
 
-* **Service** acts as a top-level container for managing the set of
+- **Service** acts as a top-level container for managing the set of
   Routes and Configurations which implement a network service.
 
 ![Object model](images/object_model.png)
@@ -37,7 +37,7 @@ revision references a container image, and optionally a build that is
 responsible for materializing that container image from source.
 Revisions are created by updates to a **Configuration**.
 
-Revisions that are not addressable via a Route will be *retired*
+Revisions that are not addressable via a Route will be _retired_
 and all underlying K8s resources will be deleted. This provides a
 lightweight history of the revisions a configuration has produced
 over time, and enables users to easily rollback to a prior revision.
@@ -56,7 +56,7 @@ simply reference a container image and associated execution metadata
 needed by the Revision. On updates to a Configuration, a new build
 and/or deployment (creating a Revision) may be performed; the
 Configuration's controller will track the status of created Revisions
-and makes both the most recently created and most recently *ready*
+and makes both the most recently created and most recently _ready_
 (i.e. healthy) Revision available in the status section.
 
 ## Service
@@ -84,27 +84,27 @@ The system will be configured to disallow users from creating
 Revisions. Instead, Revisions are created indirectly when a Configuration
 is created or updated. This provides:
 
-* a single referenceable resource for the route to perform automated
+- a single referenceable resource for the route to perform automated
   rollouts
-* a single resource that can be watched to see a history of all the
+- a single resource that can be watched to see a history of all the
   revisions created
-* PATCH semantics for revisions implemented server-side, minimizing
+- PATCH semantics for revisions implemented server-side, minimizing
   read-modify-write implemented across multiple clients, which could result
   in optimistic concurrency errors
-* the ability to rollback to a known good configuration
+- the ability to rollback to a known good configuration
 
 In the conventional single live revision scenario, a service creates
 both a route and a configuration with the same name as the
 service. Update operations on the service enable scenarios such
 as:
 
-* *"Push code, keep config":* Specifying a new revision with updated
+- _"Push code, keep config":_ Specifying a new revision with updated
   source, inheriting configuration such as env vars from the
   configuration.
-* *"Update config, keep code"*: Specifying a new revision as just a
+- _"Update config, keep code"_: Specifying a new revision as just a
   change to configuration, such as updating an env variable,
   inheriting all other configuration and source/image.
-* *"Execute a manual rollout"*: Updating the service when in pinned
+- _"Execute a manual rollout"_: Updating the service when in pinned
   rollout mode allows manual testing of a revision before making it
   live.
 

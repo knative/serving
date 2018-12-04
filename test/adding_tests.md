@@ -2,8 +2,8 @@
 
 If you are [developing knative](/DEVELOPMENT.md) you may need to add or change:
 
-* [e2e tests](./e2e)
-* [Conformance tests](./conformance)
+- [e2e tests](./e2e)
+- [Conformance tests](./conformance)
 
 Both tests can use our [test library](#test-library).
 
@@ -26,18 +26,18 @@ This library exists partially in this directory and partially in
 
 The libs in this dir can:
 
-* [Use common test flags](#use-common-test-flags)
-* [Get access to client objects](#get-access-to-client-objects)
-* [Make requests against deployed services](#make-requests-against-deployed-services)
-* [Check Knative Serving resources](#check-knative-serving-resources)
-* [Verify resource state transitions](#verify-resource-state-transitions)
-* [Generate boilerplate CRDs](#generate-boilerplate-crds)
+- [Use common test flags](#use-common-test-flags)
+- [Get access to client objects](#get-access-to-client-objects)
+- [Make requests against deployed services](#make-requests-against-deployed-services)
+- [Check Knative Serving resources](#check-knative-serving-resources)
+- [Verify resource state transitions](#verify-resource-state-transitions)
+- [Generate boilerplate CRDs](#generate-boilerplate-crds)
 
 See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 
-* Output logs
-* Emit metrics
-* Ensure test cleanup
+- Output logs
+- Emit metrics
+- Ensure test cleanup
 
 ### Use common test flags
 
@@ -70,10 +70,10 @@ func setup(t *testing.T) *test.Clients {
 
 The `Clients` struct contains initialized clients for accessing:
 
-* Kubernetes objects
-* `Routes`
-* `Configurations`
-* `Revisions`
+- Kubernetes objects
+- `Routes`
+- `Configurations`
+- `Revisions`
 
 For example, to create a `Route`:
 
@@ -120,7 +120,6 @@ _See [request.go](./request.go)._
 
 If you need more low-level access to the http request or response against a deployed
 service, you can directly use the `SpoofingClient` that `WaitForEndpointState` wraps.
-
 
 ```go
 // Error handling elided for brevity, but you know better.
