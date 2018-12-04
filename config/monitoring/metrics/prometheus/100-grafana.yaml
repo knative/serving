@@ -47,6 +47,12 @@ data:
       type: file
       options:
         folder: /grafana-dashboard-definition/knative-efficiency
+    - name: 'knative-reconciler'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/knative-reconciler
     - name: 'istio'
       org_id: 1
       folder: ''
@@ -174,6 +180,8 @@ spec:
           mountPath: /grafana-dashboard-definition/knative
         - name: grafana-dashboard-definition-knative-efficiency
           mountPath: /grafana-dashboard-definition/knative-efficiency
+        - name: grafana-dashboard-definition-knative-reconciler
+          mountPath: /grafana-dashboard-definition/knative-reconciler
         - name: grafana-dashboard-definition-istio
           mountPath: /grafana-dashboard-definition/istio
         - name: grafana-dashboard-definition-mixer
@@ -225,6 +233,9 @@ spec:
       - name: grafana-dashboard-definition-knative-efficiency
         configMap:
           name: grafana-dashboard-definition-knative-efficiency
+      - name: grafana-dashboard-definition-knative-reconciler
+        configMap:
+          name: grafana-dashboard-definition-knative-reconciler
       - name: grafana-dashboard-definition-istio
         configMap:
           name: grafana-dashboard-definition-istio
