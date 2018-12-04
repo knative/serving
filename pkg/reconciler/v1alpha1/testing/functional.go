@@ -116,20 +116,6 @@ func WithPinnedRollout(name string) ServiceOption {
 	}
 }
 
-// WithPinnedRollout2 configures the Service to use a "pinned" rollout,
-// which is pinned to the named revision via ReleaseType.
-func WithPinnedRollout2(name string) ServiceOption {
-	return func(s *v1alpha1.Service) {
-		s.Spec = v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
-				Revisions:      []string{name},
-				RolloutPercent: 0,
-				Configuration:  configSpec,
-			},
-		}
-	}
-}
-
 // WithReleaseRollout configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRollout(names ...string) ServiceOption {
