@@ -2,11 +2,11 @@
 
 This directory contains tests and testing docs for `Knative Serving`:
 
-* [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
-* [End-to-end tests](#running-end-to-end-tests), of which there are two types:
-  * Conformance tests in [`/test/conformance`](./conformance)
-  * Other end-to-end tests in [`/test/e2e`](./e2e)
-* [Performance tests](./performance)
+- [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
+- [End-to-end tests](#running-end-to-end-tests), of which there are two types:
+  - Conformance tests in [`/test/conformance`](./conformance)
+  - Other end-to-end tests in [`/test/e2e`](./e2e)
+- [Performance tests](./performance)
 
 The conformance tests are a subset of the end to end test with [more strict requirements](./conformance/README.md#requirements) around what can be tested.
 
@@ -38,7 +38,6 @@ go test ./...
 
 _By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
-
 ## Running end to end tests
 
 To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you need to have a running environment that meets
@@ -63,23 +62,23 @@ These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The `knative-testing` resources:
-    ```bash
-    ko apply -f test/config
-    ```
+   ```bash
+   ko apply -f test/config
+   ```
 3. The namespace `serving-tests`:
-    ```bash
-    kubectl create namespace serving-tests
-    ```
+   ```bash
+   kubectl create namespace serving-tests
+   ```
 4. A docker repo containing [the test images](#test-images)
 
 ### Common Flags
 
-* By default the e2e tests against the current cluster in `~/.kube/config`
+- By default the e2e tests against the current cluster in `~/.kube/config`
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
-* Since these tests are fairly slow, running them with logging
+- Since these tests are fairly slow, running them with logging
   enabled is recommended (`-v`).
-* Using [`--logverbose`](#output-verbose-log) to see the verbose log output from test as well as from k8s libraries.
-* Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
+- Using [`--logverbose`](#output-verbose-log) to see the verbose log output from test as well as from k8s libraries.
+- Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
 You can [use test flags](#flags) to control the environment
 your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
@@ -107,10 +106,10 @@ Note: this is only required when you run conformance/e2e tests locally with `go 
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to build and push the
 test images used by the conformance and e2e tests. It requires:
 
-* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
-* You to be [authenticated with your
+- [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
+- You to be [authenticated with your
   `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
-* [`docker`](https://docs.docker.com/install/) to be installed
+- [`docker`](https://docs.docker.com/install/) to be installed
 
 To run the script for all end to end test images:
 
@@ -137,10 +136,10 @@ These flags are useful for running against an existing cluster, making use of yo
 
 Tests importing [`github.com/knative/serving/test`](#test-library) recognize these flags:
 
-* [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
-* [`--dockerrepo`](#overriding-docker-repo)
-* [`--tag`](#using-a-docker-tag)
-* [`--resolvabledomain`](#using-a-resolvable-domain)
+- [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
+- [`--dockerrepo`](#overriding-docker-repo)
+- [`--tag`](#using-a-docker-tag)
+- [`--resolvabledomain`](#using-a-resolvable-domain)
 
 ### Overridding docker repo
 
@@ -174,7 +173,7 @@ them](#building-the-test-images).
 If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `example.com`, unless the route has label `app=prod` in which
-case they will use the domain `prod-domain.com`.  Since these domains will not be
+case they will use the domain `prod-domain.com`. Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
 against the endpoint, the test use the IP assigned to the service
 `istio-ingressgateway` in the namespace `istio-system` and spoof the `Host` in

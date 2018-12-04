@@ -16,23 +16,25 @@ other implementations if they can provide similar functionality.
 ### Underlying implementation using Istio
 
 #### Shared Gateway for all Knative Routes
+
 Currently all Routes can receive external traffic through a shared Istio
-Gateway.  Many of our users may already be Istio users.  In order to avoid
+Gateway. Many of our users may already be Istio users. In order to avoid
 conflict with users' Gateway settings, we use a different Gateway than the
-default `istio-ingressgateway`.  In the future we should probably provide a way
+default `istio-ingressgateway`. In the future we should probably provide a way
 for the users to select what the Gateway they use -- and how Knative would
 expect such Gateway to look like.
 
 #### For each Route, a VirtualService and Service
+
 A valid Route object, when reconciled by Knative Route controller, will
 generate the following objects:
 
-*   A VirtualService to realize the routing from the Gateway
-    `knative-shared-gateway` to the traffic target referenced in the Route.
-*   A Service with the same name as the Route, so that we can access the Route
-    using `<route-name>.<route-namespace>.svc.cluster.local`.  This Service
-    has no Pod, we use it solely to have a domain name and a cluster IP to be
-    used in the VirtualService.
+- A VirtualService to realize the routing from the Gateway
+  `knative-shared-gateway` to the traffic target referenced in the Route.
+- A Service with the same name as the Route, so that we can access the Route
+  using `<route-name>.<route-namespace>.svc.cluster.local`. This Service
+  has no Pod, we use it solely to have a domain name and a cluster IP to be
+  used in the VirtualService.
 
 For example, if we have two Knative Revisions `hello-world-01` and
 `hello-world-02`, and one Route `hello-world` that directs traffic to both
@@ -43,8 +45,8 @@ Revisions, the resources would look like:
 #### Routing in the presence of Inactive Revisions (aka 0→1)
 
 In the case of inactive Revisions, a Route would direct requests through the
- Service `activator-service`, with enough information in the headers so that the
- Service `activator-service` Service can activate a Revision before relaying the traffic to
+Service `activator-service`, with enough information in the headers so that the
+Service `activator-service` Service can activate a Revision before relaying the traffic to
 it.
 
 From the same scenario of the previous example, if the Revision

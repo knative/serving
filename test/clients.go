@@ -105,13 +105,12 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 		return nil, err
 	}
 
-	var clients = &ServingClients{}
-	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
-	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
-	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
-	clients.Services = cs.ServingV1alpha1().Services(namespace)
-
-	return clients, nil
+	return &ServingClients{
+		Configs:   cs.ServingV1alpha1().Configurations(namespace),
+		Revisions: cs.ServingV1alpha1().Revisions(namespace),
+		Routes:    cs.ServingV1alpha1().Routes(namespace),
+		Services:  cs.ServingV1alpha1().Services(namespace),
+	}, nil
 }
 
 // Delete will delete all Routes and Configs with the names routes and configs, if clients

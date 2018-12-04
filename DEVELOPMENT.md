@@ -4,9 +4,9 @@ This doc explains how to setup a development environment so you can get started
 [contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
 to `Knative Serving`. Also take a look at:
 
-* [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
-* [How to add and run tests](./test/README.md)
-* [Iterating](#iterating)
+- [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
+- [How to add and run tests](./test/README.md)
+- [Iterating](#iterating)
 
 ## Prerequisites <a name="getting-started"></a>
 
@@ -30,14 +30,14 @@ You must install these tools:
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
 1. [`ko`](https://github.com/google/go-containerregistry/tree/master/cmd/ko): For
-development.
+   development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
 ### Create a cluster and a repo
 
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). You
-   do *not* need install Istio or Knative using the instructions in that page -
+   do _not_ need install Istio or Knative using the instructions in that page -
    simply create the cluster and come back here. However, if you _did_ install
    Istio/Knative following those instructions, that's fine too, you'll just
    redeploy over them, below.
@@ -50,13 +50,13 @@ To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
-`export GOPATH=...`
+   `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-work properly.
+   work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
-developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-   * **Note**: if you are using docker hub to store your images your `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-   * **Note**: Currently Docker Hub doesn't let you create subdirs under your username.
+   developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+   - **Note**: if you are using docker hub to store your images your `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+   - **Note**: Currently Docker Hub doesn't let you create subdirs under your username.
 
 `.bashrc` example:
 
@@ -68,8 +68,7 @@ export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
 ```
 
-Make sure to configure [authentication](
-https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
+Make sure to configure [authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
 for your `KO_DOCKER_REPO` if required. To be able to push images to `gcr.io/<project>`, you need to run this once:
 
 ```shell
@@ -77,8 +76,8 @@ gcloud auth configure-docker
 ```
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
-with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
+with `kubectl`. You can list the clusters you currently have configured via:
+`kubectl config get-contexts`. For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
 ### Checkout your fork
@@ -89,17 +88,17 @@ in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 To check out this repository:
 
 1. Create your own [fork of this
-  repo](https://help.github.com/articles/fork-a-repo/)
+   repo](https://help.github.com/articles/fork-a-repo/)
 1. Clone it to your machine:
 
-  ```shell
-  mkdir -p ${GOPATH}/src/github.com/knative
-  cd ${GOPATH}/src/github.com/knative
-  git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
-  cd serving
-  git remote add upstream git@github.com:knative/serving.git
-  git remote set-url --push upstream no_push
-  ```
+```shell
+mkdir -p ${GOPATH}/src/github.com/knative
+cd ${GOPATH}/src/github.com/knative
+git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
+cd serving
+git remote add upstream git@github.com:knative/serving.git
+git remote set-url --push upstream no_push
+```
 
 _Adding the `upstream` remote sets you up nicely for regularly [syncing your
 fork](https://help.github.com/articles/syncing-a-fork/)._
@@ -195,12 +194,12 @@ kubectl apply -R -f config/monitoring/100-namespace.yaml \
 
 As you make changes to the code-base, there are two special cases to be aware of:
 
-* **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
+- **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
 
-  * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
-  * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
-* **If you change a package's deps** (including adding external dep), then you must run
+- **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
 These are both idempotent, and we expect that running these at `HEAD` to have no diffs.

@@ -1,6 +1,6 @@
 # Conformance tests
 
-* [Running conformance tests](../README.md#running-conformance-tests)
+- [Running conformance tests](../README.md#running-conformance-tests)
 
 ## Adding conformance tests
 
