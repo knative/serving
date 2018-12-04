@@ -100,15 +100,15 @@ func TestReconcile(t *testing.T) {
 		// using Release.
 		Name: "pinned - create route and service - via release",
 		Objects: []runtime.Object{
-			svc("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+			svc("pinned", "foo", WithReleaseRollout("pinned-0001")),
 		},
 		Key: "foo/pinned",
 		WantCreates: []metav1.Object{
-			config("pinned", "foo", WithPinnedRollout2("pinned-0001")),
-			route("pinned", "foo", WithPinnedRollout2("pinned-0001")),
+			config("pinned", "foo", WithReleaseRollout("pinned-0001")),
+			route("pinned", "foo", WithReleaseRollout("pinned-0001")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("pinned", "foo", WithPinnedRollout2("pinned-0001"),
+			Object: svc("pinned", "foo", WithReleaseRollout("pinned-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
