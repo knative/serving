@@ -173,6 +173,25 @@ func TestSemaphore_ReduceCapacity(t *testing.T) {
 	assertEqual(int32(0), sem.capacity, t)
 }
 
+func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
+	sem := NewSemaphore(1, 1)
+	sem.Get()
+	sem.ReduceCapacity(1)
+	assertEqual(int32(1), sem.reducers, t)
+	sem.Put()
+	assertEqual(int32(0), sem.reducers, t)
+	assertEqual(int32(1), sem.capacity, t)
+}
+
+func TestSemaphore_WrongInitialCapacity(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	_ = NewSemaphore(1, 2)
+}
+
 // Attempts to perform a concurrent request against the specified breaker.
 // Will wait for request to either be performed, enqueued or rejected.
 func (b *Breaker) concurrentRequest(empty bool) request {
