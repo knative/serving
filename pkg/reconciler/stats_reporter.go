@@ -27,13 +27,18 @@ import (
 
 type Measurement int
 
-// ServiceTimeUntilReadyM is the time it takes for a service to become ready since the resource is created
-const ServiceTimeUntilReadyM Measurement = iota
+const (
+	// ServiceTimeUntilReadyM is the time it takes for a service to become ready since the resource is created
+	ServiceTimeUntilReadyM Measurement = iota
+
+	// ServiceTimeUntilReadyN is the time it takes for a service to become ready since the resource is created
+	ServiceTimeUntilReadyN = "service_time_until_ready"
+)
 
 var (
 	measurements = []*stats.Float64Measure{
 		ServiceTimeUntilReadyM: stats.Float64(
-			"service_time_until_ready",
+			ServiceTimeUntilReadyN,
 			"Time it takes for a service to become ready since created",
 			stats.UnitMilliseconds),
 	}
@@ -61,6 +66,7 @@ func init() {
 			Description: measurements[ServiceTimeUntilReadyM].Description(),
 			Measure: measurements[ServiceTimeUntilReadyM],
 			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{reconcilerTagKey},
 		},
 	)
 	if err != nil {
