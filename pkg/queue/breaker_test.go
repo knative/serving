@@ -163,7 +163,6 @@ func TestSemaphore_AddCapacity(t *testing.T) {
 	assertEqual(int32(1), sem.capacity, t)
 	sem.Get()
 	sem.AddCapacity(2)
-	assertEqual(int32(2), sem.available, t)
 	assertEqual(int32(3), sem.capacity, t)
 }
 
@@ -171,7 +170,6 @@ func TestSemaphore_ReduceCapacity(t *testing.T) {
 	sem := NewSemaphore(1, 0)
 	sem.AddCapacity(int32(1))
 	sem.ReduceCapacity(1)
-	assertEqual(int32(0), sem.available, t)
 	assertEqual(int32(0), sem.capacity, t)
 }
 
@@ -181,9 +179,9 @@ func (b *Breaker) concurrentRequest(empty bool) request {
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
 
-	if len(b.sem.waitersQueue) > 0 {
+	if len(b.sem.queue) > 0 {
 		// Expect request to be performed
-		defer waitForQueue(b.sem.waitersQueue, len(b.sem.waitersQueue)-1)
+		defer waitForQueue(b.sem.queue, len(b.sem.queue)-1)
 	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
 		// Expect request to be queued
 		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)

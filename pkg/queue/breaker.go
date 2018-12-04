@@ -75,93 +75,74 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	}
 }
 
-// NewSemaphore creates a semaphore with the desired maximal capacity and initial capacity
+// NewSemaphore creates a semaphore with the desired maximal and initial capacity
 func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
-	waiters := make(chan token, maxCapacity)
-	reducers := make(chan token, maxCapacity)
-	mainQueue := make(chan token, maxCapacity)
-	sem := Semaphore{waitersQueue: waiters, reducersQueue: reducers, mainQueue: mainQueue}
+	queue := make(chan token, maxCapacity)
+	sem := Semaphore{queue: queue}
 	if initialCapacity > 0 {
-		//for i := int32(0); i < initialCapacity; i++ {
-		//	sem.AddCapacity()
-		//}
 		sem.AddCapacity(initialCapacity)
 	}
 	return &sem
 }
 
 // Semaphore is an implementation of a semaphore based on Go channels
+// The number of available tokens is the number of elements in the buffered channel
 type Semaphore struct {
-	mux           sync.Mutex
-	waitersQueue  chan token
-	reducersQueue chan token
-	mainQueue     chan token
-	available     int32
-	capacity      int32
-	waiters       int32
-	reducers      int32
-	token         token
+	queue    chan token
+	token    token
+	reducers int32
+	capacity int32
+	mux      sync.Mutex
 }
 
 // Get receives the token from the semaphore, potentially blocking
 func (s *Semaphore) Get() {
-	s.get(&s.waitersQueue, &s.waiters, false)
+	<-s.queue
 }
 
-// Put releases the token to one of the queues
-// The operation is potentially blocking when one of the queues is full
+// Put releases the token to the queue
+// The operation is potentially blocking when the queue is full
 func (s *Semaphore) Put() {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.put()
+	s.AddCapacity(1)
 }
 
-// ReduceCapacity removes the tokens from the rotation
-// the operation is blocking until all requested tokens are available
+// ReduceCapacity removes tokens from the rotation
+// It tries to acquire as many tokens as possible, if there are not enough tokens in the queue,
+// it postpones the operation for the future by increasing the `reducers` counter
 func (s *Semaphore) ReduceCapacity(size int32) {
-	for i := int32(0); i < size; i++ {
-		s.get(&s.reducersQueue, &s.reducers, true)
-	}
-}
-
-// AddCapacity adds capacity to the semaphore
-func (s *Semaphore) AddCapacity(size int32) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	for i := int32(0); i < size; i++ {
-		s.put()
-		s.capacity++
-	}
-}
-
-func (s *Semaphore) get(queue *chan token, counter *int32, cap bool) {
-	s.mux.Lock()
-	if s.available > 0 {
-		s.available--
-		if cap {
+		select {
+		case <-s.queue:
 			s.capacity--
+		default:
+			s.reducers++
 		}
-		*queue <- <-s.mainQueue
-	} else {
-		*counter++
 	}
-	s.mux.Unlock()
-	<-*queue
 }
 
-func (s *Semaphore) put() {
+// AddCapacity conditionally adds capacity to the semaphore
+// If there are tokens that must be reduced, release them first
+// Otherwise, add tokens to the queue
+func (s *Semaphore) AddCapacity(size int32) {
+	var leftToAdd int32
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	if s.reducers > 0 {
-		s.reducers--
-		s.reducersQueue <- s.token
-	} else if s.waiters > 0 {
-		s.waiters--
-		s.waitersQueue <- s.token
+		s.reducers -= size
+		s.capacity -= size
+		leftToAdd = size - s.reducers
 	} else {
-		// no one needs the token now, store it for future use
-		s.mainQueue <- s.token
-		s.available++
+		leftToAdd = size
+	}
+	if leftToAdd > 0 {
+		for i := int32(0); i < size; i++ {
+			s.queue <- s.token
+			s.capacity++
+		}
 	}
 }
