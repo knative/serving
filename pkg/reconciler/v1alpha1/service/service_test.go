@@ -96,7 +96,9 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "pinned"),
 		},
 	}, {
-		Name: "pinned via release create route and service",
+		// Pinned rollouts are deprecated, so test the same functionality
+		// using Release.
+		Name: "pinned - create route and service - via release",
 		Objects: []runtime.Object{
 			svc("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
