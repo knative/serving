@@ -100,7 +100,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			svc("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
-		Key: "foo/pinned22",
+		Key: "foo/pinned2",
 		WantCreates: []metav1.Object{
 			config("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 			route("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
@@ -117,24 +117,23 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "pinned - with ready config and route",
 		Objects: []runtime.Object{
-			svc("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+			svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
 				WithInitSvcConditions),
-			config("pinned3", "foo", WithPinnedRollout2("pinned3-0001"), WithGeneration(1),
+			config("pinned3", "foo", WithReleaseRollout("pinned3-0001"), WithGeneration(1),
 				WithLatestCreated, WithObservedGen,
 				// When we see the LatestCreatedRevision become Ready, then we
 				// update the latest ready revision.
 				WithLatestReady),
-			route("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+			route("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					RevisionName: "pinned3-0001",
 					Percent:      100,
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
-		Key:         "foo/pinned3",
-		WantCreates: []metav1.Object{},
+		Key: "foo/pinned3",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("pinned3", "foo", WithPinnedRollout2("pinned3-0001"),
+			Object: svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
 				WithReadyConfig("pinned3-00001"), WithReadyRoute, WithSvcStatusDomain,
 				WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
@@ -142,7 +141,6 @@ func TestReconcile(t *testing.T) {
 					Percent:      100,
 				})),
 		}},
-		WantEvents: []string{},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
