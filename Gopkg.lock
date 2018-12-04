@@ -444,7 +444,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:93d9d7037434ea3f51ba964c20f625ecb7257e0f13b7adda101d77e516d850c9"
+  digest = "1:b8c826d236148fd7db043b03ce84cfcb95f8b5e82383e82027324ea4fe9818fe"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -452,7 +452,7 @@
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2a11b760d21b3a969d80d9ccf18323e1d5ed03a6"
+  revision = "72fc99da0eedbe27d6b58ea7f3487f400ead8aef"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
