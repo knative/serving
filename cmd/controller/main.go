@@ -183,6 +183,7 @@ func main() {
 			serviceInformer,
 			configurationInformer,
 			routeInformer,
+			reconciler.NewStatsReporter(service.ReconcilerName),
 		),
 		clusteringress.NewController(
 			opt,

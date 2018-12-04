@@ -39,18 +39,23 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "service-controller"
+const (
+	// ReconcilerName is the name of the reconciler
+	ReconcilerName      = "Services"
+	controllerAgentName = "service-controller"
+)
+
 
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	*reconciler.Base
 
-	statsReporter *reconciler.StatsReporter
-
 	// listers index properties about resources
 	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
 	routeLister         listers.RouteLister
+
+	statsReporter reconciler.StatsReporter
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -63,16 +68,17 @@ func NewController(
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
 	routeInformer servinginformers.RouteInformer,
+	statsReporter reconciler.StatsReporter,
 ) *controller.Impl {
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
-		statsReporter:       reconciler.NewStatsReporter(),
+		statsReporter:       statsReporter,
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Services", reconciler.MustNewStatsReporter("Services", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

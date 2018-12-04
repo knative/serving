@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
@@ -35,6 +36,16 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 )
+
+type mockReporter struct{}
+
+func (r *mockReporter) Report(m reconciler.Measurement, v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportDuration(m reconciler.Measurement, d time.Duration) error {
+	return nil
+}
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -475,6 +486,7 @@ func TestReconcile(t *testing.T) {
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			routeLister:         listers.GetRouteLister(),
+			statsReporter:       &mockReporter{},
 		}
 	}))
 }
@@ -494,7 +506,7 @@ func TestNew(t *testing.T) {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
-	}, serviceInformer, configurationInformer, routeInformer)
+	}, serviceInformer, configurationInformer, routeInformer, &mockReporter{})
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
