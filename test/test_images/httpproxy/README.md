@@ -6,7 +6,7 @@ The image contains a simple Go webserver, `httproxy.go`, that will, by default, 
 
 When called, the proxy server redirects request to the target server.
 
-To use this image, users need to first set the host of the target server that the proxy redirects request to by setting environment variable `TARGET_HOST`. 
+To use this image, users need to first set the host of the target server that the proxy redirects request to by setting environment variable `TARGET_HOST`.
 
 ## Building
 

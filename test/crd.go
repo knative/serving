@@ -123,6 +123,9 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 	return config
 }
 
+// ConfigurationWithBuild returns a Configurtion object in the `namespace`
+// with the name `names.Config` that uses the provided Build spec `build`
+// and image specified by `imagePath`.
 func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -235,7 +238,7 @@ var once sync.Once
 func initSeed(logger *logging.BaseLogger) func() {
 	return func() {
 		seed := time.Now().UTC().UnixNano()
-		logger.Infof("Seeding rand.Rand with %v", seed)
+		logger.Infof("Seeding rand.Rand with %d", seed)
 		r = rand.New(rand.NewSource(seed))
 		rndMutex = &sync.Mutex{}
 	}

@@ -79,7 +79,9 @@ function install_knative_serving() {
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Adding more activator pods."
-  kubectl scale deploy --replicas=2 -n knative-serving activator || return 1
+  # This command would fail if the HPA already exist, like during upgrade test.
+  # Therefore we don't exit on failure, and don't log an error message.
+  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #

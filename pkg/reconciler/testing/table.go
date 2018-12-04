@@ -84,6 +84,7 @@ func objKey(o runtime.Object) string {
 // ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation.
 type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList)
 
+// Test executes the single table test.
 func (r *TableRow) Test(t *testing.T, factory Factory) {
 	c, recorderList, eventList := factory(t, r)
 
@@ -217,8 +218,10 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 }
 
+// TableTest represents a list of TableRow tests instances.
 type TableTest []TableRow
 
+// Test executes the whole suite of the table tests.
 func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
 		// Record the original objects in table.

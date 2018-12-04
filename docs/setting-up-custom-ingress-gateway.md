@@ -213,7 +213,6 @@ spec:
                 - s390x
 ```
 
-
 ## Step 2: Update Knative Gateway
 
 Update gateway instance `knative-shared-gateway` under `knative-serving` namespace:
