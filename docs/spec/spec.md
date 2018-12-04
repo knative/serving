@@ -1,7 +1,7 @@
 # Knative Serving API spec
 
-This file contains the [resource paths](#resource-paths) and [yaml
-schemas](#resource-yaml-definitions) that make up the Knative Serving API.
+This file contains the [resource paths](#resource-paths) and
+[yaml schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 ## Resource Paths
 
@@ -17,11 +17,10 @@ For example:
 /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
-It is expected that each Route will provide a name within a
-cluster-wide DNS name. While no particular URL scheme is mandated
-(consult the `domain` property of the Route for the authoritative
-mapping), a common implementation would be to use the kubernetes
-namespace mechanism to produce a URL like the following:
+It is expected that each Route will provide a name within a cluster-wide DNS
+name. While no particular URL scheme is mandated (consult the `domain` property
+of the Route for the authoritative mapping), a common implementation would be to
+use the kubernetes namespace mechanism to produce a URL like the following:
 
 ```http
 [$revisionname].$route.$namespace.<common knative cluster suffix>
@@ -36,13 +35,12 @@ prod.my-service.default.mydomain.com
 ## Resource YAML Definitions
 
 YAMLs for the Knative Serving API resources are described below, describing the
-basic k8s structure: metadata, spec and status, along with comments on
-specific fields.
+basic k8s structure: metadata, spec and status, along with comments on specific
+fields.
 
 ### Route
 
-For a high-level description of Routes,
-[see the overview](overview.md#route).
+For a high-level description of Routes, [see the overview](overview.md#route).
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1

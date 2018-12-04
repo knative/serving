@@ -1,14 +1,14 @@
 # Setting Up A Docker Registry
 
-This document explains how to use different Docker registries with Knative Serving. It
-assumes you have gone through the steps listed in
+This document explains how to use different Docker registries with Knative
+Serving. It assumes you have gone through the steps listed in
 [DEVELOPMENT.md](/DEVELOPMENT.md) to set up your development environment (or
 that you at least have installed `go`, set `GOPATH`, and put `$GOPATH/bin` on
 your `PATH`).
 
-It currently only contains instructions for [Google Container Registry
-(GCR)](https://cloud.google.com/container-registry/), but you should be able to
-use any Docker registry.
+It currently only contains instructions for
+[Google Container Registry (GCR)](https://cloud.google.com/container-registry/),
+but you should be able to use any Docker registry.
 
 ## Google Container Registry (GCR)
 
@@ -26,8 +26,8 @@ Install the following tools:
    gcloud components install docker-credential-gcr
    ```
 
-   If you installed `gcloud` using a package manager, you may need to install
-   it with `go get`:
+   If you installed `gcloud` using a package manager, you may need to install it
+   with `go get`:
 
    ```shell
    go get github.com/GoogleCloudPlatform/docker-credential-gcr
@@ -64,8 +64,8 @@ Install the following tools:
    docker-credential-gcr configure-docker
    ```
 
-1. If you need to, update your `KO_DOCKER_REPO` and/or `DOCKER_REPO_OVERRIDE`
-   in your `.bashrc`. It should now be
+1. If you need to, update your `KO_DOCKER_REPO` and/or `DOCKER_REPO_OVERRIDE` in
+   your `.bashrc`. It should now be
 
    ```shell
    export KO_DOCKER_REPO='us.gcr.io/<your-project-id>'
