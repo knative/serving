@@ -123,8 +123,6 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions),
 			config("pinned3", "foo", WithReleaseRollout("pinned3-0001"), WithGeneration(1),
 				WithLatestCreated, WithObservedGen,
-				// When we see the LatestCreatedRevision become Ready, then we
-				// update the latest ready revision.
 				WithLatestReady),
 			route("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
@@ -135,6 +133,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/pinned3",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Make sure that status contains all the required propagated fields
+			// from config and route status.
 			Object: svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
 				WithReadyConfig("pinned3-00001"), WithReadyRoute, WithSvcStatusDomain,
 				WithSvcStatusAddress,
