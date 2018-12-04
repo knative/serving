@@ -209,7 +209,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if reflect.DeepEqual(service.Status, desired.Status) {
 		return service, nil
 	}
-	// Don't modify the informers copy
+	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
@@ -240,9 +240,9 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	}
 	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
 
-	// Don't modify the informers copy
+	// Don't modify the informers copy.
 	existing := config.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta)
+	// Preserve the rest of the object (e.g. ObjectMeta).
 	existing.Spec = desiredConfig.Spec
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
@@ -251,7 +251,7 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	route, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
-		// happens first in reconcile()
+		// happens first in reconcile().
 		return nil, err
 	}
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
@@ -261,12 +261,12 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	logger := logging.FromContext(ctx)
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
-		// This should be unreachable as configuration creation
-		// happens first in reconcile()
+		// This should be unreachable as route creation
+		// happens first in reconcile().
 		return nil, err
 	}
 
-	// TODO(#642): Remove this (needed to avoid continuous updates)
+	// TODO(#642): Remove this (needed to avoid continuous updates).
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
 	if equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
@@ -275,9 +275,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
 
-	// Don't modify the informers copy
+	// Don't modify the informers copy.
 	existing := route.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta)
+	// Preserve the rest of the object (e.g. ObjectMeta).
 	existing.Spec = desiredRoute.Spec
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }
