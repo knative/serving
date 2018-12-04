@@ -444,7 +444,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b8c826d236148fd7db043b03ce84cfcb95f8b5e82383e82027324ea4fe9818fe"
+  digest = "1:cf1ee21f7f6a2db7859a26961f445536ac2447379ddf8e775ee32c9aa59911d8"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -452,7 +452,7 @@
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "72fc99da0eedbe27d6b58ea7f3487f400ead8aef"
+  revision = "8a63be3b3795aa2f7ae9be32d840e096ba877c78"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1264,6 +1264,7 @@
     "github.com/prometheus/client_golang/api",
     "github.com/prometheus/client_golang/api/prometheus/v1",
     "github.com/prometheus/common/model",
+    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1304,12 +1305,14 @@
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
+    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
