@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sync/atomic"
+	"errors"
 )
 
 const semSleepInterval = 20 * time.Millisecond
@@ -54,7 +55,7 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 	b := NewBreaker(1, 1, 0)          // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests are processed
 
-	b.sem.Put()
+	b.sem.Release()
 	locks := b.concurrentRequests(3)
 
 	unlockAll(locks)
@@ -135,7 +136,7 @@ func TestSemaphore_Get_HasCapacity(t *testing.T) {
 	acquired := int32(0)
 	sem := NewSemaphore(1, 0)
 	tryAcquire(sem, &acquired, 0)
-	sem.Put()
+	sem.Release()
 
 	// to allow `acquired` to change
 	time.Sleep(semSleepInterval)
@@ -151,8 +152,8 @@ func TestSemaphore_Put(t *testing.T) {
 	for i := 0; i < requests; i++ {
 		tryAcquire(sem, &acquired, i)
 	}
-	sem.Put()
-	sem.Put()
+	sem.Release()
+	sem.Release()
 
 	time.Sleep(semSleepInterval)
 	assertEqual(want, atomic.LoadInt32(&acquired), t)
@@ -161,7 +162,7 @@ func TestSemaphore_Put(t *testing.T) {
 func TestSemaphore_AddCapacity(t *testing.T) {
 	sem := NewSemaphore(2, 1)
 	assertEqual(int32(1), sem.capacity, t)
-	sem.Get()
+	sem.Acquire()
 	sem.AddCapacity(2)
 	assertEqual(int32(3), sem.capacity, t)
 }
@@ -176,12 +177,19 @@ func TestSemaphore_ReduceCapacity(t *testing.T) {
 
 func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
 	sem := NewSemaphore(1, 1)
-	sem.Get()
+	sem.Acquire()
 	sem.ReduceCapacity(1)
 	assertEqual(int32(1), sem.reducers, t)
-	sem.Put()
+	sem.Release()
 	assertEqual(int32(0), sem.reducers, t)
 	assertEqual(int32(1), sem.capacity, t)
+}
+
+func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
+	sem := NewSemaphore(1, 1)
+	sem.Acquire()
+	err := sem.ReduceCapacity(2)
+	assertEqual(err, errors.New("the capacity that is released must be <= to added capacity"), t)
 }
 
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {
@@ -272,7 +280,7 @@ func assertEqual(want, got interface{}, t *testing.T) {
 func tryAcquire(sem *Semaphore, acquired *int32, i int) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
-		sem.Get()
+		sem.Acquire()
 		atomic.AddInt32(acquired, 1)
 	}()
 }

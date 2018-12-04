@@ -19,6 +19,7 @@ package queue
 import (
 	"fmt"
 	"sync"
+	"errors"
 )
 
 type token struct{}
@@ -65,9 +66,9 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	case b.pendingRequests <- t:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		b.sem.Get()
+		b.sem.Acquire()
 		// Defer releasing capacity in the active and pending request queue.
-		defer func() { b.sem.Put(); <-b.pendingRequests }()
+		defer func() { b.sem.Release(); <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success
@@ -98,22 +99,25 @@ type Semaphore struct {
 	mux      sync.Mutex
 }
 
-// Get receives the token from the semaphore, potentially blocking
-func (s *Semaphore) Get() {
+// Acquire receives the token from the semaphore, potentially blocking
+func (s *Semaphore) Acquire() {
 	<-s.queue
 }
 
-// Put releases the token to the queue
+// Release releases the token to the queue
 // The operation is potentially blocking when the queue is full
-func (s *Semaphore) Put() {
+func (s *Semaphore) Release() {
 	s.AddCapacity(1)
 }
 
 // ReduceCapacity removes tokens from the rotation
 // It tries to acquire as many tokens as possible, if there are not enough tokens in the queue,
 // it postpones the operation for the future by increasing the `reducers` counter
-func (s *Semaphore) ReduceCapacity(size int32) {
+func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
+	if size > s.capacity {
+		return errors.New("the capacity that is released must be <= to added capacity")
+	}
 	defer s.mux.Unlock()
 	for i := int32(0); i < size; i++ {
 		select {
@@ -123,6 +127,7 @@ func (s *Semaphore) ReduceCapacity(size int32) {
 			s.reducers++
 		}
 	}
+	return nil
 }
 
 // AddCapacity conditionally adds capacity to the semaphore
@@ -133,14 +138,17 @@ func (s *Semaphore) AddCapacity(size int32) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.reducers > 0 {
-		s.reducers -= size
-		s.capacity -= size
+		// do not allow reducers to be negative
+		for i := int32(0); i < size && s.reducers > 0; i++ {
+			s.reducers--
+			s.capacity--
+		}
 		leftToAdd = size - s.reducers
 	} else {
 		leftToAdd = size
 	}
 	if leftToAdd > 0 {
-		for i := int32(0); i < size; i++ {
+		for i := int32(0); i < leftToAdd; i++ {
 			s.queue <- s.token
 			s.capacity++
 		}
