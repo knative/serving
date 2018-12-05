@@ -36,10 +36,9 @@ import (
 )
 
 const (
-	testRevision    = "test-revision"
-	testNamespace   = "test-namespace"
-	testRevisionKey = "test-namespace/test-revision"
-	testKPAKey      = "test-namespace/test-revision"
+	testRevision  = "test-revision"
+	testNamespace = "test-namespace"
+	testKPAKey    = "test-namespace/test-revision"
 )
 
 func TestMultiScalerScaling(t *testing.T) {
@@ -390,11 +389,6 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat autoscaler.Stat) {
 	if u.lastStat != stat {
 		t.Fatalf("Last statistic recorded was %#v instead of expected statistic %#v", u.lastStat, stat)
 	}
-}
-
-type scaleParameterValues struct {
-	kpa      *kpa.PodAutoscaler
-	replicas int32
 }
 
 func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *kpa.PodAutoscaler {
