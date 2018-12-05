@@ -3,8 +3,8 @@
 Install monitoring components using
 [Monitoring, Logging and Tracing Installation](https://github.com/knative/docs/blob/master/serving/installing-logging-metrics-traces.md).
 Once finished, visit
-[Knative Serving](https://github.com/knative/docs/tree/master/serving)
-for guides on accessing logs, metrics and traces.
+[Knative Serving](https://github.com/knative/docs/tree/master/serving) for
+guides on accessing logs, metrics and traces.
 
 ## Default metrics
 
@@ -14,10 +14,10 @@ The following metrics are collected by default:
 - Istio metrics (mixer, envoy and pilot)
 - Node and pod metrics
 
-There are several other collectors that are pre-configured but not enabled.
-To see the full list, browse to config/monitoring/prometheus-exporter
-and config/monitoring/prometheus-servicemonitor folders and deploy them
-using `kubectl apply -f`.
+There are several other collectors that are pre-configured but not enabled. To
+see the full list, browse to config/monitoring/prometheus-exporter and
+config/monitoring/prometheus-servicemonitor folders and deploy them using
+`kubectl apply -f`.
 
 ## Default logs
 
@@ -42,7 +42,8 @@ kubectl port-forward -n knative-monitoring $(kubectl get pods -n knative-monitor
 Then browse to http://localhost:9090 to access the UI.
 
 - To see the targets that are being scraped, go to Status -> Targets
-- To see what Prometheus service discovery is picking up vs. dropping, go to Status -> Service Discovery
+- To see what Prometheus service discovery is picking up vs. dropping, go to
+  Status -> Service Discovery
 
 ## Generating metrics
 
@@ -54,7 +55,8 @@ necessary and instrument your code as described in step 3.
 In the example below, we will setup the service to host the metrics and
 instrument a sample 'Gauge' type metric using the setup.
 
-1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
+1. First, go through
+   [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
 2. Add the following to your application startup:
 
 ```go
@@ -178,8 +180,11 @@ Troubleshooting section above to enable Prometheus UI)
 
 ## Distributed tracing with Zipkin
 
-Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go)
-as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
+Check
+[Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go)
+as an example usage of
+[OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client
+library.
 
 ## Delete monitoring components
 

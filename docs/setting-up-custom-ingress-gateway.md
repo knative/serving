@@ -2,14 +2,15 @@
 
 Knative uses a shared Gateway to serve all incoming traffic within Knative
 service mesh, which is the "knative-shared-gateway" Gateway under
-"knative-serving" namespace. By default, we use Istio gateway service `istio-ingressgateway`
-under "istio-system" namespace as its underlying service. You can replace the
-service with that of your own as follows.
+"knative-serving" namespace. By default, we use Istio gateway service
+`istio-ingressgateway` under "istio-system" namespace as its underlying service.
+You can replace the service with that of your own as follows.
 
 ## Step 1: Create Gateway Service and Deployment Instance
 
-You'll need to create the gateway service and deployment instance to handle traffic first.
-The simplest way should be making a copy of the Gateway service template in [Istio release](https://github.com/istio/istio/releases).
+You'll need to create the gateway service and deployment instance to handle
+traffic first. The simplest way should be making a copy of the Gateway service
+template in [Istio release](https://github.com/istio/istio/releases).
 
 Here is an example:
 
@@ -215,7 +216,8 @@ spec:
 
 ## Step 2: Update Knative Gateway
 
-Update gateway instance `knative-shared-gateway` under `knative-serving` namespace:
+Update gateway instance `knative-shared-gateway` under `knative-serving`
+namespace:
 
 ```shell
 kubectl edit gateway knative-shared-gateway -n knative-serving
@@ -233,12 +235,13 @@ For the service above, it should be updated to
 custom: ingressgateway
 ```
 
-If there is a change in service ports (compared with that of `istio-ingressgateway`),
-update the port info in gateway accordingly.
+If there is a change in service ports (compared with that of
+`istio-ingressgateway`), update the port info in gateway accordingly.
 
 ## Step 3: Update Gateway Configmap
 
-Update gateway configmap `config-ingressgateway` under `knative-serving` namespace:
+Update gateway configmap `config-ingressgateway` under `knative-serving`
+namespace:
 
 ```shell
 kubectl edit configmap config-ingressgateway -n knative-serving

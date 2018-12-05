@@ -26,7 +26,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/prometheus"
+	"github.com/knative/test-infra/tools/prometheus"
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
 

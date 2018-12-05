@@ -11,8 +11,8 @@ This roadmap is what we hope to accomplish in 2018.
 - [Resource Overview](../../docs/spec/overview.md)
 - [Conformance Tests](../../test/conformance/README.md)
 
-In 2018, we will largely focus on curating and implementing the Knative Serving resource
-specification.
+In 2018, we will largely focus on curating and implementing the Knative Serving
+resource specification.
 
 ## Areas of Interest and Requirements
 
@@ -20,8 +20,9 @@ specification.
    Knative Serving API.
 1. **Schema**. [The Knative Serving API schema](../../docs/spec/spec.md) matches
    [our implementation.](./serving/).
-1. **Semantics**. The [semantics](../controller/) of Knative Serving API interactions
-   match [our specification](../../docs/spec/normative_examples.md), and are well
+1. **Semantics**. The [semantics](../controller/) of Knative Serving API
+   interactions match
+   [our specification](../../docs/spec/normative_examples.md), and are well
    covered by [conformance testing](../../test/conformance/README.md).
 
 <!-- TODO(mattmoor): Should this cover Infrastructure as well? -->
@@ -61,7 +62,8 @@ specification.
    <!-- TODO(mattmoor): https://github.com/knative/serving/issues/234 -->
    <!-- TODO(mattmoor): https://github.com/knative/serving/issues/492 -->
 
-1. **Operator Extensions**. Guidelines for how operators can/should customize
-   an Knative Serving installation (e.g. runtime contract) are captured in documentation.
+1. **Operator Extensions**. Guidelines for how operators can/should customize an
+   Knative Serving installation (e.g. runtime contract) are captured in
+   documentation.
 
 <!-- ## What We Are Not Doing -->

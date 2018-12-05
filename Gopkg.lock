@@ -449,6 +449,7 @@
   packages = [
     "scripts",
     "tools/dep-collector",
+    "tools/prometheus",
     "tools/testgrid",
   ]
   pruneopts = "UT"
@@ -1258,6 +1259,7 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/prometheus",
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",

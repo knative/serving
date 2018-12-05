@@ -34,8 +34,8 @@ the release.
 ## Creating nightly releases
 
 Nightly releases are built against the current git tree. The behavior of the
-script is defined by the common flags. You must have write access to the GCR
-and GCS bucket the release will be pushed to, unless `--nopublish` is used.
+script is defined by the common flags. You must have write access to the GCR and
+GCS bucket the release will be pushed to, unless `--nopublish` is used.
 
 Examples:
 
