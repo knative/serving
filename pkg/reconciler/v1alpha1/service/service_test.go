@@ -150,6 +150,9 @@ func TestReconcile(t *testing.T) {
 					Percent:      100,
 				})),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
+		},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
