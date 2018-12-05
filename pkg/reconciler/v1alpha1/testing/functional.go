@@ -104,6 +104,7 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
 // which is pinned to the named revision.
+// Deprecated, since PinnedType is deprecated.
 func WithPinnedRollout(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{

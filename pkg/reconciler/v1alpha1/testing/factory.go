@@ -37,8 +37,10 @@ const (
 	maxEventBufferSize = 10
 )
 
+// Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
+// MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
 	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList) {
 		ls := NewListers(r.Objects)
