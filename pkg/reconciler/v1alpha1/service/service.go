@@ -251,7 +251,8 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	route, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
-		// happens first in reconcile().
+		// happens first in `reconcile()` and it verifies the edge cases
+		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
@@ -262,7 +263,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
-		// happens first in `reconcile()` and it verifies the edgecases
+		// happens first in `reconcile()` and it verifies the edge cases
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
