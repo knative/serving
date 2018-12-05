@@ -261,8 +261,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	logger := logging.FromContext(ctx)
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
-		// This should be unreachable as route creation
-		// happens first in reconcile().
+		// This should be unreachable as configuration creation
+		// happens first in `reconcile()` and it verifies the edgecases
+		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
 
