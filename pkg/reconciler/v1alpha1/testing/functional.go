@@ -88,6 +88,7 @@ var (
 				Container: corev1.Container{
 					Image: "busybox",
 				},
+				TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
 			},
 		},
 	}
@@ -601,6 +602,16 @@ func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = make(map[string]string)
 	}
 	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
+}
+
+// WithMetricAnnotation adds a metric annotation to the PA.
+func WithMetricAnnotation(metric string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.MetricAnnotationKey] = metric
+	}
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.
