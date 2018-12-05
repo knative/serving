@@ -135,10 +135,12 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// Make sure that status contains all the required propagated fields
 			// from config and route status.
-			Object: svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
+			Object: svc("pinned3", "foo",
+				// Initial setup conditions.
+				WithReleaseRollout("pinned3-0001"),
+				// The delta induced by configuration object.
 				WithReadyConfig("pinned3-00001"),
-				// When Route is ready `domain`, `address` and `traffic`
-				// status fields must be set.
+				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					RevisionName: "pinned3-0001",
