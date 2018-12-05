@@ -35,7 +35,7 @@ type Breaker struct {
 
 // NewBreaker creates a Breaker with the desired queue depth,
 // concurrency limit and initial capacity
-func NewBreaker(queueDepth, maxConcurrency int32, initialCapacity int32) *Breaker {
+func NewBreaker(queueDepth, maxConcurrency, initialCapacity int32) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
@@ -115,10 +115,10 @@ func (s *Semaphore) Release() {
 // it postpones the operation for the future by increasing the `reducers` counter
 func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
+	defer s.mux.Unlock()
 	if size > s.capacity {
 		return errors.New("the capacity that is released must be <= to added capacity")
 	}
-	defer s.mux.Unlock()
 	for i := int32(0); i < size; i++ {
 		select {
 		case <-s.queue:
@@ -139,11 +139,13 @@ func (s *Semaphore) AddCapacity(size int32) {
 	defer s.mux.Unlock()
 	if s.reducers > 0 {
 		// do not allow reducers to be negative
-		for i := int32(0); i < size && s.reducers > 0; i++ {
-			s.reducers--
-			s.capacity--
+		if s.reducers >= size {
+			s.reducers -= size
+			s.capacity -= size
+		} else {
+			leftToAdd = size - s.reducers
+			s.reducers = 0
 		}
-		leftToAdd = size - s.reducers
 	} else {
 		leftToAdd = size
 	}

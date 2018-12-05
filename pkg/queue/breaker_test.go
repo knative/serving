@@ -167,6 +167,17 @@ func TestSemaphore_AddCapacity(t *testing.T) {
 	assertEqual(int32(3), sem.capacity, t)
 }
 
+// Test the case when we add more capacity then the number of waiting reducers
+func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
+	sem := NewSemaphore(2, 2)
+	sem.Acquire()
+	sem.Acquire()
+	sem.ReduceCapacity(2)
+	assertEqual(int32(2), sem.reducers, t)
+	sem.AddCapacity(3)
+	assertEqual(int32(0), sem.reducers, t)
+}
+
 func TestSemaphore_ReduceCapacity(t *testing.T) {
 	want := int32(0)
 	sem := NewSemaphore(1, 0)
@@ -182,7 +193,7 @@ func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
 	assertEqual(int32(1), sem.reducers, t)
 	sem.Release()
 	assertEqual(int32(0), sem.reducers, t)
-	assertEqual(int32(1), sem.capacity, t)
+	assertEqual(int32(0), sem.capacity, t)
 }
 
 func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
