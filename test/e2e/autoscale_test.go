@@ -30,7 +30,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -217,11 +217,12 @@ func assertScaleUp(ctx *testContext) {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	ctx.logger.Info("Waiting for scale up")
-	err = test.WaitForDeploymentState(
+	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
+		test.ServingNamespace,
 		2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
@@ -232,11 +233,12 @@ func assertScaleDown(ctx *testContext) {
 	ctx.logger.Infof("The autoscaler successfully scales down when devoid of traffic.")
 
 	ctx.logger.Infof("Waiting for scale to zero")
-	err := test.WaitForDeploymentState(
+	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
+		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
@@ -245,7 +247,7 @@ func assertScaleDown(ctx *testContext) {
 	// Account for the case where scaling up uses all available pods.
 	ctx.logger.Infof("Wait for all pods to terminate.")
 
-	err = test.WaitForPodListState(
+	err = pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
@@ -255,7 +257,7 @@ func assertScaleDown(ctx *testContext) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods")
+		"WaitForAvailablePods", test.ServingNamespace)
 	if err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
 	}
