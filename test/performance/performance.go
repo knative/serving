@@ -34,9 +34,7 @@ import (
 )
 
 const (
-	istioNS      = "istio-system"
 	monitoringNS = "knative-monitoring"
-	gateway      = "istio-ingressgateway"
 	// Property name used by testgrid.
 	perfLatency = "perf_latency"
 	duration    = 1 * time.Minute
