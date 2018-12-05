@@ -72,15 +72,17 @@ func TestObservedConcurrency(t *testing.T) {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
-	var imagePath = test.ImagePath("observed-concurrency")
-	names := test.ResourceNames{Service: test.AppendRandomString("observed-concurrency", logger)}
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("observed-concurrency", logger),
+		Image:   "observed-concurrency",
+	}
 	clients := perfClients.E2EClients
 
 	defer TearDown(perfClients, logger, names)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
+	svc, err := test.CreateLatestService(logger, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
