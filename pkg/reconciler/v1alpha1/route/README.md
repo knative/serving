@@ -5,10 +5,10 @@ network endpoint for a user's service/app (which consists of a series of
 software and configuration Revisions over time). The Route provides a
 long-lived, stable, named, HTTP-addressable endpoint that is backed by one or
 more
-[Revisions](https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision). The
-default configuration is for the `Route` to automatically direct traffic to the
-latest revision created by a Configuration. For more about Routes, read [this
-doc](https://github.com/knative/serving/blob/master/docs/spec/overview.md#route).
+[Revisions](https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision).
+The default configuration is for the `Route` to automatically direct traffic to
+the latest revision created by a Configuration. For more about Routes, read
+[this doc](https://github.com/knative/serving/blob/master/docs/spec/overview.md#route).
 
 Currently we use Istio to program the network for Routes, but we don't exclude
 other implementations if they can provide similar functionality.
@@ -26,15 +26,15 @@ expect such Gateway to look like.
 
 #### For each Route, a VirtualService and Service
 
-A valid Route object, when reconciled by Knative Route controller, will
-generate the following objects:
+A valid Route object, when reconciled by Knative Route controller, will generate
+the following objects:
 
 - A VirtualService to realize the routing from the Gateway
   `knative-shared-gateway` to the traffic target referenced in the Route.
 - A Service with the same name as the Route, so that we can access the Route
-  using `<route-name>.<route-namespace>.svc.cluster.local`. This Service
-  has no Pod, we use it solely to have a domain name and a cluster IP to be
-  used in the VirtualService.
+  using `<route-name>.<route-namespace>.svc.cluster.local`. This Service has no
+  Pod, we use it solely to have a domain name and a cluster IP to be used in the
+  VirtualService.
 
 For example, if we have two Knative Revisions `hello-world-01` and
 `hello-world-02`, and one Route `hello-world` that directs traffic to both
@@ -46,12 +46,11 @@ Revisions, the resources would look like:
 
 In the case of inactive Revisions, a Route would direct requests through the
 Service `activator-service`, with enough information in the headers so that the
-Service `activator-service` Service can activate a Revision before relaying the traffic to
-it.
+Service `activator-service` Service can activate a Revision before relaying the
+traffic to it.
 
-From the same scenario of the previous example, if the Revision
-`hello-world-01` becomes inactive due to lack of traffic, the resources would
-look like:
+From the same scenario of the previous example, if the Revision `hello-world-01`
+becomes inactive due to lack of traffic, the resources would look like:
 
 ![Revision `hello-world-01` is deactivated](doc/images/inactive_revision.svg)
 
