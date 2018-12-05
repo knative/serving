@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"testing"
-	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -726,8 +725,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container:      corev1.Container{Image: "busybox"},
-			TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
+			Container: corev1.Container{Image: "busybox"},
 		},
 	}
 
@@ -758,6 +756,9 @@ func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
 	}
 
 	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
 	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 }
@@ -769,6 +770,9 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	}
 
 	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
 	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 	img, err := resources.MakeImageCache(rev, deploy)
