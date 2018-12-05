@@ -120,6 +120,40 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned2"),
 		},
 	}, {
+		Name: "pinned - with ready config and route",
+		Objects: []runtime.Object{
+			svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
+				WithInitSvcConditions),
+			config("pinned3", "foo", WithReleaseRollout("pinned3-0001"), WithGeneration(1),
+				WithLatestCreated, WithObservedGen,
+				WithLatestReady),
+			route("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "pinned3-0001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key: "foo/pinned3",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Make sure that status contains all the required propagated fields
+			// from config and route status.
+			Object: svc("pinned3", "foo",
+				// Initial setup conditions.
+				WithReleaseRollout("pinned3-0001"),
+				// The delta induced by configuration object.
+				WithReadyConfig("pinned3-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "pinned3-0001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
+		},
+	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
 			svc("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
