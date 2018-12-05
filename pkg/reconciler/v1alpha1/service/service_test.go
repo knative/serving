@@ -136,8 +136,10 @@ func TestReconcile(t *testing.T) {
 			// Make sure that status contains all the required propagated fields
 			// from config and route status.
 			Object: svc("pinned3", "foo", WithReleaseRollout("pinned3-0001"),
-				WithReadyConfig("pinned3-00001"), WithReadyRoute, WithSvcStatusDomain,
-				WithSvcStatusAddress,
+				WithReadyConfig("pinned3-00001"),
+				// When Route is ready `domain`, `address` and `traffic`
+				// status fields must be set.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					RevisionName: "pinned3-0001",
 					Percent:      100,
