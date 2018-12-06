@@ -17,9 +17,9 @@ limitations under the License.
 package queue
 
 import (
+	"errors"
 	"fmt"
 	"sync"
-	"errors"
 )
 
 type token struct{}

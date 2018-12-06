@@ -22,9 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	"sync/atomic"
 	"errors"
+	"sync/atomic"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const semSleepInterval = 20 * time.Millisecond
