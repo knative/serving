@@ -88,6 +88,7 @@ var (
 				Container: corev1.Container{
 					Image: "busybox",
 				},
+				TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
 			},
 		},
 	}
@@ -155,6 +156,27 @@ func WithReadyRoute(s *v1alpha1.Service) {
 			Status: "True",
 		}},
 	})
+}
+
+// WithSvcDomainStatus propagates the domain name to the status of the Service.
+func WithSvcStatusDomain(s *v1alpha1.Service) {
+	n, ns := s.GetName(), s.GetNamespace()
+	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
+	s.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
+}
+
+// WithSvcStatusAddress updates the service's status with the address.
+func WithSvcStatusAddress(s *v1alpha1.Service) {
+	s.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+	}
+}
+
+// WithSvcStatusTraffic sets the Service's status traffic block to the specified traffic targets.
+func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
+	return func(r *v1alpha1.Service) {
+		r.Status.Traffic = traffic
+	}
 }
 
 // WithFailedRoute reflects a Route's failure in the Service resource.
@@ -601,6 +623,16 @@ func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = make(map[string]string)
 	}
 	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
+}
+
+// WithMetricAnnotation adds a metric annotation to the PA.
+func WithMetricAnnotation(metric string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.MetricAnnotationKey] = metric
+	}
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.

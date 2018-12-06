@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:a510b72b7063adf0b56d36fa79ad496d1af75e039c7549e440fb2e683c89b585"
+  digest = "1:74580f9e031cccd10526f3a47a24b10b61c358a690b5f1d531383c4963cf3311"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -440,19 +440,20 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "53b1235c2a85e1309825bc467b3bd54243c879e6"
+  revision = "0e41760cea1d1ce16f4cc311c2d6bd3525bb3da7"
 
 [[projects]]
   branch = "master"
-  digest = "1:93d9d7037434ea3f51ba964c20f625ecb7257e0f13b7adda101d77e516d850c9"
+  digest = "1:f36cb404cd23f6fc1fd4e85e538468658ce991ba73fd1425bd0d1a65de4c3374"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
+    "tools/prometheus",
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2a11b760d21b3a969d80d9ccf18323e1d5ed03a6"
+  revision = "2377fbc40f81501f2bc09a4e1e359a7ec7c3528e"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1258,6 +1259,7 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/prometheus",
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",

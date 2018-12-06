@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -215,10 +214,10 @@ func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	logger := c.logger
 	logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(func() {
+		go func() {
 			for c.processNextWorkItem() {
 			}
-		}, time.Second, stopCh)
+		}()
 	}
 
 	logger.Info("Started workers")
@@ -242,11 +241,10 @@ func (c *Impl) processNextWorkItem() bool {
 	c.statsReporter.ReportQueueDepth(int64(c.WorkQueue.Len()))
 
 	// We call Done here so the workqueue knows we have finished
-	// processing this item. We also must remember to call Forget if we
-	// do not want this work item being re-queued. For example, we do
-	// not call Forget if a transient error occurs, instead the item is
-	// put back on the workqueue and attempted again after a back-off
-	// period.
+	// processing this item. We also must remember to call Forget if
+	// reconcile succeeds. If a transient error occurs, we do not call
+	// Forget and put the item back to the queue with an increased
+	// delay.
 	defer c.WorkQueue.Done(key)
 
 	var err error
@@ -272,7 +270,7 @@ func (c *Impl) processNextWorkItem() bool {
 	}
 
 	// Finally, if no error occurs we Forget this item so it does not
-	// get queued again until another change happens.
+	// have any delay when another change happens.
 	c.WorkQueue.Forget(key)
 	logger.Infof("Reconcile succeeded. Time taken: %v.", time.Now().Sub(startTime))
 
