@@ -40,7 +40,7 @@ readonly E2E_BASE_NAME=k$(basename ${REPO_ROOT_DIR})
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
 readonly E2E_CLUSTER_REGION=us-central1
-readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_REGION}-a
+# readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_REGION}-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
@@ -156,7 +156,7 @@ function create_test_cluster() {
     --provider=gke
     --deployment=gke
     --cluster="${E2E_CLUSTER_NAME}"
-    --gcp-zone="${E2E_CLUSTER_ZONE}"
+    --gcp-region="${E2E_CLUSTER_REGION}"
     --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
@@ -241,7 +241,7 @@ function setup_test_cluster() {
   if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
     USING_EXISTING_CLUSTER=0
     export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
-    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_ZONE}
+    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION}
     # Make sure we're in the default namespace. Currently kubetest switches to
     # test-pods namespace when creating the cluster.
     kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
