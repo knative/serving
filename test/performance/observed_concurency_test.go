@@ -1,5 +1,3 @@
-// +build performance
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -21,6 +19,8 @@ package performance
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,8 +29,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/test-infra/shared/prometheus"
-	"github.com/knative/test-infra/shared/testgrid"
+	"github.com/knative/test-infra/tools/prometheus"
+	"github.com/knative/test-infra/tools/testgrid"
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,6 +62,43 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 		return false, nil
 	}, "ServiceUpdatedWithRevision")
 	return revisionName, err
+}
+
+func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response) (int32, error) {
+	var (
+		group    errgroup.Group
+		requests int32
+	)
+
+	for i := 0; i < concurrency; i++ {
+		group.Go(func() error {
+			done := time.After(duration)
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				return fmt.Errorf("error creating http request: %v", err)
+			}
+			for {
+				select {
+				case <-done:
+					return nil
+				default:
+					res, _ := client.Do(req)
+					if resChannel != nil {
+						resChannel <- res
+					}
+					atomic.AddInt32(&requests, 1)
+				}
+			}
+		})
+	}
+
+	err := group.Wait()
+	requestsMade := atomic.LoadInt32(&requests)
+
+	if err != nil {
+		return requestsMade, fmt.Errorf("error making requests for scale up: %v", err)
+	}
+	return requestsMade, nil
 }
 
 func TestObservedConcurrency(t *testing.T) {
