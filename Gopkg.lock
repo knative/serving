@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:d4cee2d9908d4a05064a1680916455c95cba498394c1f6c3aa4f22742f6edc59"
+  digest = "1:74580f9e031cccd10526f3a47a24b10b61c358a690b5f1d531383c4963cf3311"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -440,11 +440,11 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "9a644df00f19da719379ca936c1949f56d8c3eb5"
+  revision = "0e41760cea1d1ce16f4cc311c2d6bd3525bb3da7"
 
 [[projects]]
   branch = "master"
-  digest = "1:d3c877a0f50ca9d2aec77a430c25806b40f10e4618b6e89950e8f7282712badd"
+  digest = "1:f36cb404cd23f6fc1fd4e85e538468658ce991ba73fd1425bd0d1a65de4c3374"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -1263,9 +1263,7 @@
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
-    "github.com/prometheus/client_golang/api",
-    "github.com/prometheus/client_golang/api/prometheus/v1",
-    "github.com/prometheus/common/model",
+    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1306,12 +1304,14 @@
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
+    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
