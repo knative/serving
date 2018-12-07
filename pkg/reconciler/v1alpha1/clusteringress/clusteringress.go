@@ -195,14 +195,14 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: gatewayServiceUrlFromContext(ctx)},
+		{DomainInternal: gatewayServiceURLFromContext(ctx)},
 	})
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
-func gatewayServiceUrlFromContext(ctx context.Context) string {
-	return config.FromContext(ctx).Istio.IngressGateways[0].ServiceUrl
+func gatewayServiceURLFromContext(ctx context.Context) string {
+	return config.FromContext(ctx).Istio.IngressGateways[0].ServiceURL
 }
 
 func gatewayNamesFromContext(ctx context.Context) []string {

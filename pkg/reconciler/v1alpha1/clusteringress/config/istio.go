@@ -34,9 +34,10 @@ const (
 	IngressGatewayKey = "ingress-gateway"
 )
 
+// IngressGateway specifies the name of the Gateway and the K8s Service backing it.
 type IngressGateway struct {
 	GatewayName string
-	ServiceUrl  string
+	ServiceURL  string
 }
 
 // Istio contains istio related configuration defined in the
@@ -58,14 +59,14 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid gateway entry format: %q", entry)
 		}
-		gatewayName, serviceUrl := parts[0], parts[1]
-		if errs := validation.IsDNS1123Subdomain(serviceUrl); len(errs) > 0 {
+		gatewayName, serviceURL := parts[0], parts[1]
+		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
 		gateways = append(gateways,
 			IngressGateway{
 				GatewayName: gatewayName,
-				ServiceUrl:  serviceUrl,
+				ServiceURL:  serviceURL,
 			})
 	}
 	return &Istio{

@@ -47,7 +47,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config := store.Load()
 
-	config.Istio.IngressGateways = []IngressGateway{{GatewayName: "mutated", ServiceUrl: "mutated"}}
+	config.Istio.IngressGateways = []IngressGateway{{GatewayName: "mutated", ServiceURL: "mutated"}}
 
 	newConfig := store.Load()
 

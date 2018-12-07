@@ -232,10 +232,10 @@ func ReconcilerTestConfig() *config.Config {
 		Istio: &config.Istio{
 			IngressGateways: []config.IngressGateway{{
 				GatewayName: "knative-shared-gateway",
-				ServiceUrl:  reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system"),
+				ServiceURL:  reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system"),
 			}, {
 				GatewayName: "knative-ingress-gateway",
-				ServiceUrl:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+				ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 			}},
 		},
 	}

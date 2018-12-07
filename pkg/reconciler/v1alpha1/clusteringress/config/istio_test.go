@@ -68,7 +68,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		wantIstio: &Istio{
 			IngressGateways: []IngressGateway{{
 				GatewayName: "knative-ingress-gateway",
-				ServiceUrl:  "istio-ingressgateway.istio-system.svc.cluster.local",
+				ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
 			}},
 		},
 		config: &corev1.ConfigMap{
