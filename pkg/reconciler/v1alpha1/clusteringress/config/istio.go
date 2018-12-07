@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -55,7 +56,7 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		if !strings.HasPrefix(k, GatewayKeyPrefix) {
 			continue
 		}
-		gatewayName, serviceURL := strings.TrimPrefix(k, GatewayKeyPrefix), v
+		gatewayName, serviceURL := k[len(GatewayKeyPrefix):], v
 		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
@@ -63,16 +64,15 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		urls[gatewayName] = serviceURL
 	}
 	if len(gatewayNames) == 0 {
-		return nil, fmt.Errorf("at least one gateway is required")
+		return nil, errors.New("at least one gateway is required")
 	}
 	sort.Strings(gatewayNames)
-	gateways := []IngressGateway{}
-	for _, gatewayName := range gatewayNames {
-		gateways = append(gateways,
-			IngressGateway{
-				GatewayName: gatewayName,
-				ServiceURL:  urls[gatewayName],
-			})
+	gateways := make([]IngressGateway, len(gatewayNames))
+	for i, gatewayName := range gatewayNames {
+		gateways[i] = IngressGateway{
+			GatewayName: gatewayName,
+			ServiceURL:  urls[gatewayName],
+		}
 	}
 	return &Istio{
 		IngressGateways: gateways,
