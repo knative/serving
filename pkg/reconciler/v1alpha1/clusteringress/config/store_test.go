@@ -32,12 +32,10 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store.OnConfigChanged(istioConfig)
 	config := FromContext(store.ToContext(context.Background()))
 
-	t.Run("load istio", func(t *testing.T) {
-		expected, _ := NewIstioFromConfigMap(istioConfig)
-		if diff := cmp.Diff(expected, config.Istio); diff != "" {
-			t.Errorf("Unexpected istio config (-want, +got): %v", diff)
-		}
-	})
+	expected, _ := NewIstioFromConfigMap(istioConfig)
+	if diff := cmp.Diff(expected, config.Istio); diff != "" {
+		t.Errorf("Unexpected istio config (-want, +got): %v", diff)
+	}
 }
 
 func TestStoreImmutableConfig(t *testing.T) {

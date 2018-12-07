@@ -19,10 +19,8 @@ metadata:
   namespace: knative-serving
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
-
-  # ingress-gateway provides a semi-colon separated list of Istio
-  # Gateway that we should expose ClusterIngresses to, each having the form
-  # ${gatewayName}:${gatewayService}, where ${gatewayName} is the name of
-  # the Gateway, and ${gatewayService} is the URL of the service backing
-  # that gateway.
-  ingress-gateway: "knative-ingress-gateway:istio-ingressgateway.istio-system.svc.cluster.local;knative-shared-gateway:knative-ingressgateway.istio-system.svc.cluster.local"
+  # Default Knative Gateway after v0.3. It points to the Istio standard istio-ingressgateway,
+  # instead of a custom one that we used pre-0.3.
+  gateway.knative-ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
+  # This is the pre-0.3 shared Gateway.  We leave it here for backward compatibility.
+  gateway.knative-shared-gateway: "knative-ingressgateway.istio-system.svc.cluster.local"

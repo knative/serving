@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,9 @@ const (
 	// IngressGatewayKey is the name of the configuration entry
 	// that specifies ingress gateway url.
 	IngressGatewayKey = "ingress-gateway"
+
+	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways.
+	GatewayKeyPrefix = "gateway."
 )
 
 // IngressGateway specifies the name of the Gateway and the K8s Service backing it.
@@ -49,24 +53,28 @@ type Istio struct {
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-	entries, ok := configMap.Data[IngressGatewayKey]
-	if !ok {
-		return nil, fmt.Errorf("failed to fetch %s from configmap %s", IngressGatewayKey, IstioConfigName)
+	urls := map[string]string{}
+	gatewayNames := []string{}
+	for k, v := range configMap.Data {
+		if strings.HasPrefix(k, GatewayKeyPrefix) {
+			gatewayName, serviceURL := strings.TrimPrefix(k, GatewayKeyPrefix), v
+			if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
+				return nil, fmt.Errorf("invalid gateway format: %v", errs)
+			}
+			gatewayNames = append(gatewayNames, gatewayName)
+			urls[gatewayName] = serviceURL
+		}
 	}
+	if len(gatewayNames) == 0 {
+		return nil, fmt.Errorf("at least one gateway is required")
+	}
+	sort.Strings(gatewayNames)
 	gateways := []IngressGateway{}
-	for _, entry := range strings.Split(entries, ";") {
-		parts := strings.Split(entry, ":")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid gateway entry format: %q", entry)
-		}
-		gatewayName, serviceURL := parts[0], parts[1]
-		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
-			return nil, fmt.Errorf("invalid gateway format: %v", errs)
-		}
+	for _, gatewayName := range gatewayNames {
 		gateways = append(gateways,
 			IngressGateway{
 				GatewayName: gatewayName,
-				ServiceURL:  serviceURL,
+				ServiceURL:  urls[gatewayName],
 			})
 	}
 	return &Istio{

@@ -49,11 +49,19 @@ import (
 	"github.com/knative/serving/pkg/system"
 )
 
+var (
+	originGateways = map[string]string{
+		"gateway.knative-shared-gateway": "origin.ns.svc.cluster.local",
+	}
+	newGateways = map[string]string{
+		"gateway.knative-ingress-gateway": "custom.ns.svc.cluster.local",
+		"gateway.knative-shared-gateway":  "origin.ns.svc.cluster.local",
+	}
+)
+
 const (
 	originDomainInternal = "origin.ns.svc.cluster.local"
-	originGateways       = "knative-shared-gateway:origin.ns.svc.cluster.local"
 	newDomainInternal    = "custom.ns.svc.cluster.local"
-	newGateways          = "knative-ingress-gateway:custom.ns.svc.cluster.local;knative-shared-gateway:origin.ns.svc.cluster.local"
 )
 
 var (
@@ -280,9 +288,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 				Name:      config.IstioConfigName,
 				Namespace: system.Namespace,
 			},
-			Data: map[string]string{
-				config.IngressGatewayKey: originGateways,
-			},
+			Data: originGateways,
 		},
 	}
 	for _, cm := range configs {
@@ -372,9 +378,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 			Name:      config.IstioConfigName,
 			Namespace: system.Namespace,
 		},
-		Data: map[string]string{
-			config.IngressGatewayKey: newGateways,
-		},
+		Data: newGateways,
 	}
 	watcher.OnChange(&domainConfig)
 	timer := time.NewTimer(10 * time.Second)
