@@ -24,7 +24,7 @@ import (
 
 const (
 	// DefaultTimeout will be set if timeout not specified.
-	DefaultTimeout = 60 * time.Second
+	DefaultTimeout = 5 * 60 * time.Second
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
 )
