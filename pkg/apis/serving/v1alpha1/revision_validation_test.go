@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -390,7 +391,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				Duration: 600 * time.Second,
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("10m0s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("10m0s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
@@ -401,7 +402,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				Duration: -30 * time.Second,
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("-30s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("-30s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
 	}}
 
 	for _, test := range tests {
