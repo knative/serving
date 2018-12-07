@@ -30,10 +30,6 @@ const (
 	// customizations for istio related features.
 	IstioConfigName = "config-istio"
 
-	// IngressGatewayKey is the name of the configuration entry
-	// that specifies ingress gateway url.
-	IngressGatewayKey = "ingress-gateway"
-
 	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways.
 	GatewayKeyPrefix = "gateway."
 )
@@ -56,14 +52,15 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	urls := map[string]string{}
 	gatewayNames := []string{}
 	for k, v := range configMap.Data {
-		if strings.HasPrefix(k, GatewayKeyPrefix) {
-			gatewayName, serviceURL := strings.TrimPrefix(k, GatewayKeyPrefix), v
-			if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
-				return nil, fmt.Errorf("invalid gateway format: %v", errs)
-			}
-			gatewayNames = append(gatewayNames, gatewayName)
-			urls[gatewayName] = serviceURL
+		if !strings.HasPrefix(k, GatewayKeyPrefix) {
+			continue
 		}
+		gatewayName, serviceURL := strings.TrimPrefix(k, GatewayKeyPrefix), v
+		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid gateway format: %v", errs)
+		}
+		gatewayNames = append(gatewayNames, gatewayName)
+		urls[gatewayName] = serviceURL
 	}
 	if len(gatewayNames) == 0 {
 		return nil, fmt.Errorf("at least one gateway is required")

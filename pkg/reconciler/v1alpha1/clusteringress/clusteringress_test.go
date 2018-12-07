@@ -49,19 +49,19 @@ import (
 	"github.com/knative/serving/pkg/system"
 )
 
-var (
-	originGateways = map[string]string{
-		"gateway.knative-shared-gateway": "origin.ns.svc.cluster.local",
-	}
-	newGateways = map[string]string{
-		"gateway.knative-ingress-gateway": "custom.ns.svc.cluster.local",
-		"gateway.knative-shared-gateway":  "origin.ns.svc.cluster.local",
-	}
-)
-
 const (
 	originDomainInternal = "origin.ns.svc.cluster.local"
 	newDomainInternal    = "custom.ns.svc.cluster.local"
+)
+
+var (
+	originGateways = map[string]string{
+		"gateway.knative-shared-gateway": originDomainInternal,
+	}
+	newGateways = map[string]string{
+		"gateway.knative-ingress-gateway": newDomainInternal,
+		"gateway.knative-shared-gateway":  originDomainInternal,
+	}
 )
 
 var (
