@@ -145,6 +145,11 @@ func main() {
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 
+	serviceReconcilerReporter, err := reconciler.NewStatsReporter(service.ReconcilerName)
+	if err != nil {
+		panic(err)
+	}
+
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []*controller.Impl{
@@ -183,7 +188,7 @@ func main() {
 			serviceInformer,
 			configurationInformer,
 			routeInformer,
-			reconciler.NewStatsReporter(service.ReconcilerName),
+			serviceReconcilerReporter,
 		),
 		clusteringress.NewController(
 			opt,
