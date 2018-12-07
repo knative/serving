@@ -44,7 +44,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
-			hpa(testRevision, testNamespace, WithHPAClass),
+			hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
@@ -75,11 +75,13 @@ func TestReconcile(t *testing.T) {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation),
-			hpa(testRevision, testNamespace, WithHPAClass),
+			hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu")),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation),
+			Object: hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"),
+				// Add the target annotation, if missing.
+				WithTargetAnnotation),
 		}},
 	}}
 

@@ -100,8 +100,8 @@ function wait_until_object_does_not_exist() {
   fi
   echo -n "Waiting until ${DESCRIPTION} does not exist"
   for i in {1..150}; do  # timeout after 5 minutes
-    if kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
-      echo "\n${DESCRIPTION} does not exist"
+    if ! kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
+      echo -e "\n${DESCRIPTION} does not exist"
       return 0
     fi
     echo -n "."
@@ -201,12 +201,12 @@ function get_app_pods() {
 # Sets the given user as cluster admin.
 # Parameters: $1 - user
 #             $2 - cluster name
-#             $3 - cluster zone
+#             $3 - cluster region
 function acquire_cluster_admin_role() {
   # Get the password of the admin and use it, as the service account (or the user)
   # might not have the necessary permission.
   local password=$(gcloud --format="value(masterAuth.password)" \
-      container clusters describe $2 --zone=$3)
+      container clusters describe $2 --region=$3)
   if [[ -n "${password}" ]]; then
     # Cluster created with basic authentication
     kubectl config set-credentials cluster-admin \
@@ -216,9 +216,9 @@ function acquire_cluster_admin_role() {
     local key=$(mktemp)
     echo "Certificate in ${cert}, key in ${key}"
     gcloud --format="value(masterAuth.clientCertificate)" \
-      container clusters describe $2 --zone=$3 | base64 -d > ${cert}
+      container clusters describe $2 --region=$3 | base64 -d > ${cert}
     gcloud --format="value(masterAuth.clientKey)" \
-      container clusters describe $2 --zone=$3 | base64 -d > ${key}
+      container clusters describe $2 --region=$3 | base64 -d > ${key}
     kubectl config set-credentials cluster-admin \
       --client-certificate=${cert} --client-key=${key}
   fi
@@ -229,7 +229,7 @@ function acquire_cluster_admin_role() {
       --user=$1
   # Reset back to the default account
   gcloud container clusters get-credentials \
-      $2 --zone=$3 --project $(gcloud config get-value project)
+      $2 --region=$3 --project $(gcloud config get-value project)
 }
 
 # Runs a go test and generate a junit summary through bazel.
@@ -265,10 +265,11 @@ function report_go_test() {
     local field0="${fields[0]}"
     local field1="${fields[1]}"
     local name="${fields[2]}"
-    # Deal with a SIGQUIT log entry (usually a test timeout).
+    # Deal with a SIGQUIT or panic log entry (usually a test timeout).
     # This is a fallback in case there's no kill signal log entry.
     # SIGQUIT: quit
-    if [[ "${field0}" == "SIGQUIT:" ]]; then
+    # panic: test timed out after 5m0s
+    if [[ "${field0}" == "SIGQUIT:" || "${field0}" == "panic:" ]]; then
       name="${last_run}"
       field1="FAIL:"
       error="${fields[@]}"

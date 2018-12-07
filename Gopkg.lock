@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:d4cee2d9908d4a05064a1680916455c95cba498394c1f6c3aa4f22742f6edc59"
+  digest = "1:74580f9e031cccd10526f3a47a24b10b61c358a690b5f1d531383c4963cf3311"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -440,19 +440,20 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "9a644df00f19da719379ca936c1949f56d8c3eb5"
+  revision = "0e41760cea1d1ce16f4cc311c2d6bd3525bb3da7"
 
 [[projects]]
   branch = "master"
-  digest = "1:93d9d7037434ea3f51ba964c20f625ecb7257e0f13b7adda101d77e516d850c9"
+  digest = "1:43b7090191283fcd6fc3d09aad5931c2f2a259d924ab94b2c0b39cb918cb5735"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
+    "tools/prometheus",
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2a11b760d21b3a969d80d9ccf18323e1d5ed03a6"
+  revision = "72c8632747f6d75a1ecba8f368af9b543e74fa0c"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1258,12 +1259,11 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/prometheus",
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
-    "github.com/prometheus/client_golang/api",
-    "github.com/prometheus/client_golang/api/prometheus/v1",
-    "github.com/prometheus/common/model",
+    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1304,12 +1304,14 @@
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
+    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",

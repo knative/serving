@@ -26,9 +26,10 @@ import (
 	"math"
 	"net/http"
 	"regexp"
+	"strings"
 
 	pkgTest "github.com/knative/pkg/test"
-
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
@@ -48,6 +49,14 @@ const (
 	httpproxy           = "httpproxy"
 	singleThreadedImage = "singlethreaded"
 	timeout             = "timeout"
+
+	concurrentRequests = 50
+	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
+	// This might be a bad assumption.
+	minDirectPercentage = 1
+	// We expect to see at least 25% of either response since we're routing 50/50.
+	// This might be a bad assumption.
+	minSplitPercentage = 0.25
 )
 
 func setup(t *testing.T) *test.Clients {
@@ -128,4 +137,97 @@ func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
+func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
+	responses := make([]string, num)
+
+	// Launch "num" requests, recording the responses we get in "responses".
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < num; i++ {
+		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
+		result := &responses[i]
+		g.Go(func() error {
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			if err != nil {
+				return err
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
+			*result = string(resp.Body)
+			return nil
+		})
+	}
+	return responses, g.Wait()
+}
+
+// checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
+func checkResponses(logger *logging.BaseLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+	// counts maps the expected response body to the number of matching requests we saw.
+	counts := make(map[string]int)
+	// badCounts maps the unexpected response body to the number of matching requests we saw.
+	badCounts := make(map[string]int)
+
+	// counts := eval(
+	//   SELECT body, count(*) AS total
+	//   FROM $actualResponses
+	//   WHERE body IN $expectedResponses
+	//   GROUP BY body
+	// )
+	for _, ar := range actualResponses {
+		expected := false
+		for _, er := range expectedResponses {
+			if strings.Contains(string(ar), er) {
+				counts[er]++
+				expected = true
+			}
+		}
+		if !expected {
+			badCounts[ar]++
+		}
+	}
+
+	// Verify that we saw each entry in "expectedResponses" at least "min" times.
+	// check(SELECT body FROM $counts WHERE total < $min)
+	totalMatches := 0
+	for _, er := range expectedResponses {
+		count := counts[er]
+		if count < min {
+			return fmt.Errorf("domain %s failed: want min %d, got %d for response %q", domain, min, count, er)
+		}
+
+		logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
+		totalMatches += count
+	}
+	// Verify that the total expected responses match the number of requests made.
+	for badResponse, count := range badCounts {
+		logger.Infof("saw unexpected response %q %d times", badResponse, count)
+	}
+	if totalMatches < num {
+		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+	}
+	// If we made it here, the implementation conforms. Congratulations!
+	return nil
+}
+
+// checkDistribution sends "num" requests to "domain", then validates that
+// we see each body in "expectedResponses" at least "min" times.
+func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+
+	logger.Infof("Performing %d concurrent requests to %s", num, domain)
+	actualResponses, err := sendRequests(client, domain, num)
+	if err != nil {
+		return err
+	}
+
+	return checkResponses(logger, num, min, domain, expectedResponses, actualResponses)
 }
