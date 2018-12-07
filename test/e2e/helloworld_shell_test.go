@@ -103,19 +103,21 @@ func TestHelloWorldFromShell(t *testing.T) {
 		serviceHost := ""
 		timeout := ingressTimeout
 		for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-			serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
-			serviceIP = noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
-				"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+			if serviceHost == "" {
+				serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+			}
+			if serviceIP == "" {
+				serviceIP = noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
+					"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+			}
+			timeout -= checkInterval
 			time.Sleep(checkInterval)
-			timeout = timeout - checkInterval
 		}
 		if serviceIP == "" || serviceHost == "" {
 			// serviceHost or serviceIP might contain a useful error, dump them.
 			t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
 		}
-		logger.Infof("Ingress is at %s/%s", serviceIP, serviceHost)
-
-		logger.Info("Accessing app using curl")
+		logger.Infof("Curling %s/%s", serviceIP, serviceHost)
 
 		outputString := ""
 		timeout = servingTimeout
@@ -128,17 +130,17 @@ func TestHelloWorldFromShell(t *testing.T) {
 			}
 			output, err := cmd.Output()
 			errorString := "none"
-			time.Sleep(checkInterval)
-			timeout = timeout - checkInterval
 			if err != nil {
 				errorString = err.Error()
 			}
 			outputString = strings.TrimSpace(string(output))
 			logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+			timeout -= checkInterval
+			time.Sleep(checkInterval)
 		}
 
 		if outputString != helloWorldExpectedOutput {
-			t.Fatalf("Timeout waiting for app to start serving")
+			t.Fatal("Timeout waiting for app to start serving")
 		}
 	}
 	logger.Info("App is serving")
