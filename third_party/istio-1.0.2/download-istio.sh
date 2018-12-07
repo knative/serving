@@ -1,10 +1,13 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.0.4
+ISTIO_VERSION=1.0.2
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
 cd istio-${ISTIO_VERSION}
+
+# Fix the istio-pilot HPA to be in the istio-system namespace.
+cp ../istio-pilot-hpa.yaml install/kubernetes/helm/istio/charts/pilot/templates/autoscale.yaml
 
 # Copy CRDs template
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
