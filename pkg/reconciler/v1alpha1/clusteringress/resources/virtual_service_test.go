@@ -55,9 +55,27 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 			*kmeta.NewControllerRef(ci),
 		},
 	}
-	meta := MakeVirtualService(ci).ObjectMeta
+	meta := MakeVirtualService(ci, []string{}).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
 		t.Errorf("Unexpected metadata (-want +got): %v", diff)
+	}
+}
+
+func TestMakeVirtualServiceSpec_CorrectGateways(t *testing.T) {
+	ci := &v1alpha1.ClusterIngress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ingress",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		},
+		Spec: v1alpha1.IngressSpec{},
+	}
+	expected := []string{"gateway-one", "gateway-two", "mesh"}
+	gateways := MakeVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	if diff := cmp.Diff(expected, gateways); diff != "" {
+		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
 }
 
@@ -162,7 +180,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
 	}}
-	routes := MakeVirtualService(ci).Spec.Http
+	routes := MakeVirtualService(ci, []string{}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		fmt.Printf("%+v\n", routes)
 		fmt.Printf("%+v\n", expected)
