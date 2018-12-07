@@ -17,7 +17,10 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -28,29 +31,50 @@ const (
 	// customizations for istio related features.
 	IstioConfigName = "config-istio"
 
-	// IngressGatewayKey is the name of the configuration entry
-	// that specifies ingress gateway url.
-	IngressGatewayKey = "ingress-gateway"
+	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways.
+	GatewayKeyPrefix = "gateway."
 )
+
+// IngressGateway specifies the name of the Gateway and the K8s Service backing it.
+type IngressGateway struct {
+	GatewayName string
+	ServiceURL  string
+}
 
 // Istio contains istio related configuration defined in the
 // istio config map.
 type Istio struct {
 	// IngressGateway specifies the ingress gateway url.
-	IngressGateway string
+	IngressGateways []IngressGateway
 }
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-	gateway, ok := configMap.Data[IngressGatewayKey]
-	if !ok {
-		return nil, fmt.Errorf("failed to fetch %s from configmap %s", IngressGatewayKey, IstioConfigName)
+	urls := map[string]string{}
+	gatewayNames := []string{}
+	for k, v := range configMap.Data {
+		if !strings.HasPrefix(k, GatewayKeyPrefix) {
+			continue
+		}
+		gatewayName, serviceURL := k[len(GatewayKeyPrefix):], v
+		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid gateway format: %v", errs)
+		}
+		gatewayNames = append(gatewayNames, gatewayName)
+		urls[gatewayName] = serviceURL
 	}
-	if errs := validation.IsDNS1123Subdomain(gateway); len(errs) > 0 {
-		return nil, fmt.Errorf("invalid gateway format: %v", errs)
+	if len(gatewayNames) == 0 {
+		return nil, errors.New("at least one gateway is required")
 	}
-
+	sort.Strings(gatewayNames)
+	gateways := make([]IngressGateway, len(gatewayNames))
+	for i, gatewayName := range gatewayNames {
+		gateways[i] = IngressGateway{
+			GatewayName: gatewayName,
+			ServiceURL:  urls[gatewayName],
+		}
+	}
 	return &Istio{
-		IngressGateway: gateway,
+		IngressGateways: gateways,
 	}, nil
 }
