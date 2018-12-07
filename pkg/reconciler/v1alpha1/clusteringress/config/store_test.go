@@ -47,11 +47,11 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config := store.Load()
 
-	config.Istio.IngressGateway = "mutated"
+	config.Istio.IngressGateways = []IngressGateway{{GatewayName: "mutated", ServiceUrl: "mutated"}}
 
 	newConfig := store.Load()
 
-	if newConfig.Istio.IngressGateway == "mutated" {
+	if newConfig.Istio.IngressGateways[0].GatewayName == "mutated" {
 		t.Error("Istio config is not immutable")
 	}
 }

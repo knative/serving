@@ -66,7 +66,10 @@ func TestGatewayConfiguration(t *testing.T) {
 		name:    "gateway configuration with valid url",
 		wantErr: false,
 		wantIstio: &Istio{
-			IngressGateway: "istio-ingressgateway.istio-system.svc.cluster.local",
+			IngressGateways: []IngressGateway{{
+				GatewayName: "knative-ingress-gateway",
+				ServiceUrl:  "istio-ingressgateway.istio-system.svc.cluster.local",
+			}},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +77,7 @@ func TestGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				IngressGatewayKey: "istio-ingressgateway.istio-system.svc.cluster.local",
+				IngressGatewayKey: "knative-ingress-gateway:istio-ingressgateway.istio-system.svc.cluster.local",
 			},
 		}},
 	}

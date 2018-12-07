@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -33,24 +34,41 @@ const (
 	IngressGatewayKey = "ingress-gateway"
 )
 
+type IngressGateway struct {
+	GatewayName string
+	ServiceUrl  string
+}
+
 // Istio contains istio related configuration defined in the
 // istio config map.
 type Istio struct {
 	// IngressGateway specifies the ingress gateway url.
-	IngressGateway string
+	IngressGateways []IngressGateway
 }
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-	gateway, ok := configMap.Data[IngressGatewayKey]
+	entries, ok := configMap.Data[IngressGatewayKey]
 	if !ok {
 		return nil, fmt.Errorf("failed to fetch %s from configmap %s", IngressGatewayKey, IstioConfigName)
 	}
-	if errs := validation.IsDNS1123Subdomain(gateway); len(errs) > 0 {
-		return nil, fmt.Errorf("invalid gateway format: %v", errs)
+	gateways := []IngressGateway{}
+	for _, entry := range strings.Split(entries, ";") {
+		parts := strings.Split(entry, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid gateway entry format: %q", entry)
+		}
+		gatewayName, serviceUrl := parts[0], parts[1]
+		if errs := validation.IsDNS1123Subdomain(serviceUrl); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid gateway format: %v", errs)
+		}
+		gateways = append(gateways,
+			IngressGateway{
+				GatewayName: gatewayName,
+				ServiceUrl:  serviceUrl,
+			})
 	}
-
 	return &Istio{
-		IngressGateway: gateway,
+		IngressGateways: gateways,
 	}, nil
 }

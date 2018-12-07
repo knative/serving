@@ -18,5 +18,5 @@ metadata:
   name: config-istio
   namespace: knative-serving
 data:
-  # Gateway used for knative traffic. Default to istio-ingressgateway.
-  ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
+  # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
+  ingress-gateway: "knative-shared-gateway:knative-ingressgateway.istio-system.svc.cluster.local;knative-ingress-gateway:istio-ingressgateway.istio-system.svc.cluster.local"

@@ -50,8 +50,10 @@ import (
 )
 
 const (
-	originGateway = "origin.ns.svc.cluster.local"
-	customGateway = "custom.ns.svc.cluster.local"
+	originDomainInternal = "origin.ns.svc.cluster.local"
+	originGateways       = "knative-shared-gateway:origin.ns.svc.cluster.local"
+	newDomainInternal    = "custom.ns.svc.cluster.local"
+	newGateways          = "knative-ingress-gateway:custom.ns.svc.cluster.local;knative-shared-gateway:origin.ns.svc.cluster.local"
 )
 
 var (
@@ -106,14 +108,15 @@ func TestReconcile(t *testing.T) {
 			ingress("no-virtualservice-yet", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(ingress("no-virtualservice-yet", 1234)),
+			resources.MakeVirtualService(ingress("no-virtualservice-yet", 1234),
+				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("no-virtualservice-yet", 1234,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
 						},
 					},
 					Conditions: duckv1alpha1.Conditions{{
@@ -156,13 +159,14 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(ingress("reconcile-virtualservice", 1234)),
+			Object: resources.MakeVirtualService(ingress("reconcile-virtualservice", 1234),
+				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
 		}, {
 			Object: ingressWithStatus("reconcile-virtualservice", 1234,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
 						},
 					},
 					Conditions: duckv1alpha1.Conditions{{
@@ -226,7 +230,13 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Istio: &config.Istio{
-			IngressGateway: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+			IngressGateways: []config.IngressGateway{{
+				GatewayName: "knative-shared-gateway",
+				ServiceUrl:  reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system"),
+			}, {
+				GatewayName: "knative-ingress-gateway",
+				ServiceUrl:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+			}},
 		},
 	}
 }
@@ -271,7 +281,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 				Namespace: system.Namespace,
 			},
 			Data: map[string]string{
-				config.IngressGatewayKey: originGateway,
+				config.IngressGatewayKey: originGateways,
 			},
 		},
 	}
@@ -330,7 +340,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		v1alpha1.IngressStatus{
 			LoadBalancer: &v1alpha1.LoadBalancerStatus{
 				Ingress: []v1alpha1.LoadBalancerIngressStatus{
-					{DomainInternal: originGateway},
+					{DomainInternal: ""},
 				},
 			},
 			Conditions: duckv1alpha1.Conditions{{
@@ -356,14 +366,14 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	ingressClient.Create(ingress)
 
 	// Test changes in gateway config map. ClusterIngress should get updated appropriately.
-	expectedGateway := customGateway
+	expectedDomainInternal := newDomainInternal
 	domainConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.IstioConfigName,
 			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
-			config.IngressGatewayKey: customGateway,
+			config.IngressGatewayKey: newGateways,
 		},
 	}
 	watcher.OnChange(&domainConfig)
@@ -389,7 +399,7 @@ loop:
 	if len(gateways) != 1 {
 		t.Errorf("Unexpected gateways: %v", gateways)
 	}
-	if gateways[0].DomainInternal != expectedGateway {
-		t.Errorf("Expected gateway %q but got %q", expectedGateway, gateways[0].DomainInternal)
+	if gateways[0].DomainInternal != expectedDomainInternal {
+		t.Errorf("Expected gateway %q but got %q", expectedDomainInternal, gateways[0].DomainInternal)
 	}
 }
