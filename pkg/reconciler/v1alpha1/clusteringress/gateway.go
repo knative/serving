@@ -42,15 +42,15 @@ func (c *Reconciler) updateGatewayLabelSelector() {
 	ctx := context.TODO()
 	ctx = c.configStore.ToContext(ctx)
 
-	ingressUrl := ingressGatewayFromContext(ctx)
+	ingressURL := ingressGatewayFromContext(ctx)
 	// Extract ingress service from the URL.
 	for _, suffix := range ingressSuffixes {
-		ingressUrl = strings.TrimSuffix(ingressUrl, suffix)
+		ingressURL = strings.TrimSuffix(ingressURL, suffix)
 	}
 	// The url should be in format of <service-name>.<service-namespace> then.
-	serviceInfo := strings.Split(ingressUrl, ".")
+	serviceInfo := strings.Split(ingressURL, ".")
 	if len(serviceInfo) != 2 {
-		c.Logger.Errorf("Failed to update gateway label selector, invalid ingress url: %s", ingressUrl)
+		c.Logger.Errorf("Failed to update gateway label selector, invalid ingress url: %s", ingressURL)
 		return
 	}
 	serviceName, serviceNamespace := serviceInfo[0], serviceInfo[1]
