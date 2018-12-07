@@ -444,7 +444,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f36cb404cd23f6fc1fd4e85e538468658ce991ba73fd1425bd0d1a65de4c3374"
+  digest = "1:cf1ee21f7f6a2db7859a26961f445536ac2447379ddf8e775ee32c9aa59911d8"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -453,7 +453,7 @@
     "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2377fbc40f81501f2bc09a4e1e359a7ec7c3528e"
+  revision = "8a63be3b3795aa2f7ae9be32d840e096ba877c78"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1263,6 +1263,9 @@
     "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/api",
+    "github.com/prometheus/client_golang/api/prometheus/v1",
+    "github.com/prometheus/common/model",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
