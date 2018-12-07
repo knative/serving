@@ -38,6 +38,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
+			UID:       "test-uid",
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
 			},
@@ -45,7 +46,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
 	expected := metav1.ObjectMeta{
-		GenerateName: "test-route-",
+		Name: "test-route-test-ns-test-uid",
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: "test-ns",

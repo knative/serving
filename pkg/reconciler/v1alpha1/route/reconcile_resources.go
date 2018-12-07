@@ -49,7 +49,7 @@ func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alp
 		return nil, err
 	}
 	if len(ingresses) == 0 {
-		return nil, apierrs.NewNotFound(v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngressPrefix(route) /* prefix of GenerateName here */)
+		return nil, apierrs.NewNotFound(v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngressName(route))
 	}
 
 	if len(ingresses) > 1 {

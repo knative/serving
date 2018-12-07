@@ -40,9 +40,7 @@ import (
 func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha1.ClusterIngress {
 	return &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
-			// As ClusterIngress resource is cluster-scoped,
-			// here we use GenerateName to avoid conflict.
-			GenerateName: names.ClusterIngressPrefix(r),
+			Name: names.ClusterIngressName(r),
 			Labels: map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,

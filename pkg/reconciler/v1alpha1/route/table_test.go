@@ -133,7 +133,7 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "becomes-ready-default-routeUID"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -934,7 +934,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "named-traffic-split-default-routeUID"),
 		},
 		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
@@ -1021,7 +1021,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "same-revision-targets-default-routeUID"),
 		},
 		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
@@ -1156,6 +1156,7 @@ func route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
+			UID:       "routeUID",
 		},
 	}
 	for _, opt := range ro {
