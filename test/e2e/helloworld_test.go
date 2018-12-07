@@ -80,7 +80,7 @@ func TestHelloWorld(t *testing.T) {
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 
-	if err != nil {
+	if err == nil {
 		t.Fatalf("Error fetching Revision %v", err)
 	}
 
