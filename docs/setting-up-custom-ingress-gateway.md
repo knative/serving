@@ -214,37 +214,13 @@ spec:
                 - s390x
 ```
 
-## Step 2: Update Knative Gateway
+## Step 2: Update Gateway Configmap
 
-Update gateway instance `knative-shared-gateway` under `knative-serving`
+Update gateway configmap `config-istio` under `knative-serving`
 namespace:
 
 ```shell
-kubectl edit gateway knative-shared-gateway -n knative-serving
-```
-
-Replace its label selector with the label of your service:
-
-```
-istio: ingressgateway
-```
-
-For the service above, it should be updated to
-
-```
-custom: ingressgateway
-```
-
-If there is a change in service ports (compared with that of
-`istio-ingressgateway`), update the port info in gateway accordingly.
-
-## Step 3: Update Gateway Configmap
-
-Update gateway configmap `config-ingressgateway` under `knative-serving`
-namespace:
-
-```shell
-kubectl edit configmap config-ingressgateway -n knative-serving
+kubectl edit configmap config-istio -n knative-serving
 ```
 
 Replace the `ingress-gateway` field with fully qualified url of your service:
@@ -253,4 +229,15 @@ For the service above, it should be updated to
 
 ```
 custom-ingressgateway.istio-system.svc.cluster.local
+```
+
+## Step 3: Update Knative Gateway
+
+Label selector of the gateway instance `knative-shared-gateway` under `knative-serving`
+namespace will get updated automatically, but if there is a change in service ports
+(compared with that of `istio-ingressgateway`), you'll need to update the port info
+in gateway accordingly:
+
+```shell
+kubectl edit gateway knative-shared-gateway -n knative-serving
 ```
