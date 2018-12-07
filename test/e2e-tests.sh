@@ -72,6 +72,7 @@ publish_test_images || fail_test "one or more test images weren't published"
 
 header "Running tests"
 export KO_DATA_PATH=${REPO_ROOT_DIR}/.git
+echo "KO_DATA_PATH=${KO_DATA_PATH}"
 go_test_e2e -timeout=20m ./test/conformance ./test/e2e || fail_test
 
 success
