@@ -39,11 +39,7 @@ import (
 
 type mockReporter struct{}
 
-func (r *mockReporter) Report(m reconciler.Measurement, v float64) error {
-	return nil
-}
-
-func (r *mockReporter) ReportDuration(m reconciler.Measurement, d time.Duration) error {
+func (r *mockReporter) ReportServiceReady(namespace, service string, d time.Duration) error {
 	return nil
 }
 

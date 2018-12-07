@@ -238,7 +238,8 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
 	if err == nil && becomesRdy {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
-		c.statsReporter.ReportDuration(reconciler.ServiceTimeUntilReadyM, duration)
+		c.Logger.Infof("Service %v became ready after %v", service.Name, duration)
+		c.statsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
 	return svc, err
 }

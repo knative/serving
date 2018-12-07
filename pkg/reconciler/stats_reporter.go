@@ -28,21 +28,25 @@ import (
 type Measurement int
 
 const (
-	// ServiceTimeUntilReadyM is the time it takes for a service to become ready since the resource is created
-	ServiceTimeUntilReadyM Measurement = iota
-
-	// ServiceTimeUntilReadyN is the time it takes for a service to become ready since the resource is created
-	ServiceTimeUntilReadyN = "service_time_until_ready"
+	// ServiceReadyCountN is the number of services that have become ready.
+	ServiceReadyCountN  = "service_ready_count"
+	// ServiceReadyLatencyN is the time it takes for a service to become ready since the resource is created.
+	ServiceReadyLatencyN = "service_ready_latency"
 )
 
 var (
-	measurements = []*stats.Float64Measure{
-		ServiceTimeUntilReadyM: stats.Float64(
-			ServiceTimeUntilReadyN,
+	serviceReadyLatencyStat = stats.Int64(
+		ServiceReadyLatencyN,
 			"Time it takes for a service to become ready since created",
-			stats.UnitMilliseconds),
-	}
+			stats.UnitMilliseconds)
+	serviceReadyCountStat   = stats.Int64(
+		ServiceReadyCountN,
+		"Number of services that became ready",
+		stats.UnitDimensionless)
+
 	reconcilerTagKey tag.Key
+	namespaceTagKey  tag.Key
+	serviceTagKey    tag.Key
 )
 
 
@@ -53,20 +57,25 @@ func init() {
 	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
-	reconcilerTagKey, err = tag.NewKey("reconciler")
-	if err != nil {
-		panic(err)
-	}
+	reconcilerTagKey = mustNewTagKey("reconciler")
+	namespaceTagKey = mustNewTagKey("namespace")
+	serviceTagKey = mustNewTagKey("service")
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
 	err = view.Register(
 		&view.View{
-			Description: measurements[ServiceTimeUntilReadyM].Description(),
-			Measure: measurements[ServiceTimeUntilReadyM],
+			Description: serviceReadyCountStat.Description(),
+			Measure:     serviceReadyCountStat,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{reconcilerTagKey, namespaceTagKey, serviceTagKey},
+		},
+		&view.View{
+			Description: serviceReadyLatencyStat.Description(),
+			Measure:     serviceReadyLatencyStat,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{reconcilerTagKey},
+			TagKeys:     []tag.Key{reconcilerTagKey, namespaceTagKey, serviceTagKey},
 		},
 	)
 	if err != nil {
@@ -76,39 +85,45 @@ func init() {
 
 // StatsReporter reports reconcilers' metrics
 type StatsReporter interface {
-	// Report captures value v for measurement v
-	Report(m Measurement, v float64) error
-	// Report captures duration d for measurement v
-	ReportDuration(m Measurement, d time.Duration) error
+	// ReportServiceReady reports the time it took a service to become Ready.
+	ReportServiceReady(namespace, service string, d time.Duration) error
 }
 
 type reporter struct {
-	reconciler string
 	ctx context.Context
 }
 
 // NewStatsReporter creates a reporter for reconcilers' metrics
-func NewStatsReporter(reconciler string) StatsReporter {
-	return &reporter{
-		reconciler: reconciler,
-		ctx: context.Background(),
+func NewStatsReporter(reconciler string) (StatsReporter, error) {
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(reconcilerTagKey, reconciler))
+	if err != nil {
+		return nil, err
 	}
+	return &reporter{ ctx: ctx }, nil
 }
 
-// Report captures value v for measurement v
-func (r *reporter) Report(m Measurement, v float64) error {
+// ReportServiceReady reports the time it took a service to become Ready
+func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration) error {
+	v := int64(d / time.Millisecond)
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(reconcilerTagKey, r.reconciler))
+		tag.Insert(namespaceTagKey, namespace),
+		tag.Insert(serviceTagKey, service))
 	if err != nil {
 		return err
 	}
 
-	stats.Record(ctx, measurements[m].M(v))
+	stats.Record(ctx, serviceReadyCountStat.M(1))
+	stats.Record(ctx, serviceReadyLatencyStat.M(v))
 	return nil
 }
 
-// Report captures duration d for measurement v
-func (r *reporter) ReportDuration(m Measurement, d time.Duration) error {
-	return r.Report(m, float64(d / time.Millisecond))
+func mustNewTagKey(s string) tag.Key {
+	tagKey, err := tag.NewKey(s)
+	if err != nil {
+		panic(err)
+	}
+	return tagKey
 }

@@ -17,36 +17,62 @@ limitations under the License.
 package reconciler
 
 import (
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"testing"
 	"time"
+
+	"go.opencensus.io/stats/view"
 )
 
-const reconcilerMockName = "MockReconciler"
+const (
+	reconcilerMockName   = "MockReconciler"
+	testServiceNamespace = "test_namespace"
+	testServiceName      = "test_service"
+)
 
 func TestReporter_ReportDuration(t *testing.T) {
-	reporter := NewStatsReporter(reconcilerMockName)
+	reporter, err := NewStatsReporter(reconcilerMockName)
+	if err != nil {
+		t.Errorf("Failed to create reporter: %v", err)
+	}
 
-	if err := reporter.ReportDuration(ServiceTimeUntilReadyM, time.Second); err != nil {
+	if err = reporter.ReportServiceReady(testServiceNamespace, testServiceName, time.Second); err != nil {
 		t.Error(err)
 	}
+	expectedTags := []tag.Tag{
+		{Key: namespaceTagKey, Value: testServiceNamespace},
+		{Key: reconcilerTagKey, Value: reconcilerMockName},
+		{Key: serviceTagKey, Value: testServiceName},
+	}
 
-	rows, err := view.RetrieveData(ServiceTimeUntilReadyN)
+	latency := getMetric(t, ServiceReadyLatencyN)
+	if v := latency.Data.(*view.LastValueData).Value;  v != 1000 {
+		t.Errorf("expected latency %v, Got %v", 1000, v)
+	}
+	checkTags(t, expectedTags, latency.Tags)
+
+	count := getMetric(t, ServiceReadyCountN)
+	if v := count.Data.(*view.CountData).Value;  v != 1 {
+		t.Errorf("expected latency %v, Got %v", 1, v)
+	}
+	checkTags(t, expectedTags, count.Tags)
+}
+
+func getMetric(t *testing.T, metric string) *view.Row {
+	rows, err := view.RetrieveData(metric)
 	if err != nil {
-		t.Errorf("Error retrieving data: %v", err)
+		t.Errorf("failed retrieving data: %v", err)
 	}
+	return rows[0]
+}
 
-	if v := rows[0].Data.(*view.LastValueData).Value;  v != 1000 {
-		t.Errorf("Wanted value %v, Got %v", 1000, v)
+func checkTags(t *testing.T, expected, observed []tag.Tag) {
+	if len(expected) != len(observed) {
+		t.Errorf("unexpected tags: desired %v observed %v", expected, observed)
 	}
-
-	tags := rows[0].Tags
-	if len(tags) != 1 {
-		t.Errorf("Expected %v tags, got %v", 1, len(tags))
-	}
-	expectedTag := tag.Tag{Key: reconcilerTagKey, Value: reconcilerMockName}
-	if tags[0] != expectedTag {
-		t.Errorf("Expected tag %v, got %v", expectedTag, tags[0])
+	for i := 0; i < len(expected); i++ {
+		if expected[i] != observed[i] {
+			t.Errorf("unexpected tag at location %v: desired %v observed %v", i, expected[i], observed[i])
+		}
 	}
 }
