@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -229,8 +229,11 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	} else {
 		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
 		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
-			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v",
-				cmp.Diff(desiredConfigMap.Data, configMap.Data))
+			diff, err := kmp.SafeDiff(desiredConfigMap.Data, configMap.Data)
+			if err != nil {
+				return fmt.Errorf("failed to diff ConfigMap: %v", err)
+			}
+			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v", diff)
 
 			// Don't modify the informers copy
 			existing := configMap.DeepCopy()
