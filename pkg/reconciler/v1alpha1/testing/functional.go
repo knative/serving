@@ -117,6 +117,20 @@ func WithPinnedRollout(name string) ServiceOption {
 	}
 }
 
+// WithReleaseRolloutAndPercentage configures the Service to use a "release" rollout,
+// which spans the provided revisions.
+func WithReleaseRolloutAndPercentage(percentage int, names ...string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec = v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:      names,
+				RolloutPercent: percentage,
+				Configuration:  configSpec,
+			},
+		}
+	}
+}
+
 // WithReleaseRollout configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRollout(names ...string) ServiceOption {
@@ -158,7 +172,7 @@ func WithReadyRoute(s *v1alpha1.Service) {
 	})
 }
 
-// WithSvcDomainStatus propagates the domain name to the status of the Service.
+// WithSvcStatusDomain propagates the domain name to the status of the Service.
 func WithSvcStatusDomain(s *v1alpha1.Service) {
 	n, ns := s.GetName(), s.GetNamespace()
 	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
