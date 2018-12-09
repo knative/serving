@@ -85,7 +85,7 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 	return errs
 }
 
-// Validate verifies that TraficTarget is properly configured.
+// Validate verifies that TrafficTarget is properly configured.
 func (tt *TrafficTarget) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 	switch {
