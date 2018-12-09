@@ -46,6 +46,7 @@ function dump_extra_cluster_state() {
   kubectl get revisions -o yaml --all-namespaces
 
   dump_app_logs controller
+  dump_app_logs webhook
   dump_app_logs autoscaler
   dump_app_logs activator
 }
