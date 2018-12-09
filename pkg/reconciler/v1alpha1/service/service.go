@@ -18,10 +18,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
@@ -248,7 +249,11 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 		// No differences to reconcile.
 		return config, nil
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
+	diff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to diff Configuration: %v", err)
+	}
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", diff)
 
 	// Don't modify the informers copy.
 	existing := config.DeepCopy()
@@ -285,7 +290,11 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 		// No differences to reconcile.
 		return route, nil
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
+	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to diff Route: %v", err)
+	}
+	logger.Infof("Reconciling route diff (-desired, +observed): %v", diff)
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()

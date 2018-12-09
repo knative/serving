@@ -18,10 +18,10 @@ package revision
 
 import (
 	"context"
-
-	"github.com/google/go-cmp/cmp"
+	"fmt"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -83,8 +83,11 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
 		return service, Unchanged, nil
 	}
-	logger.Infof("Reconciling service diff (-desired, +observed): %v",
-		cmp.Diff(desiredService.Spec, service.Spec))
+	diff, err := kmp.SafeDiff(desiredService.Spec, service.Spec)
+	if err != nil {
+		return nil, Unchanged, fmt.Errorf("failed to diff Service: %v", err)
+	}
+	logger.Infof("Reconciling service diff (-desired, +observed): %v", diff)
 
 	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(desiredService)
 	return d, WasChanged, err

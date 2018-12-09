@@ -20,16 +20,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmp"
+	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
-
-	"github.com/knative/pkg/apis"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 // Validate ensures Revision is properly configured.
@@ -211,11 +209,13 @@ func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldErro
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-		return x.Cmp(y) == 0
-	})
-
-	if diff := cmp.Diff(original.Spec, current.Spec, quantityComparer); diff != "" {
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff Revision",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
