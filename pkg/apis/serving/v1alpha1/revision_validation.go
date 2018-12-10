@@ -30,15 +30,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
+// Validate ensures Revision is properly configured.
 func (rt *Revision) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate().ViaField("spec"))
 }
 
+// Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
 	return rt.Spec.Validate().ViaField("spec")
 }
 
+// Validate ensures RevisionSpec is properly configured.
 func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -68,6 +71,7 @@ func validateTimeoutSeconds(timeoutSeconds *metav1.Duration) *apis.FieldError {
 	return nil
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),
@@ -80,6 +84,7 @@ func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	}
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	switch cm {
 	case RevisionRequestConcurrencyModelType(""),
@@ -91,6 +96,7 @@ func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	}
 }
 
+// ValidateContainerConcurrency ensures ContainerConcurrency is properly configured.
 func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
 	// Validate ContainerConcurrency alone
 	if cc < 0 || cc > RevisionContainerConcurrencyMax {
@@ -196,6 +202,7 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	return nil
 }
 
+// CheckImmutableFields checks the immutable fields are not modified.
 func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {

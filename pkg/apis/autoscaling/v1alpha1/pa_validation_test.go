@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -201,7 +201,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MinScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MinScaleAnnotationKey),
 			Paths:   []string{autoscaling.MinScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
 	}, {
