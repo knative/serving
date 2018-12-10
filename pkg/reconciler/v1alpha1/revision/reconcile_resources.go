@@ -44,23 +44,27 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
-	if apierrs.IsNotFound(getDepErr) {
+	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
 		rev.Status.MarkDeploying("Deploying")
-		var err error
 		deployment, err = c.createDeployment(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
 			return err
 		}
 		logger.Infof("Created deployment %q", deploymentName)
-	} else if getDepErr != nil {
-		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, getDepErr)
-		return getDepErr
+	} else if err != nil {
+		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
+		return err
+	} else {
+		// The deployment exists, but make sure that it has the shape that we expect.
+		deployment, _, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+		if err != nil {
+			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
+			return err
+		}
 	}
-	// TODO(mattmoor): Consider reconciling the deployment spec to make sure it matches
-	// what we expect.
 
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.

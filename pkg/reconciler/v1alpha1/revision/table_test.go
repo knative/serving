@@ -191,6 +191,41 @@ func TestReconcile(t *testing.T) {
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
 	}, {
+		Name: "update deployment containers",
+		// Test that we update a deployment with new containers when they disagree
+		// with our desired spec.
+		Objects: []runtime.Object{
+			rev("foo", "fix-containers",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-containers"),
+			changeContainers(deploy("foo", "fix-containers")),
+			svc("foo", "fix-containers"),
+			image("foo", "fix-containers"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "fix-containers"),
+		}},
+		Key: "foo/fix-containers",
+	}, {
+		Name: "failure updating deployment",
+		// Test that we handle an error updating the deployment properly.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "deployments"),
+		},
+		Objects: []runtime.Object{
+			rev("foo", "failure-update-deploy",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "failure-update-deploy"),
+			changeContainers(deploy("foo", "failure-update-deploy")),
+			svc("foo", "failure-update-deploy"),
+			image("foo", "failure-update-deploy"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "failure-update-deploy"),
+		}},
+		Key: "foo/failure-update-deploy",
+	}, {
 		Name: "deactivated revision is stable",
 		// Test a simple stable reconciliation of an inactive Revision.
 		// We feed in a Revision and the resources it controls in a steady
@@ -694,6 +729,14 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 		Status: corev1.ConditionFalse,
 		Reason: "ProgressDeadlineExceeded",
 	}}
+	return deploy
+}
+
+func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
+	podSpec := deploy.Spec.Template.Spec
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Image = "asdf"
+	}
 	return deploy
 }
 

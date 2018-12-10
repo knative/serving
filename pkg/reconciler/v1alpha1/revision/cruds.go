@@ -47,6 +47,50 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
+func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
+	logger := logging.FromContext(ctx)
+	cfgs := config.FromContext(ctx)
+
+	deployment := resources.MakeDeployment(
+		rev,
+		cfgs.Logging,
+		cfgs.Network,
+		cfgs.Observability,
+		cfgs.Autoscaler,
+		cfgs.Controller,
+	)
+
+	// Preserve the current scale of the Deployment.
+	deployment.Spec.Replicas = have.Spec.Replicas
+
+	// If the spec we want is the spec we have, then we're good.
+	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
+		return have, Unchanged, nil
+	}
+
+	// Otherwise attempt an update (with ONLY the spec changes).
+	desiredDeployment := have.DeepCopy()
+	desiredDeployment.Spec = deployment.Spec
+	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(desiredDeployment)
+	if err != nil {
+		return nil, Unchanged, err
+	}
+
+	// If what comes back from the update (with defaults applied by the API server) is the same
+	// as what we have then nothing changed.
+	if equality.Semantic.DeepEqual(have.Spec, d.Spec) {
+		return d, Unchanged, nil
+	}
+	diff, err := kmp.SafeDiff(have.Spec, d.Spec)
+	if err != nil {
+		return nil, Unchanged, err
+	}
+
+	// If what comes back has a different spec, then signal the change.
+	logger.Infof("Reconciled deployment diff (-desired, +observed): %v", diff)
+	return d, WasChanged, nil
+}
+
 func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
 	image, err := resources.MakeImageCache(rev, deploy)
 	if err != nil {
