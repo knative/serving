@@ -25,7 +25,6 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"go.uber.org/zap"
 )
 
 // Measurement represents the type of the autoscaler metric to be reported
@@ -182,7 +181,6 @@ type StatsReporter interface {
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
 	ctx         context.Context
-	logger      *zap.SugaredLogger
 	initialized bool
 }
 

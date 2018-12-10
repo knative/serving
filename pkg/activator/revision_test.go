@@ -34,11 +34,10 @@ import (
 )
 
 const (
-	testNamespace     = "test-namespace"
-	testConfiguration = "test-configuration"
-	testRevision      = "test-rev"
-	testService       = testRevision + "-service"
-	testServiceFQDN   = testService + "." + testNamespace + ".svc.cluster.local"
+	testNamespace   = "test-namespace"
+	testRevision    = "test-rev"
+	testService     = testRevision + "-service"
+	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
 var defaultRevisionLabels map[string]string
