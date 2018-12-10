@@ -322,14 +322,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "foo",
 			Percent:      -5,
 		},
-		want: apis.ErrInvalidValue("-5", "percent"),
+		want: apis.ErrOutOfBoundsValue("-5", "0", "100", "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
 			Percent:      101,
 		},
-		want: apis.ErrInvalidValue("101", "percent"),
+		want: apis.ErrOutOfBoundsValue("101", "0", "100", "percent"),
 	}}
 
 	for _, test := range tests {
