@@ -17,9 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -148,6 +150,14 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	}
 	if err := validateProbe(container.LivenessProbe).ViaField("livenessProbe"); err != nil {
 		errs = errs.Also(err)
+	}
+	if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+		fe := &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: fmt.Sprintf("image: %q, error: %v", container.Image, err),
+		}
+		errs = errs.Also(fe)
 	}
 	return errs
 }
