@@ -124,7 +124,7 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
+	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is

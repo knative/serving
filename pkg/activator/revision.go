@@ -40,19 +40,17 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
-	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
 		logger:      logger,
-		reporter:    reporter,
 	}
 }
 
