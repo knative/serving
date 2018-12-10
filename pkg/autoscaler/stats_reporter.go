@@ -40,10 +40,10 @@ const (
 	ActualPodCountM
 	// ObservedPodCountM is used for the observed number of pods we have
 	ObservedPodCountM
-	// ObservedStableConcurrencyM is the average of requests count in each 60 second stable window
-	ObservedStableConcurrencyM
-	// ObservedPanicConcurrencyM is the average of requests count in each 6 second panic window
-	ObservedPanicConcurrencyM
+	// StableRequestConcurrencyM is the average of requests count per observed pod in each stable window (default 60 seconds)
+	StableRequestConcurrencyM
+	// PanicRequestConcurrencyM is the average of requests count per observed pod in each panic window (default 6 seconds)
+	PanicRequestConcurrencyM
 	// TargetConcurrencyM is the desired number of concurrent requests for each pod
 	TargetConcurrencyM
 	// PanicM is used as a flag to indicate if autoscaler is in panic mode or not
@@ -53,28 +53,28 @@ const (
 var (
 	measurements = []*stats.Float64Measure{
 		DesiredPodCountM: stats.Float64(
-			"desired_pod_count",
+			"desired_pods",
 			"Number of pods autoscaler wants to allocate",
 			stats.UnitNone),
 		RequestedPodCountM: stats.Float64(
-			"requested_pod_count",
+			"requested_pods",
 			"Number of pods autoscaler requested from Kubernetes",
 			stats.UnitNone),
 		ActualPodCountM: stats.Float64(
-			"actual_pod_count",
+			"actual_pods",
 			"Number of pods that are allocated currently",
 			stats.UnitNone),
 		ObservedPodCountM: stats.Float64(
-			"observed_pod_count",
+			"observed_pods",
 			"Number of pods that are observed currently",
 			stats.UnitNone),
-		ObservedStableConcurrencyM: stats.Float64(
-			"observed_stable_concurrency",
-			"Average of requests count in each 60 second stable window",
+		StableRequestConcurrencyM: stats.Float64(
+			"stable_request_concurrency",
+			"Average of requests count per observed pod in each stable window (default 60 seconds)",
 			stats.UnitNone),
-		ObservedPanicConcurrencyM: stats.Float64(
-			"observed_panic_concurrency",
-			"Average of requests count in each 6 second panic window",
+		PanicRequestConcurrencyM: stats.Float64(
+			"panic_request_concurrency",
+			"Average of requests count per observed pod in each panic window (default 6 seconds)",
 			stats.UnitNone),
 		TargetConcurrencyM: stats.Float64(
 			"target_concurrency_per_pod",
@@ -145,13 +145,13 @@ func init() {
 		},
 		&view.View{
 			Description: "Average of requests count in each 60 second stable window",
-			Measure:     measurements[ObservedStableConcurrencyM],
+			Measure:     measurements[StableRequestConcurrencyM],
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Average of requests count in each 6 second panic window",
-			Measure:     measurements[ObservedPanicConcurrencyM],
+			Measure:     measurements[PanicRequestConcurrencyM],
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
