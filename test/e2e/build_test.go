@@ -205,6 +205,7 @@ func TestBuildAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
+	names.Revision = rev.Name
 	buildName := rev.Spec.BuildRef.Name
 	logger.Infof("Latest ready Revision is %q", rev.Name)
 	logger.Infof("Revision's Build is %q", buildName)
