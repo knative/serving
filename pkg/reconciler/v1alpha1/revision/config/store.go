@@ -49,7 +49,7 @@ type Store struct {
 	*configmap.UntypedStore
 }
 
-func NewStore(logger configmap.Logger) *Store {
+func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"revision",
@@ -61,6 +61,7 @@ func NewStore(logger configmap.Logger) *Store {
 				autoscaler.ConfigName:   autoscaler.NewConfigFromConfigMap,
 				logging.ConfigName:      logging.NewConfigFromConfigMap,
 			},
+			onAfterStore...,
 		),
 	}
 
