@@ -45,5 +45,6 @@ var (
 )
 
 const (
-	HookComplete = testing.HookComplete
+	HookComplete   = testing.HookComplete
+	HookIncomplete = testing.HookIncomplete
 )

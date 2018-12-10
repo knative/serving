@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/watch"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
@@ -330,9 +329,28 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
-	defer func() {
-		close(stopCh)
-	}()
+	defer close(stopCh)
+
+	h := NewHooks()
+
+	// Check for ClusterIngress created as a signal that syncHandler ran
+	h.OnUpdate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
+		ci := obj.(*v1alpha1.ClusterIngress)
+		t.Logf("clusteringress updated: %q", ci.Name)
+
+		gateways := ci.Status.LoadBalancer.Ingress
+		if len(gateways) != 1 {
+			t.Logf("Unexpected gateways: %v", gateways)
+			return HookIncomplete
+		}
+		expectedDomainInternal := newDomainInternal
+		if gateways[0].DomainInternal != expectedDomainInternal {
+			t.Logf("Expected gateway %q but got %q", expectedDomainInternal, gateways[0].DomainInternal)
+			return HookIncomplete
+		}
+
+		return HookComplete
+	})
 
 	servingInformer.Start(stopCh)
 	sharedInformer.Start(stopCh)
@@ -362,17 +380,11 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		},
 	)
 	ingressClient := servingClient.NetworkingV1alpha1().ClusterIngresses()
-	ingressWatcher, err := ingressClient.Watch(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("Could not create ingress watcher")
-	}
-	defer ingressWatcher.Stop()
 
 	// Create a ingress.
 	ingressClient.Create(ingress)
 
 	// Test changes in gateway config map. ClusterIngress should get updated appropriately.
-	expectedDomainInternal := newDomainInternal
 	domainConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.IstioConfigName,
@@ -381,29 +393,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		Data: newGateways,
 	}
 	watcher.OnChange(&domainConfig)
-	timer := time.NewTimer(10 * time.Second)
 
-loop:
-	for {
-		select {
-		case event := <-ingressWatcher.ResultChan():
-			if event.Type == watch.Modified {
-				break loop
-			}
-		case <-timer.C:
-			t.Fatalf("ingressWatcher did not receive a Type==Modified event in 10s")
-		}
-	}
-
-	ingress, err = ingressClient.Get(ingress.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error getting a ingress: %v", err)
-	}
-	gateways := ingress.Status.LoadBalancer.Ingress
-	if len(gateways) != 1 {
-		t.Errorf("Unexpected gateways: %v", gateways)
-	}
-	if gateways[0].DomainInternal != expectedDomainInternal {
-		t.Errorf("Expected gateway %q but got %q", expectedDomainInternal, gateways[0].DomainInternal)
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
+		t.Error(err)
 	}
 }
