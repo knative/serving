@@ -17,8 +17,8 @@ release.
 - `--tag-release`, `--notag-release` Tag (or not) the generated images with
   either `vYYYYMMDD-<commit_short_hash>` (for nightly releases) or `vX.Y.Z` for
   versioned releases. _For versioned releases, a tag is always added._
-- `--release-gcs` Defines the GCS bucket where the manifests will be stored.
-  By default, this is `knative-nightly/serving`. This flag is ignored if the
+- `--release-gcs` Defines the GCS bucket where the manifests will be stored. By
+  default, this is `knative-nightly/serving`. This flag is ignored if the
   release is not being published.
 - `--release-gcr` Defines the GCR where the images will be stored. By default,
   this is `gcr.io/knative-nightly`. This flag is ignored if the release is not
