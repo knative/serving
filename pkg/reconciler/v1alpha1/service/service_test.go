@@ -18,9 +18,6 @@ package service
 
 import (
 	"fmt"
-	"testing"
-	"time"
-
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
@@ -28,6 +25,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	reconcilerTesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	"testing"
 )
-
-type mockReporter struct{}
-
-func (r *mockReporter) ReportServiceReady(namespace, service string, d time.Duration) error {
-	return nil
-}
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -160,6 +153,9 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
 		},
+		WantServiceReadyStats: map[string]int{
+			"foo/pinned3": 1,
+		},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
@@ -218,6 +214,9 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/release-ready": 1,
 		},
 	}, {
 		Name: "release - create route and service and percentage",
@@ -432,6 +431,9 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
+		WantServiceReadyStats: map[string]int{
+			"foo/all-ready": 1,
+		},
 	}, {
 		Name: "runLatest - config fails, propagate failure",
 		// When config fails, the service should fail.
@@ -482,7 +484,6 @@ func TestReconcile(t *testing.T) {
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			routeLister:         listers.GetRouteLister(),
-			statsReporter:       &mockReporter{},
 		}
 	}))
 }
@@ -502,7 +503,8 @@ func TestNew(t *testing.T) {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
-	}, serviceInformer, configurationInformer, routeInformer, &mockReporter{})
+		StatsReporter:    &reconcilerTesting.FakeStatsReporter{},
+	}, serviceInformer, configurationInformer, routeInformer)
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")

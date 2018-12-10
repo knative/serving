@@ -125,7 +125,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		logger,
 		greenDomain,
 		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
-		"WaitForSuccessfulResponse",
+		"nexistent key: selfLinWaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", greenDomain, err)
 	}

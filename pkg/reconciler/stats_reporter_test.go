@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"fmt"
 	"go.opencensus.io/tag"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	reconcilerMockName   = "MockReconciler"
+	reconcilerMockName   = "mock_reconciler"
 	testServiceNamespace = "test_namespace"
 	testServiceName      = "test_service"
 )
@@ -40,9 +41,8 @@ func TestReporter_ReportDuration(t *testing.T) {
 		t.Error(err)
 	}
 	expectedTags := []tag.Tag{
-		{Key: namespaceTagKey, Value: testServiceNamespace},
+		{Key: keyTagKey, Value: fmt.Sprintf("%s/%s", testServiceNamespace, testServiceName)},
 		{Key: reconcilerTagKey, Value: reconcilerMockName},
-		{Key: serviceTagKey, Value: testServiceName},
 	}
 
 	latency := getMetric(t, ServiceReadyLatencyN)

@@ -18,6 +18,7 @@ package reconciler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -45,8 +46,7 @@ var (
 		stats.UnitDimensionless)
 
 	reconcilerTagKey tag.Key
-	namespaceTagKey  tag.Key
-	serviceTagKey    tag.Key
+	keyTagKey        tag.Key
 )
 
 
@@ -58,8 +58,7 @@ func init() {
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
 	reconcilerTagKey = mustNewTagKey("reconciler")
-	namespaceTagKey = mustNewTagKey("namespace")
-	serviceTagKey = mustNewTagKey("service")
+	keyTagKey = mustNewTagKey("key")
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -69,13 +68,13 @@ func init() {
 			Description: serviceReadyCountStat.Description(),
 			Measure:     serviceReadyCountStat,
 			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{reconcilerTagKey, namespaceTagKey, serviceTagKey},
+			TagKeys:     []tag.Key{reconcilerTagKey, keyTagKey},
 		},
 		&view.View{
 			Description: serviceReadyLatencyStat.Description(),
 			Measure:     serviceReadyLatencyStat,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{reconcilerTagKey, namespaceTagKey, serviceTagKey},
+			TagKeys:     []tag.Key{reconcilerTagKey, keyTagKey},
 		},
 	)
 	if err != nil {
@@ -83,7 +82,7 @@ func init() {
 	}
 }
 
-// StatsReporter reports reconcilers' metrics
+// StatsReporter reports reconcilers' metrics.
 type StatsReporter interface {
 	// ReportServiceReady reports the time it took a service to become Ready.
 	ReportServiceReady(namespace, service string, d time.Duration) error
@@ -106,11 +105,11 @@ func NewStatsReporter(reconciler string) (StatsReporter, error) {
 
 // ReportServiceReady reports the time it took a service to become Ready
 func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration) error {
+	key := fmt.Sprintf("%s/%s", namespace, service)
 	v := int64(d / time.Millisecond)
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(namespaceTagKey, namespace),
-		tag.Insert(serviceTagKey, service))
+		tag.Insert(keyTagKey, key))
 	if err != nil {
 		return err
 	}

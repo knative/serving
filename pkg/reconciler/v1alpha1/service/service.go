@@ -54,8 +54,6 @@ type Reconciler struct {
 	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
 	routeLister         listers.RouteLister
-
-	statsReporter reconciler.StatsReporter
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -68,12 +66,10 @@ func NewController(
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
 	routeInformer servinginformers.RouteInformer,
-	statsReporter reconciler.StatsReporter,
 ) *controller.Impl {
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
-		statsReporter:       statsReporter,
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
@@ -239,7 +235,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if err == nil && becomesRdy {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
 		c.Logger.Infof("Service %v became ready after %v", service.Name, duration)
-		c.statsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
+		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
 	return svc, err
 }
