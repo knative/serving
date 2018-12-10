@@ -181,7 +181,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults()
 
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx))
+	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx, ci))
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -195,22 +195,46 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: gatewayServiceURLFromContext(ctx)},
+		{DomainInternal: gatewayServiceURLFromContext(ctx, ci)},
 	})
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
-func gatewayServiceURLFromContext(ctx context.Context) string {
-	return config.FromContext(ctx).Istio.IngressGateways[0].ServiceURL
+func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.LocalGateways) > 0 {
+		return cfg.LocalGateways[0].ServiceURL
+	}
+	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
+		return cfg.IngressGateways[0].ServiceURL
+	}
+	return ""
 }
 
-func gatewayNamesFromContext(ctx context.Context) []string {
+func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
 	gateways := []string{}
-	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+	for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
 		gateways = append(gateways, gw.GatewayName)
 	}
-	return gateways
+	if ci.IsPublic() {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	}
+	return dedup(gateways)
+}
+
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

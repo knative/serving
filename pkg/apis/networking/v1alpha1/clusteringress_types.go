@@ -93,10 +93,15 @@ type IngressSpec struct {
 	// +optional
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
 
-	// TODO: We need to consider a way to specify if the ClusterIngress address
-	// should be exposed to the Internet, or only exposed privately (cluster local,
-	// VPC, RFC1918).  An example use case is for
-	//   https://github.com/knative/serving/issues/2127.
+	// Visibility setting.
+	Visibility *IngressVisibility
+}
+
+// IngressVisibility describes whether the Ingress should be exposed to
+// public gateways or not.
+type IngressVisibility struct {
+	// True iff the ClusterIngress should not be exposed to public gateways.
+	LocalOnly bool `json:"public,omitempty"`
 }
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
@@ -301,6 +306,11 @@ var _ apis.Defaultable = (*ClusterIngress)(nil)
 
 func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ClusterIngress")
+}
+
+// IsPublic returns whether the ClusterIngress should be exposed publicly.
+func (ci *ClusterIngress) IsPublic() bool {
+	return ci.Spec.Visibility == nil || !ci.Spec.Visibility.LocalOnly
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

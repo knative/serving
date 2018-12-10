@@ -66,10 +66,11 @@ func TestGatewayConfiguration(t *testing.T) {
 		name:    "gateway configuration with valid url",
 		wantErr: false,
 		wantIstio: &Istio{
-			IngressGateways: []IngressGateway{{
+			IngressGateways: []Gateway{{
 				GatewayName: "knative-ingress-gateway",
 				ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
 			}},
+			LocalGateways: []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
