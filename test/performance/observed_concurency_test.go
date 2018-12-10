@@ -132,7 +132,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	// Add concurrency metrics
-	metrics := []string{"autoscaler_observed_stable_concurrency", "autoscaler_observed_panic_concurrency", "autoscaler_target_concurrency_per_pod"}
+	metrics := []string{"autoscaler_stable_request_concurrency", "autoscaler_panic_request_concurrency", "autoscaler_target_concurrency_per_pod"}
 	for _, metric := range metrics {
 		query := fmt.Sprintf("%s{configuration_namespace=\"%s\", configuration=\"%s\", revision=\"%s\"}", metric, test.ServingNamespace, names.Config, names.Revision)
 		val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)

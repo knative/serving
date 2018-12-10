@@ -86,7 +86,7 @@ func main() {
 	// Create a sample gauge
 	var r = &Reporter{}
 	desiredPodCountM = stats.Int64(
-		"desired_pod_count",
+		"desired_pods",
 		"Number of pods autoscaler wants to allocate",
 		stats.UnitNone)
 
