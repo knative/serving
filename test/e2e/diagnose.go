@@ -4,8 +4,10 @@ import (
 	"time"
 
 	"github.com/knative/pkg/test/logging"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 
+	v1types "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,17 +52,13 @@ func checkCurrentPodCount(clients *test.Clients, logger *logging.BaseLogger) {
 		return
 	}
 	for _, r := range revs.Items {
-		deploymentName := r.Name + "-deployment"
+		deploymentName := rnames.Deployment(&r)
 		dep, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(deploymentName, metav1.GetOptions{})
 		if err != nil {
 			logger.Errorf("Could not get deployment %v", deploymentName)
 			continue
 		}
-		if want, have := dep.Status.Replicas, dep.Status.ReadyReplicas; have != want {
-			logger.Infof("Deployment %v has %v pods. wants %v.", deploymentName, have, want)
-		} else {
-			logger.Infof("Deployment %v has %v pods.", deploymentName, have)
-		}
+		logger.Infof("Deployment %s has %d pods. wants %d.", deploymentName, dep.Status.Replicas, dep.Status.ReadyReplicas)
 	}
 }
 
@@ -72,12 +70,11 @@ func checkUnschedulablePods(clients *test.Clients, logger *logging.BaseLogger) {
 		return
 	}
 
-	totalPods := 0
+	totalPods := len(pods.Items)
 	unschedulablePods := 0
 	for _, p := range pods.Items {
-		totalPods++
 		for _, c := range p.Status.Conditions {
-			if c.Type == "PodScheduled" && c.Status == "False" && c.Reason == "Unschedulable" {
+			if c.Type == v1types.PodScheduled && c.Status == v1types.ConditionFalse && c.Reason == v1types.PodReasonUnschedulable {
 				unschedulablePods++
 				break
 			}
