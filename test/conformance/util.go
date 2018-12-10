@@ -29,8 +29,8 @@ import (
 	"strings"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 
