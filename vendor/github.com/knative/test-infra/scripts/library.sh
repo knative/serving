@@ -47,7 +47,7 @@ readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 #             $2 - banner message.
 function make_banner() {
     local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,\/]/$1}"
+    local border="${msg//[-0-9A-Za-z _.,\/()]/$1}"
     echo -e "${border}\n${msg}\n${border}"
 }
 
@@ -258,8 +258,8 @@ function report_go_test() {
   local targets=""
   local last_run=""
   local test_files=""
+  local summary=$(mktemp)
   # Parse the report and generate fake tests for each passing/failing test.
-  echo "Start parsing results, summary:"
   while read line ; do
     local fields=(`echo -n ${line}`)
     local field0="${fields[0]}"
@@ -297,7 +297,9 @@ function report_go_test() {
       fi
       # Handle regular go test pass/fail entry for a test.
       if [[ "${field1}" == "PASS:" || "${field1}" == "FAIL:" ]]; then
-        echo "- ${name} :${field1}"
+        local status="> pass"
+        [[ "${field1}" == "FAIL:" ]] && status="X FAIL"
+        echo "  ${status} ${name}" >> ${summary}
         test_count=$(( test_count + 1 ))
         local src="${name}.sh"
         echo "exit 0" > ${src}
@@ -314,7 +316,9 @@ function report_go_test() {
         # Populate BUILD.bazel
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
       elif [[ "${field0}" == "FAIL" || "${field0}" == "ok" ]] && [[ -n "${field1}" ]]; then
-        echo "- ${field0} ${field1}"
+        local status="> pass"
+        [[ "${field0}" == "FAIL" ]] && status="X FAIL"
+        echo "${status} ${field1}" >> ${summary}
         # Create the package structure, move tests and BUILD file
         local package=${field1/github.com\//}
         local bazel_files="$(ls -1 ${test_files} BUILD.bazel 2> /dev/null)"
@@ -329,7 +333,10 @@ function report_go_test() {
       fi
     fi
   done < ${report}
-  echo "Done parsing ${test_count} tests, ${tests_failed} tests failed"
+  echo "Test summary:"
+  # Dump summary reversed, as go test dumps test first, package later.
+  tac ${summary}
+  echo "Parsed ${test_count} tests, ${tests_failed} tests failed"
   # If any test failed, show the detailed report.
   # Otherwise, we already shown the summary.
   # Exception: when emitting metrics, dump the full report.

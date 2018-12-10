@@ -40,7 +40,6 @@ readonly E2E_BASE_NAME=k$(basename ${REPO_ROOT_DIR})
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
 readonly E2E_CLUSTER_REGION=us-central1
-# readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_REGION}-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
@@ -160,9 +159,7 @@ function create_test_cluster() {
     --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
-  if (( IS_BOSKOS )); then
-    CLUSTER_CREATION_ARGS+=(--gcp-service-account=/etc/service-account/service-account.json)
-  else
+  if (( ! IS_BOSKOS )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${GCP_PROJECT})
   fi
   # SSH keys are not used, but kubetest checks for their existence.
@@ -257,6 +254,7 @@ function setup_test_cluster() {
   echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
   export KO_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
+  export KO_DATA_PATH="${REPO_ROOT_DIR}/.git"
 
   trap teardown_test_resources EXIT
 

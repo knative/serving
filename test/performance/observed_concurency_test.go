@@ -29,8 +29,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/test-infra/tools/prometheus"
-	"github.com/knative/test-infra/tools/testgrid"
+	"github.com/knative/test-infra/shared/prometheus"
+	"github.com/knative/test-infra/shared/testgrid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
