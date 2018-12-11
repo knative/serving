@@ -2,17 +2,16 @@
 
 
 [[projects]]
-  digest = "1:31aae90efc63302dd03fbb716a3575f1c3c5ed6eb67de4e726c62e18bbb4eb54"
+  digest = "1:5db4f94a0a6d5e4ce827563b1d96902f8777d58ae23cc59f38ae538ffed52c13"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
-    "internal/version",
     "monitoring/apiv3",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
-  revision = "debcad1964693daf8ef4bc06292d7e828e075130"
-  version = "v0.31.0"
+  revision = "0ebda48a7f143b1cce9eb37a8c1106ac762a3430"
+  version = "v0.34.0"
 
 [[projects]]
   digest = "1:2c2c161e4e8f05f3e0b53c22523277342ae4a0b3b3657ddd18a492edf4bc9f17"
