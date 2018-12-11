@@ -174,6 +174,45 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release"),
 		},
 	}, {
+		Name: "release - route and config ready, propagate ready, percentage set",
+		Objects: []runtime.Object{
+			svc("release-ready", "foo", WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
+				"release-ready-00001", "release-ready-00002"), WithInitSvcConditions),
+			route("release-ready", "foo", WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
+				"release-ready-00001", "release-ready-00002"), RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-ready-00001",
+					Percent:      90,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-ready-00002",
+					Percent:      10,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("release-ready", "foo", WithRunLatestRollout, WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/release-ready",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-ready", "foo",
+				WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
+					"release-ready-00001", "release-ready-00002"),
+				// The delta induced by the config object.
+				WithReadyConfig("release-ready-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-ready-00001",
+					Percent:      90,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-ready-00002",
+					Percent:      10,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
+		},
+	}, {
 		Name: "release - create route and service and percentage",
 		Objects: []runtime.Object{
 			svc("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
