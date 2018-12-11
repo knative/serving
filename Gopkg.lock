@@ -445,16 +445,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:43b7090191283fcd6fc3d09aad5931c2f2a259d924ab94b2c0b39cb918cb5735"
+  digest = "1:d4ad38df40cd7dff18defa1ece52d05973651ccbabfae125f2be2422c5ffd845"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/prometheus",
+    "shared/testgrid",
     "tools/dep-collector",
-    "tools/prometheus",
-    "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "72c8632747f6d75a1ecba8f368af9b543e74fa0c"
+  revision = "222c833f8b4a6146b6712cc2e184b48bfee7f3c2"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1260,9 +1260,9 @@
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/prometheus",
+    "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/prometheus",
-    "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
     "go.opencensus.io/exporter/prometheus",
