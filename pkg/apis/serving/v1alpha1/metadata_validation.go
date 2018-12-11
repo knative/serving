@@ -27,7 +27,7 @@ import (
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
-// resourse is correct.
+// resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
 
