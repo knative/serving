@@ -60,7 +60,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-idlePeriod).Add(1*time.Second))
+			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
 	}, {
 		label:         "waits to scale to zero after idle period",
@@ -69,7 +69,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-idlePeriod))
+			kpaMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
 		label:         "waits to scale to zero (just before grace period)",
@@ -97,7 +97,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  2,
 		wantScaling:   true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-idlePeriod))
+			kpaMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
 		label:         "scales up",

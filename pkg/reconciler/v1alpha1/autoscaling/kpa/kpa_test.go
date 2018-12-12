@@ -44,12 +44,12 @@ import (
 
 var (
 	gracePeriod   = 60 * time.Second
-	idlePeriod    = 9 * time.Minute
+	stableWindow  = 5 * time.Minute
 	configMapData = map[string]string{
 		"max-scale-up-rate":                       "1.0",
 		"container-concurrency-target-percentage": "0.5",
 		"container-concurrency-target-default":    "10.0",
-		"stable-window":                           "5m",
+		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
