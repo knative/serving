@@ -90,6 +90,15 @@ func TestKPAScaler(t *testing.T) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
+		label:         "does not scale while activating",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Status.MarkActivating("", "")
+		},
+	}, {
 		label:         "scale down to minScale after grace period",
 		startReplicas: 10,
 		scaleTo:       0,

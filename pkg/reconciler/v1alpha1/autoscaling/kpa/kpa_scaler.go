@@ -128,17 +128,6 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 	}
 	currentScale := scl.Spec.Replicas
 
-	// Scale from zero. When there are no metrics scale to 1.
-	if currentScale == 0 && desiredScale == ScaleUnknown {
-		logger.Debugf("Scaling up from 0 to 1")
-		desiredScale = 1
-	}
-
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
-	}
-
 	if newScale := applyBounds(pa.ScaleBounds())(desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
@@ -170,6 +159,17 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 				return desiredScale, nil
 			}
 		}
+	}
+
+	// Scale from zero. When there are no metrics scale to 1.
+	if currentScale == 0 && desiredScale == ScaleUnknown {
+		logger.Debugf("Scaling up from 0 to 1")
+		desiredScale = 1
+	}
+
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return desiredScale, nil
 	}
 
 	if desiredScale == currentScale {
