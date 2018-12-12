@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -53,7 +52,6 @@ func TestKPAScaler(t *testing.T) {
 		maxScale      int32
 		wantReplicas  int
 		wantScaling   bool
-		wantActive    bool
 		kpaMutation   func(*pav1alpha1.PodAutoscaler)
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
@@ -61,15 +59,8 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			// TODO(markusthoemmes): Replace idlePeriod with stableWindow
-			ltt := time.Now().Add(-idlePeriod).Add(1 * time.Second)
-			k.Status.Conditions = duckv1alpha1.Conditions{{
-				Type:               "Active",
-				Status:             "True",
-				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
-			}}
+			kpaMarkActive(k, time.Now().Add(-idlePeriod).Add(1*time.Second))
 		},
 	}, {
 		label:         "waits to scale to zero after idle period",
@@ -77,15 +68,8 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		// TODO(markusthoemmes): This wantActive should actually flip to false
-		wantActive: true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			ltt := time.Now().Add(-idlePeriod).Add(-1 * time.Second)
-			k.Status.Conditions = duckv1alpha1.Conditions{{
-				Type:               "Active",
-				Status:             "True",
-				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
-			}}
+			kpaMarkActive(k, time.Now().Add(-idlePeriod))
 		},
 	}, {
 		label:         "waits to scale to zero (just before grace period)",
@@ -94,12 +78,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			ltt := time.Now().Add(-gracePeriod).Add(1 * time.Second)
-			k.Status.Conditions = duckv1alpha1.Conditions{{
-				Type:               "Active",
-				Status:             "False",
-				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
-			}}
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
 		},
 	}, {
 		label:         "scale to zero after grace period",
@@ -108,12 +87,7 @@ func TestKPAScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			ltt := time.Now().Add(-gracePeriod)
-			k.Status.Conditions = duckv1alpha1.Conditions{{
-				Type:               "Active",
-				Status:             "False",
-				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
-			}}
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
 		label:         "scale down to minScale after grace period",
@@ -122,14 +96,8 @@ func TestKPAScaler(t *testing.T) {
 		minScale:      2,
 		wantReplicas:  2,
 		wantScaling:   true,
-		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			ltt := time.Now().Add(-gracePeriod)
-			k.Status.Conditions = duckv1alpha1.Conditions{{
-				Type:               "Active",
-				Status:             "True",
-				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
-			}}
+			kpaMarkActive(k, time.Now().Add(-idlePeriod))
 		},
 	}, {
 		label:         "scales up",
@@ -198,8 +166,6 @@ func TestKPAScaler(t *testing.T) {
 			} else {
 				checkNoScaling(t, scaleClient)
 			}
-
-			checkActiveCondition(t, pa, e.wantActive)
 		})
 	}
 }
@@ -275,6 +241,20 @@ func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, revisio
 	return deployment
 }
 
+func kpaMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+	pa.Status.MarkActive()
+
+	// This works because the conditions are sorted alphabetically
+	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+}
+
+func kpaMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+	pa.Status.MarkInactive("", "")
+
+	// This works because the conditions are sorted alphabetically
+	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+}
+
 func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deployment *v1.Deployment, expectedScale int) {
 	t.Helper()
 
@@ -306,13 +286,5 @@ func checkNoScaling(t *testing.T, scaleClient *scalefake.FakeScaleClient) {
 		case "update":
 			t.Errorf("Unexpected update: %v", action)
 		}
-	}
-}
-
-func checkActiveCondition(t *testing.T, pa *pav1alpha1.PodAutoscaler, wantActive bool) {
-	active := pa.Status.GetCondition("Active")
-	// A 'not-found' condition is ignored, because many tests don't even initialize the condition.
-	if active.IsTrue() != wantActive {
-		t.Errorf("Unexpected 'Active' state, want: %v, got: %v", wantActive, active.IsTrue())
 	}
 }
