@@ -53,6 +53,7 @@ func TestKPAScaler(t *testing.T) {
 		maxScale      int32
 		wantReplicas  int
 		wantScaling   bool
+		wantActive    bool
 		kpaMutation   func(*pav1alpha1.PodAutoscaler)
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
@@ -60,6 +61,7 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
+		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-idlePeriod).Add(1 * time.Second)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
@@ -74,6 +76,7 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
+		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-idlePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
@@ -117,6 +120,7 @@ func TestKPAScaler(t *testing.T) {
 		minScale:      2,
 		wantReplicas:  2,
 		wantScaling:   true,
+		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			ltt := time.Now().Add(-gracePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
@@ -191,6 +195,12 @@ func TestKPAScaler(t *testing.T) {
 				checkReplicas(t, scaleClient, deployment, e.wantReplicas)
 			} else {
 				checkNoScaling(t, scaleClient)
+			}
+
+			checkActiveCondition(t, pa, e.wantActive)
+
+			if pa.Status.Conditions[0].IsTrue() != e.wantActive {
+				t.Errorf("bla")
 			}
 		})
 	}
@@ -298,5 +308,22 @@ func checkNoScaling(t *testing.T, scaleClient *scalefake.FakeScaleClient) {
 		case "update":
 			t.Errorf("Unexpected update: %v", action)
 		}
+	}
+}
+
+func checkActiveCondition(t *testing.T, pa *pav1alpha1.PodAutoscaler, wantActive bool) {
+	var active *duckv1alpha1.Condition
+	conditions := pa.Status.Conditions
+	if conditions != nil {
+		for _, cond := range conditions {
+			if cond.Type == "Active" {
+				active = &cond
+			}
+		}
+	}
+
+	// A 'not-found' condition is ignored, because many tests don't even initialize the condition.
+	if active.IsTrue() != wantActive {
+		t.Errorf("Unexpected 'Active' state, want: %v, got: %v", wantActive, active.IsTrue())
 	}
 }
