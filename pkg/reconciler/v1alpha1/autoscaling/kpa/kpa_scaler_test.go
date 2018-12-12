@@ -63,6 +63,7 @@ func TestKPAScaler(t *testing.T) {
 		wantScaling:   false,
 		wantActive:    true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			// TODO(markusthoemmes): Replace idlePeriod with stableWindow
 			ltt := time.Now().Add(-idlePeriod).Add(1 * time.Second)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
@@ -76,9 +77,10 @@ func TestKPAScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		wantActive:    true,
+		// TODO(markusthoemmes): This wantActive should actually flip to false
+		wantActive: true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			ltt := time.Now().Add(-idlePeriod)
+			ltt := time.Now().Add(-idlePeriod).Add(-1 * time.Second)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
 				Status:             "True",
@@ -125,7 +127,7 @@ func TestKPAScaler(t *testing.T) {
 			ltt := time.Now().Add(-gracePeriod)
 			k.Status.Conditions = duckv1alpha1.Conditions{{
 				Type:               "Active",
-				Status:             "False",
+				Status:             "True",
 				LastTransitionTime: apis.VolatileTime{metav1.NewTime(ltt)},
 			}}
 		},
@@ -198,10 +200,6 @@ func TestKPAScaler(t *testing.T) {
 			}
 
 			checkActiveCondition(t, pa, e.wantActive)
-
-			if pa.Status.Conditions[0].IsTrue() != e.wantActive {
-				t.Errorf("bla")
-			}
 		})
 	}
 }
@@ -312,16 +310,7 @@ func checkNoScaling(t *testing.T, scaleClient *scalefake.FakeScaleClient) {
 }
 
 func checkActiveCondition(t *testing.T, pa *pav1alpha1.PodAutoscaler, wantActive bool) {
-	var active *duckv1alpha1.Condition
-	conditions := pa.Status.Conditions
-	if conditions != nil {
-		for _, cond := range conditions {
-			if cond.Type == "Active" {
-				active = &cond
-			}
-		}
-	}
-
+	active := pa.Status.GetCondition("Active")
 	// A 'not-found' condition is ignored, because many tests don't even initialize the condition.
 	if active.IsTrue() != wantActive {
 		t.Errorf("Unexpected 'Active' state, want: %v, got: %v", wantActive, active.IsTrue())
