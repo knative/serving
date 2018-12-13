@@ -68,7 +68,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	done := make(chan struct{})
 	// The recovery value of a panic is written to this channel to be
-	// propageted (panicked with) again.
+	// propagated (panicked with) again.
 	panicChan := make(chan interface{}, 1)
 
 	tw := &timeoutWriter{w: w}
@@ -93,24 +93,21 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-done:
 			return
 		case <-timeout:
-			func() {
-				tw.mu.Lock()
-				defer tw.mu.Unlock()
-
-				// Cancel the handler only if the writer has not yet
-				// been written to.
-				if !tw.wroteOnce {
-					w.WriteHeader(http.StatusServiceUnavailable)
-					io.WriteString(w, h.errorBody())
-					tw.timedOut = true
-					cancelCtx()
-					return
-				}
-			}()
+			if tw.TimeoutAndWriteError(h.errorBody()) {
+				cancelCtx()
+				return
+			}
 		}
 	}
 }
 
+// timeoutWriter is a wrapper around an http.ResponseWriter. It guards
+// writing an error response to whether or not the underlying writer has
+// already been written to.
+//
+// If the underlying writer has not been written to, an error response is
+// returned. If it has already been written to, the error is ignored and
+// the response is allowed to continue.
 type timeoutWriter struct {
 	w http.ResponseWriter
 
@@ -118,6 +115,8 @@ type timeoutWriter struct {
 	timedOut  bool
 	wroteOnce bool
 }
+
+var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
 
@@ -141,4 +140,25 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 
 	tw.wroteOnce = true
 	tw.w.WriteHeader(code)
+}
+
+// TimeoutAndError writes an error to the response write if
+// nothing has been written on the writer before. Returns whether
+// an error was written or not.
+//
+// If this writes an error, all subsequent calls to Write will
+// result in http.ErrHandlerTimeout.
+func (tw *timeoutWriter) TimeoutAndWriteError(msg string) bool {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	if !tw.wroteOnce {
+		tw.w.WriteHeader(http.StatusServiceUnavailable)
+		io.WriteString(tw.w, msg)
+
+		tw.timedOut = true
+		return true
+	}
+
+	return false
 }
