@@ -67,8 +67,11 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancelCtx()
 
 	done := make(chan struct{})
-	tw := &timeoutWriter{w: w}
+	// The recovery value of a panic is written to this channel to be
+	// propageted (panicked with) again.
 	panicChan := make(chan interface{}, 1)
+
+	tw := &timeoutWriter{w: w}
 	go func() {
 		defer func() {
 			if p := recover(); p != nil {
