@@ -72,6 +72,9 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
+
+		// Closing the channel is not deferred to give the panic recovery
+		// precedence and not successfully complete the request by accident.
 		close(done)
 	}()
 
