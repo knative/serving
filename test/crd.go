@@ -111,7 +111,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		spec.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{Duration: options.RevisionTimeout}
 	}
 
-	if options.EnvVars != nil && len(options.EnvVars) > 0 {
+	if options.EnvVars != nil {
 		spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
 	}
 
