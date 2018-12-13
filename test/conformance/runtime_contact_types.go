@@ -22,9 +22,9 @@ package conformance
 
 //ShouldEnvvars defines the environment variables that "SHOULD" be set.
 type ShouldEnvvars struct {
-	Service string `json:"K_SERVICE"`
+	Service       string `json:"K_SERVICE"`
 	Configuration string `json:"K_CONFIGURATION"`
-	Revision string `json:"K_REVISION"`
+	Revision      string `json:"K_REVISION"`
 }
 
 //MustEnvvars defines environment variables that "MUST" be set.
