@@ -43,7 +43,7 @@ function tag_images_in_yaml() {
 # Parameters: $1 - yaml file to copy.
 function publish_yaml() {
   function verbose_gsutil_cp {
-    local DEST=gs://${RELEASE_GCS_BUCKET}/$2/
+    local DEST="gs://${RELEASE_GCS_BUCKET}/$2/"
     echo "Publishing $1 to ${DEST}"
     gsutil cp $1 ${DEST}
   }
@@ -66,9 +66,27 @@ RELEASE_GCS_BUCKET=""
 KO_FLAGS=""
 export KO_DOCKER_REPO=""
 
-function abort() {
-  echo "error: $@"
-  exit 1
+# Convenience function to run the hub tool.
+# Parameters: $1..$n - arguments to hub.
+function hub_tool() {
+  run_go_tool github.com/github/hub hub $@
+}
+
+# Return the master version of a release.
+# For example, "v0.2.1" returns "0.2"
+# Parameters: $1 - release version label.
+function master_version() {
+  local release="${1//v/}"
+  local tokens=(${release//\./ })
+  echo "${tokens[0]}.${tokens[1]}"
+}
+
+# Return the release build number of a release.
+# For example, "v0.2.1" returns "1".
+# Parameters: $1 - release version label.
+function release_build_number() {
+  local tokens=(${1//\./ })
+  echo "${tokens[2]}"
 }
 
 # Parses flags and sets environment variables accordingly.
@@ -82,16 +100,25 @@ function parse_flags() {
   RELEASE_GCS_BUCKET="knative-nightly/$(basename ${REPO_ROOT_DIR})"
   local has_gcr_flag=0
   local has_gcs_flag=0
+  local is_dot_release=0
 
   cd ${REPO_ROOT_DIR}
   while [[ $# -ne 0 ]]; do
     local parameter=$1
-    case $parameter in
+    case ${parameter} in
       --skip-tests) SKIP_TESTS=1 ;;
       --tag-release) TAG_RELEASE=1 ;;
       --notag-release) TAG_RELEASE=0 ;;
       --publish) PUBLISH_RELEASE=1 ;;
       --nopublish) PUBLISH_RELEASE=0 ;;
+      --dot-release) is_dot_release=1 ;;
+      --github-token)
+        shift
+        [[ $# -ge 1 ]] || abort "missing token file after --github-token"
+        [[ ! -f "$1" ]] && abort "file $1 doesn't exist"
+        export GITHUB_TOKEN="$(cat $1)"
+        [[ -n "${GITHUB_TOKEN}" ]] || abort "file $1 is empty"
+        ;;
       --release-gcr)
         shift
         [[ $# -ge 1 ]] || abort "missing GCR after --release-gcr"
@@ -126,6 +153,51 @@ function parse_flags() {
     esac
     shift
   done
+
+  # Setup dot releases
+  if (( is_dot_release )); then
+    echo "Dot release requested"
+    TAG_RELEASE=1
+    PUBLISH_RELEASE=1
+    # List latest release
+    local releases # don't combine with the line below, or $? will be 0
+    releases="$(hub_tool release)"
+    [[ $? -eq 0 ]] || abort "cannot list releases"
+    # If --release-branch passed, restrict to that release
+    if [[ -n "${RELEASE_BRANCH}" ]]; then
+      local version_filter="v${RELEASE_BRANCH##release-}"
+      echo "Dot release will be generated for ${version_filter}"
+      releases="$(echo "${releases}" | grep ^${version_filter})"
+    fi
+    local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r | head -1)"
+    [[ -n "${last_version}" ]] || abort "no previous release exist"
+    if [[ -z "${RELEASE_BRANCH}" ]]; then
+      echo "Last release is ${last_version}"
+      # Determine branch
+      local major_minor_version="$(master_version ${last_version})"
+      RELEASE_BRANCH="release-${major_minor_version}"
+      echo "Last release branch is ${RELEASE_BRANCH}"
+    fi
+    # Ensure there are new commits in the branch, otherwise we don't create a new release
+    local last_release_commit="$(git rev-list -n 1 ${last_version})"
+    local release_branch_commit="$(git rev-list -n 1 ${RELEASE_BRANCH})"
+    if [[ "${last_release_commit}" == "${release_branch_commit}" ]]; then
+      echo "*** Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
+      echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks since release ${last_version}"
+      echo "*** No dot release will be generated, as no changes exist"
+      exit 0
+    fi
+    # Create new release version number
+    local last_build="$(release_build_number ${last_version})"
+    RELEASE_VERSION="${major_minor_version}.$(( last_build + 1 ))"
+    echo "Will create release ${RELEASE_VERSION} at commit ${release_branch_commit}"
+    # If --release-notes not used, copy from the latest release
+    if [[ -z "${RELEASE_NOTES}" ]]; then
+      RELEASE_NOTES="$(mktemp)"
+      hub_tool release show -f "%b" ${last_version} > ${RELEASE_NOTES}
+      echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
+    fi
+  fi
 
   # Update KO_DOCKER_REPO and KO_FLAGS if we're not publishing.
   if (( ! PUBLISH_RELEASE )); then
@@ -178,7 +250,6 @@ function run_validation_tests() {
 # Initialize everything (flags, workspace, etc) for a release.
 function initialize() {
   parse_flags $@
-
   # Log what will be done and where.
   banner "Release configuration"
   echo "- Destination GCR: ${KO_DOCKER_REPO}"
@@ -224,7 +295,7 @@ function branch_release() {
   fi
   git tag -a ${TAG} -m "${title}"
   git push $(git remote get-url upstream) tag ${TAG}
-  run_go_tool github.com/github/hub hub release create \
+  hub_tool release create \
       --prerelease \
       ${attachments[@]} \
       --file=${description} \

@@ -42,6 +42,13 @@ fi
 readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
+# Print error message and exit 1
+# Parameters: $1..$n - error message to be displayed
+function abort() {
+  echo "error: $@"
+  exit 1
+}
+
 # Display a box banner.
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.
@@ -70,20 +77,6 @@ function warning() {
 # Checks whether the given function exists.
 function function_exists() {
   [[ "$(type -t $1)" == "function" ]]
-}
-
-# Remove ALL images in the given GCR repository.
-# Parameters: $1 - GCR repository.
-function delete_gcr_images() {
-  for image in $(gcloud --format='value(name)' container images list --repository=$1); do
-    echo "Checking ${image} for removal"
-    delete_gcr_images ${image}
-    for digest in $(gcloud --format='get(digest)' container images list-tags ${image} --limit=99999); do
-      local full_image="${image}@${digest}"
-      echo "Removing ${full_image}"
-      gcloud container images delete -q --force-delete-tags ${full_image}
-    done
-  done
 }
 
 # Waits until the given object doesn't exist.
@@ -440,8 +433,22 @@ function check_links_in_markdown() {
 }
 
 # Check format of the given markdown files.
-# Parameters: $1...$n - files to inspect
+# Parameters: $1..$n - files to inspect
 function lint_markdown() {
   # https://github.com/markdownlint/markdownlint
   run_lint_tool mdl "linting markdown files" "-r ~MD013" $@
 }
+
+# Return 0 if the given parameter is an integer, otherwise 1
+# Parameters: $1 - an integer
+function is_int() {
+  [[ -n $1 && $1 =~ ^[0-9]+$ ]]
+}
+
+# Return 0 if the given parameter is the knative release/nightly gcr, 1
+# otherwise
+# Parameters: $1 - gcr name, e.g. gcr.io/knative-nightly
+function is_protected_gcr() {
+  [[ -n $1 && "$1" =~ "^gcr.io/knative-(releases|nightly)/?$" ]]
+}
+

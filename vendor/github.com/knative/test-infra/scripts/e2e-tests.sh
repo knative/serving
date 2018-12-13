@@ -292,11 +292,6 @@ GCP_PROJECT=""
 E2E_SCRIPT=""
 E2E_CLUSTER_VERSION=""
 
-function abort() {
-  echo "error: $@"
-  exit 1
-}
-
 # Parse flags and initialize the test cluster.
 function initialize() {
   # Normalize calling script path; we can't use readlink because it's not available everywhere
@@ -355,11 +350,9 @@ function initialize() {
   (( IS_PROW )) && [[ -z "${GCP_PROJECT}" ]] && IS_BOSKOS=1
 
   # Safety checks
-
-  if [[ "${DOCKER_REPO_OVERRIDE}" =~ ^gcr.io/knative-(releases|nightly)/?$ ]]; then
-    abort "\$DOCKER_REPO_OVERRIDE is set to ${DOCKER_REPO_OVERRIDE}, which is forbidden"
-  fi
-
+  is_protected_gcr ${DOCKER_REPO_OVERRIDE} && \
+    abort "\$DOCKER_REPO_OVERRIDE set to ${DOCKER_REPO_OVERRIDE}, which is forbidden"
+  
   readonly RUN_TESTS
   readonly EMIT_METRICS
   readonly E2E_CLUSTER_VERSION
