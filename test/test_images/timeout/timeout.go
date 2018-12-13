@@ -26,8 +26,18 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	// Sleep for a set amount of time before sending headers
+	if initialTimeout := r.URL.Query().Get("initialTimeout"); initialTimeout != "" {
+		parsed, _ := strconv.Atoi(initialTimeout)
+		time.Sleep(time.Duration(parsed) * time.Millisecond)
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// Sleep for a set amount of time before sending response
 	timeout, _ := strconv.Atoi(r.URL.Query().Get("timeout"))
 	time.Sleep(time.Duration(timeout) * time.Millisecond)
+
 	fmt.Fprintf(w, "Slept for %d milliseconds", timeout)
 }
 
