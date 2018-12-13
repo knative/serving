@@ -366,8 +366,9 @@ such variables will follow demonstrated usage and utility.
 
 ### User
 
-The user which the process is run as SHOULD be specified by the operator or
-platform provider, rather than the developer.
+If the developer provides a user to run the process as, the process SHOULD run as this user.
+
+If the developer does not provide a user to run the process as, the process SHOULD run as `root`.
 
 ### Default Filesystems
 
