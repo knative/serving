@@ -26,8 +26,8 @@ import (
 
 var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
 
-// TimeToFirstByteTimeoutHandler returns a Handler that runs h with the given time limit
-// in which the first byte of the response must be written.
+// TimeToFirstByteTimeoutHandler returns a Handler that runs h with the
+// given time limit in which the first byte of the response must be written.
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
 // call runs for longer than its time limit, the handler responds with
@@ -35,6 +35,10 @@ var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Tim
 // (If msg is empty, a suitable default message will be sent.)
 // After such a timeout, writes by h to its ResponseWriter will return
 // ErrHandlerTimeout.
+//
+// A panic from the underlying handler is propagated as-is to be able to
+// make use of custom panic behavior by HTTP handlers. See
+// https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
 func TimeToFirstByteTimeoutHandler(h http.Handler, dt time.Duration, msg string) http.Handler {
