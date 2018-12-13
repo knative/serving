@@ -31,6 +31,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantStatus     int
 		wantBody       string
 		wantWriteError bool
+		wantPanic      bool
 	}{{
 		name:    "all good",
 		timeout: 10 * time.Second,
@@ -47,6 +48,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		handler: func(writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(100 * time.Millisecond)
+				w.WriteHeader(http.StatusOK)
 				_, werr := w.Write([]byte("hi"))
 				writeErrors <- werr
 			})
@@ -80,6 +82,17 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantStatus:     http.StatusServiceUnavailable,
 		wantBody:       "request timeout",
 		wantWriteError: true,
+	}, {
+		name:    "propagate panic",
+		timeout: 50 * time.Millisecond,
+		handler: func(writeErrors chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				panic(http.ErrAbortHandler)
+			})
+		},
+		wantStatus: http.StatusServiceUnavailable,
+		wantBody:   "request timeout",
+		wantPanic:  true,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -92,6 +105,13 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			rr := httptest.NewRecorder()
 			handler := TimeToFirstByteTimeoutHandler(test.handler(writeErrors), test.timeout, test.timeoutMessage)
 
+			defer func() {
+				if test.wantPanic {
+					if recovered := recover(); recovered != http.ErrAbortHandler {
+						t.Error("Expected the handler to panic, but it didn't.")
+					}
+				}
+			}()
 			handler.ServeHTTP(rr, req)
 
 			if status := rr.Code; status != test.wantStatus {
