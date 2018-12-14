@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	userContainerName    = "user-container"
+	UserContainerName    = "user-container"
 	fluentdContainerName = "fluentd-proxy"
 	envoyContainerName   = "istio-proxy"
 	queueContainerName   = "queue-proxy"

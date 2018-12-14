@@ -107,7 +107,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = userContainerName
+	userContainer.Name = UserContainerName
 
 	// If client provides for some resources, override default values
 	applyDefaultResources(userResources, &userContainer.Resources)
@@ -126,6 +126,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	if rev.Status.ImageDigest != "" {
 		userContainer.Image = rev.Status.ImageDigest
 	}
+	userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
