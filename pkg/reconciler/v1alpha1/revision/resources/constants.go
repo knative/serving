@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	// UserContainerName is the name of the user-container in the PodSpec
 	UserContainerName    = "user-container"
 	fluentdContainerName = "fluentd-proxy"
 	envoyContainerName   = "istio-proxy"
