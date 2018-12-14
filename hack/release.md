@@ -48,8 +48,6 @@ Examples:
 
 ## Creating versioned releases
 
-_Note: only Knative admins can create versioned releases._
-
 To specify a versioned release to be cut, you must use the `--version` flag.
 Versioned releases are usually built against a branch in the Knative Serving
 repository, specified by the `--branch` flag.
@@ -65,12 +63,72 @@ repository, specified by the `--branch` flag.
 - `--release-notes` Points to a markdown file containing a description of the
   release. This is optional but highly recommended. It has no effect unless
   `--version` is also passed.
-
-If this is the first time you're cutting a versioned release, you'll be prompted
-for your GitHub username, password, and possibly 2-factor authentication
-challenge before the release is published.
+- `--github-token` Points to a text file containing the GitHub token to be used
+  for authentication when publishing the release to GitHub. If this flag is not
+  used and this is the first time you're publishing a versioned release, you'll
+  be prompted for your GitHub username, password, and possibly 2-factor
+  authentication challenge (you must be a Knative admin to have the
+  required publishing permissions).
 
 The release will be published in the _Releases_ page of the Knative Serving
 repository, with the title _Knative Serving release vX.Y.Z_ and the given
 release notes. It will also be tagged _vX.Y.Z_ (both on GitHub and as a git
 annotated tag).
+
+Example:
+
+```bash
+# Create and publish a versioned release.
+./hack/release.sh --publish --tag-release \
+  --release-gcr gcr.io/knative-releases \
+  --release-gcs knative-releases/serving \
+  --version 0.3.0 \
+  --branch release-0.3 \
+  --release-notes $HOME/docs/release-notes-0.3.md
+```
+
+## Creating incremental build releases ("dot releases")
+
+An incremental build release (aka "dot release") is a versioned release built
+automatically based on changes in the latest release branch, with the build
+number increased.
+
+For example, if the latest release on release branch `release-0.2` is `v0.2.1`,
+creating an incremental build release will result in `v0.2.2`.
+
+To specify an incremental build release to be cut, you must use the
+`--dot-release` flag. The latest branch and release version will be
+automatically detected and used.
+
+_Note 1: when using the `--dot-release` flag, the flags `--nopublish` and
+`--notag-release` have no effect. The release is always tagged and published._
+
+_Note 2: if the release branch has no new commits since its last release was
+cut, the script successfully exits with a warning, and no release will be
+created._
+
+The following flags are useful when creating incremental build releases:
+
+- `--branch` Restricts the incremental build release to the given branch. If not
+  passed, the latest branch will be automatically detected and used.
+- `--release-notes` Points to a markdown file containing a description of the
+  release. If not passed, the notes will be copied from the previous release.
+- `--github-token` Points to a text file containing the GitHub token to be used
+  for authentication when publishing the release to GitHub. If this flag is not
+  used and this is the first time you're publishing a versioned release, you'll
+  be prompted for your GitHub username, password, and possibly 2-factor
+  authentication challenge (you must be a Knative admin to have the
+  required publishing permissions).
+
+Like any regular versioned release, an incremental build release is published in
+the _Releases_ page of the Knative Serving repository.
+
+Example:
+
+```bash
+# Create and publish a new dot release.
+./hack/release.sh \
+  --dot-release \
+  --release-gcr gcr.io/knative-releases \
+  --release-gcs knative-releases/serving
+```
