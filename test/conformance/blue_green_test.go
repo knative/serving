@@ -67,7 +67,7 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Setup Initial Service
 	logger.Info("Creating a new Service in runLatest")
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names)
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

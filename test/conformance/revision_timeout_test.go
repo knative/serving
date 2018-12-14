@@ -38,7 +38,7 @@ import (
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by imagePath
 func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int) (*v1alpha1.Service, error) {
-	service := test.LatestService(test.ServingNamespace, names, imagePath)
+	service := test.LatestService(test.ServingNamespace, names, imagePath, &test.Options{})
 	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{
 		Duration: time.Duration(revisionTimeoutSeconds) * time.Second,
 	}

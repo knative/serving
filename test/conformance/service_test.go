@@ -154,7 +154,7 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	// Setup initial Service
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names)
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -279,7 +279,7 @@ func TestReleaseService(t *testing.T) {
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names)
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

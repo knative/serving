@@ -42,7 +42,7 @@ func fetchEnvInfo(t *testing.T, logger *logging.BaseLogger, urlPath string, name
 	logger.Info("Creating a new Service")
 	names.Service = test.AppendRandomString("yashiki", logger)
 	names.Image = "environment"
-	svc, err := test.CreateLatestService(logger, clients, *names)
+	svc, err := test.CreateLatestService(logger, clients, *names, &test.Options{})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to create Service: %v", err))
 	}
