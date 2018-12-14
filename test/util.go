@@ -46,7 +46,7 @@ func ImagePath(name string) string {
 // by passing handler to handle requests for "/"
 func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
 	ListenAndServeGracefullyWithPattern(addr, map[string]func(w http.ResponseWriter, r *http.Request){
-		"/" : handler,
+		"/": handler,
 	})
 }
 

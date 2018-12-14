@@ -41,10 +41,10 @@ func TestShouldEnvVars(t *testing.T) {
 		t.Fatalf("Failed to unmarshall response : %v", err)
 	}
 
-	expectedValues := ShouldEnvvars {
-		Service: names.Service,
-		Configuration : names.Config,
-		Revision : names.Revision,
+	expectedValues := ShouldEnvvars{
+		Service:       names.Service,
+		Configuration: names.Config,
+		Revision:      names.Revision,
 	}
 	if respValues != expectedValues {
 		t.Fatalf("Received response failed to match execpted response. Received: %v Expected: %v", respValues, expectedValues)
@@ -65,7 +65,7 @@ func TestMustEnvVars(t *testing.T) {
 		t.Fatalf("Failed to unmarshall response : %v", err)
 	}
 
-	expectedValues := MustEnvvars {
+	expectedValues := MustEnvvars{
 		// The port value needs to match the port exposed by the test-image.
 		// We currently control them by using a common constant, but any change needs synchronization between this check
 		// and the value used by the test-image.
