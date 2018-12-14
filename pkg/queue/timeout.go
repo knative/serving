@@ -70,6 +70,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// The recovery value of a panic is written to this channel to be
 	// propagated (panicked with) again.
 	panicChan := make(chan interface{}, 1)
+	defer close(panicChan)
 
 	tw := &timeoutWriter{w: w}
 	go func() {
@@ -89,6 +90,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case p := <-panicChan:
+			close(done)
 			panic(p)
 		case <-done:
 			return
