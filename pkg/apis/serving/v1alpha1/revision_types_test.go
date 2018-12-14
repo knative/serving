@@ -19,16 +19,14 @@ import (
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -587,7 +585,7 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 
 func TestRevisionBuildRefFromName(t *testing.T) {
 	r := &Revision{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo-space",
 			Name:      "foo",
 		},
@@ -615,7 +613,7 @@ func TestRevisionBuildRef(t *testing.T) {
 		Name:       "foo-build",
 	}
 	r := &Revision{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo-space",
 			Name:      "foo",
 		},
@@ -633,7 +631,7 @@ func TestRevisionBuildRef(t *testing.T) {
 
 func TestRevisionBuildRefNil(t *testing.T) {
 	r := &Revision{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo-space",
 			Name:      "foo",
 		},
