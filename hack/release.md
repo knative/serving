@@ -67,8 +67,8 @@ repository, specified by the `--branch` flag.
   for authentication when publishing the release to GitHub. If this flag is not
   used and this is the first time you're publishing a versioned release, you'll
   be prompted for your GitHub username, password, and possibly 2-factor
-  authentication challenge (you must be a Knative admin to have the
-  required publishing permissions).
+  authentication challenge (you must be a Knative admin to have the required
+  publishing permissions).
 
 The release will be published in the _Releases_ page of the Knative Serving
 repository, with the title _Knative Serving release vX.Y.Z_ and the given
@@ -117,8 +117,8 @@ The following flags are useful when creating incremental build releases:
   for authentication when publishing the release to GitHub. If this flag is not
   used and this is the first time you're publishing a versioned release, you'll
   be prompted for your GitHub username, password, and possibly 2-factor
-  authentication challenge (you must be a Knative admin to have the
-  required publishing permissions).
+  authentication challenge (you must be a Knative admin to have the required
+  publishing permissions).
 
 Like any regular versioned release, an incremental build release is published in
 the _Releases_ page of the Knative Serving repository.
