@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/prometheus"
+	"github.com/knative/test-infra/shared/testgrid"
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
 
@@ -38,6 +39,11 @@ const (
 	istioNS      = "istio-system"
 	monitoringNS = "knative-monitoring"
 	gateway      = "istio-ingressgateway"
+	// Property name used by testgrid.
+	perfLatency = "perf_latency"
+	concurrency = 5
+	duration    = 1 * time.Minute
+	numThreads  = 1
 )
 
 type PerformanceClient struct {
@@ -89,4 +95,14 @@ func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain
 	}
 
 	return fhttp.RunHTTPTest(&opts)
+}
+
+// CreatePerfTestCase creates a perf test case with the provided name and value
+func CreatePerfTestCase(tcVal float32, tcName, tName string) testgrid.TestCase {
+	tp := []testgrid.TestProperty{{Name: perfLatency, Value: tcVal}}
+	tc := testgrid.TestCase{
+		ClassName:  tName,
+		Name:       fmt.Sprintf("%s/%s", tName, tcName),
+		Properties: testgrid.TestProperties{Property: tp}}
+	return tc
 }
