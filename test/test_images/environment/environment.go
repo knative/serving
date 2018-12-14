@@ -45,8 +45,7 @@ func envvarsHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	log.Print("Environment test app started.")
-	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request) {
-		test.EnvImageEnvVarsPath : envvarsHandler,
+	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request){
+		test.EnvImageEnvVarsPath: envvarsHandler,
 	})
 }
-

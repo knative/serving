@@ -36,7 +36,7 @@ import (
 )
 
 //fetchEnvInfo creates the service using test_images/environment and fetches environment info defined inside the container dictated by urlPath.
-func fetchEnvInfo(t *testing.T, logger *logging.BaseLogger, urlPath string, names* test.ResourceNames) ([]byte, error) {
+func fetchEnvInfo(t *testing.T, logger *logging.BaseLogger, urlPath string, names *test.ResourceNames) ([]byte, error) {
 	clients := setup(t)
 
 	logger.Info("Creating a new Service")
@@ -87,7 +87,7 @@ func fetchEnvInfo(t *testing.T, logger *logging.BaseLogger, urlPath string, name
 		logger,
 		url,
 		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
-			if resp.StatusCode ==  http.StatusOK {
+			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}
 
