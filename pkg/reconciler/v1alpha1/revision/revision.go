@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -330,7 +331,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	}
 	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(err.Error())
+		rev.Status.MarkContainerMissing(fmt.Sprintf("Unable to resolve image: %q: %s", rev.Spec.Container.Image, err.Error()))
 		return err
 	}
 
