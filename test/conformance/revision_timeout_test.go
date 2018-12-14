@@ -65,19 +65,22 @@ func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, re
 }
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
-func sendRequest(logger *logging.BaseLogger, clients *test.Clients, domain string, sleepSeconds int, expectedResponseCode int) error {
+func sendRequest(logger *logging.BaseLogger, clients *test.Clients, domain string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		logger.Infof("Spoofing client failed: %v", err)
 		return err
 	}
 
+	initialSleepMs := initialSleepSeconds * 1000
+	sleepMs := sleepSeconds * 1000
+
 	start := time.Now().UnixNano()
 	defer func() {
 		end := time.Now().UnixNano()
-		logger.Infof("domain: %v, sleep: %v, request elapsed %.2f ms", domain, sleepSeconds*1000, float64(end-start)/1e6)
+		logger.Infof("domain: %v, initialSleep: %v, sleep: %v, request elapsed %.2f ms", domain, initialSleepMs, sleepMs, float64(end-start)/1e6)
 	}()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?timeout=%v", domain, sleepSeconds*1000), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?initialTimeout=%v&timeout=%v", domain, initialSleepMs, sleepMs), nil)
 	if err != nil {
 		logger.Infof("Failed new request: %v", err)
 		return err
@@ -193,22 +196,27 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)
 	}
 
-	if err := sendRequest(logger, clients, rev2sDomain, 0, http.StatusOK); err != nil {
+	// Quick sanity check
+	if err := sendRequest(logger, clients, rev2sDomain, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 0, http.StatusOK); err != nil {
+	if err := sendRequest(logger, clients, rev5sDomain, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 5s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev2sDomain, 7, http.StatusServiceUnavailable); err != nil {
-		t.Errorf("Did not fail request with sleep 7s with revision timeout 2s: %v", err)
+
+	// Fail by surpassing the initial timeout.
+	if err := sendRequest(logger, clients, rev2sDomain, 5, 0, http.StatusServiceUnavailable); err != nil {
+		t.Errorf("Did not fail request with sleep 5s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 7, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(logger, clients, rev5sDomain, 7, 0, http.StatusServiceUnavailable); err != nil {
 		t.Errorf("Did not fail request with sleep 7s with revision timeout 5s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev2sDomain, 3, http.StatusServiceUnavailable); err != nil {
-		t.Errorf("Did not fail request with sleep 3s with revision timeout 2s: %v", err)
+
+	// Not fail by not surpassing in the initial timeout, but in the overall request duration.
+	if err := sendRequest(logger, clients, rev2sDomain, 1, 3, http.StatusOK); err != nil {
+		t.Errorf("Did not fail request with sleep 1s/3s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 3, http.StatusOK); err != nil {
-		t.Errorf("Failed request with sleep 3s with revision timeout 5s: %v", err)
+	if err := sendRequest(logger, clients, rev5sDomain, 3, 3, http.StatusOK); err != nil {
+		t.Errorf("Failed request with sleep 3s/3s with revision timeout 5s: %v", err)
 	}
 }
