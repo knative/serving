@@ -318,7 +318,7 @@ func main() {
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
-		http.TimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	go server.ListenAndServe()
 	go setupAdminHandlers(adminServer)
