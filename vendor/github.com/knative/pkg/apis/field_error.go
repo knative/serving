@@ -143,7 +143,7 @@ func (fe *FieldError) normalized() []*FieldError {
 
 	// Allocate errors with at least as many objects as we'll get on the first pass.
 	errors := make([]*FieldError, 0, len(fe.errors)+1)
-	// If this FieldError is a leaf,
+	// If this FieldError is a leaf, add it.
 	if fe.Message != "" {
 		errors = append(errors, &FieldError{
 			Message: fe.Message,
@@ -151,7 +151,7 @@ func (fe *FieldError) normalized() []*FieldError {
 			Details: fe.Details,
 		})
 	}
-	// and then collect all other errors recursively.
+	// And then collect all other errors recursively.
 	for _, e := range fe.errors {
 		errors = append(errors, e.normalized()...)
 	}
@@ -234,7 +234,7 @@ func containsString(slice []string, s string) bool {
 }
 
 // merge takes in a flat list of FieldErrors and returns back a merged list of
-// FiledErrors. FieldErrors have their Paths combined (and de-duped) if their
+// FieldErrors. FieldErrors have their Paths combined (and de-duped) if their
 // Message and Details are the same. Merge will not inspect FieldError.errors.
 // Merge will also sort the .Path slice, and the errors slice before returning.
 func merge(errs []*FieldError) []*FieldError {
