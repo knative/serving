@@ -28,7 +28,6 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,8 +66,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
-		if cond != nil && cond.Status != corev1.ConditionUnknown {
-			if strings.Contains(cond.Message, manifestUnknown) && cond.Status == corev1.ConditionFalse {
+		if cond != nil && !cond.IsUnknown() {
+			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
 				return true, nil
 			}
 			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
@@ -91,7 +90,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
-			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) {
+			if cond.Reason == containerMissing && strings.Contains(cond.Message, manifestUnknown) {
 				return true, nil
 			}
 			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
