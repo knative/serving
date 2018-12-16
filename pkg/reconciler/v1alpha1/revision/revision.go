@@ -330,7 +330,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	}
 	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(err.Error())
+		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
 		return err
 	}
 

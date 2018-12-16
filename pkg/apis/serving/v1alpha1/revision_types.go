@@ -367,6 +367,12 @@ func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
 }
 
+// RevisionContainerMissingMessage constructs the status message if a given image
+// cannot be pulled correctly.
+func RevisionContainerMissingMessage(image string, message string) string {
+	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
 const (
 	AnnotationParseErrorTypeMissing = "Missing"
 	AnnotationParseErrorTypeInvalid = "Invalid"
