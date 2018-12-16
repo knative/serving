@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package conformance
 
 import (
 	"fmt"
@@ -29,18 +29,15 @@ import (
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCustomResourcesLimits(t *testing.T) {
-	clients = Setup(t)
+	clients := setup(t)
 
 	//add test case specific name to its own logger
-	logger = logging.GetContextLogger("TestCustomResourcesLimits")
-
-	var imagePath = test.ImagePath("bloatingcow")
+	logger := logging.GetContextLogger("TestCustomResourcesLimits")
 
 	logger.Infof("Creating a new Route and Configuration")
 	resources := corev1.ResourceRequirements{
@@ -51,12 +48,19 @@ func TestCustomResourcesLimits(t *testing.T) {
 			corev1.ResourceMemory: resource.MustParse("350Mi"),
 		},
 	}
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{ContainerResources: resources})
-	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("test-resource-limits-", logger),
+		Image:   "bloatingcow",
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+
+	_, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer tearDown(clients, names)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
@@ -69,43 +73,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	logger.Info("Waiting for pod list to contain desired resource configuration")
-	err = pkgTest.WaitForPodListState(
-		clients.KubeClient,
-		func(p *corev1.PodList) (bool, error) {
-			for _, pod := range p.Items {
-				if strings.HasPrefix(pod.Name, names.Config) {
-					for _, c := range pod.Spec.Containers {
-						if c.Name == "user-container" {
-							want := corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("350Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("350Mi"),
-									corev1.ResourceCPU:    resource.MustParse("400m"), // Default value
-								},
-							}
-
-							if !equality.Semantic.DeepEqual(c.Resources, want) {
-								return false, fmt.Errorf("invalid resource configuration for pod %v. Want: %+v, got: %+v", pod.Name, want, c.Resources)
-							}
-							return true, nil
-						}
-					}
-				}
-			}
-			return false, nil
-		},
-		"WaitForAvailablePods", test.ServingNamespace)
-	if err != nil {
-		logger.Fatalf(`Waiting for Pod.List to have pods with custom resources: %v`, err)
-	}
-
-	logger.Info("pods are running with the desired configuration.")
-
 	want := "Moo!"
-
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
@@ -114,7 +82,21 @@ func TestCustomResourcesLimits(t *testing.T) {
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, want, err)
+	}
+
+	sendPostRequest := func(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
+		logger.Infof("The domain of request is %s and its query is %s", domain, query)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
+		if err != nil {
+			return nil, err
+		}
+
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s?%s", domain, query), nil)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
 	}
 
 	pokeCowForMB := func(mb int) error {
@@ -140,18 +122,4 @@ func TestCustomResourcesLimits(t *testing.T) {
 	if err := pokeCowForMB(500); err == nil {
 		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", 500, err)
 	}
-}
-
-func sendPostRequest(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
-	logger.Infof("The domain of request is %s and its query is %s", domain, query)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s?%s", domain, query), nil)
-	if err != nil {
-		return nil, err
-	}
-	return client.Do(req)
 }
