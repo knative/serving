@@ -131,7 +131,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
 
-	revisionTimeout := int64(rev.Spec.TimeoutSeconds.Duration.Seconds())
+	revisionTimeout := rev.Spec.TimeoutSeconds
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{

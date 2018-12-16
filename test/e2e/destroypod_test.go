@@ -36,7 +36,7 @@ import (
 
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
-	revisionTimeout        = 45 * time.Second
+	revisionTimeout        = 45
 	timeoutRequestDuration = 43 * time.Second
 )
 

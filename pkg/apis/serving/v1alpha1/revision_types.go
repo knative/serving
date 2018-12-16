@@ -190,7 +190,7 @@ type RevisionSpec struct {
 
 	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
 	// +optional
-	TimeoutSeconds *metav1.Duration `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds int64 `json:"timeoutSeconds,omitempty"`
 }
 
 const (
