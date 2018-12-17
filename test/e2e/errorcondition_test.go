@@ -149,8 +149,8 @@ func TestContainerExitingMsg(t *testing.T) {
 				return true, nil
 			}
 			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
-			return true, errors.New(s)
+			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
+				names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
 	}, "ConfigContainersCrashing")
@@ -182,15 +182,10 @@ func TestContainerExitingMsg(t *testing.T) {
 	}
 
 	logger.Infof("When the revision has error condition, logUrl should be populated.")
-	logURL, err := getLogURLFromRevision(clients, revisionName)
+	_, err = getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
-
-	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	logger.Debugf("LogURL: %s", logURL)
-
-	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
 }
 
 // Get revision name from configuration.
@@ -202,8 +197,7 @@ func getRevisionFromConfiguration(clients *test.Clients, configName string) (str
 	if config.Status.LatestCreatedRevisionName != "" {
 		return config.Status.LatestCreatedRevisionName, nil
 	}
-	s := fmt.Sprintf("No valid revision name found in configuration %s", configName)
-	return "", errors.New(s)
+	return "", fmt.Errorf("No valid revision name found in configuration %s", configName)
 }
 
 // Get LogURL from revision.
@@ -215,6 +209,5 @@ func getLogURLFromRevision(clients *test.Clients, revisionName string) (string, 
 	if revision.Status.LogURL != "" && strings.Contains(revision.Status.LogURL, string(revision.GetUID())) {
 		return revision.Status.LogURL, nil
 	}
-	s := fmt.Sprintf("The revision %s does't have valid logUrl: %s", revisionName, revision.Status.LogURL)
-	return "", errors.New(s)
+	return "", fmt.Errorf("The revision %s does't have valid logUrl: %s", revisionName, revision.Status.LogURL)
 }
