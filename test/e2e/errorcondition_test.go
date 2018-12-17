@@ -38,7 +38,6 @@ const (
 // TestContainerErrorMsg is to validate the error condition defined at
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
-
 func TestContainerErrorMsg(t *testing.T) {
 	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
@@ -98,6 +97,85 @@ func TestContainerErrorMsg(t *testing.T) {
 		}
 		return false, nil
 	}, "ImagePathInvalid")
+
+	if err != nil {
+		t.Fatalf("Failed to validate revision state: %s", err)
+	}
+
+	logger.Infof("When the revision has error condition, logUrl should be populated.")
+	logURL, err := getLogURLFromRevision(clients, revisionName)
+	if err != nil {
+		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
+	}
+
+	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
+	logger.Debugf("LogURL: %s", logURL)
+
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
+}
+
+// TestContainerExitingMsg is to validate the error condition defined at
+// https://github.com/knative/serving/blob/master/docs/spec/errors.md
+// for the container crashing scenario.
+func TestContainerExitingMsg(t *testing.T) {
+	clients := Setup(t)
+
+	//add test case specific name to its own logger
+	logger := logging.GetContextLogger("TestContainerExitingMsg")
+
+	// Specify an invalid image path
+	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
+	imagePath := test.ImagePath("failing")
+
+	// The given image will always exit with an exit code of 5
+	exitCodeReason := "ExitCode5"
+	// ... and will print "Or not?" before it exits
+	errorLog := "Or not?"
+
+	logger.Infof("Creating a new Route and Configuration %s", imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create Route and Configuration: %v", err)
+	}
+	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+
+	logger.Infof("When the containers keep crashing, the Configuration should have error status.")
+
+	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+		if cond != nil && !cond.IsUnknown() {
+			if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
+				return true, nil
+			}
+			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
+			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
+			return true, errors.New(s)
+		}
+		return false, nil
+	}, "ConfigContainersCrashing")
+
+	if err != nil {
+		t.Fatalf("Failed to validate configuration state: %s", err)
+	}
+
+	revisionName, err := getRevisionFromConfiguration(clients, names.Config)
+	if err != nil {
+		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
+	}
+
+	logger.Infof("When the containers keep crashing, the revision should have error status.")
+	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+		if cond != nil {
+			if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
+				return true, nil
+			}
+			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
+				revisionName, exitCodeReason, errorLog, cond.Reason, cond.Message)
+		}
+		return false, nil
+	}, "RevisionContainersCrashing")
 
 	if err != nil {
 		t.Fatalf("Failed to validate revision state: %s", err)
