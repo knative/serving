@@ -27,22 +27,9 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/testgrid"
 )
-
-func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var revisionName string
-	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.LatestCreatedRevisionName != names.Revision {
-			revisionName = s.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ServiceUpdatedWithRevision")
-	return revisionName, err
-}
 
 func TestPerformanceLatency(t *testing.T) {
 	logger := logging.GetContextLogger("TestPerformanceLatency")
