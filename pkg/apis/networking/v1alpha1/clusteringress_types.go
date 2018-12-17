@@ -94,7 +94,7 @@ type IngressSpec struct {
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
 
 	// Visibility setting.
-	Visibility *IngressVisibility
+	Visibility *IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressVisibility describes whether the Ingress should be exposed to
