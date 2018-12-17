@@ -56,6 +56,23 @@ func TestGetGroupVersionKind(t *testing.T) {
 	}
 }
 
+func TestIsPublic(t *testing.T) {
+	ci := ClusterIngress{}
+	if !ci.IsPublic() {
+		t.Error("Expected default ClusterIngress to be public, for backward compatibility")
+	}
+	ci.Spec.Visibility = &IngressVisibility{
+		LocalOnly: true,
+	}
+	if ci.IsPublic() {
+		t.Errorf("Expected %v, see %v", false, ci.IsPublic())
+	}
+	ci.Spec.Visibility.LocalOnly = false
+	if !ci.IsPublic() {
+		t.Errorf("Expected %v, see %v", true, ci.IsPublic())
+	}
+}
+
 func TestTypicalFlow(t *testing.T) {
 	r := &ClusterIngress{}
 	r.Status.InitializeConditions()
