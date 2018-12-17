@@ -96,7 +96,7 @@ func initEnv() {
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
 	health = &healthServer{alive: true}
-	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
+	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
 	if err != nil {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
