@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCustomResourcesLimits(t *testing.T) {
@@ -54,24 +53,14 @@ func TestCustomResourcesLimits(t *testing.T) {
 		Image:   "bloatingcow",
 	}
 
-	_, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
-	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
-	}
-
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
-	domain := route.Status.Domain
+	domain := objects.Route.Status.Domain
 
 	want := "Moo!"
 	_, err = pkgTest.WaitForEndpointState(
