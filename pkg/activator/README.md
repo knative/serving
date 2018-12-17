@@ -1,8 +1,10 @@
-# About Activator
+# About the Activator
 
 The name *activator* is actually a misnomer, since after Knative 0.2,
-*activator* no longer activates inactive Revisions.  The only functionalities of
-the activator are:
+the activator no longer activates inactive Revisions.
+
+
+The only responsibilities of the activator are:
 
 * Receiving & buffering requests for inactive Revisions.
 * Reporting metrics to the autoscaler.
