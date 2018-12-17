@@ -28,7 +28,6 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -71,9 +70,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 	domain := route.Status.Domain
 
 	logger.Info("Waiting for pod list to contain desired resource configuration")
-	err = test.WaitForPodListState(
+	err = pkgTest.WaitForPodListState(
 		clients.KubeClient,
-		func(p *v1.PodList) (bool, error) {
+		func(p *corev1.PodList) (bool, error) {
 			for _, pod := range p.Items {
 				if strings.HasPrefix(pod.Name, names.Config) {
 					for _, c := range pod.Spec.Containers {
@@ -98,7 +97,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 			}
 			return false, nil
 		},
-		"WaitForAvailablePods")
+		"WaitForAvailablePods", test.ServingNamespace)
 	if err != nil {
 		logger.Fatalf(`Waiting for Pod.List to have pods with custom resources: %v`, err)
 	}

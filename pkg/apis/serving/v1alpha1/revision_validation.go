@@ -17,30 +17,33 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmp"
+	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
-
-	"github.com/knative/pkg/apis"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
+// Validate ensures Revision is properly configured.
 func (rt *Revision) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate().ViaField("spec"))
 }
 
+// Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
 	return rt.Spec.Validate().ViaField("spec")
 }
 
+// Validate ensures RevisionSpec is properly configured.
 func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -70,6 +73,7 @@ func validateTimeoutSeconds(timeoutSeconds *metav1.Duration) *apis.FieldError {
 	return nil
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),
@@ -82,6 +86,7 @@ func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	}
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	switch cm {
 	case RevisionRequestConcurrencyModelType(""),
@@ -93,6 +98,7 @@ func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	}
 }
 
+// ValidateContainerConcurrency ensures ContainerConcurrency is properly configured.
 func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
 	// Validate ContainerConcurrency alone
 	if cc < 0 || cc > RevisionContainerConcurrencyMax {
@@ -144,6 +150,14 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	}
 	if err := validateProbe(container.LivenessProbe).ViaField("livenessProbe"); err != nil {
 		errs = errs.Also(err)
+	}
+	if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+		fe := &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: fmt.Sprintf("image: %q, error: %v", container.Image, err),
+		}
+		errs = errs.Also(fe)
 	}
 	return errs
 }
@@ -198,17 +212,20 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	return nil
 }
 
+// CheckImmutableFields checks the immutable fields are not modified.
 func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-		return x.Cmp(y) == 0
-	})
-
-	if diff := cmp.Diff(original.Spec, current.Spec, quantityComparer); diff != "" {
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff Revision",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},

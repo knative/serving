@@ -181,7 +181,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults()
 
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci)
+	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx))
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -195,14 +195,22 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: ingressGatewayFromContext(ctx)},
+		{DomainInternal: gatewayServiceURLFromContext(ctx)},
 	})
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
-func ingressGatewayFromContext(ctx context.Context) string {
-	return config.FromContext(ctx).Istio.IngressGateway
+func gatewayServiceURLFromContext(ctx context.Context) string {
+	return config.FromContext(ctx).Istio.IngressGateways[0].ServiceURL
+}
+
+func gatewayNamesFromContext(ctx context.Context) []string {
+	gateways := []string{}
+	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+		gateways = append(gateways, gw.GatewayName)
+	}
+	return gateways
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

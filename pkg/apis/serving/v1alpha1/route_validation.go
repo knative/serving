@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -84,6 +85,7 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 	return errs
 }
 
+// Validate verifies that TrafficTarget is properly configured.
 func (tt *TrafficTarget) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 	switch {
@@ -101,7 +103,7 @@ func (tt *TrafficTarget) Validate() *apis.FieldError {
 		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
 	if tt.Percent < 0 || tt.Percent > 100 {
-		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%d", tt.Percent), "percent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(tt.Percent), "0", "100", "percent"))
 	}
 	return errs
 }

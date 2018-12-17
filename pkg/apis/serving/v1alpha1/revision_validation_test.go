@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/knative/pkg/apis"
 )
 
 func TestContainerValidation(t *testing.T) {
@@ -49,14 +49,26 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "invalid container image",
+		c: corev1.Container{
+			Image: "foo:bar:baz",
+		},
+		want: &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: "image: \"foo:bar:baz\", error: could not parse reference",
+		},
+	}, {
 		name: "has a name",
 		c: corev1.Container{
-			Name: "foo",
+			Name:  "foo",
+			Image: "foo",
 		},
 		want: apis.ErrDisallowedFields("name"),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
+			Image: "foo",
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
@@ -67,6 +79,7 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has ports",
 		c: corev1.Container{
+			Image: "foo",
 			Ports: []corev1.ContainerPort{{
 				Name:          "http",
 				ContainerPort: 8080,
@@ -76,6 +89,7 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has volumeMounts",
 		c: corev1.Container{
+			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
 				MountPath: "mount/path",
 				Name:      "name",
@@ -85,6 +99,7 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
+			Image:     "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("lifecycle"),
@@ -147,7 +162,13 @@ func TestContainerValidation(t *testing.T) {
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "ports", "volumeMounts", "lifecycle").Also(
+			&apis.FieldError{
+				Message: "Failed to parse image reference",
+				Paths:   []string{"image"},
+				Details: "image: \"\", error: could not parse reference",
+			},
+		),
 	}}
 
 	for _, test := range tests {
@@ -390,7 +411,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				Duration: 600 * time.Second,
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("10m0s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("10m0s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
@@ -401,7 +422,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				Duration: -30 * time.Second,
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("-30s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("-30s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
 	}}
 
 	for _, test := range tests {

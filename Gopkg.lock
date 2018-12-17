@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:74580f9e031cccd10526f3a47a24b10b61c358a690b5f1d531383c4963cf3311"
+  digest = "1:1ecca845248fa7487445ec0653eda8c619f23df6dc9ef65fb75cb5b9ce159c06"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -426,6 +426,7 @@
     "configmap",
     "controller",
     "kmeta",
+    "kmp",
     "logging",
     "logging/logkey",
     "logging/testing",
@@ -440,20 +441,20 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "0e41760cea1d1ce16f4cc311c2d6bd3525bb3da7"
+  revision = "b04c0947ad2f7bf081c0a22a742a49f045e117b2"
 
 [[projects]]
   branch = "master"
-  digest = "1:f36cb404cd23f6fc1fd4e85e538468658ce991ba73fd1425bd0d1a65de4c3374"
+  digest = "1:74f4c447fcb425021ba92c5a4ac9aabcd96d99623e2ef5d70d1c5ac455fd389e"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/prometheus",
+    "shared/testgrid",
     "tools/dep-collector",
-    "tools/prometheus",
-    "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2377fbc40f81501f2bc09a4e1e359a7ec7c3528e"
+  revision = "5ff6fb1eed88eb395e66a5a6ddafbffde8779648"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1246,6 +1247,7 @@
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/controller",
     "github.com/knative/pkg/kmeta",
+    "github.com/knative/pkg/kmp",
     "github.com/knative/pkg/logging",
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
@@ -1258,9 +1260,9 @@
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/prometheus",
+    "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/prometheus",
-    "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/api",

@@ -30,7 +30,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	zipkin "github.com/knative/pkg/test/zipkin"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -125,33 +125,41 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 
 // GetServiceEndpoint gets the endpoint IP or hostname to use for the service
 func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
-	var endpoint string
-	var ingress *v1.Service
 	var err error
-	for _, ingressName := range ingressNames {
-		ingress, err = kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
 
-	ingresses := ingress.Status.LoadBalancer.Ingress
+	for _, ingressName := range ingressNames {
+		var ingress *v1.Service
+		ingress, err = kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+
+		var endpoint string
+		endpoint, err = getEndpointFromService(ingress)
+		if err != nil {
+			continue
+		}
+
+		return &endpoint, nil
+	}
+	return nil, err
+}
+
+// getEndpointFromService extracts the endpoint from the service's ingress.
+func getEndpointFromService(svc *v1.Service) (string, error) {
+	ingresses := svc.Status.LoadBalancer.Ingress
 	if len(ingresses) != 1 {
-		return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
+		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
 	}
 	ingressToUse := ingresses[0]
+
 	if ingressToUse.IP == "" {
 		if ingressToUse.Hostname == "" {
-			return nil, fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", ingress.Name)
+			return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
 		}
-		endpoint = ingressToUse.Hostname
-	} else {
-		endpoint = ingressToUse.IP
+		return ingressToUse.Hostname, nil
 	}
-	return &endpoint, nil
+	return ingressToUse.IP, nil
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed

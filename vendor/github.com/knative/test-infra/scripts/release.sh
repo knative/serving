@@ -25,27 +25,32 @@ function banner() {
     make_banner "@" "$1"
 }
 
-# Tag images in the yaml file with a tag. If not tag is passed, does nothing.
+# Tag images in the yaml file if $TAG is not empty.
+# $KO_DOCKER_REPO is the registry containing the images to tag with $TAG.
 # Parameters: $1 - yaml file to parse for images.
-#             $2 - registry where the images are stored.
-#             $3 - tag to apply (optional).
 function tag_images_in_yaml() {
-  [[ -z $3 ]] && return 0
-  local src_dir="${GOPATH}/src/"
-  local BASE_PATH="${REPO_ROOT_DIR/$src_dir}"
-  echo "Tagging images under '${BASE_PATH}' with $3"
-  for image in $(grep -o "$2/${BASE_PATH}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
-    gcloud -q container images add-tag ${image} ${image%%@*}:$3
+  [[ -z ${TAG} ]] && return 0
+  local SRC_DIR="${GOPATH}/src/"
+  local DOCKER_BASE="${KO_DOCKER_REPO}/${REPO_ROOT_DIR/$SRC_DIR}"
+  echo "Tagging images under '${DOCKER_BASE}' with ${TAG}"
+  for image in $(grep -o "${DOCKER_BASE}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+    gcloud -q container images add-tag ${image} ${image%%@*}:${TAG}
   done
 }
 
-# Copy the given yaml file to a GCS bucket. Image is tagged :latest, and optionally :$2.
+# Copy the given yaml file to the $RELEASE_GCS_BUCKET bucket's "latest" directory.
+# If $TAG is not empty, also copy it to $RELEASE_GCS_BUCKET bucket's "previous" directory.
 # Parameters: $1 - yaml file to copy.
-#             $2 - destination bucket name.
-#             $3 - tag to apply (optional).
 function publish_yaml() {
-  gsutil cp $1 gs://$2/latest/
-  [[ -n $3 ]] && gsutil cp $1 gs://$2/previous/$3/ || true
+  function verbose_gsutil_cp {
+    local DEST="gs://${RELEASE_GCS_BUCKET}/$2/"
+    echo "Publishing $1 to ${DEST}"
+    gsutil cp $1 ${DEST}
+  }
+  verbose_gsutil_cp $1 latest
+  if [[ -n ${TAG} ]]; then
+    verbose_gsutil_cp $1 previous/${TAG}
+  fi
 }
 
 # These are global environment variables.
@@ -57,11 +62,31 @@ TAG=""
 RELEASE_VERSION=""
 RELEASE_NOTES=""
 RELEASE_BRANCH=""
+RELEASE_GCS_BUCKET=""
 KO_FLAGS=""
+export KO_DOCKER_REPO=""
 
-function abort() {
-  echo "error: $@"
-  exit 1
+# Convenience function to run the hub tool.
+# Parameters: $1..$n - arguments to hub.
+function hub_tool() {
+  run_go_tool github.com/github/hub hub $@
+}
+
+# Return the master version of a release.
+# For example, "v0.2.1" returns "0.2"
+# Parameters: $1 - release version label.
+function master_version() {
+  local release="${1//v/}"
+  local tokens=(${release//\./ })
+  echo "${tokens[0]}.${tokens[1]}"
+}
+
+# Return the release build number of a release.
+# For example, "v0.2.1" returns "1".
+# Parameters: $1 - release version label.
+function release_build_number() {
+  local tokens=(${1//\./ })
+  echo "${tokens[2]}"
 }
 
 # Parses flags and sets environment variables accordingly.
@@ -71,15 +96,41 @@ function parse_flags() {
   RELEASE_NOTES=""
   RELEASE_BRANCH=""
   KO_FLAGS="-P"
+  KO_DOCKER_REPO="gcr.io/knative-nightly"
+  RELEASE_GCS_BUCKET="knative-nightly/$(basename ${REPO_ROOT_DIR})"
+  local has_gcr_flag=0
+  local has_gcs_flag=0
+  local is_dot_release=0
+
   cd ${REPO_ROOT_DIR}
   while [[ $# -ne 0 ]]; do
     local parameter=$1
-    case $parameter in
+    case ${parameter} in
       --skip-tests) SKIP_TESTS=1 ;;
       --tag-release) TAG_RELEASE=1 ;;
       --notag-release) TAG_RELEASE=0 ;;
       --publish) PUBLISH_RELEASE=1 ;;
       --nopublish) PUBLISH_RELEASE=0 ;;
+      --dot-release) is_dot_release=1 ;;
+      --github-token)
+        shift
+        [[ $# -ge 1 ]] || abort "missing token file after --github-token"
+        [[ ! -f "$1" ]] && abort "file $1 doesn't exist"
+        export GITHUB_TOKEN="$(cat $1)"
+        [[ -n "${GITHUB_TOKEN}" ]] || abort "file $1 is empty"
+        ;;
+      --release-gcr)
+        shift
+        [[ $# -ge 1 ]] || abort "missing GCR after --release-gcr"
+        KO_DOCKER_REPO=$1
+        has_gcr_flag=1
+        ;;
+      --release-gcs)
+        shift
+        [[ $# -ge 1 ]] || abort "missing GCS bucket after --release-gcs"
+        RELEASE_GCS_BUCKET=$1
+        has_gcs_flag=1
+        ;;
       --version)
         shift
         [[ $# -ge 1 ]] || abort "missing version after --version"
@@ -103,10 +154,58 @@ function parse_flags() {
     shift
   done
 
+  # Setup dot releases
+  if (( is_dot_release )); then
+    echo "Dot release requested"
+    TAG_RELEASE=1
+    PUBLISH_RELEASE=1
+    # List latest release
+    local releases # don't combine with the line below, or $? will be 0
+    releases="$(hub_tool release)"
+    [[ $? -eq 0 ]] || abort "cannot list releases"
+    # If --release-branch passed, restrict to that release
+    if [[ -n "${RELEASE_BRANCH}" ]]; then
+      local version_filter="v${RELEASE_BRANCH##release-}"
+      echo "Dot release will be generated for ${version_filter}"
+      releases="$(echo "${releases}" | grep ^${version_filter})"
+    fi
+    local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r | head -1)"
+    [[ -n "${last_version}" ]] || abort "no previous release exist"
+    if [[ -z "${RELEASE_BRANCH}" ]]; then
+      echo "Last release is ${last_version}"
+      # Determine branch
+      local major_minor_version="$(master_version ${last_version})"
+      RELEASE_BRANCH="release-${major_minor_version}"
+      echo "Last release branch is ${RELEASE_BRANCH}"
+    fi
+    # Ensure there are new commits in the branch, otherwise we don't create a new release
+    local last_release_commit="$(git rev-list -n 1 ${last_version})"
+    local release_branch_commit="$(git rev-list -n 1 ${RELEASE_BRANCH})"
+    if [[ "${last_release_commit}" == "${release_branch_commit}" ]]; then
+      echo "*** Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
+      echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks since release ${last_version}"
+      echo "*** No dot release will be generated, as no changes exist"
+      exit 0
+    fi
+    # Create new release version number
+    local last_build="$(release_build_number ${last_version})"
+    RELEASE_VERSION="${major_minor_version}.$(( last_build + 1 ))"
+    echo "Will create release ${RELEASE_VERSION} at commit ${release_branch_commit}"
+    # If --release-notes not used, copy from the latest release
+    if [[ -z "${RELEASE_NOTES}" ]]; then
+      RELEASE_NOTES="$(mktemp)"
+      hub_tool release show -f "%b" ${last_version} > ${RELEASE_NOTES}
+      echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
+    fi
+  fi
+
   # Update KO_DOCKER_REPO and KO_FLAGS if we're not publishing.
   if (( ! PUBLISH_RELEASE )); then
+    (( has_gcr_flag )) && echo "Not publishing the release, GCR flag is ignored"
+    (( has_gcs_flag )) && echo "Not publishing the release, GCS flag is ignored"
     KO_DOCKER_REPO="ko.local"
     KO_FLAGS="-L ${KO_FLAGS}"
+    RELEASE_GCS_BUCKET=""
   fi
 
   if (( TAG_RELEASE )); then
@@ -131,6 +230,8 @@ function parse_flags() {
   readonly RELEASE_VERSION
   readonly RELEASE_NOTES
   readonly RELEASE_BRANCH
+  readonly RELEASE_GCS_BUCKET
+  readonly KO_DOCKER_REPO
 }
 
 # Run tests (unless --skip-tests was passed). Conveniently displays a banner indicating so.
@@ -149,6 +250,25 @@ function run_validation_tests() {
 # Initialize everything (flags, workspace, etc) for a release.
 function initialize() {
   parse_flags $@
+  # Log what will be done and where.
+  banner "Release configuration"
+  echo "- Destination GCR: ${KO_DOCKER_REPO}"
+  (( SKIP_TESTS )) && echo "- Tests will NOT be run" || echo "- Tests will be run"
+  if (( TAG_RELEASE )); then
+    echo "- Artifacts will tagged '${TAG}'"
+  else
+    echo "- Artifacts WILL NOT be tagged"
+  fi
+  if (( PUBLISH_RELEASE )); then
+    echo "- Release WILL BE published to '${RELEASE_GCS_BUCKET}'"
+  else
+    echo "- Release will not be published"
+  fi
+  if (( BRANCH_RELEASE )); then
+    echo "- Release WILL BE branched from '${RELEASE_BRANCH}'"
+  fi
+  [[ -n "${RELEASE_NOTES}" ]] && echo "- Release notes are generated from '${RELEASE_NOTES}'"
+
   # Checkout specific branch, if necessary
   if (( BRANCH_RELEASE )); then
     git checkout upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
@@ -175,7 +295,7 @@ function branch_release() {
   fi
   git tag -a ${TAG} -m "${title}"
   git push $(git remote get-url upstream) tag ${TAG}
-  run_go_tool github.com/github/hub hub release create \
+  hub_tool release create \
       --prerelease \
       ${attachments[@]} \
       --file=${description} \

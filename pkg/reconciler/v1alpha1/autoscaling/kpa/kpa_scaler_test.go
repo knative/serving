@@ -31,7 +31,7 @@ import (
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

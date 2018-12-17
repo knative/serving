@@ -48,11 +48,6 @@ function exit_if_presubmit_not_required() {
   fi
 }
 
-function abort() {
-  echo "error: $@"
-  exit 1
-}
-
 # Process flags and run tests accordingly.
 function main() {
   exit_if_presubmit_not_required
