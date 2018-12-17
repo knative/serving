@@ -40,7 +40,8 @@ import (
 )
 
 const (
-	tName = "TestObservedConcurrency"
+	tName       = "TestObservedConcurrency"
+	concurrency = 5
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
@@ -162,6 +163,7 @@ func TestObservedConcurrency(t *testing.T) {
 	trafficStart := time.Now()
 
 	responseChannel := make(chan *spoof.Response, 1000)
+
 	logger.Infof("Running %d concurrent requests for %v", concurrency, duration)
 	requestsMade, err := generateTraffic(client, url, concurrency, duration, responseChannel)
 	if err != nil {

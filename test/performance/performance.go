@@ -41,9 +41,7 @@ const (
 	gateway      = "istio-ingressgateway"
 	// Property name used by testgrid.
 	perfLatency = "perf_latency"
-	concurrency = 5
 	duration    = 1 * time.Minute
-	numThreads  = 1
 )
 
 type PerformanceClient struct {

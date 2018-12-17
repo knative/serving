@@ -28,10 +28,8 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/testgrid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
@@ -64,37 +62,19 @@ func TestPerformanceLatency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, &test.Options{})
+	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	names.Revision, err = waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-	}
-
-	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Revision, err)
-	}
-
-	domain := route.Status.Domain
+	domain := objs.Route.Status.Domain
 	endpoint, err := spoof.GetServiceEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
 	url := fmt.Sprintf("http://%s", *endpoint)
-	resp, err := RunLoadTest(duration, numThreads, concurrency, url, domain)
+	resp, err := RunLoadTest(duration, 1, 5, url, domain)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
