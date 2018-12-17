@@ -36,22 +36,7 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 		return nil
 	}
 
-	u := &unstructured.Unstructured{}
-	if err := config.Spec.Build.As(u); err != nil {
-		b := &buildv1alpha1.Build{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "build.knative.dev/v1alpha1",
-				Kind:       "Build",
-			},
-		}
-		if err := config.Spec.Build.As(&b.Spec); err != nil {
-			// This is validated by the webhook.
-			panic(err.Error())
-		}
-
-		u = MustToUnstructured(b)
-	}
-	// After calling `As()` we can be sure that `.Raw` is populated.
+	u := GetBuild(&config.Spec)
 
 	// Compute the hash of the current build's spec.
 	sum := sha256.Sum256(config.Spec.Build.Raw)
@@ -68,6 +53,27 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	u.SetNamespace(config.Namespace)
 	u.SetName(names.Build(config))
 	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
+	return u
+}
+
+func GetBuild(configSpec *v1alpha1.ConfigurationSpec) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	if err := configSpec.Build.As(u); err != nil {
+		b := &buildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+			},
+		}
+		if err := configSpec.Build.As(&b.Spec); err != nil {
+			// This is validated by the webhook.
+			panic(err.Error())
+		}
+
+		u = MustToUnstructured(b)
+	}
+	// After calling `As()` we can be sure that `.Raw` is populated.
+
 	return u
 }
 
