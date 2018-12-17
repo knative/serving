@@ -17,8 +17,8 @@ limitations under the License.
 package v1alpha1
 
 const (
-	// defaultTimeout will be set if timeoutSeconds not specified.
-	defaultTimeout = 60
+	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
+	defaultTimeoutSeconds = 60
 )
 
 func (r *Revision) SetDefaults() {
@@ -33,6 +33,6 @@ func (rs *RevisionSpec) SetDefaults() {
 	}
 
 	if rs.TimeoutSeconds == 0 {
-		rs.TimeoutSeconds = defaultTimeout
+		rs.TimeoutSeconds = defaultTimeoutSeconds
 	}
 }

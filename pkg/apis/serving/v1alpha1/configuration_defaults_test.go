@@ -34,7 +34,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: defaultTimeout,
+						TimeoutSeconds: defaultTimeoutSeconds,
 					},
 				},
 			},

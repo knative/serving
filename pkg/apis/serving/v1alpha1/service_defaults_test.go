@@ -58,7 +58,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeout,
+								TimeoutSeconds: defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -74,7 +74,7 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       defaultTimeout,
+								TimeoutSeconds:       defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -88,7 +88,7 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       defaultTimeout,
+								TimeoutSeconds:       defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -108,7 +108,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeout,
+								TimeoutSeconds: defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -158,7 +158,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeout,
+								TimeoutSeconds: defaultTimeoutSeconds,
 							},
 						},
 					},

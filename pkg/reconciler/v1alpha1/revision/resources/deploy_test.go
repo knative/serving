@@ -65,9 +65,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 				Container: corev1.Container{
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{

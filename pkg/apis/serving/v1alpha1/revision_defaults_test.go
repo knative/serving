@@ -33,7 +33,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       defaultTimeout,
+				TimeoutSeconds:       defaultTimeoutSeconds,
 			},
 		},
 	}, {
@@ -58,7 +58,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       defaultTimeout,
+				TimeoutSeconds:       defaultTimeoutSeconds,
 			},
 		},
 	}, {
@@ -73,7 +73,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ConcurrencyModel:     "Single",
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       defaultTimeout,
+				TimeoutSeconds:       defaultTimeoutSeconds,
 			},
 		},
 	}}

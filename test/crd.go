@@ -107,8 +107,8 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		},
 	}
 
-	if options.RevisionTimeout > 0 {
-		spec.RevisionTemplate.Spec.TimeoutSeconds = options.RevisionTimeout
+	if options.RevisionTimeoutSeconds > 0 {
+		spec.RevisionTemplate.Spec.TimeoutSeconds = options.RevisionTimeoutSeconds
 	}
 
 	if options.EnvVars != nil {
