@@ -146,7 +146,6 @@ func TestScaleTo10(t *testing.T) {
 }
 
 func TestScaleTo50(t *testing.T) {
-	t.Skip("Disabled until #2637 is fixed")
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo50")
 
