@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -20,14 +18,33 @@ package conformance
 
 //runtime_constract_types.go defines types that encapsulate run-time contract requirements as specified here: https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 
-//ShouldEnvvars defines the environment variables that "SHOULD" be set.
+// ShouldEnvvars defines the environment variables that "SHOULD" be set.
 type ShouldEnvvars struct {
 	Service       string `json:"K_SERVICE"`
 	Configuration string `json:"K_CONFIGURATION"`
 	Revision      string `json:"K_REVISION"`
 }
 
-//MustEnvvars defines environment variables that "MUST" be set.
+// MustEnvvars defines environment variables that "MUST" be set.
 type MustEnvvars struct {
 	Port string `json:"PORT"`
+}
+
+// FilePathInfo data object returned by the environment test-image
+type FilePathInfo struct {
+	FilePath string `json: "FilePath"`
+	IsDirectory bool `json: "IsDirectory"`
+	PermString string `json: "PermString"`
+}
+
+// MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the run-time contract.
+var MustFilePathSpecs = map[string]FilePathInfo {
+	"/tmp" : FilePathInfo{
+		IsDirectory : true,
+		PermString: "rw*rw*rw*", // * indicates no specification
+	},
+	"/var/log" : FilePathInfo{
+		IsDirectory: true,
+		PermString: "rw*rw*rw*", // * indicates no specification
+	},
 }
