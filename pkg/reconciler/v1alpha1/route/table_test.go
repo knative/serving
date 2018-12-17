@@ -139,6 +139,49 @@ func TestReconcile(t *testing.T) {
 		// TODO(lichuqiang): config namespace validation in resource scope.
 		SkipNamespaceValidation: true,
 	}, {
+		Name: "cluster local route becomes ready, ingress unknown",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithLocalDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
 		Name: "simple route becomes ready",
 		Objects: []runtime.Object{
 			route("default", "becomes-ready", WithConfigTarget("config")),

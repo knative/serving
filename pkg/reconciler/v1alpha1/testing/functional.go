@@ -295,6 +295,11 @@ func WithAnotherDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
 }
 
+// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+func WithLocalDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+}
+
 // WithInitRouteConditions initializes the Service's conditions.
 func WithInitRouteConditions(rt *v1alpha1.Route) {
 	rt.Status.InitializeConditions()
