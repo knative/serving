@@ -66,6 +66,12 @@ header "Setting up environment"
 set +o errexit
 set +o pipefail
 
+echo ">#####"
+ls $GOPATH/bin/ko
+rm -fr $GOPATH/bin/ko
+go get -u github.com/google/go-containerregistry/cmd/ko@03167950e20ac82689f50828811e69cdd9e02af2
+echo "#####<"
+
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
