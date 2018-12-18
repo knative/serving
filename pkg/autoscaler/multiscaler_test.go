@@ -31,10 +31,9 @@ import (
 )
 
 const (
-	testRevision    = "test-revision"
-	testNamespace   = "test-namespace"
-	testRevisionKey = "test-namespace/test-revision"
-	testKPAKey      = "test-namespace/test-revision"
+	testRevision  = "test-revision"
+	testNamespace = "test-namespace"
+	testKPAKey    = "test-namespace/test-revision"
 )
 
 func TestMultiScalerScaling(t *testing.T) {

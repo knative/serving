@@ -301,8 +301,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	desiredPanicPodCount := desiredPanicScalingRatio * stableData.observedPods(now)
 
 	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods(now)))
-	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrencyPerPod)
-	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrencyPerPod)
+	a.reporter.Report(StableRequestConcurrencyM, observedStableConcurrencyPerPod)
+	a.reporter.Report(PanicRequestConcurrencyM, observedPanicConcurrencyPerPod)
 	a.reporter.Report(TargetConcurrencyM, a.target)
 
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",

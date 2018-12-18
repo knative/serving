@@ -17,30 +17,31 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmp"
+	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
-
-	"github.com/knative/pkg/apis"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
+// Validate ensures Revision is properly configured.
 func (rt *Revision) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate().ViaField("spec"))
 }
 
+// Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
 	return rt.Spec.Validate().ViaField("spec")
 }
 
+// Validate ensures RevisionSpec is properly configured.
 func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -60,16 +61,18 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	return errs
 }
 
-func validateTimeoutSeconds(timeoutSeconds *metav1.Duration) *apis.FieldError {
-	if timeoutSeconds != nil {
-		if timeoutSeconds.Duration > networkingv1alpha1.DefaultTimeout ||
-			timeoutSeconds.Duration < 0*time.Second {
-			return apis.ErrOutOfBoundsValue(timeoutSeconds.Duration.String(), "0s", networkingv1alpha1.DefaultTimeout.String(), "timeoutSeconds")
+func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+	if timeoutSeconds != 0 {
+		if timeoutSeconds > int64(networkingv1alpha1.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+			return apis.ErrOutOfBoundsValue(fmt.Sprintf("%ds", timeoutSeconds), "0s",
+				fmt.Sprintf("%ds", int(networkingv1alpha1.DefaultTimeout.Seconds())),
+				"timeoutSeconds")
 		}
 	}
 	return nil
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),
@@ -82,6 +85,7 @@ func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 	}
 }
 
+// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
 func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	switch cm {
 	case RevisionRequestConcurrencyModelType(""),
@@ -93,6 +97,7 @@ func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	}
 }
 
+// ValidateContainerConcurrency ensures ContainerConcurrency is properly configured.
 func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
 	// Validate ContainerConcurrency alone
 	if cc < 0 || cc > RevisionContainerConcurrencyMax {
@@ -124,9 +129,6 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "name")
 	}
-	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "ports")
-	}
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "volumeMounts")
 	}
@@ -138,6 +140,9 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 		// Complain about all ignored fields so that user can remove them all at once.
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
 	}
+	if err := validateContainerPorts(container.Ports); err != nil {
+		errs = errs.Also(err.ViaField("ports"))
+	}
 	// Validate our probes
 	if err := validateProbe(container.ReadinessProbe).ViaField("readinessProbe"); err != nil {
 		errs = errs.Also(err)
@@ -145,6 +150,76 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if err := validateProbe(container.LivenessProbe).ViaField("livenessProbe"); err != nil {
 		errs = errs.Also(err)
 	}
+	if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+		fe := &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: fmt.Sprintf("image: %q, error: %v", container.Image, err),
+		}
+		errs = errs.Also(fe)
+	}
+	return errs
+}
+
+func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
+	if len(ports) == 0 {
+		return nil
+	}
+
+	var errs *apis.FieldError
+
+	// user can set container port which names "user-port" to define application's port.
+	// Queue-proxy will use it to send requests to application
+	// if user didn't set any port, it will set default port user-port=8080.
+	if len(ports) > 1 {
+		errs = errs.Also(&apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{apis.CurrentField},
+			Details: "Only a single port is allowed",
+		})
+	}
+
+	userPort := ports[0]
+	// Only allow empty (defaulting to "TCP") or explicit TCP for protocol
+	if userPort.Protocol != "" && userPort.Protocol != corev1.ProtocolTCP {
+		errs = errs.Also(apis.ErrInvalidValue(string(userPort.Protocol), "Protocol"))
+	}
+
+	// Don't allow HostIP or HostPort to be set
+	var disallowedFields []string
+	if userPort.HostIP != "" {
+		disallowedFields = append(disallowedFields, "HostIP")
+
+	}
+	if userPort.HostPort != 0 {
+		disallowedFields = append(disallowedFields, "HostPort")
+	}
+	if len(disallowedFields) != 0 {
+		errs = errs.Also(apis.ErrDisallowedFields(disallowedFields...))
+	}
+
+	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
+	}
+
+	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
+	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
+	// allowed.
+	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+	validPortNames := map[string]bool{
+		"h2c":   true,
+		"http1": true,
+		"":      true,
+	}
+
+	if !validPortNames[userPort.Name] {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
+			Paths:   []string{apis.CurrentField},
+			Details: "Name must be empty, or one of: 'h2c', 'http1'",
+		})
+	}
+
 	return errs
 }
 
@@ -198,17 +273,20 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	return nil
 }
 
+// CheckImmutableFields checks the immutable fields are not modified.
 func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-		return x.Cmp(y) == 0
-	})
-
-	if diff := cmp.Diff(original.Spec, current.Spec, quantityComparer); diff != "" {
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff Revision",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},

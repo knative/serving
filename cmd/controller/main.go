@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -40,6 +41,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
@@ -80,6 +82,10 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
+
+	// We run 6 controllers, so bump the defaults.
+	cfg.QPS = 6 * rest.DefaultQPS
+	cfg.Burst = 6 * rest.DefaultBurst
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -187,6 +193,8 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	// Watch the observability config map and dynamically update metrics exporter.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)

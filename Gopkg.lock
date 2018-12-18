@@ -396,7 +396,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:d4cee2d9908d4a05064a1680916455c95cba498394c1f6c3aa4f22742f6edc59"
+  digest = "1:1ecca845248fa7487445ec0653eda8c619f23df6dc9ef65fb75cb5b9ce159c06"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -426,6 +426,7 @@
     "configmap",
     "controller",
     "kmeta",
+    "kmp",
     "logging",
     "logging/logkey",
     "logging/testing",
@@ -440,19 +441,20 @@
     "webhook",
   ]
   pruneopts = "NUT"
-  revision = "9a644df00f19da719379ca936c1949f56d8c3eb5"
+  revision = "b04c0947ad2f7bf081c0a22a742a49f045e117b2"
 
 [[projects]]
   branch = "master"
-  digest = "1:93d9d7037434ea3f51ba964c20f625ecb7257e0f13b7adda101d77e516d850c9"
+  digest = "1:74f4c447fcb425021ba92c5a4ac9aabcd96d99623e2ef5d70d1c5ac455fd389e"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/prometheus",
+    "shared/testgrid",
     "tools/dep-collector",
-    "tools/testgrid",
   ]
   pruneopts = "UT"
-  revision = "2a11b760d21b3a969d80d9ccf18323e1d5ed03a6"
+  revision = "5ff6fb1eed88eb395e66a5a6ddafbffde8779648"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1245,6 +1247,7 @@
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/controller",
     "github.com/knative/pkg/kmeta",
+    "github.com/knative/pkg/kmp",
     "github.com/knative/pkg/logging",
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/logging/testing",
@@ -1257,13 +1260,12 @@
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/prometheus",
+    "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/testgrid",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
-    "github.com/prometheus/client_golang/api",
-    "github.com/prometheus/client_golang/api/prometheus/v1",
-    "github.com/prometheus/common/model",
+    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1304,12 +1306,14 @@
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/apps/v1",
+    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",

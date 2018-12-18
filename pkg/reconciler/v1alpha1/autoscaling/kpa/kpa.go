@@ -145,6 +145,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
+	if original.Class() != autoscaling.KPA {
+		logger.Warn("Ignoring non-kpa-class PA")
+		return nil
+	}
+
 	// Don't modify the informer's copy.
 	pa := original.DeepCopy()
 
@@ -167,6 +172,12 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	pa.SetDefaults()
 
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")

@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"testing"
-	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -191,6 +190,41 @@ func TestReconcile(t *testing.T) {
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
+	}, {
+		Name: "update deployment containers",
+		// Test that we update a deployment with new containers when they disagree
+		// with our desired spec.
+		Objects: []runtime.Object{
+			rev("foo", "fix-containers",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-containers"),
+			changeContainers(deploy("foo", "fix-containers")),
+			svc("foo", "fix-containers"),
+			image("foo", "fix-containers"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "fix-containers"),
+		}},
+		Key: "foo/fix-containers",
+	}, {
+		Name: "failure updating deployment",
+		// Test that we handle an error updating the deployment properly.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "deployments"),
+		},
+		Objects: []runtime.Object{
+			rev("foo", "failure-update-deploy",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "failure-update-deploy"),
+			changeContainers(deploy("foo", "failure-update-deploy")),
+			svc("foo", "failure-update-deploy"),
+			image("foo", "failure-update-deploy"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "failure-update-deploy"),
+		}},
+		Key: "foo/failure-update-deploy",
 	}, {
 		Name: "deactivated revision is stable",
 		// Test a simple stable reconciliation of an inactive Revision.
@@ -698,6 +732,14 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
+func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
+	podSpec := deploy.Spec.Template.Spec
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Image = "asdf"
+	}
+	return deploy
+}
+
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
 func build(namespace, name string, bo ...BuildOption) *unstructured.Unstructured {
@@ -726,8 +768,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container:      corev1.Container{Image: "busybox"},
-			TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
+			Container: corev1.Container{Image: "busybox"},
 		},
 	}
 
@@ -758,6 +799,9 @@ func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
 	}
 
 	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
 	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 }
@@ -769,6 +813,9 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	}
 
 	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
 	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
 		config.Autoscaler, config.Controller)
 	img, err := resources.MakeImageCache(rev, deploy)

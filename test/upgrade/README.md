@@ -49,10 +49,10 @@ Create a RunLatest Service pointing to `image1`, ensure it responds correctly.
 
 #### postupgrade
 
-Ensure the Service still responds correctly after upgrading.
-Update it to point to `image2`, ensure it responds correctly.
+Ensure the Service still responds correctly after upgrading. Update it to point
+to `image2`, ensure it responds correctly.
 
 #### postdowngrade
 
-Ensure the Service still responds correctly after downgrading.
-Update it to point back to `image1`, ensure it responds correctly.
+Ensure the Service still responds correctly after downgrading. Update it to
+point back to `image1`, ensure it responds correctly.

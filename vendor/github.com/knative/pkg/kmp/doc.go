@@ -14,29 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
-
-import (
-	"flag"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
-
-	"github.com/knative/serving/test"
-)
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Env vars test app received a request.")
-	svc := os.Getenv("K_SERVICE")
-	cfg := os.Getenv("K_CONFIGURATION")
-	rev := os.Getenv("K_REVISION")
-	fmt.Fprintf(w, "Here are our env vars service:%s - configuration:%s - revision:%s", svc, cfg, rev)
-}
-
-func main() {
-	flag.Parse()
-	log.Print("Env vars test app started.")
-
-	test.ListenAndServeGracefully(":8080", handler)
-}
+// Package kmp wraps github.com/google/go-cmp with custom Comparers for
+// frequently used kubernetes resources that have unexported fields.
+package kmp

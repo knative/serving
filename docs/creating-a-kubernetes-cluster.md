@@ -2,20 +2,22 @@
 
 This doc describes two options for creating a k8s cluster:
 
-* Setup a [GKE cluster](#gke)
-* Run [minikube](#minikube) locally
+- Setup a [GKE cluster](#gke)
+- Run [minikube](#minikube) locally
 
 ## GKE
 
 1. [Install required tools and setup GCP project](https://github.com/knative/docs/blob/master/install/Knative-with-GKE.md#before-you-begin)
-   (You may find it useful to save the ID of the project in an environment variable (e.g. `PROJECT_ID`)).
+   (You may find it useful to save the ID of the project in an environment
+   variable (e.g. `PROJECT_ID`)).
 1. [Create a GKE cluster for knative](https://github.com/knative/docs/blob/master/install/Knative-with-GKE.md#creating-a-kubernetes-cluster)
 
-_If you are a new GCP user, you might be eligible for a trial credit making
-your GKE cluster and other resources free for a short time. Otherwise, any
-GCP resources you create will cost money._
+_If you are a new GCP user, you might be eligible for a trial credit making your
+GKE cluster and other resources free for a short time. Otherwise, any GCP
+resources you create will cost money._
 
-If you have an existing GKE cluster you'd like to use, you can fetch your credentials with:
+If you have an existing GKE cluster you'd like to use, you can fetch your
+credentials with:
 
 ```shell
 # Load credentials for the new cluster in us-east1-d
@@ -26,8 +28,8 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
 1. [Install required tools](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#before-you-begin)
 1. [Create a Kubernetes cluster with minikube](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#creating-a-kubernetes-cluster)
-1. [Configure your shell environment](../DEVELOPMENT.md#environment-setup)
-   to use your minikube cluster:
+1. [Configure your shell environment](../DEVELOPMENT.md#environment-setup) to
+   use your minikube cluster:
 
    ```shell
    export K8S_CLUSTER_OVERRIDE='minikube'
@@ -35,25 +37,24 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
 1. Take note of the workarounds required for:
 
-   * [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
-   * [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
-   * [Loadbalancer support](#loadbalancer-support-in-minikube)
-   * [`ko`](#minikube-with-ko)
-   * [Images](#enabling-knative-to-use-images-in-minikube)
-   * [GCR](#minikube-with-gcr)
+   - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
+   - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
+   - [Loadbalancer support](#loadbalancer-support-in-minikube)
+   - [`ko`](#minikube-with-ko)
+   - [Images](#enabling-knative-to-use-images-in-minikube)
+   - [GCR](#minikube-with-gcr)
 
 ### `LoadBalancer` Support in Minikube
 
-By default istio uses a `LoadBalancer` which is [not yet supported by
-Minikube](https://github.com/kubernetes/minikube/issues/2834) but is
-required for Knative to function properly (`Route` endpoints MUST be
-available via a routable IP before they will be marked as ready). [One
-possible
-workaround](https://github.com/elsonrodriguez/minikube-lb-patch) is to
-install a custom controller that provisions an external IP using the
-service's ClusterIP, which must be made routable on the minikube host.
-These two commands accomplish this, and should be run once whenever
-you start a new minikube cluster:
+By default istio uses a `LoadBalancer` which is
+[not yet supported by Minikube](https://github.com/kubernetes/minikube/issues/2834)
+but is required for Knative to function properly (`Route` endpoints MUST be
+available via a routable IP before they will be marked as ready).
+[One possible workaround](https://github.com/elsonrodriguez/minikube-lb-patch)
+is to install a custom controller that provisions an external IP using the
+service's ClusterIP, which must be made routable on the minikube host. These two
+commands accomplish this, and should be run once whenever you start a new
+minikube cluster:
 
 ```bash
 sudo ip route add $(cat ~/.minikube/profiles/minikube/config.json | jq -r ".KubernetesConfig.ServiceCIDR") via $(minikube ip)
@@ -62,9 +63,8 @@ kubectl run minikube-lb-patch --replicas=1 --image=elsonrodriguez/minikube-lb-pa
 
 ### Minikube with `ko`
 
-You can instruct `ko` to sideload images into your Docker daemon
-instead of publishing them to a registry by setting
-`KO_DOCKER_REPO=ko.local`:
+You can instruct `ko` to sideload images into your Docker daemon instead of
+publishing them to a registry by setting `KO_DOCKER_REPO=ko.local`:
 
 ```shell
 # Use the minikube docker daemon (among other things)
@@ -79,10 +79,11 @@ export KO_DOCKER_REPO="ko.local"
 
 ### Enabling Knative to Use Images in Minikube
 
-In order to have Knative access an image in Minikube's Docker daemon you
-should prefix your image name with the `dev.local` registry. This will cause
-Knative to use the cached image. You must not tag your image as `latest` since
-this causes Kubernetes to [always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
+In order to have Knative access an image in Minikube's Docker daemon you should
+prefix your image name with the `dev.local` registry. This will cause Knative to
+use the cached image. You must not tag your image as `latest` since this causes
+Kubernetes to
+[always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
 
 For example:
 
@@ -96,18 +97,18 @@ docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer
 
 You can use Google Container Registry as the registry for a Minikube cluster.
 
-1. [Set up a GCR repo](docs/setting-up-a-docker-registry.md). Export the environment
-   variable `PROJECT_ID` as the name of your project. Also export `GCR_DOMAIN`
-   as the domain name of your GCR repo. This will be either `gcr.io` or a
-   region-specific variant like `us.gcr.io`.
+1. [Set up a GCR repo](docs/setting-up-a-docker-registry.md). Export the
+   environment variable `PROJECT_ID` as the name of your project. Also export
+   `GCR_DOMAIN` as the domain name of your GCR repo. This will be either
+   `gcr.io` or a region-specific variant like `us.gcr.io`.
 
    ```shell
    export PROJECT_ID=knative-demo-project
    export GCR_DOMAIN=gcr.io
    ```
 
-   To publish builds push to GCR, set `KO_DOCKER_REPO` or
-   `DOCKER_REPO_OVERRIDE` to the GCR repo's url.
+   To publish builds push to GCR, set `KO_DOCKER_REPO` or `DOCKER_REPO_OVERRIDE`
+   to the GCR repo's url.
 
    ```shell
    export KO_DOCKER_REPO="${GCR_DOMAIN}/${PROJECT_ID}"
@@ -142,11 +143,13 @@ Now you can use the `minikube-gcr-key.json` file to create image pull secrets
 and link them to Kubernetes service accounts. _A secret must be created and
 linked to a service account in each namespace that will pull images from GCR._
 
-For example, use these steps to allow Minikube to pull Knative Serving and Build images
-from GCR as published in our development flow (`ko apply -f config/`).
-_This is only necessary if you are not using public Knative Serving and Build images._
+For example, use these steps to allow Minikube to pull Knative Serving and Build
+images from GCR as published in our development flow (`ko apply -f config/`).
+_This is only necessary if you are not using public Knative Serving and Build
+images._
 
-1. Create a Kubernetes secret in the `knative-serving` and `knative-build` namespace:
+1. Create a Kubernetes secret in the `knative-serving` and `knative-build`
+   namespace:
 
    ```shell
    export DOCKER_EMAIL=your.email@here.com

@@ -46,6 +46,7 @@ var (
 		Container: corev1.Container{
 			Image: "busybox",
 		},
+		TimeoutSeconds: 60,
 	}
 )
 

@@ -35,9 +35,10 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 
 	var names test.ResourceNames
 	names.Service = serviceName
+	names.Image = image1
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, test.ImagePath(image1))
+	svc, err := test.CreateLatestService(logger, clients, names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

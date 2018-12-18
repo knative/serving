@@ -17,8 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strconv"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -36,12 +36,13 @@ var boolTrue = true
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1alpha1.Revision
-		lc   *logging.Config
-		ac   *autoscaler.Config
-		cc   *config.Controller
-		want *corev1.Container
+		name     string
+		rev      *v1alpha1.Revision
+		lc       *logging.Config
+		ac       *autoscaler.Config
+		cc       *config.Controller
+		userport *corev1.ContainerPort
+		want     *corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
 		rev: &v1alpha1.Revision{
@@ -52,14 +53,16 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           queueContainerName,
@@ -100,6 +103,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}},
 		},
 	}, {
@@ -112,15 +118,17 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
+		},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
 		},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -163,6 +171,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}},
 		},
 	}, {
@@ -182,14 +193,16 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           queueContainerName,
@@ -230,6 +243,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}},
 		},
 	}, {
@@ -242,9 +258,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{
@@ -255,6 +269,10 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           queueContainerName,
@@ -295,6 +313,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_LOGGING_LEVEL",
 				Value: "error", // from logging config
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}},
 		},
 	}, {
@@ -307,14 +328,16 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 10,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           queueContainerName,
@@ -355,6 +378,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name: "SERVING_LOGGING_LEVEL",
 				// No logging level
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}},
 		},
 	}}

@@ -1,7 +1,7 @@
 # Knative Serving API spec
 
-This file contains the [resource paths](#resource-paths) and [yaml
-schemas](#resource-yaml-definitions) that make up the Knative Serving API.
+This file contains the [resource paths](#resource-paths) and
+[yaml schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 ## Resource Paths
 
@@ -17,11 +17,10 @@ For example:
 /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
-It is expected that each Route will provide a name within a
-cluster-wide DNS name. While no particular URL scheme is mandated
-(consult the `domain` property of the Route for the authoritative
-mapping), a common implementation would be to use the kubernetes
-namespace mechanism to produce a URL like the following:
+It is expected that each Route will provide a name within a cluster-wide DNS
+name. While no particular URL scheme is mandated (consult the `domain` property
+of the Route for the authoritative mapping), a common implementation would be to
+use the kubernetes namespace mechanism to produce a URL like the following:
 
 ```http
 [$revisionname].$route.$namespace.<common knative cluster suffix>
@@ -33,17 +32,15 @@ For example:
 prod.my-service.default.mydomain.com
 ```
 
-
 ## Resource YAML Definitions
 
 YAMLs for the Knative Serving API resources are described below, describing the
-basic k8s structure: metadata, spec and status, along with comments on
-specific fields.
+basic k8s structure: metadata, spec and status, along with comments on specific
+fields.
 
 ### Route
 
-For a high-level description of Routes,
-[see the overview](overview.md#route).
+For a high-level description of Routes, [see the overview](overview.md#route).
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -335,22 +332,23 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   pinned:
@@ -358,23 +356,24 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-        resources: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+            resources: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
@@ -385,22 +384,24 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container:  # core.v1.Container
+            image: gcr.io/...
+            command: ['run']
+            args: []
+            env:  # list of environment vars
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+            - ...
+            livenessProbe: ...  # Optional
+            readinessProbe: ...  # Optional
+            resources: ...  # Optional
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   # Manual has no fields. It enables direct access to modify a previously created
@@ -418,7 +419,7 @@ status:
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
- 
+
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
