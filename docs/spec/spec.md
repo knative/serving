@@ -415,7 +415,7 @@ container: # v1.Container
     # This can be used if your container cannot use the
     # ${PORT} environment variable to specify which port to use.
     # Some fields are not allowed, such as hostIP and hostPort.
-  - containerPort: ... # Optional, valid range is [1-65535]
+  - containerPort: ... # Valid range is [1-65535]
     name: ... # Optional, one of "http1", "h2c"
     protocol: ... # Optional, one of "", "tcp"
 
