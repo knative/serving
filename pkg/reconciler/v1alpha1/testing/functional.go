@@ -639,7 +639,7 @@ func WithContainerConcurrency(cc int32) PodAutoscalerOption {
 	}
 }
 
-// WithTargetAnnotations returns a PodAutoscalerOption which sets
+// WithTargetAnnotation returns a PodAutoscalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/target to the provided
 // value.
 func WithTargetAnnotation(target string) PodAutoscalerOption {

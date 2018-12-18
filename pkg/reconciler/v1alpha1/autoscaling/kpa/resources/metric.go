@@ -24,6 +24,9 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
+// MakeMetric constructs a Metric resource from a PodAutoscaler taking
+// into account the PA's ContainerConcurrency and the relevant
+// autoscaling annotation.
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
 	logger := logging.FromContext(ctx)
 
