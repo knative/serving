@@ -252,6 +252,7 @@ func assertScaleDown(ctx *testContext) {
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
 				if !strings.Contains(pod.Status.Reason, "Evicted") {
+					ctx.logger.Infof("Pod evicting: %s", pod.Name)
 					return false, nil
 				}
 			}
