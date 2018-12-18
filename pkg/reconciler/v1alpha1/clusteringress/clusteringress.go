@@ -194,13 +194,27 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
-	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: gatewayServiceURLFromContext(ctx, ci)},
-	})
+	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
+func getLBStatus(gatewayServiceUrl string) []v1alpha1.LoadBalancerIngressStatus {
+	// The ClusterIngress isn't load-balanced by any particular
+	// Service, but through a Service mesh.
+	if gatewayServiceUrl == "" {
+		return []v1alpha1.LoadBalancerIngressStatus{
+			{MeshOnly: true},
+		}
+	}
+	return []v1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: gatewayServiceUrl},
+	}
+}
+
+// gatewayServiceURLFromContext return an address of a load-balancer
+// that the given ClusterIngress is exposed to, or empty string if
+// none.
 func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
 	cfg := config.FromContext(ctx).Istio
 	if len(cfg.LocalGateways) > 0 {

@@ -113,6 +113,23 @@ func TestNewMakeK8SService(t *testing.T) {
 				ExternalName: "istio-ingressgateway.istio-system.svc.cluster.local",
 			},
 		},
+		"ingress-with-only-mesh": {
+			route: r,
+			ingress: &netv1alpha1.ClusterIngress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+				},
+			},
+			expectedSpec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{{
+					Name: "http",
+					Port: 80,
+				}},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {

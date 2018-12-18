@@ -101,7 +101,7 @@ type IngressSpec struct {
 // public gateways or not.
 type IngressVisibility struct {
 	// True iff the ClusterIngress should not be exposed to public gateways.
-	LocalOnly bool `json:"public,omitempty"`
+	LocalOnly bool `json:"localOnly,omitempty"`
 }
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
@@ -278,6 +278,10 @@ type LoadBalancerIngressStatus struct {
 	//
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// MeshOnly is set if the ClusterIngress is only load-balanced through a Service mesh.
+	// +optional
+	MeshOnly bool `json:"meshOnly,omitempty"`
 }
 
 // ConditionType represents a ClusterIngress condition value
