@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package conformance
 
 import (
 	"errors"
@@ -42,22 +42,23 @@ func TestContainerErrorMsg(t *testing.T) {
 	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
 	}
-	clients := Setup(t)
+	clients := setup(t)
 
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerErrorMsg")
 
+	names := test.ResourceNames{Config: test.AppendRandomString("test-container-error-msg", logger)}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	imagePath := test.ImagePath("invalidhelloworld")
 
-	logger.Infof("Creating a new Route and Configuration %s", imagePath)
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
+	logger.Infof("Creating a new Configuration %s", imagePath)
+	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
-	defer TearDown(clients, names, logger)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
@@ -118,13 +119,12 @@ func TestContainerErrorMsg(t *testing.T) {
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
-	clients := Setup(t)
+	clients := setup(t)
 
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerExitingMsg")
 
-	// Specify an invalid image path
-	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
+	names := test.ResourceNames{Config: test.AppendRandomString("test-container-exiting-msg", logger)}
 	imagePath := test.ImagePath("failing")
 
 	// The given image will always exit with an exit code of 5
@@ -132,13 +132,13 @@ func TestContainerExitingMsg(t *testing.T) {
 	// ... and will print "Or not?" before it exits
 	errorLog := "Or not?"
 
-	logger.Infof("Creating a new Route and Configuration %s", imagePath)
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
+	logger.Infof("Creating a new Configuration %s", imagePath)
+	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
-	defer TearDown(clients, names, logger)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("When the containers keep crashing, the Configuration should have error status.")
 
