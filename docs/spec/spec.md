@@ -410,6 +410,15 @@ container: # v1.Container
   - name: HELLO
     value: world
   - ...
+  ports: # core.v1.ContainerPort array
+    # Optional, only a single containerPort may be specified.
+    # This can be used if your container cannot use the
+    # ${PORT} environment variable to specify which port to use.
+    # Some fields are not allowed, such as hostIP and hostPort.
+  - containerPort: ... # Optional, valid range is [1-65535]
+    name: ... # Optional, one of "http1", "h2c"
+    protocol: ... # Optional, one of "", "tcp"
+
   livenessProbe: ...  # Optional
   readinessProbe: ...  # Optional
   resources: ...  # Optional
