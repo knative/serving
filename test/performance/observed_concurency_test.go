@@ -41,20 +41,8 @@ import (
 
 const (
 	tName       = "TestObservedConcurrency"
-	perfLatency = "perf_scaleup_latency"
 	concurrency = 5
-	duration    = 1 * time.Minute
-	numThreads  = 1
 )
-
-func createTestCase(val float32, name string) testgrid.TestCase {
-	tp := []testgrid.TestProperty{{Name: perfLatency, Value: val}}
-	tc := testgrid.TestCase{
-		ClassName:  tName,
-		Name:       fmt.Sprintf("%s/%s", tName, name),
-		Properties: testgrid.TestProperties{Property: tp}}
-	return tc
-}
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
 // All responses are forwarded to a channel, if given.
@@ -175,6 +163,7 @@ func TestObservedConcurrency(t *testing.T) {
 	trafficStart := time.Now()
 
 	responseChannel := make(chan *spoof.Response, 1000)
+
 	logger.Infof("Running %d concurrent requests for %v", concurrency, duration)
 	requestsMade, err := generateTraffic(client, url, concurrency, duration, responseChannel)
 	if err != nil {
@@ -206,7 +195,7 @@ func TestObservedConcurrency(t *testing.T) {
 			logger.Infof("Never scaled to %d\n", i)
 		} else {
 			logger.Infof("Took %v to scale to %d\n", toConcurrency, i)
-			tc = append(tc, createTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d", i)))
+			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d", i), tName))
 		}
 	}
 
