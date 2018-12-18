@@ -2,7 +2,8 @@
 
 This directory contains the test image used in the user-port e2e test.
 
-The image contains a simple Go webserver, `printport.go`, that will listen on the port defined by environment variable `PORT` and expose a service at `/`.
+The image contains a simple Go webserver, `printport.go`, that will listen on
+the port defined by environment variable `PORT` and expose a service at `/`.
 
 When called, the server emits the port it was called on.
 
@@ -16,6 +17,5 @@ http://$IP
 
 ## Building
 
-For details about building and adding new images, see the [section about test
-images](/test/README.md#test-images).
-
+For details about building and adding new images, see the
+[section about test images](/test/README.md#test-images).
