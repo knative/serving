@@ -83,6 +83,8 @@ go build
 mv ko $GOPATH/bin
 cd $GOPATH/src
 rm -fr github.com/google/go-containerregistry
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+set
 set +x
 echo "#####<"
 
