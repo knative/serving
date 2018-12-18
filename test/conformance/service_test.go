@@ -21,13 +21,19 @@ package conformance
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	userPort = int32(8888)
 )
 
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service. The checks in this method should be able to be performed at any point in a
@@ -80,6 +86,7 @@ func validateRunLatestControlPlane(logger *logging.BaseLogger, clients *test.Cli
 // Validates service health and vended content match for a runLatest Service. The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateRunLatestDataPlane(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, expectedText string) error {
+	logger.Infof("Checking that the endpoint vends the expected text: %s", expectedText)
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
@@ -138,6 +145,7 @@ func validateLabelsPropagation(logger *logging.BaseLogger, objects test.Resource
 // 2. Update Metadata
 //    a. Update Labels
 //    b. Update Annotations
+// 3. Update UserPort
 func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
@@ -178,7 +186,7 @@ func TestRunLatestService(t *testing.T) {
 
 	// Update Container Image
 	logger.Info("Updating the Service to use a different image.")
-	names.Image = pizzaPlanet2
+	names.Image = printport
 	image2 := test.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(logger, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
@@ -195,9 +203,10 @@ func TestRunLatestService(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = validateRunLatestDataPlane(logger, clients, names, pizzaPlanetText2)
+	err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort))
 	if err != nil {
 		t.Error(err)
+
 	}
 
 	// Update Metadata (Labels)
@@ -234,7 +243,7 @@ func TestRunLatestService(t *testing.T) {
 	logger.Info("Waiting for the new revision to appear as LatestRevision.")
 	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("new image does not become ready in Service: %v", err)
+		t.Fatalf("The new revision has not become ready in Service: %v", err)
 	}
 
 	// Validate Service
@@ -242,7 +251,7 @@ func TestRunLatestService(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = validateRunLatestDataPlane(logger, clients, names, pizzaPlanetText2)
+	err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort))
 	if err != nil {
 		t.Error(err)
 	}
@@ -250,6 +259,34 @@ func TestRunLatestService(t *testing.T) {
 	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
 		t.Fatalf("Route prober failed with error %s", err)
 	}
+
+	// Update container with user port
+	logger.Infof("Updating the port of the user container for service %s", names.Service)
+	desiredSvc := objects.Service.DeepCopy()
+	desiredSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+		ContainerPort: userPort,
+	}}
+	objects.Service, err = test.PatchService(logger, clients, objects.Service, desiredSvc)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with a new port for the user container: %v", names.Service, err)
+	}
+
+	logger.Info("Waiting for the new revision to appear as LatestRevision.")
+	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("The new revision has not become ready in Service: %v", err)
+	}
+
+	// Validate Service
+	err = validateRunLatestControlPlane(logger, clients, names, "5")
+	if err != nil {
+		t.Error(err)
+	}
+	err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(int(userPort)))
+	if err != nil {
+		t.Error(err)
+	}
+
 }
 
 // TestReleaseService creates a Service in runLatest mode and then updates it to release mode. Once in release mode the test
@@ -351,7 +388,4 @@ func TestReleaseService(t *testing.T) {
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
 }
 
-// TODO(jonjohnsonjr): LatestService roads less traveled.
-// TODO(jonjohnsonjr): PinnedService happy path.
-// TODO(jonjohnsonjr): PinnedService roads less traveled.
 // TODO(jonjohnsonjr): Examples of deploying from source.

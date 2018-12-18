@@ -128,6 +128,9 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 		},
 		Spec: *ConfigurationSpec(imagePath, options),
 	}
+	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
+		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
+	}
 	return config
 }
 

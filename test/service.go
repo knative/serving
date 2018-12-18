@@ -176,11 +176,22 @@ func PatchServiceImage(logger *logging.BaseLogger, clients *Clients, svc *v1alph
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
+	LogResourceObject(logger, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
 	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
+// PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
+func PatchService(logger *logging.BaseLogger, clients *Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+	LogResourceObject(logger, ResourceObjects{Service: desiredSvc})
+	patchBytes, err := createPatch(curSvc, desiredSvc)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // PatchServiceRevisionTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
