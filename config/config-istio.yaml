@@ -29,6 +29,6 @@ data:
   gateway.knative-shared-gateway: "knative-ingressgateway.istio-system.svc.cluster.local"
   # A cluster local gateway to allow pods outside of the mesh to access
   # Services and Routes not exposing through an ingress.  If the users
-  # do have a service mesh setup, this isn't required and can be
-  # removed.
-  local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
+  # do have a service mesh setup, this isn't required.  If the users
+  # don't have a service mesh, uncomment to use.
+  # local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
