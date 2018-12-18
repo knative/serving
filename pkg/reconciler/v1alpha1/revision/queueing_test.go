@@ -107,9 +107,7 @@ func getTestRevision() *v1alpha1.Revision {
 				TerminationMessagePath: "/dev/null",
 			},
 			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-			TimeoutSeconds: &metav1.Duration{
-				Duration: 60 * time.Second,
-			},
+			TimeoutSeconds:   60,
 		},
 	}
 }

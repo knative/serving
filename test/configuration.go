@@ -19,8 +19,6 @@ limitations under the License.
 package test
 
 import (
-	"time"
-
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,11 +27,11 @@ import (
 
 // Options are test setup parameters.
 type Options struct {
-	EnvVars              []corev1.EnvVar
-	ContainerPorts       []corev1.ContainerPort
-	ContainerConcurrency int
-	RevisionTimeout      time.Duration
-	ContainerResources   corev1.ResourceRequirements
+	EnvVars                []corev1.EnvVar
+	ContainerPorts         []corev1.ContainerPort
+	ContainerConcurrency   int
+	RevisionTimeoutSeconds int64
+	ContainerResources     corev1.ResourceRequirements
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config

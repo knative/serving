@@ -19,7 +19,6 @@ package resources
 import (
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -66,9 +65,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 				Container: corev1.Container{
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{
@@ -169,9 +166,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -258,9 +253,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 			Status: v1alpha1.RevisionStatus{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -357,9 +350,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -454,9 +445,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -558,9 +547,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -661,9 +648,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -764,9 +749,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -860,9 +843,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1007,9 +988,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1140,9 +1119,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1214,9 +1191,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1281,9 +1256,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1354,9 +1327,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},

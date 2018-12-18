@@ -111,7 +111,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
-			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds.Duration.Seconds())),
+			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
