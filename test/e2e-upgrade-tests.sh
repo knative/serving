@@ -64,7 +64,7 @@ function teardown() {
 initialize $@
 
 header "Setting up environment"
-publish_test_images
+publish_test_images || fail_test "one or more test images weren't published"
 
 install_latest_release
 
