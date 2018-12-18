@@ -37,6 +37,8 @@ const (
 	scaleBufferSize = 10
 )
 
+// Metric is a resource which observes the request load of a Revision and
+// recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
 type Metric struct {
 	metav1.ObjectMeta
@@ -44,10 +46,12 @@ type Metric struct {
 	Status MetricStatus
 }
 
+// MetricSpec is the parameters in which the Revision should scaled.
 type MetricSpec struct {
 	TargetConcurrency float64
 }
 
+// MetricStatus is the current scale recommendation.
 type MetricStatus struct {
 	DesiredScale int32
 }
@@ -127,6 +131,7 @@ func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerF
 	}
 }
 
+// Get return the current Metric.
 func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric, error) {
 	key := NewMetricKey(namespace, name)
 	m.scalersMutex.RLock()
@@ -141,6 +146,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric,
 	return (&scaler.metric).DeepCopy(), nil
 }
 
+// Create instantiates the desired Metric.
 func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
@@ -159,6 +165,7 @@ func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, erro
 	return (&scaler.metric).DeepCopy(), nil
 }
 
+// Update applied the desired MetricSpec to a currently running Metric.
 func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, error) {
 	key := NewMetricKey(metric.Namespace, metric.Name)
 	m.scalersMutex.Lock()
@@ -169,12 +176,12 @@ func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, erro
 		scaler.metric = *metric
 		scaler.scaler.Update(metric.Spec)
 		return metric, nil
-	} else {
-		// This GroupResource is a lie, but unfortunately this interface requires one.
-		return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
+	// This GroupResource is a lie, but unfortunately this interface requires one.
+	return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
 }
 
+// Delete stops and removes a Metric.
 func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
 	key := NewMetricKey(namespace, name)
 	m.scalersMutex.Lock()
@@ -186,6 +193,7 @@ func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error 
 	return nil
 }
 
+// Watch registers a singleton function to call when MetricStatus is updated.
 func (m *MultiScaler) Watch(fn func(string)) {
 	if m.watcher != nil {
 		m.logger.Fatal("Multiple calls to Watch() not supported")
