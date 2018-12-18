@@ -126,7 +126,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	if rev.Status.ImageDigest != "" {
 		userContainer.Image = rev.Status.ImageDigest
 	}
-	userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+
+	if userContainer.TerminationMessagePolicy == "" {
+		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+	}
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)

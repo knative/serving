@@ -996,6 +996,7 @@ func TestMakePodSpec(t *testing.T) {
 							corev1.ResourceCPU:    resource.MustParse("888m"),
 						},
 					},
+					TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 				},
 				TimeoutSeconds: 45,
 			},
@@ -1042,7 +1043,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
 				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:                userLifecycle,
-				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 			}, {
 				Name:           queueContainerName,
 				Resources:      queueResources,
