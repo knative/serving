@@ -346,7 +346,8 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 }
 
 func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ExitCode"+strconv.Itoa(int(exitCode)), message)
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
 }
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
@@ -387,9 +388,9 @@ func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
 }
 
-// RevisionContainerFailingMessage constructs the status message if a container
+// RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
-func RevisionContainerFailingMessage(message string) string {
+func RevisionContainerExitingMessage(message string) string {
 	return fmt.Sprintf("Container failed with: %s", message)
 }
 

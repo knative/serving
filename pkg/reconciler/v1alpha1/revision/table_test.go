@@ -447,6 +447,28 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/deploy-timeout",
 	}, {
+		Name: "surface pod errors",
+		// Test the propagation of the termination state of a Pod into the revision.
+		// This initializes the world to the stable state after its first reconcile,
+		// but changes the user deployment to have a failing pod. It then verifies
+		// that Reconcile propagates this into the status of the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "pod-error",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "pod-error", WithTraffic),
+			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
+			deploy("foo", "pod-error"),
+			svc("foo", "pod-error"),
+			endpoints("foo", "pod-error"),
+			image("foo", "pod-error"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "pod-error",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				MarkContainerExiting(5, "I failed man!")),
+		}},
+		Key: "foo/pod-error",
+	}, {
 		Name: "build missing",
 		// Test a Reconcile of a Revision with a Build that is not found.
 		// We seed the world with a freshly created Revision that has a BuildName.
@@ -866,6 +888,23 @@ func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints 
 		opt(ep)
 	}
 	return ep
+}
+
+func pod(namespace, name string, po ...PodOption) *corev1.Pod {
+	deploy := deploy(namespace, name)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+			Labels:    deploy.Labels,
+		},
+	}
+
+	for _, opt := range po {
+		opt(pod)
+	}
+	return pod
 }
 
 type testConfigStore struct {
