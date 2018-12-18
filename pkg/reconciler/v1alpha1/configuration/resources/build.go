@@ -31,6 +31,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
+// MakeBuild creates an Unstructured Build object from the passed in Configuration and fills
+// in metadata and references based on the Configuration.
 func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
@@ -56,6 +58,7 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	return u
 }
 
+// GetBuild extracts an Unstructured Build object from the passed in ConfigurationSpec.
 func GetBuild(configSpec *v1alpha1.ConfigurationSpec) *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
 	if err := configSpec.Build.As(u); err != nil {
