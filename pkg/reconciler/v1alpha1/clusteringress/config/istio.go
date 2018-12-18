@@ -86,6 +86,7 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		return nil, err
 	}
 	if len(gateways) == 0 {
+		// TODO(nghia): Relax this so that users can disallowed public Gateways altogether.
 		return nil, errors.New("at least one gateway is required")
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
