@@ -37,6 +37,7 @@ const (
 	scaleBufferSize = 10
 )
 
+// +k8s:deepcopy-gen=true
 type Metric struct {
 	metav1.ObjectMeta
 	Spec   MetricSpec
@@ -49,14 +50,6 @@ type MetricSpec struct {
 
 type MetricStatus struct {
 	DesiredScale int32
-}
-
-func (m *Metric) clone() *Metric {
-	return &Metric{
-		ObjectMeta: m.ObjectMeta,
-		Spec:       m.Spec,
-		Status:     m.Status,
-	}
 }
 
 // UniScaler records statistics for a particular Metric and proposes the scale for the Metric's target based on those statistics.
@@ -145,7 +138,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric,
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.metric).clone(), nil
+	return (&scaler.metric).DeepCopy(), nil
 }
 
 func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, error) {
@@ -163,7 +156,7 @@ func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, erro
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.metric).clone(), nil
+	return (&scaler.metric).DeepCopy(), nil
 }
 
 func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, error) {
