@@ -77,7 +77,7 @@ mkdir -p github.com/google/go-containerregistry
 cd github.com/google/
 git clone https://github.com/google/go-containerregistry
 cd go-containerregistry
-git checkout 03167950e20ac82689f50828811e69cdd9e02af2
+git checkout eb57122f1bf944d0584c387c62c1a759c953684d
 cd cmd/ko
 go build
 mv ko $GOPATH/bin
