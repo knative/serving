@@ -94,15 +94,16 @@ type IngressSpec struct {
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
 
 	// Visibility setting.
-	Visibility *IngressVisibility `json:"visibility,omitempty"`
+	Visibility IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressVisibility describes whether the Ingress should be exposed to
 // public gateways or not.
-type IngressVisibility struct {
-	// True iff the ClusterIngress should not be exposed to public gateways.
-	LocalOnly bool `json:"localOnly,omitempty"`
-}
+type IngressVisibility string
+
+const (
+	IngressVisibilityClusterLocal IngressVisibility = "ClusterLocal"
+)
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
 type ClusterIngressTLS struct {
@@ -314,7 +315,7 @@ func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 
 // IsPublic returns whether the ClusterIngress should be exposed publicly.
 func (ci *ClusterIngress) IsPublic() bool {
-	return ci.Spec.Visibility == nil || !ci.Spec.Visibility.LocalOnly
+	return ci.Spec.Visibility != IngressVisibilityClusterLocal
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

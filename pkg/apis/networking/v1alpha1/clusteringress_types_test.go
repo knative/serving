@@ -61,15 +61,12 @@ func TestIsPublic(t *testing.T) {
 	if !ci.IsPublic() {
 		t.Error("Expected default ClusterIngress to be public, for backward compatibility")
 	}
-	ci.Spec.Visibility = &IngressVisibility{
-		LocalOnly: true,
-	}
-	if ci.IsPublic() {
-		t.Errorf("Expected %v, see %v", false, ci.IsPublic())
-	}
-	ci.Spec.Visibility.LocalOnly = false
 	if !ci.IsPublic() {
-		t.Errorf("Expected %v, see %v", true, ci.IsPublic())
+		t.Errorf("Expected IsPublic()==true, see %v", ci.IsPublic())
+	}
+	ci.Spec.Visibility = IngressVisibilityClusterLocal
+	if ci.IsPublic() {
+		t.Errorf("Expected IsPublic()==false, see %v", ci.IsPublic())
 	}
 }
 
