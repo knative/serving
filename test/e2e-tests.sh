@@ -67,9 +67,23 @@ set +o errexit
 set +o pipefail
 
 echo ">#####"
+set -x
 ls $GOPATH/bin/ko
 rm -fr $GOPATH/bin/ko
-go get -u github.com/google/go-containerregistry/cmd/ko@03167950e20ac82689f50828811e69cdd9e02af2
+
+cd $GOPATH/src
+rm -fr github.com/google/go-containerregistry
+mkdir -p github.com/google/go-containerregistry
+cd github.com/google/
+git clone https://github.com/google/go-containerregistry
+cd go-containerregistry
+git checkout 03167950e20ac82689f50828811e69cdd9e02af2
+cd cmd/ko
+go build
+mv ko $GOPATH/bin
+cd $GOPATH/src
+rm -fr github.com/google/go-containerregistry
+set +x
 echo "#####<"
 
 install_knative_serving || fail_test "Knative Serving installation failed"
