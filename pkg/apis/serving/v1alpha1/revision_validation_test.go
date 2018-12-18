@@ -191,6 +191,24 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("ports.HostIP"),
 	}, {
+		name: "port conflicts with queue proxy admin",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8022,
+			}},
+		},
+		want: apis.ErrInvalidValue("8022", "ports.ContainerPort"),
+	}, {
+		name: "port conflicts with queue proxy",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8012,
+			}},
+		},
+		want: apis.ErrInvalidValue("8012", "ports.ContainerPort"),
+	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
 			Image: "foo",
