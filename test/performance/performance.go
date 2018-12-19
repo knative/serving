@@ -96,11 +96,11 @@ func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain
 }
 
 // CreatePerfTestCase creates a perf test case with the provided name and value
-func CreatePerfTestCase(tcVal float32, tcName, tName string) testgrid.TestCase {
-	tp := []testgrid.TestProperty{{Name: perfLatency, Value: tcVal}}
+func CreatePerfTestCase(metricValue float32, metricName, testName string) testgrid.TestCase {
+	tp := []testgrid.TestProperty{{Name: perfLatency, Value: metricValue}}
 	tc := testgrid.TestCase{
-		ClassName:  tName,
-		Name:       fmt.Sprintf("%s/%s", tName, tcName),
+		ClassName:  testName,
+		Name:       fmt.Sprintf("%s/%s", testName, metricName),
 		Properties: testgrid.TestProperties{Property: tp}}
 	return tc
 }
