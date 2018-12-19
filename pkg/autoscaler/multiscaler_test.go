@@ -321,6 +321,45 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	uniScaler.checkLastStat(t, testStat)
 }
 
+func TestMultiScalerUpdate(t *testing.T) {
+	ctx := context.TODO()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+		TickInterval:      time.Millisecond,
+		EnableScaleToZero: false,
+	})
+	defer close(stopCh)
+
+	metric := newMetric()
+	metric.Spec.TargetConcurrency = 1.0
+	uniScaler.setScaleResult(0, true)
+
+	// Create the metric and verify the Spec
+	_, err := ms.Create(ctx, metric)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	if err != nil {
+		t.Errorf("Get() = %v", err)
+	}
+	if got, want := m.Spec.TargetConcurrency, 1.0; got != want {
+		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
+	}
+
+	// Update the target and verify the Spec
+	metric.Spec.TargetConcurrency = 10.0
+	if _, err = ms.Update(ctx, metric); err != nil {
+		t.Errorf("Update() = %v", err)
+	}
+	m, err = ms.Get(ctx, metric.Namespace, metric.Name)
+	if err != nil {
+		t.Errorf("Get() = %v", err)
+	}
+	if got, want := m.Spec.TargetConcurrency, 10.0; got != want {
+		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
+	}
+}
+
 func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
