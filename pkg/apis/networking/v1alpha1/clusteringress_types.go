@@ -102,6 +102,12 @@ type IngressSpec struct {
 type IngressVisibility string
 
 const (
+	// IngressVisibilityExternalIP is used to denote that the Ingress
+	// should be exposed to an external IP, for example a LoadBalancer
+	// Service.  This is the default value for IngressVisibility.
+	IngressVisibilityExternalIP IngressVisibility = "ExternalIP"
+	// IngressVisibilityClusterLocal is used to denote that the Ingress
+	// should be only be exposed locally to the cluster.
 	IngressVisibilityClusterLocal IngressVisibility = "ClusterLocal"
 )
 
@@ -315,7 +321,7 @@ func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 
 // IsPublic returns whether the ClusterIngress should be exposed publicly.
 func (ci *ClusterIngress) IsPublic() bool {
-	return ci.Spec.Visibility != IngressVisibilityClusterLocal
+	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

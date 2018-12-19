@@ -62,11 +62,15 @@ func TestIsPublic(t *testing.T) {
 		t.Error("Expected default ClusterIngress to be public, for backward compatibility")
 	}
 	if !ci.IsPublic() {
-		t.Errorf("Expected IsPublic()==true, see %v", ci.IsPublic())
+		t.Errorf("Expected IsPublic()==true, saw %v", ci.IsPublic())
+	}
+	ci.Spec.Visibility = IngressVisibilityExternalIP
+	if !ci.IsPublic() {
+		t.Errorf("Expected IsPublic()==true, saw %v", ci.IsPublic())
 	}
 	ci.Spec.Visibility = IngressVisibilityClusterLocal
 	if ci.IsPublic() {
-		t.Errorf("Expected IsPublic()==false, see %v", ci.IsPublic())
+		t.Errorf("Expected IsPublic()==false, saw %v", ci.IsPublic())
 	}
 }
 

@@ -199,16 +199,16 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	return nil
 }
 
-func getLBStatus(gatewayServiceUrl string) []v1alpha1.LoadBalancerIngressStatus {
+func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
 	// The ClusterIngress isn't load-balanced by any particular
 	// Service, but through a Service mesh.
-	if gatewayServiceUrl == "" {
+	if gatewayServiceURL == "" {
 		return []v1alpha1.LoadBalancerIngressStatus{
 			{MeshOnly: true},
 		}
 	}
 	return []v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: gatewayServiceUrl},
+		{DomainInternal: gatewayServiceURL},
 	}
 }
 
