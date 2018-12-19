@@ -48,11 +48,6 @@ function exit_if_presubmit_not_required() {
   fi
 }
 
-function abort() {
-  echo "error: $@"
-  exit 1
-}
-
 # Process flags and run tests accordingly.
 function main() {
   exit_if_presubmit_not_required
@@ -68,6 +63,10 @@ function main() {
     kubectl version
     echo ">> go version"
     go version
+    echo ">> git version"
+    git version
+    echo ">> bazel version"
+    bazel version 2> /dev/null
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"
