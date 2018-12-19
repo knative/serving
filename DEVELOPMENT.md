@@ -98,6 +98,12 @@ To check out this repository:
 1. Clone it to your machine:
 
 ```shell
+# If you intend to use go 1.11 modules, set GO111MODULE environment variable to on. For example,
+# export GO111MODULE=on
+# Since ko does not handle go 1.11 modules outside of GOPATH currently
+# as described in https://github.com/google/go-containerregistry/issues/298,  
+# it is preferable to use $HOME/go as GOPATH or use the approach of symbolic linking 
+# GOPATH into $HOME/go.
 mkdir -p ${GOPATH}/src/github.com/knative
 cd ${GOPATH}/src/github.com/knative
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
@@ -215,7 +221,8 @@ of:
   - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
 - **If you change a package's deps** (including adding external dep), then you
-  must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
+  must run [`./hack/update-deps.sh`](./hack/update-deps.sh). If you are using go 1.11 with modules
+  then you must run **`go mod tidy`**.
 
 These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
