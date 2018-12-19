@@ -249,7 +249,6 @@ func setupAdminHandlers(server *http.Server) {
 	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
 	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
 	server.Handler = mux
-	server.ListenAndServe()
 }
 
 func main() {
@@ -322,17 +321,37 @@ func main() {
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
-	go server.ListenAndServe()
-	go setupAdminHandlers(adminServer)
+	errChan := make(chan error, 2)
+	// Runs a server created by creator and sends fatal errors to the errChan.
+	// Does not act on the ErrServerClosed error since that indicates we're
+	// already shutting everything down.
+	catchServerError := func(creator func() error) {
+		if err := creator(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}
+
+	setupAdminHandlers(adminServer)
+	go catchServerError(server.ListenAndServe)
+	go catchServerError(adminServer.ListenAndServe)
 
 	// Shutdown logic and signal handling
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
-	// Blocks until we actually receive a TERM signal.
-	<-sigTermChan
+
+	// Blocks until we actually receive a TERM signal or one of the servers
+	// exit unexpectedly. We fold both signals together because we only want
+	// to act on the first of those to reach here.
+	select {
+	case err := <-errChan:
+		logger.Error("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		os.Exit(1)
+	case <-sigTermChan:
+		logger.Debug("Received TERM signal, attempting to gracefully shutdown servers.")
+	}
+
 	// Calling server.Shutdown() allows pending requests to
 	// complete, while no new work is accepted.
-	logger.Debug("Received TERM signal, attempting to gracefully shutdown servers.")
 	if err := adminServer.Shutdown(context.Background()); err != nil {
 		logger.Error("Failed to shutdown admin-server", zap.Error(err))
 	}
