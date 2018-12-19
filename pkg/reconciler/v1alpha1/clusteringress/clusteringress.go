@@ -217,11 +217,11 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 // none.
 func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
 	cfg := config.FromContext(ctx).Istio
-	if len(cfg.LocalGateways) > 0 {
-		return cfg.LocalGateways[0].ServiceURL
-	}
 	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
 		return cfg.IngressGateways[0].ServiceURL
+	}
+	if len(cfg.LocalGateways) > 0 {
+		return cfg.LocalGateways[0].ServiceURL
 	}
 	return ""
 }
