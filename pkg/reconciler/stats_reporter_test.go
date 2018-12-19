@@ -31,6 +31,22 @@ const (
 	testServiceName      = "test_service"
 )
 
+func TestNewStatsReporter(t *testing.T) {
+	r, err := NewStatsReporter(reconcilerMockName)
+	if err != nil {
+		t.Errorf("Failed to create reporter: %v", err)
+	}
+
+	m := tag.FromContext(r.(*reporter).ctx)
+	v, ok := m.Value(reconcilerTagKey)
+	if !ok {
+		t.Fatalf("Expected tag %q", reconcilerTagKey)
+	}
+	if v != reconcilerMockName {
+		t.Fatalf("Expected %q for tag %q, got %q", reconcilerMockName, reconcilerTagKey, v)
+	}
+}
+
 func TestReporter_ReportDuration(t *testing.T) {
 	reporter, err := NewStatsReporter(reconcilerMockName)
 	if err != nil {

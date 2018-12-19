@@ -25,7 +25,6 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
-	reconcilerTesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
@@ -503,7 +502,6 @@ func TestNew(t *testing.T) {
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
-		StatsReporter:    &reconcilerTesting.FakeStatsReporter{},
 	}, serviceInformer, configurationInformer, routeInformer)
 
 	if c == nil {
