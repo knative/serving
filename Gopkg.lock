@@ -445,7 +445,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:74f4c447fcb425021ba92c5a4ac9aabcd96d99623e2ef5d70d1c5ac455fd389e"
+  digest = "1:e86db6692508c17bc4dfdc830418147aeafaa8489990f79e61e133740e58f24d"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -454,7 +454,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "5ff6fb1eed88eb395e66a5a6ddafbffde8779648"
+  revision = "37f7ad78fbe7ab5a43a522e66ac82d2c8d2768ef"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
