@@ -65,6 +65,12 @@ function main() {
     go version
     echo ">> git version"
     git version
+    echo ">> bazel version"
+    bazel version 2> /dev/null
+    if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
+      echo ">> docker version"
+      docker version
+    fi
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"

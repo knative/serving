@@ -41,6 +41,7 @@ fi
 [[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
