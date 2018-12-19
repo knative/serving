@@ -195,7 +195,7 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 		// Don't modify the informers copy
 		existing := pa.DeepCopy()
 		existing.Status = desired.Status
-		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(existing)
+		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
 	}
 	return pa, nil
 }

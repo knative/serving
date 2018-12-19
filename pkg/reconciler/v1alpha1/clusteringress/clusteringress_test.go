@@ -118,7 +118,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeVirtualService(ingress("no-virtualservice-yet", 1234),
 				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("no-virtualservice-yet", 1234,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -168,7 +168,8 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeVirtualService(ingress("reconcile-virtualservice", 1234),
 				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("reconcile-virtualservice", 1234,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
