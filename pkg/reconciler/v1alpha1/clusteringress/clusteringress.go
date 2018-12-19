@@ -220,7 +220,7 @@ func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngre
 	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
 		return cfg.IngressGateways[0].ServiceURL
 	}
-	if len(cfg.LocalGateways) > 0 {
+	if len(cfg.LocalGateways) > 0 && !ci.IsPublic() {
 		return cfg.LocalGateways[0].ServiceURL
 	}
 	return ""
@@ -228,11 +228,12 @@ func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngre
 
 func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
 	gateways := []string{}
-	for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
-		gateways = append(gateways, gw.GatewayName)
-	}
 	if ci.IsPublic() {
 		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	} else {
+		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
 			gateways = append(gateways, gw.GatewayName)
 		}
 	}

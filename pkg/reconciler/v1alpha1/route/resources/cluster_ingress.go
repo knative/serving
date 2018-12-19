@@ -70,7 +70,8 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traff
 		rules = append(rules, *makeClusterIngressRule(getRouteDomains(name, r, domain), r.Namespace, targets[name]))
 	}
 	return v1alpha1.IngressSpec{
-		Rules: rules,
+		Rules:      rules,
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 }
 

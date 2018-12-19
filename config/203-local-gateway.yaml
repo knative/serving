@@ -16,11 +16,3 @@ spec:
       protocol: HTTP
     hosts:
     - "*"
-  - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    hosts:
-    - "*"
-    tls:
-      mode: PASSTHROUGH
