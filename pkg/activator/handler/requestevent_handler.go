@@ -57,7 +57,7 @@ func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 
-	revisionKey := autoscaler.NewKpaKey(namespace, name)
+	revisionKey := autoscaler.NewMetricKey(namespace, name)
 
 	h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqIn}
 	defer func() { h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqOut} }()

@@ -30,6 +30,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -47,16 +48,19 @@ const (
 // KPAMetrics is an interface for notifying the presence or absence of KPAs.
 type KPAMetrics interface {
 	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, key string) (*autoscaler.Metric, error)
+	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
 
 	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Metric, error)
+	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 
 	// Delete removes the Metric resource for a given key, returning any errors.
-	Delete(ctx context.Context, key string) error
+	Delete(ctx context.Context, namespace, name string) error
 
 	// Watch registers a function to call when Metrics change.
 	Watch(watcher func(string))
+
+	// Update update the Metric resource, return the new Metric or any errors.
+	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
 // KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
@@ -69,12 +73,11 @@ type KPAScaler interface {
 // information from KPAMetrics.
 type Reconciler struct {
 	*reconciler.Base
-
 	paLister        listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
-
-	kpaMetrics KPAMetrics
-	kpaScaler  KPAScaler
+	kpaMetrics      KPAMetrics
+	kpaScaler       KPAScaler
+	dynConfig       *autoscaler.DynamicConfig
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -83,12 +86,11 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // NewController creates an autoscaling Controller.
 func NewController(
 	opts *reconciler.Options,
-
 	paInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-
 	kpaMetrics KPAMetrics,
 	kpaScaler KPAScaler,
+	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -97,6 +99,7 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
+		dynConfig:       dynConfig,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
@@ -137,7 +140,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.kpaMetrics.Delete(ctx, key)
+		return c.kpaMetrics.Delete(ctx, namespace, name)
 	} else if err != nil {
 		return err
 	}
@@ -152,7 +155,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, key, pa)
+	err = c.reconcile(ctx, pa)
 	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -167,7 +170,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.PodAutoscaler) error {
+func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
@@ -179,9 +182,10 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	metric, err := c.kpaMetrics.Get(ctx, key)
+	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
+	metric, err := c.kpaMetrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.kpaMetrics.Create(ctx, pa)
+		metric, err = c.kpaMetrics.Create(ctx, desiredMetric)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
 			return err
@@ -191,9 +195,19 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		return err
 	}
 
+	// Ignore status when reconciling
+	desiredMetric.Status = metric.Status
+	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+		metric, err = c.kpaMetrics.Update(ctx, desiredMetric)
+		if err != nil {
+			logger.Errorf("Error update Metric: %v", err)
+			return err
+		}
+	}
+
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.kpaScaler.Scale(ctx, pa, metric.DesiredScale)
+	want, err := c.kpaScaler.Scale(ctx, pa, metric.Status.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err

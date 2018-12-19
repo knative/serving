@@ -23,16 +23,11 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/knative/pkg/logging/testing"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/knative/pkg/logging/testing"
 )
 
 const (
@@ -43,20 +38,18 @@ const (
 
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.TODO()
-	servingClient := fakeKna.NewSimpleClientset()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient)
-	kpa := newKPA(t, servingClient, revision)
-	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+	metric := newMetric()
+	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
 
 	uniScaler.setScaleResult(1, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, kpaKey)
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 	if !errors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -68,19 +61,19 @@ func TestMultiScalerScaling(t *testing.T) {
 		defer func() {
 			done <- struct{}{}
 		}()
-		if key != kpaKey {
-			t.Errorf("Watch() = %v, wanted %v", key, kpaKey)
+		if key != metricKey {
+			t.Errorf("Watch() = %v, wanted %v", key, metricKey)
 		}
-		m, err := ms.Get(ctx, key)
+		m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 		if err != nil {
 			t.Errorf("Get() = %v", err)
 		}
-		if got, want := m.DesiredScale, int32(1); got != want {
+		if got, want := m.Status.DesiredScale, int32(1); got != want {
 			t.Errorf("Get() = %v, wanted %v", got, want)
 		}
 	})
 
-	_, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, metric)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -102,7 +95,7 @@ func TestMultiScalerScaling(t *testing.T) {
 		// We got nothing!
 	}
 
-	err = ms.Delete(ctx, kpaKey)
+	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -118,21 +111,19 @@ func TestMultiScalerScaling(t *testing.T) {
 
 func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx := context.TODO()
-	servingClient := fakeKna.NewSimpleClientset()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient)
-	kpa := newKPA(t, servingClient, revision)
-	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+	metric := newMetric()
+	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
 
 	uniScaler.setScaleResult(0, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, kpaKey)
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 	if !errors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -144,19 +135,19 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		defer func() {
 			done <- struct{}{}
 		}()
-		if key != kpaKey {
-			t.Errorf("Watch() = %v, wanted %v", key, kpaKey)
+		if key != metricKey {
+			t.Errorf("Watch() = %v, wanted %v", key, metricKey)
 		}
-		m, err := ms.Get(ctx, key)
+		m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 		if err != nil {
 			t.Errorf("Get() = %v", err)
 		}
-		if got, want := m.DesiredScale, int32(0); got != want {
+		if got, want := m.Status.DesiredScale, int32(0); got != want {
 			t.Errorf("Get() = %v, wanted %v", got, want)
 		}
 	})
 
-	_, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, metric)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -169,7 +160,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		t.Fatalf("timed out waiting for Watch()")
 	}
 
-	err = ms.Delete(ctx, kpaKey)
+	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -185,21 +176,18 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	ctx := context.TODO()
-	servingClient := fakeKna.NewSimpleClientset()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: false,
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient)
-	kpa := newKPA(t, servingClient, revision)
-	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+	metric := newMetric()
 
 	uniScaler.setScaleResult(0, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, kpaKey)
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 	if !errors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -211,7 +199,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	_, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, metric)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -224,7 +212,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 		// We got nothing!
 	}
 
-	err = ms.Delete(ctx, kpaKey)
+	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -240,21 +228,18 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.TODO()
-	servingClient := fakeKna.NewSimpleClientset()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient)
-	kpa := newKPA(t, servingClient, revision)
-	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+	metric := newMetric()
 
 	uniScaler.setScaleResult(-1, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, kpaKey)
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
 	if !errors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -266,7 +251,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	_, err = ms.Create(ctx, kpa)
+	_, err = ms.Create(ctx, metric)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -279,7 +264,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		// We got nothing!
 	}
 
-	err = ms.Delete(ctx, kpaKey)
+	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -295,19 +280,16 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ctx := context.TODO()
-	servingClient := fakeKna.NewSimpleClientset()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 	defer close(stopCh)
 
-	revision := newRevision(t, servingClient)
-	kpa := newKPA(t, servingClient, revision)
-	kpaKey := fmt.Sprintf("%s/%s", kpa.Namespace, kpa.Name)
+	metric := newMetric()
 
 	uniScaler.setScaleResult(1, true)
 
-	_, err := ms.Create(ctx, kpa)
+	_, err := ms.Create(ctx, metric)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -327,7 +309,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
-	err = ms.Delete(ctx, kpaKey)
+	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -337,6 +319,45 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	newStat.RequestCount = 30
 	ms.RecordStat(testKPAKey, newStat)
 	uniScaler.checkLastStat(t, testStat)
+}
+
+func TestMultiScalerUpdate(t *testing.T) {
+	ctx := context.TODO()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+		TickInterval:      time.Millisecond,
+		EnableScaleToZero: false,
+	})
+	defer close(stopCh)
+
+	metric := newMetric()
+	metric.Spec.TargetConcurrency = 1.0
+	uniScaler.setScaleResult(0, true)
+
+	// Create the metric and verify the Spec
+	_, err := ms.Create(ctx, metric)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	if err != nil {
+		t.Errorf("Get() = %v", err)
+	}
+	if got, want := m.Spec.TargetConcurrency, 1.0; got != want {
+		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
+	}
+
+	// Update the target and verify the Spec
+	metric.Spec.TargetConcurrency = 10.0
+	if _, err = ms.Update(ctx, metric); err != nil {
+		t.Errorf("Update() = %v", err)
+	}
+	m, err = ms.Get(ctx, metric.Namespace, metric.Name)
+	if err != nil {
+		t.Errorf("Get() = %v", err)
+	}
+	if got, want := m.Spec.TargetConcurrency, 10.0; got != want {
+		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
+	}
 }
 
 func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeUniScaler) {
@@ -357,7 +378,7 @@ type fakeUniScaler struct {
 	lastStat autoscaler.Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*kpa.PodAutoscaler, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*autoscaler.Metric, *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return u, nil
 }
 
@@ -391,30 +412,25 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat autoscaler.Stat) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *kpa.PodAutoscaler {
-	kpa := revisionresources.MakeKPA(revision)
-	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	if err != nil {
-		t.Fatal("Failed to create KPA.", err)
-	}
-
-	return kpa
+func (u *fakeUniScaler) Update(autoscaler.MetricSpec) error {
+	return nil
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface) *v1alpha1.Revision {
-	rev := &v1alpha1.Revision{
+type scaleParameterValues struct {
+	kpa      *kpa.PodAutoscaler
+	replicas int32
+}
+
+func newMetric() *autoscaler.Metric {
+	return &autoscaler.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
 		},
-		Spec: v1alpha1.RevisionSpec{
-			ConcurrencyModel: "Multi",
-		},
-	}
-	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	if err != nil {
-		t.Fatal("Failed to create revision.", err)
-	}
+		Spec: autoscaler.MetricSpec{
 
-	return rev
+			TargetConcurrency: 1,
+		},
+		Status: autoscaler.MetricStatus{},
+	}
 }

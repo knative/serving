@@ -96,7 +96,7 @@ func initEnv() {
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
-	servingRevisionKey = autoscaler.NewKpaKey(servingNamespace, servingRevision)
+	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
 	health = &healthServer{alive: true}
 	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision)
 	if err != nil {
