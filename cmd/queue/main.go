@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -43,6 +44,7 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -316,38 +318,26 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
 		Handler: nil,
 	}
+	setupAdminHandlers(adminServer)
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
-	errChan := make(chan error, 2)
-	// Runs a server created by creator and sends fatal errors to the errChan.
-	// Does not act on the ErrServerClosed error since that indicates we're
-	// already shutting everything down.
-	catchServerError := func(creator func() error) {
-		if err := creator(); err != nil && err != http.ErrServerClosed {
-			errChan <- err
-		}
-	}
-
-	setupAdminHandlers(adminServer)
-	go catchServerError(server.ListenAndServe)
-	go catchServerError(adminServer.ListenAndServe)
-
 	// Shutdown logic and signal handling
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
 
-	// Blocks until we actually receive a TERM signal or one of the servers
-	// exit unexpectedly. We fold both signals together because we only want
-	// to act on the first of those to reach here.
-	select {
-	case err := <-errChan:
-		logger.Error("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
-		os.Exit(1)
-	case <-sigTermChan:
-		logger.Debug("Received TERM signal, attempting to gracefully shutdown servers.")
+	var g errgroup.Group
+	g.Go(server.ListenAndServe)
+	g.Go(adminServer.ListenAndServe)
+	g.Go(func() error {
+		<-sigTermChan
+		return errors.New("Received SIGTERM")
+	})
+
+	if err := g.Wait(); err != nil {
+		logger.Error("Shutting down", zap.Error(err))
 	}
 
 	// Calling server.Shutdown() allows pending requests to
