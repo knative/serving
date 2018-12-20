@@ -328,9 +328,21 @@ func main() {
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
 
+	// An `ErrServerClosed` should not trigger an early exit of
+	// the errgroup below.
+	catchServerError := func(runner func() error) func() error {
+		return func() error {
+			err := runner()
+			if err != http.ErrServerClosed {
+				return err
+			}
+			return nil
+		}
+	}
+
 	var g errgroup.Group
-	g.Go(server.ListenAndServe)
-	g.Go(adminServer.ListenAndServe)
+	g.Go(catchServerError(server.ListenAndServe))
+	g.Go(catchServerError(adminServer.ListenAndServe))
 	g.Go(func() error {
 		<-sigTermChan
 		return errors.New("Received SIGTERM")
