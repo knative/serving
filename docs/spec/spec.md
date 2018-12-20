@@ -153,25 +153,7 @@ spec:
         name: foo-bar-00001
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
-      container:
-        # image either provided as pre-built container, or built by Knative Serving from
-        # source. When built by knative, set to the same as build template, e.g.
-        # build.template.arguments[_IMAGE], as the "promise" of a future build.
-        # If buildRef is provided, it is expected that this image will be
-        # present when the referenced build is complete.
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:
-        # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-        resources: ...  # Optional
+      container: ... # See the Container section below
 
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
@@ -233,21 +215,7 @@ spec:
     kind: Build
     name: foo-bar-00001
 
-  container:  # corev1.Container
-    # We disallow the following fields from corev1.Container:
-    #  name, resources, ports, and volumeMounts
-    image: gcr.io/...
-    command: ['run']
-    args: []
-    env:  # list of environment vars
-    - name: FOO
-      value: bar
-    - name: HELLO
-      value: world
-    - ...
-    livenessProbe: ...  # Optional
-    readinessProbe: ...  # Optional
-    resources: ...  # Optional
+  container: ... # See the Container section below
 
   # Name of the service account the code should run as.
   serviceAccountName: ...
@@ -334,18 +302,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       build: ...
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container:  # core.v1.Container
-            image: gcr.io/...
-            command: ['run']
-            args: []
-            env:  # list of environment vars
-            - name: FOO
-              value: bar
-            - name: HELLO
-              value: world
-            - ...
-            livenessProbe: ...  # Optional
-            readinessProbe: ...  # Optional
+          container: ... # See the Container section below
           containerConcurrency: ... # Optional
           timeoutSeconds: ...
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -358,19 +315,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       build: ...
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container:  # core.v1.Container
-            image: gcr.io/...
-            command: ['run']
-            args: []
-            env:  # list of environment vars
-            - name: FOO
-              value: bar
-            - name: HELLO
-              value: world
-            - ...
-            livenessProbe: ...  # Optional
-            readinessProbe: ...  # Optional
-            resources: ...  # Optional
+          container: ... # See the Container section below
           containerConcurrency: ... # Optional
           timeoutSeconds: ...
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -386,19 +331,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       build: ...
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container:  # core.v1.Container
-            image: gcr.io/...
-            command: ['run']
-            args: []
-            env:  # list of environment vars
-            - name: FOO
-              value: bar
-            - name: HELLO
-              value: world
-            - ...
-            livenessProbe: ...  # Optional
-            readinessProbe: ...  # Optional
-            resources: ...  # Optional
+          container: ... # See the Container section below
           containerConcurrency: ... # Optional
           timeoutSeconds: ...
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -451,4 +384,46 @@ status:
     message: "Revision 'qyzz' referenced in traffic not found"
 
   observedGeneration: ...  # last generation being reconciled
+```
+
+## Container
+
+This is a [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
+Some fields are not allowed, such as name and volumeMounts.
+
+This type is not used on its own but is found composed inside [Service](#service), [Configuration](#configuration), and [Revision](#revision).
+
+```yaml
+container: # v1.Container
+  # image either provided as pre-built container, or built by Knative Serving from
+  # source. When built by knative, set to the same as build template, e.g.
+  # build.template.arguments[_IMAGE], as the "promise" of a future build.
+  # If buildRef is provided, it is expected that this image will be
+  # present when the referenced build is complete.
+  image: gcr.io/...
+  command: ['run']
+  args: []
+  env:
+  # list of environment vars
+  - name: FOO
+    value: bar
+  - name: HELLO
+    value: world
+  - ...
+
+  # Optional, only a single containerPort may be specified.
+  # This can be specified to select a specific port for incoming traffic.
+  # This is useful if your application cannot discover the port to listen
+  # on through the $PORT environment variable that is always set within the container.
+  # Some fields are not allowed, such as hostIP and hostPort.
+  ports: # core.v1.ContainerPort array
+    # Valid range is [1-65535], except 8012 (RequestQueuePort)
+    # and 8022 (RequestQueueAdminPort).
+  - containerPort: ... 
+    name: ... # Optional, one of "http1", "h2c"
+    protocol: ... # Optional, one of "", "tcp"
+
+  livenessProbe: ...  # Optional
+  readinessProbe: ...  # Optional
+  resources: ...  # Optional
 ```
