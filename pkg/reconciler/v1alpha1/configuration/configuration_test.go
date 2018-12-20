@@ -442,8 +442,9 @@ func TestGCReconcile(t *testing.T) {
 func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1.Configuration {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:       name,
+			Namespace:  namespace,
+			Generation: generation,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
