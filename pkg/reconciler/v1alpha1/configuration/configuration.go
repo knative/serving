@@ -158,7 +158,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation.
-	revName := resourcenames.Revision(config)
+	revName := resourcenames.DeprecatedRevision(config)
 	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
 	if errors.IsNotFound(err) {
 		latestCreatedRevision, err = c.createRevision(ctx, config, revName)

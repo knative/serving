@@ -35,7 +35,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	}
 	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace
-	rev.Name = names.Revision(config)
+	rev.Name = names.DeprecatedRevision(config)
 
 	// Populate the Configuration label.
 	if rev.Labels == nil {
