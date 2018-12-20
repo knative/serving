@@ -64,9 +64,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:           "build",
-					serving.ConfigurationGenerationLabelKey: "12",
-					serving.ServiceLabelKey:                 "",
+					serving.ConfigurationLabelKey:                     "build",
+					serving.DeprecatedConfigurationGenerationLabelKey: "12",
+					serving.ServiceLabelKey:                           "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -116,9 +116,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:           "build",
-					serving.ConfigurationGenerationLabelKey: "99",
-					serving.ServiceLabelKey:                 "",
+					serving.ConfigurationLabelKey:                     "build",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ServiceLabelKey:                           "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -169,9 +169,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:           "labels",
-					serving.ConfigurationGenerationLabelKey: "99",
-					serving.ServiceLabelKey:                 "",
+					serving.ConfigurationLabelKey:                     "labels",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ServiceLabelKey:                           "",
 
 					"foo": "bar",
 					"baz": "blah",
@@ -219,9 +219,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:           "annotations",
-					serving.ConfigurationGenerationLabelKey: "99",
-					serving.ServiceLabelKey:                 "",
+					serving.ConfigurationLabelKey:                     "annotations",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ServiceLabelKey:                           "",
 				},
 				Annotations: map[string]string{
 					"foo": "bar",

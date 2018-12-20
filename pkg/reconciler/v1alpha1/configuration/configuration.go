@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/knative/pkg/configmap"
@@ -290,6 +291,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Co
 }
 
 func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {
+	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
 	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
@@ -298,8 +300,22 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 		return err
 	}
 
+	// Sort by creation timestamp descending
+	sort.Slice(revs, func(i, j int) bool {
+		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+	})
+
+	var expiry *metav1.Time
+
+	minRevisions := cfg.StaleRevisionMinimumGenerations
+	if int64(len(revs)) > minRevisions && minRevisions != 0 {
+		offset := cfg.StaleRevisionMinimumGenerations - 1
+		revisionCreation := revs[offset].CreationTimestamp
+		expiry = &revisionCreation
+	}
+
 	for _, rev := range revs {
-		if isRevisionStale(ctx, rev, config) {
+		if isRevisionStale(ctx, rev, config, expiry) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.Errorf("Failed to delete stale revision: %v", err)
@@ -310,22 +326,21 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+func isRevisionStale(
+	ctx context.Context,
+	rev *v1alpha1.Revision,
+	config *v1alpha1.Configuration,
+	expiry *metav1.Time,
+) bool {
+
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
-
-	// maxGen is the maximum generation number we consider for GC
-	maxGen := config.Spec.Generation - cfg.StaleRevisionMinimumGenerations
 
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
 
-	// Check if rev is within "MinimumGenerations" of latest
-	if gen, err := rev.GetConfigurationGeneration(); err != nil {
-		logger.Errorf("Failed to determine revision configuration generation: %v", err)
-		return false
-	} else if gen > maxGen {
+	if expiry != nil && (expiry.Before(&rev.CreationTimestamp) || expiry.Equal(&rev.CreationTimestamp)) {
 		return false
 	}
 

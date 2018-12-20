@@ -449,29 +449,3 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 
 	return time.Unix(secs, 0), nil
 }
-
-func (r *Revision) GetConfigurationGeneration() (int64, error) {
-	if r.Labels == nil {
-		return 0, configurationGenerationParseError{
-			Type: LabelParserErrorTypeMissing,
-		}
-	}
-
-	str, ok := r.ObjectMeta.Labels[serving.ConfigurationGenerationLabelKey]
-	if !ok {
-		return 0, configurationGenerationParseError{
-			Type: LabelParserErrorTypeMissing,
-		}
-	}
-
-	gen, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0, configurationGenerationParseError{
-			Type:  LabelParserErrorTypeInvalid,
-			Value: str,
-			Err:   err,
-		}
-	}
-
-	return gen, nil
-}
