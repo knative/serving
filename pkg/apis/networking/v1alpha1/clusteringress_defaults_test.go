@@ -39,6 +39,18 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "has-visibility",
+		in: &ClusterIngress{
+			Spec: IngressSpec{
+				Visibility: IngressVisibilityClusterLocal,
+			},
+		},
+		want: &ClusterIngress{
+			Spec: IngressSpec{
+				Visibility: IngressVisibilityClusterLocal,
+			},
+		},
+	}, {
 		name: "tls-defaulting",
 		in: &ClusterIngress{
 			Spec: IngressSpec{
