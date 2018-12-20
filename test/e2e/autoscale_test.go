@@ -251,7 +251,8 @@ func assertScaleDown(ctx *testContext) {
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
-				if !strings.Contains(pod.Status.Reason, "Evicted") {
+				if strings.Contains(pod.Name, ctx.deploymentName) &&
+					!strings.Contains(pod.Status.Reason, "Evicted") {
 					return false, nil
 				}
 			}
