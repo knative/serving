@@ -7,7 +7,8 @@ This directory contains tests and testing docs for `Knative Serving`:
 - [End-to-end tests](#running-end-to-end-tests), of which there are two types:
   - Conformance tests in [`/test/conformance`](./conformance)
   - Other end-to-end tests in [`/test/e2e`](./e2e)
-- [Performance tests](#running-performance-tests) reside in [`/test/performance`](./performance)
+- [Performance tests](#running-performance-tests) reside in
+  [`/test/performance`](./performance)
 
 The conformance tests are a subset of the end to end test with
 [more strict requirements](./conformance/README.md#requirements) around what can
@@ -59,9 +60,10 @@ go test -v -tags=e2e -count=1 ./test/e2e
 
 ## Running performance tests
 
-To run [the performance tests](./performance), you need to have a running environment 
-that meets [the test environment requirements](#environment-requirements), and you need
-to specify the build tag `performance`.
+To run [the performance tests](./performance), you need to have a running
+environment that meets
+[the test environment requirements](#environment-requirements), and you need to
+specify the build tag `performance`.
 
 ```bash
 go test -v -tags=performance -count=1 ./test/performance
