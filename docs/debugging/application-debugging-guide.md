@@ -61,33 +61,59 @@ details, see Knative
 [Error Conditions and Reporting](../spec/errors.md)(currently some of them are
 not implemented yet).
 
-### Check Istio routing
+### Check ClusterIngress/Istio routing
 
-Compare your Knative `Route` object's configuration (obtained in the previous
-step) to the Istio `RouteRule` object's configuration.
-
-Enter the following, replacing `<routerule-name>` with the appropriate value:
+Run the following command to list all the cluster ingress, with their labels
 
 ```shell
-kubectl get routerule <routerule-name> -o yaml
+kubectl get clusteringress -o=custom-columns='NAME:.metadata.name,LABELS:.metadata.labels'
+NAME                   LABELS
+helloworld-go-h5kd4    map[serving.knative.dev/route:helloworld-go serving.knative.dev/routeNamespace:default]
 ```
+The labels `serving.knative.dev/route` and `serving.knative.dev/routeNamespace` will tell
+exactly which Route a ClusterIngress is a child resource of.  Find the one corresponding
+to your Route.  If a ClusterIngress does not exist, the route controller believes
+that the Revisions targeted by your Route/Service isn't ready.  Please proceed to later
+sections to diagnose Revision readiness status.
 
-If you don't know the name of your route rule, use the `kubectl get routerule`
-command to find it.
+Otherwise, run the following command to look at the ClusterIngress created for your Route
+```
+kubectl get clusteringress <CLUSTERINGRESS_NAME> -o yaml
+```
+particularly, look at the `status:` section.  If the ClusterIngress is working correctly,
+we should see the condition with `type=Ready` to have `status=True`.  Otherwise, there
+will be error messages.
 
-The command returns the configuration of your route rule. Compare the domains
-between your route and route rule; they should match.
-
-### Check ingress status
-
-Enter:
-
+Now, if ClusterIngress shows status Ready, there must be a corresponding VirtualService.
+Run the following command:
 ```shell
-kubectl get ingress
+kubectl get virtualservice <CLUSTERINGRESS_NAME> -n knative-serving -o yaml
 ```
+the network configuration in VirtualService must match that of ClusterIngress and Route.
+VirtualService currently doesn't expose a Status field, so if one exists and have matching
+configurations with ClusterIngress and Route, you may want to wait a little bit for those
+settings to propagate.
 
-The command returns the status of the ingress. You can see the name, age,
-domains, and IP address.
+If you are familar with Istio and `istioctl`, you may try using `istioctl` to look deeper
+using Istio [guide](https://istio.io/help/ops/traffic-management/proxy-cmd/).
+
+### Check Ingress status
+Before Knative 0.3 we use a LoadBalancer service call `knative-ingressgateway` to handle
+ingress.  Since Knative 0.3 we now use `istio-ingressgateway` Service.
+
+To check the IP address of your Ingress, use
+```shell
+kubectl get svc -n istio-system istio-ingressgateway
+```
+Or replace that with `knative-ingressgateway` if you are using Knative release older than
+0.3.
+
+If there is no external IP address, use
+```shell
+kubectl describe svc istio-ingressgateway -n istio-system
+```
+to see a reason why IP addresses weren't provisioned.  Most likely it is due to a quota
+issue.
 
 ## Check Revision status
 
