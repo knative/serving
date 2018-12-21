@@ -21,6 +21,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"io"
+	"io/ioutil"
 	"sync"
 	"time"
 
@@ -57,6 +58,9 @@ type ManagedConnection struct {
 	connection rawConnection
 	closeChan  chan struct{}
 
+	// If set, messages will be forwarded to this channel
+	messageChan chan []byte
+
 	// This mutex controls access to the connection reference
 	// itself.
 	connectionLock sync.RWMutex
@@ -75,7 +79,16 @@ type ManagedConnection struct {
 // The connection will continuously be kept alive and reconnected
 // in case of a loss of connectivity.
 func NewDurableSendingConnection(target string) *ManagedConnection {
-	c := newConnection(target)
+	return NewDurableConnection(target, nil)
+}
+
+// NewDurableConnection creates a new websocket connection, that
+// passes incoming messages to the given message channel. It can also
+// send messages to the endpoint it connects to.
+// The connection will continuously be kept alive and reconnected
+// in case of a loss of connectivity.
+func NewDurableConnection(target string, messageChan chan []byte) *ManagedConnection {
+	c := newConnection(target, messageChan)
 
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
@@ -107,10 +120,11 @@ func NewDurableSendingConnection(target string) *ManagedConnection {
 }
 
 // newConnection creates a new connection primitive.
-func newConnection(target string) *ManagedConnection {
+func newConnection(target string, messageChan chan []byte) *ManagedConnection {
 	conn := &ManagedConnection{
-		target:    target,
-		closeChan: make(chan struct{}, 1),
+		target:      target,
+		closeChan:   make(chan struct{}, 1),
+		messageChan: messageChan,
 		connectionBackoff: wait.Backoff{
 			Duration: 100 * time.Millisecond,
 			Factor:   1.3,
@@ -152,8 +166,19 @@ func (c *ManagedConnection) keepalive() (err error) {
 			defer c.connectionLock.RUnlock()
 
 			if conn := c.connection; conn != nil {
-				if _, _, err = conn.NextReader(); err != nil {
+				var reader io.Reader
+				var messageType int
+				messageType, reader, err = conn.NextReader()
+				if err != nil {
 					conn.Close()
+				}
+
+				// Send the message to the channel if its an application level message
+				// and if that channel is set.
+				if c.messageChan != nil && (messageType == websocket.TextMessage || messageType == websocket.BinaryMessage) {
+					if message, _ := ioutil.ReadAll(reader); message != nil {
+						c.messageChan <- message
+					}
 				}
 			} else {
 				err = ErrConnectionNotEstablished
