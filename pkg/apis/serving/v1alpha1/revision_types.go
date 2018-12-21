@@ -21,14 +21,13 @@ import (
 	"strconv"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -119,6 +118,16 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
+const (
+	// UserPortName is the name that will be used for the Port on the
+	// Deployment and Pod created by a Revision. This name will be set regardless of if
+	// a user specifies a port or the default value is chosen.
+	UserPortName = "user-port"
+	// DefaultUserPort is the default port value the QueueProxy will
+	// use for connecting to the user container.
+	DefaultUserPort = 8080
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -181,7 +190,7 @@ type RevisionSpec struct {
 
 	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
 	// +optional
-	TimeoutSeconds *metav1.Duration `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds int64 `json:"timeoutSeconds,omitempty"`
 }
 
 const (
@@ -336,6 +345,11 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
+func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
+}
+
 func (rs *RevisionStatus) MarkResourcesAvailable() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
@@ -366,6 +380,18 @@ func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
 // conditions by implementing the duckv1alpha1.Conditions interface.
 func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 	rs.Conditions = conditions
+}
+
+// RevisionContainerMissingMessage constructs the status message if a given image
+// cannot be pulled correctly.
+func RevisionContainerMissingMessage(image string, message string) string {
+	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+// RevisionContainerExitingMessage constructs the status message if a container
+// fails to come up.
+func RevisionContainerExitingMessage(message string) string {
+	return fmt.Sprintf("Container failed with: %s", message)
 }
 
 const (

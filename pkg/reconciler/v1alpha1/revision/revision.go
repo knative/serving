@@ -33,7 +33,7 @@ import (
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	kpainformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -85,13 +85,13 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// lister indexes properties about Revision
-	revisionLister   listers.RevisionLister
-	kpaLister        kpalisters.PodAutoscalerLister
-	imageLister      cachinglisters.ImageLister
-	deploymentLister appsv1listers.DeploymentLister
-	serviceLister    corev1listers.ServiceLister
-	endpointsLister  corev1listers.EndpointsLister
-	configMapLister  corev1listers.ConfigMapLister
+	revisionLister      listers.RevisionLister
+	podAutoscalerLister kpalisters.PodAutoscalerLister
+	imageLister         cachinglisters.ImageLister
+	deploymentLister    appsv1listers.DeploymentLister
+	serviceLister       corev1listers.ServiceLister
+	endpointsLister     corev1listers.EndpointsLister
+	configMapLister     corev1listers.ConfigMapLister
 
 	buildInformerFactory duck.InformerFactory
 
@@ -111,7 +111,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opt reconciler.Options,
 	revisionInformer servinginformers.RevisionInformer,
-	kpaInformer kpainformers.PodAutoscalerInformer,
+	podAutoscalerInformer painformers.PodAutoscalerInformer,
 	imageInformer cachinginformers.ImageInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
@@ -119,19 +119,25 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
+	transport := http.DefaultTransport
+	if rt, err := newResolverTransport(k8sCertPath); err != nil {
+		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
+	} else {
+		transport = rt
+	}
 
 	c := &Reconciler{
-		Base:             reconciler.NewBase(opt, controllerAgentName),
-		revisionLister:   revisionInformer.Lister(),
-		kpaLister:        kpaInformer.Lister(),
-		imageLister:      imageInformer.Lister(),
-		deploymentLister: deploymentInformer.Lister(),
-		serviceLister:    serviceInformer.Lister(),
-		endpointsLister:  endpointsInformer.Lister(),
-		configMapLister:  configMapInformer.Lister(),
+		Base:                reconciler.NewBase(opt, controllerAgentName),
+		revisionLister:      revisionInformer.Lister(),
+		podAutoscalerLister: podAutoscalerInformer.Lister(),
+		imageLister:         imageInformer.Lister(),
+		deploymentLister:    deploymentInformer.Lister(),
+		serviceLister:       serviceInformer.Lister(),
+		endpointsLister:     endpointsInformer.Lister(),
+		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
-			transport: http.DefaultTransport,
+			transport: transport,
 		},
 	}
 	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
@@ -159,7 +165,7 @@ func NewController(
 		},
 	})
 
-	kpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	podAutoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,
@@ -324,7 +330,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	}
 	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(err.Error())
+		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
 		return err
 	}
 
@@ -335,6 +341,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	rev.SetDefaults()
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)

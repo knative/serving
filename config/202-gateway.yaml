@@ -1,18 +1,31 @@
-# We stand up a new Gateway service to receive all external traffic
-# for Knative pods.  These pods are basically standalone Envoy proxy
-# pods to convert all external traffic into cluster traffic.
-#
-#
-# The reason for standing up these pods are because Istio Gateway
-# cannot not share these ingress pods.  Istio provide a default, but
-# we don't want to use it and causing unwanted sharing with users'
-# Gateways if they have some.
-#
-# The YAML is cloned from Istio's.  However, in the future we may want
-# to incorporate more of our logic to tailor to our users' specific
-# needs.
-
 # This is the shared Gateway for all Knative routes to use.
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-ingress-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "*"
+    tls:
+      mode: PASSTHROUGH
+---
+# This is the pre-0.3 shared Gateway.  We leave it here so that existing clients can
+# still access using their own IP address.  However, this is deprecated and will be
+# removed in releases after 0.3.
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -37,13 +50,10 @@ spec:
     tls:
       mode: PASSTHROUGH
 ---
-# TODO(#1969): We should allow the users to use `istio-ingressgateway` by default,
-#              while having the choice to specify their own Ingress Gateway service
-#              if that isn't enough for them.  That way we can get out of maintaining
-#              these YAML ourselves.
-#
-# This is the Service definition for the ingress pods serving
-# Knative's shared Gateway.
+# This is the Service definition for the ingress pods serving the
+# pre-0.3 shared Gateway.  We leave it here so that existing clients
+# can still access using their own IP address.  However, it is
+# deprecated and will be removed in releases after 0.3.
 apiVersion: v1
 kind: Service
 metadata:

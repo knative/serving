@@ -52,7 +52,7 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
 
 	logger.Info("Updating the Service to use a different image")
-	if _, err := test.UpdateServiceImage(clients, svc, test.ImagePath(image2)); err != nil {
+	if _, err := test.PatchServiceImage(logger, clients, svc, test.ImagePath(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, test.ImagePath(image2), err)
 	}
 

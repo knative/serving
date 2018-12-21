@@ -47,6 +47,15 @@ spec:
           # and seeing k8s logs in addition to ours is not useful.
         - "-logtostderr=false"
         - "-stderrthreshold=FATAL"
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 20m
+            memory: 60Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 200m
+            memory: 600Mi
         env:
           - name: POD_NAME
             valueFrom:

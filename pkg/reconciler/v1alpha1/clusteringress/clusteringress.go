@@ -23,6 +23,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -30,8 +31,8 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -47,6 +48,11 @@ const (
 	controllerAgentName = "clusteringress-controller"
 )
 
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
+
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
 	*reconciler.Base
@@ -54,6 +60,7 @@ type Reconciler struct {
 	// listers index properties about resources
 	clusterIngressLister listers.ClusterIngressLister
 	virtualServiceLister istiolisters.VirtualServiceLister
+	configStore          configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -94,6 +101,12 @@ func NewController(
 		},
 	})
 
+	c.Logger.Info("Setting up ConfigMap receivers")
+	resyncIngressesOnIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
+		impl.GlobalResync(clusterIngressInformer.Informer())
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnIstioConfigChange)
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
 
@@ -108,6 +121,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
+
+	ctx = c.configStore.ToContext(ctx)
 
 	// Get the ClusterIngress resource with this name.
 	original, err := c.clusterIngressLister.Get(name)
@@ -158,8 +173,15 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 
 func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	ci.SetDefaults()
+
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci)
+	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx, ci))
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -172,11 +194,62 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
-	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: names.K8sGatewayServiceFullname},
-	})
+	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	logger.Info("ClusterIngress successfully synced")
 	return nil
+}
+
+func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
+	// The ClusterIngress isn't load-balanced by any particular
+	// Service, but through a Service mesh.
+	if gatewayServiceURL == "" {
+		return []v1alpha1.LoadBalancerIngressStatus{
+			{MeshOnly: true},
+		}
+	}
+	return []v1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: gatewayServiceURL},
+	}
+}
+
+// gatewayServiceURLFromContext return an address of a load-balancer
+// that the given ClusterIngress is exposed to, or empty string if
+// none.
+func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
+		return cfg.IngressGateways[0].ServiceURL
+	}
+	if len(cfg.LocalGateways) > 0 && !ci.IsPublic() {
+		return cfg.LocalGateways[0].ServiceURL
+	}
+	return ""
+}
+
+func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
+	gateways := []string{}
+	if ci.IsPublic() {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	} else {
+		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	}
+	return dedup(gateways)
+}
+
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

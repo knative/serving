@@ -16,15 +16,6 @@
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
-# Set default GCS/GCR
-: ${SERVING_RELEASE_GCS:="knative-releases/serving"}
-: ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
-readonly SERVING_RELEASE_GCS
-readonly SERVING_RELEASE_GCR
-
-# Set the repository
-export KO_DOCKER_REPO="${SERVING_RELEASE_GCR}"
-
 # Script entry point
 
 initialize $@
@@ -34,19 +25,14 @@ set -o pipefail
 
 run_validation_tests ./test/presubmit-tests.sh
 
+# Build the release
+
 banner "Building the release"
 
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
-
-echo "- Destination GCR: ${KO_DOCKER_REPO}"
-if (( PUBLISH_RELEASE )); then
-  echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
-fi
-
-# Build the release
 
 # Run `generate-yamls.sh`, which should be versioned with the
 # branch since the detail of building may change over time.
@@ -55,7 +41,7 @@ $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
 readonly YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
 readonly RELEASE_YAML="$(head -n1 ${YAML_LIST})"
 
-tag_images_in_yaml "${RELEASE_YAML}" "${KO_DOCKER_REPO}" "${TAG}"
+tag_images_in_yaml "${RELEASE_YAML}"
 
 echo "New release built successfully"
 
@@ -68,8 +54,7 @@ fi
 # Publish the release
 # We publish our own istio.yaml, so users don't need to use helm
 for yaml in ${YAMLS_TO_PUBLISH}; do
-  echo "Publishing ${yaml}"
-  publish_yaml "${yaml}" "${SERVING_RELEASE_GCS}" "${TAG}"
+  publish_yaml "${yaml}"
 done
 
 branch_release "Knative Serving" "${YAMLS_TO_PUBLISH}"

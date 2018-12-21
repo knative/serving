@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ValidateObjectMetadata validates that `metadata` stanza of the
+// resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
 
@@ -56,7 +58,7 @@ func getIntGT0(m map[string]string, k string) (int64, *apis.FieldError) {
 		i, err := strconv.ParseInt(v, 10, 32)
 		if err != nil || i < 1 {
 			return 0, &apis.FieldError{
-				Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", k),
+				Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", k),
 				Paths:   []string{k},
 			}
 		}

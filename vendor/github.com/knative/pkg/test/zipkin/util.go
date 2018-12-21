@@ -27,8 +27,8 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	"go.opencensus.io/trace"
-	"k8s.io/client-go/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -68,7 +68,7 @@ func SetupZipkinTracing(kubeClientset *kubernetes.Clientset) error {
 		return errors.New("No Zipkin Pod found on the cluster. Ensure monitoring is switched on for your Knative Setup")
 	}
 
-	portForwardCmd := exec.Command("kubectl", "port-forward", "--namespace=" + ZipkinNamespace, zipkinPods.Items[0].Name, fmt.Sprintf("%d:%d", ZipkinPort, ZipkinPort))
+	portForwardCmd := exec.Command("kubectl", "port-forward", "--namespace="+ZipkinNamespace, zipkinPods.Items[0].Name, fmt.Sprintf("%d:%d", ZipkinPort, ZipkinPort))
 	if err = portForwardCmd.Start(); err != nil {
 		return fmt.Errorf("Error starting kubectl port-forward command : %v", err)
 

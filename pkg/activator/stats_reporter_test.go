@@ -46,7 +46,7 @@ func TestActivatorReporter(t *testing.T) {
 	}
 	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
 	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
-	checkSumData(t, "revision_request_count", wantTags2, 4)
+	checkSumData(t, "request_count", wantTags2, 4)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
@@ -63,7 +63,7 @@ func TestActivatorReporter(t *testing.T) {
 	expectSuccess(t, func() error {
 		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 9100*time.Millisecond)
 	})
-	checkDistributionData(t, "response_time_msec", wantTags3, 2, 1100, 9100)
+	checkDistributionData(t, "request_latencies", wantTags3, 2, 1100, 9100)
 }
 
 func expectSuccess(t *testing.T, f func() error) {

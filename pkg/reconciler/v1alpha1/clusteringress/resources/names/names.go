@@ -27,11 +27,6 @@ var K8sGatewayFullname = reconciler.GetK8sServiceFullname(
 	"knative-shared-gateway",
 	system.Namespace)
 
-// K8sGatewayServiceFullname is the fully-qualified name of in-cluster Knative gateway.
-var K8sGatewayServiceFullname = reconciler.GetK8sServiceFullname(
-	"knative-ingressgateway",
-	"istio-system")
-
 // VirtualService returns the name of the VirtualService child resource for given ClusterIngress.
 func VirtualService(i *v1alpha1.ClusterIngress) string {
 	return i.Name

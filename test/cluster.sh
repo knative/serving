@@ -62,15 +62,26 @@ function install_knative_serving() {
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
   echo ">> Bringing up Serving"
+  # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
+  # This is so that the upgrade tests can pass between versions that have knative-ingressgateway and versions
+  # that don't.
+  # TODO(nghia): Remove this when knative-ingressgateway is removed.
+  if ! kubectl create -f "${INSTALL_RELEASE_YAML}" --dry-run -lknative=ingressgateway; then
+    kubectl delete svc -n istio-system knative-ingressgateway --ignore-not-found
+    kubectl delete deploy -n istio-system knative-ingressgateway --ignore-not-found
+  fi
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Adding more activator pods."
-  kubectl scale deploy --replicas=2 -n knative-serving activator || return 1
+  # This command would fail if the HPA already exist, like during upgrade test.
+  # Therefore we don't exit on failure, and don't log an error message.
+  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -80,17 +91,42 @@ function install_knative_serving() {
   # to avoid having too much flakes in the tests.  That would allow us to be stricter
   # when checking non-probe requests to discover other routing issues.
   #
+  # To compensate for this scaling down, we increase the CPU request for these pods.
+  #
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
+  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway; do
+    if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
+      kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
+      kubectl set resources deploy -n istio-system ${gateway} \
+        -c=istio-proxy --requests=cpu=50m 2> /dev/null
+    fi
+  done
+
+  # There are reports of Envoy failing (503) when istio-pilot is overloaded.
+  # We generously add more pilot instances here to verify if we can reduce flakes.
+  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
+    # If HPA exists, update it.  Since patching will return non-zero if no change
+    # is made, we don't return on failure here.
+    kubectl patch hpa -n istio-system istio-pilot \
+      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
+      `# Ignore error messages to avoid causing red herrings in the tests` \
+      2>/dev/null
+  else
+    # Some versions of Istio doesn't provide an HPA for pilot.
+    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+  fi
 
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system knative-ingressgateway
+  if kubectl get svc -n istio-system knative-ingressgateway > /dev/null 2>&1 ; then
+    wait_until_service_has_external_ip istio-system knative-ingressgateway
+  fi
+  wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
 # Uninstalls Knative Serving from the current cluster.

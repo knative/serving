@@ -127,7 +127,7 @@ data:
                      "steppedLine":true,
                      "targets":[  
                         {  
-                           "expr":"sum(autoscaler_actual_pod_count{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "expr":"sum(autoscaler_actual_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
@@ -135,7 +135,7 @@ data:
                            "refId":"A"
                         },
                         {  
-                           "expr":"sum(autoscaler_requested_pod_count{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "expr":"sum(autoscaler_requested_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
@@ -466,14 +466,14 @@ data:
                      "steppedLine":true,
                      "targets":[  
                         {  
-                           "expr":"sum(autoscaler_desired_pod_count{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"}) ",
+                           "expr":"sum(autoscaler_desired_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"}) ",
                            "format":"time_series",
                            "intervalFactor":1,
                            "legendFormat":"Desired Pods",
                            "refId":"A"
                         },
                         {  
-                           "expr":"sum(autoscaler_observed_pod_count{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "expr":"sum(autoscaler_observed_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "intervalFactor":1,
                            "legendFormat":"Observed Pods",
@@ -577,7 +577,7 @@ data:
                      "steppedLine":true,
                      "targets":[  
                         {  
-                           "expr":"sum(autoscaler_observed_stable_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "expr":"sum(autoscaler_stable_request_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
@@ -585,7 +585,7 @@ data:
                            "refId":"A"
                         },
                         {  
-                           "expr":"sum(autoscaler_observed_panic_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "expr":"sum(autoscaler_panic_request_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
@@ -794,7 +794,7 @@ data:
                               "steppedLine":false,
                               "targets":[  
                                  {  
-                                    "expr":"round(sum(increase(activator_revision_request_count{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (response_code))",
+                                    "expr":"round(sum(increase(activator_request_count{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (response_code))",
                                     "format":"time_series",
                                     "intervalFactor":1,
                                     "legendFormat":"{{ response_code }}",
@@ -884,28 +884,28 @@ data:
                               "steppedLine":false,
                               "targets":[  
                                  {  
-                                    "expr":"label_replace(histogram_quantile(0.50, sum(rate(activator_response_time_msec_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "expr":"label_replace(histogram_quantile(0.50, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
                                     "format":"time_series",
                                     "intervalFactor":1,
                                     "legendFormat":"{{ revision_name }} (p50)",
                                     "refId":"A"
                                  },
                                  {  
-                                    "expr":"label_replace(histogram_quantile(0.90, sum(rate(activator_response_time_msec_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "expr":"label_replace(histogram_quantile(0.90, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
                                     "format":"time_series",
                                     "intervalFactor":1,
                                     "legendFormat":"{{ revision_name }} (p90)",
                                     "refId":"B"
                                  },
                                  {  
-                                    "expr":"label_replace(histogram_quantile(0.95, sum(rate(activator_response_time_msec_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "expr":"label_replace(histogram_quantile(0.95, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
                                     "format":"time_series",
                                     "intervalFactor":1,
                                     "legendFormat":"{{ revision_name }} (p95)",
                                     "refId":"C"
                                  },
                                  {  
-                                    "expr":"label_replace(histogram_quantile(0.99, sum(rate(activator_response_time_msec_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "expr":"label_replace(histogram_quantile(0.99, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
                                     "format":"time_series",
                                     "intervalFactor":1,
                                     "legendFormat":"{{ revision_name }} (p99)",
@@ -979,7 +979,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pod_count, namespace_name)",
+                  "query":"label_values(autoscaler_observed_pods, namespace_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":1,
@@ -1005,7 +1005,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pod_count{namespace_name=\"$namespace\"}, configuration_name)",
+                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\"}, configuration_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":1,
@@ -1031,7 +1031,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pod_count{namespace_name=\"$namespace\", configuration_name=\"$configuration\"}, revision_name)",
+                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\"}, revision_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":2,

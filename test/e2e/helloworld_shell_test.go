@@ -71,13 +71,13 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	// Populate manifets file with the real path to the container
 	yamlBytes, err := ioutil.ReadFile(appYaml)
+
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", appYaml, err)
 	}
 
 	content := strings.Replace(string(yamlBytes), yamlImagePlaceholder, imagePath, -1)
-	content = strings.Replace(string(content), "namespace: "+namespacePlaceholder,
-		"namespace: "+test.ServingNamespace, -1)
+	content = strings.Replace(string(content), namespacePlaceholder, test.ServingNamespace, -1)
 
 	if _, err = newYaml.WriteString(content); err != nil {
 		t.Fatalf("Failed to write new manifest: %v", err)
@@ -96,47 +96,52 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	logger.Info("Waiting for ingress to come up")
 
-	// Wait for ingress to come up
-	serviceIP := ""
-	serviceHost := ""
-	timeout := ingressTimeout
-	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-		serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
-		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
-			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
-		time.Sleep(checkInterval)
-		timeout = timeout - checkInterval
-	}
-	if serviceIP == "" || serviceHost == "" {
-		// serviceHost or serviceIP might contain a useful error, dump them.
-		t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
-	}
-	logger.Infof("Ingress is at %s/%s", serviceIP, serviceHost)
-
-	logger.Info("Accessing app using curl")
-
-	outputString := ""
-	timeout = servingTimeout
-	for outputString != helloWorldExpectedOutput && timeout >= 0 {
-		var cmd *exec.Cmd
-		if test.ServingFlags.ResolvableDomain {
-			cmd = exec.Command("curl", serviceHost)
-		} else {
-			cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP)
+	gateways := []string{"istio-ingressgateway", "knative-ingressgateway"}
+	for _, gateway := range gateways {
+		// Wait for ingress to come up
+		serviceIP := ""
+		serviceHost := ""
+		timeout := ingressTimeout
+		for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
+			if serviceHost == "" {
+				serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+			}
+			if serviceIP == "" {
+				serviceIP = noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
+					"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+			}
+			timeout -= checkInterval
+			time.Sleep(checkInterval)
 		}
-		output, err := cmd.Output()
-		errorString := "none"
-		time.Sleep(checkInterval)
-		timeout = timeout - checkInterval
-		if err != nil {
-			errorString = err.Error()
+		if serviceIP == "" || serviceHost == "" {
+			// serviceHost or serviceIP might contain a useful error, dump them.
+			t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
 		}
-		outputString = strings.TrimSpace(string(output))
-		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
-	}
+		logger.Infof("Curling %s/%s", serviceIP, serviceHost)
 
-	if outputString != helloWorldExpectedOutput {
-		t.Fatalf("Timeout waiting for app to start serving")
+		outputString := ""
+		timeout = servingTimeout
+		for outputString != helloWorldExpectedOutput && timeout >= 0 {
+			var cmd *exec.Cmd
+			if test.ServingFlags.ResolvableDomain {
+				cmd = exec.Command("curl", serviceHost)
+			} else {
+				cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP)
+			}
+			output, err := cmd.Output()
+			errorString := "none"
+			if err != nil {
+				errorString = err.Error()
+			}
+			outputString = strings.TrimSpace(string(output))
+			logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+			timeout -= checkInterval
+			time.Sleep(checkInterval)
+		}
+
+		if outputString != helloWorldExpectedOutput {
+			t.Fatal("Timeout waiting for app to start serving")
+		}
 	}
 	logger.Info("App is serving")
 }

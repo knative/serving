@@ -1,7 +1,7 @@
 # Knative Serving API spec
 
-This file contains the [resource paths](#resource-paths) and [yaml
-schemas](#resource-yaml-definitions) that make up the Knative Serving API.
+This file contains the [resource paths](#resource-paths) and
+[yaml schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 ## Resource Paths
 
@@ -17,11 +17,10 @@ For example:
 /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
-It is expected that each Route will provide a name within a
-cluster-wide DNS name. While no particular URL scheme is mandated
-(consult the `domain` property of the Route for the authoritative
-mapping), a common implementation would be to use the kubernetes
-namespace mechanism to produce a URL like the following:
+It is expected that each Route will provide a name within a cluster-wide DNS
+name. While no particular URL scheme is mandated (consult the `domain` property
+of the Route for the authoritative mapping), a common implementation would be to
+use the kubernetes namespace mechanism to produce a URL like the following:
 
 ```http
 [$revisionname].$route.$namespace.<common knative cluster suffix>
@@ -33,17 +32,15 @@ For example:
 prod.my-service.default.mydomain.com
 ```
 
-
 ## Resource YAML Definitions
 
 YAMLs for the Knative Serving API resources are described below, describing the
-basic k8s structure: metadata, spec and status, along with comments on
-specific fields.
+basic k8s structure: metadata, spec and status, along with comments on specific
+fields.
 
 ### Route
 
-For a high-level description of Routes,
-[see the overview](overview.md#route).
+For a high-level description of Routes, [see the overview](overview.md#route).
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -156,24 +153,7 @@ spec:
         name: foo-bar-00001
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
-      container:
-        # image either provided as pre-built container, or built by Knative Serving from
-        # source. When built by knative, set to the same as build template, e.g.
-        # build.template.arguments[_IMAGE], as the "promise" of a future build.
-        # If buildRef is provided, it is expected that this image will be
-        # present when the referenced build is complete.
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:
-        # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
+      container: ... # See the Container section below
 
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
@@ -235,20 +215,7 @@ spec:
     kind: Build
     name: foo-bar-00001
 
-  container:  # corev1.Container
-    # We disallow the following fields from corev1.Container:
-    #  name, resources, ports, and volumeMounts
-    image: gcr.io/...
-    command: ['run']
-    args: []
-    env:  # list of environment vars
-    - name: FOO
-      value: bar
-    - name: HELLO
-      value: world
-    - ...
-    livenessProbe: ...  # Optional
-    readinessProbe: ...  # Optional
+  container: ... # See the Container section below
 
   # Name of the service account the code should run as.
   serviceAccountName: ...
@@ -333,22 +300,12 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container: ... # See the Container section below
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   pinned:
@@ -356,22 +313,12 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container: ... # See the Container section below
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
@@ -382,22 +329,12 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-
-      container:  # core.v1.Container
-        image: gcr.io/...
-        command: ['run']
-        args: []
-        env:  # list of environment vars
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-        - ...
-        livenessProbe: ...  # Optional
-        readinessProbe: ...  # Optional
-      containerConcurrency: ... # Optional
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as
+      revisionTemplate:
+        spec: # serving.knative.dev/v1alpha1.RevisionSpec
+          container: ... # See the Container section below
+          containerConcurrency: ... # Optional
+          timeoutSeconds: ...
+          serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   # Manual has no fields. It enables direct access to modify a previously created
@@ -415,7 +352,7 @@ status:
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
- 
+
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
@@ -447,4 +384,46 @@ status:
     message: "Revision 'qyzz' referenced in traffic not found"
 
   observedGeneration: ...  # last generation being reconciled
+```
+
+## Container
+
+This is a [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
+Some fields are not allowed, such as name and volumeMounts.
+
+This type is not used on its own but is found composed inside [Service](#service), [Configuration](#configuration), and [Revision](#revision).
+
+```yaml
+container: # v1.Container
+  # image either provided as pre-built container, or built by Knative Serving from
+  # source. When built by knative, set to the same as build template, e.g.
+  # build.template.arguments[_IMAGE], as the "promise" of a future build.
+  # If buildRef is provided, it is expected that this image will be
+  # present when the referenced build is complete.
+  image: gcr.io/...
+  command: ['run']
+  args: []
+  env:
+  # list of environment vars
+  - name: FOO
+    value: bar
+  - name: HELLO
+    value: world
+  - ...
+
+  # Optional, only a single containerPort may be specified.
+  # This can be specified to select a specific port for incoming traffic.
+  # This is useful if your application cannot discover the port to listen
+  # on through the $PORT environment variable that is always set within the container.
+  # Some fields are not allowed, such as hostIP and hostPort.
+  ports: # core.v1.ContainerPort array
+    # Valid range is [1-65535], except 8012 (RequestQueuePort)
+    # and 8022 (RequestQueueAdminPort).
+  - containerPort: ... 
+    name: ... # Optional, one of "http1", "h2c"
+    protocol: ... # Optional, one of "", "tcp"
+
+  livenessProbe: ...  # Optional
+  readinessProbe: ...  # Optional
+  resources: ...  # Optional
 ```

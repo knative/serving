@@ -26,6 +26,7 @@ type (
 	TableRow           = testing.TableRow
 	ActionRecorderList = testing.ActionRecorderList
 	ActionRecorder     = testing.ActionRecorder
+	EventList          = testing.EventList
 	Factory            = testing.Factory
 	HookResult         = testing.HookResult
 )
@@ -38,10 +39,12 @@ var (
 	ValidateCreates           = testing.ValidateCreates
 	ValidateUpdates           = testing.ValidateUpdates
 	ConfigMapFromTestFile     = testing.ConfigMapFromTestFile
+	Eventf                    = testing.Eventf
 
 	TestLogger = logtesting.TestLogger
 )
 
 const (
-	HookComplete = testing.HookComplete
+	HookComplete   = testing.HookComplete
+	HookIncomplete = testing.HookIncomplete
 )

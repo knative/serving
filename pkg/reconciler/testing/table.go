@@ -18,12 +18,15 @@ package testing
 
 import (
 	"context"
+	"path"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,8 +58,11 @@ type TableRow struct {
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
-	// WantPatches holds the set of Patch calls we expect during reconcilliation
+	// WantPatches holds the set of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
+
+	// WantEvents holds the set of events we expect during reconciliation.
+	WantEvents []string
 
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
@@ -67,10 +73,20 @@ type TableRow struct {
 	SkipNamespaceValidation bool
 }
 
-type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList)
+func objKey(o runtime.Object) string {
+	on := o.(kmeta.Accessor)
+	// namespace + name is not unique, and the tests don't populate k8s kind
+	// information, so use GoLang's type name as part of the key.
+	return path.Join(reflect.TypeOf(o).String(), on.GetNamespace(), on.GetName())
+}
 
+// Factory returns a Reconciler.Interface to perform reconciliation in table test and
+// ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation.
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList)
+
+// Test executes the single table test.
 func (r *TableRow) Test(t *testing.T, factory Factory) {
-	c, recorderList := factory(t, r)
+	c, recorderList, eventList := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
@@ -85,18 +101,27 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		t.Errorf("Error capturing actions by verb: %q", err)
 	}
 
+	// Previous state is used to diff resource expected state for update requests that were missed.
+	objPrevState := map[string]runtime.Object{}
+	for _, o := range r.Objects {
+		objPrevState[objKey(o)] = o
+	}
+
 	for i, want := range r.WantCreates {
 		if i >= len(actions.Creates) {
 			t.Errorf("Missing create: %#v", want)
 			continue
 		}
 		got := actions.Creates[i]
-		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
-			t.Errorf("unexpected action[%d]: %#v", i, got)
-		}
 		obj := got.GetObject()
+		objPrevState[objKey(obj)] = obj
+
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected action[%d]: %#v", i, got)
+		}
+
 		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("unexpected create (-want +got): %s", diff)
+			t.Errorf("Unexpected create (-want +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
@@ -107,12 +132,24 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 	for i, want := range r.WantUpdates {
 		if i >= len(actions.Updates) {
-			t.Errorf("Missing update: %#v", want.GetObject())
+			wo := want.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Missing update for %s (-want, +prevState): %s", key,
+				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
-		got := actions.Updates[i]
-		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("unexpected update (-want +got): %s", diff)
+		got := actions.Updates[i].GetObject()
+
+		// Update the object state.
+		objPrevState[objKey(got)] = got
+
+		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected update (-want +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Updates), len(r.WantUpdates); got > want {
@@ -128,10 +165,10 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 		got := actions.Deletes[i]
 		if got.GetName() != want.GetName() {
-			t.Errorf("unexpected delete[%d]: %#v", i, got)
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
 		}
 		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
-			t.Errorf("unexpected delete[%d]: %#v", i, got)
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
 		}
 	}
 	if got, want := len(actions.Deletes), len(r.WantDeletes); got > want {
@@ -148,13 +185,13 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 		got := actions.Patches[i]
 		if got.GetName() != want.GetName() {
-			t.Errorf("unexpected patch[%d]: %#v", i, got)
+			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
 		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
-			t.Errorf("unexpected patch[%d]: %#v", i, got)
+			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
-			t.Errorf("unexpected patch(-want +got): %s", diff)
+			t.Errorf("Unexpected patch(-want +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
@@ -162,10 +199,29 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("Extra patch: %#v", extra)
 		}
 	}
+
+	gotEvents := eventList.Events()
+	for i, want := range r.WantEvents {
+		if i >= len(gotEvents) {
+			t.Errorf("Missing event: %s", want)
+			continue
+		}
+
+		if diff := cmp.Diff(want, gotEvents[i]); diff != "" {
+			t.Errorf("unexpected event(-want +got): %s", diff)
+		}
+	}
+	if got, want := len(gotEvents), len(r.WantEvents); got > want {
+		for _, extra := range gotEvents[want:] {
+			t.Errorf("Extra event: %s", extra)
+		}
+	}
 }
 
+// TableTest represents a list of TableRow tests instances.
 type TableTest []TableRow
 
+// Test executes the whole suite of the table tests.
 func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
 		// Record the original objects in table.
@@ -183,8 +239,10 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 	}
 }
 
-var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
-}, cmp.Ignore())
+var (
+	ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
+		return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
+	}, cmp.Ignore())
 
-var safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
+	safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
+)

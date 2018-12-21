@@ -21,16 +21,15 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/knative/pkg/apis"
 )
 
 func TestContainerValidation(t *testing.T) {
@@ -49,33 +48,166 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "invalid container image",
+		c: corev1.Container{
+			Image: "foo:bar:baz",
+		},
+		want: &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: "image: \"foo:bar:baz\", error: could not parse reference",
+		},
+	}, {
 		name: "has a name",
 		c: corev1.Container{
-			Name: "foo",
+			Name:  "foo",
+			Image: "foo",
 		},
 		want: apis.ErrDisallowedFields("name"),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
+			Image: "foo",
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("resources"),
+		want: nil,
 	}, {
-		name: "has ports",
+		name: "has no container ports set",
 		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{},
+		},
+		want: nil,
+	}, {
+		name: "has valid user port http1",
+		c: corev1.Container{
+			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Name:          "http",
+				Name:          "http1",
+				ContainerPort: 8081,
+			}},
+		},
+		want: nil,
+	}, {
+		name: "has valid user port h2c",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				Name:          "h2c",
+				ContainerPort: 8081,
+			}},
+		},
+		want: nil,
+	}, {
+		name: "has more than one ports with valid names",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				Name:          "h2c",
+				ContainerPort: 8080,
+			}, {
+				Name:          "http1",
+				ContainerPort: 8181,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"ports"},
+			Details: "Only a single port is allowed",
+		},
+	}, {
+		name: "has container port value too large",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 65536,
+			}},
+		},
+		want: apis.ErrOutOfBoundsValue("65536", "1", "65535", "ports.ContainerPort"),
+	}, {
+		name: "has an empty port set",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{}},
+		},
+		want: apis.ErrOutOfBoundsValue("0", "1", "65535", "ports.ContainerPort"),
+	}, {
+		name: "has more than one unnamed port",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8080,
+			}, {
+				ContainerPort: 8181,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"ports"},
+			Details: "Only a single port is allowed",
+		},
+	}, {
+		name: "has tcp protocol",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				Protocol:      corev1.ProtocolTCP,
 				ContainerPort: 8080,
 			}},
 		},
-		want: apis.ErrDisallowedFields("ports"),
+		want: nil,
+	}, {
+		name: "has invalid protocol",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				Protocol:      "tdp",
+				ContainerPort: 8080,
+			}},
+		},
+		want: apis.ErrInvalidValue("tdp", "ports.Protocol"),
+	}, {
+		name: "has host port",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				HostPort:      80,
+				ContainerPort: 8080,
+			}},
+		},
+		want: apis.ErrDisallowedFields("ports.HostPort"),
+	}, {
+		name: "has host ip",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				HostIP:        "127.0.0.1",
+				ContainerPort: 8080,
+			}},
+		},
+		want: apis.ErrDisallowedFields("ports.HostIP"),
+	}, {
+		name: "has invalid port name",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				Name:          "foobar",
+				ContainerPort: 8080,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: fmt.Sprintf("Port name %v is not allowed", "foobar"),
+			Paths:   []string{"ports"},
+			Details: "Name must be empty, or one of: 'h2c', 'http1'",
+		},
 	}, {
 		name: "has volumeMounts",
 		c: corev1.Container{
+			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
 				MountPath: "mount/path",
 				Name:      "name",
@@ -85,6 +217,7 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
+			Image:     "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("lifecycle"),
@@ -137,22 +270,19 @@ func TestContainerValidation(t *testing.T) {
 		name: "has numerous problems",
 		c: corev1.Container{
 			Name: "foo",
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse("25m"),
-				},
-			},
-			Ports: []corev1.ContainerPort{{
-				Name:          "http",
-				ContainerPort: 8080,
-			}},
 			VolumeMounts: []corev1.VolumeMount{{
 				MountPath: "mount/path",
 				Name:      "name",
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "volumeMounts", "lifecycle").Also(
+			&apis.FieldError{
+				Message: "Failed to parse image reference",
+				Paths:   []string{"image"},
+				Details: "image: \"\", error: could not parse reference",
+			},
+		),
 	}}
 
 	for _, test := range tests {
@@ -391,22 +521,22 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: &metav1.Duration{
-				Duration: 600 * time.Second,
-			},
+			TimeoutSeconds: 600,
 		},
-		want: apis.ErrOutOfBoundsValue("10m0s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("600s", "0s",
+			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			"timeoutSeconds"),
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
 			Container: corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: &metav1.Duration{
-				Duration: -30 * time.Second,
-			},
+			TimeoutSeconds: -30,
 		},
-		want: apis.ErrOutOfBoundsValue("-30s", "0s", "1m0s", "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("-30s", "0s",
+			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			"timeoutSeconds"),
 	}}
 
 	for _, test := range tests {
@@ -599,6 +729,40 @@ func TestImmutableFields(t *testing.T) {
 		},
 		old:  &notARevision{},
 		want: &apis.FieldError{Message: "The provided original was not a Revision"},
+	}, {
+		name: "bad (resources image change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName("cpu"): resource.MustParse("50m"),
+						},
+					},
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName("cpu"): resource.MustParse("100m"),
+						},
+					},
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.Container.Resources.Requests["cpu"]:
+	-: resource.Quantity{i: resource.int64Amount{value: 100, scale: resource.Scale(-3)}, s: "100m", Format: resource.Format("DecimalSI")}
+	+: resource.Quantity{i: resource.int64Amount{value: 50, scale: resource.Scale(-3)}, s: "50m", Format: resource.Format("DecimalSI")}
+`,
+		},
 	}, {
 		name: "bad (container image change)",
 		new: &Revision{

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/logging"
@@ -37,13 +38,16 @@ type ResourceNames struct {
 	Revision      string
 	Service       string
 	TrafficTarget string
+	Domain        string
+	Image         string
 }
 
 // ResourceObjects holds types of the resource objects.
 type ResourceObjects struct {
-	Route         *v1alpha1.Route
-	Configuration *v1alpha1.Configuration
-	Service       *v1alpha1.Service
+	Route    *v1alpha1.Route
+	Config   *v1alpha1.Configuration
+	Service  *v1alpha1.Service
+	Revision *v1alpha1.Revision
 }
 
 // Route returns a Route object in namespace using the route and configuration
@@ -88,6 +92,33 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 	}
 }
 
+// ConfigurationSpec returns the spec of a configuration to be used throughout different
+// CRD helpers.
+func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	spec := &v1alpha1.ConfigurationSpec{
+		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			Spec: v1alpha1.RevisionSpec{
+				Container: corev1.Container{
+					Image:          imagePath,
+					Resources:      options.ContainerResources,
+					ReadinessProbe: options.ReadinessProbe,
+				},
+				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+			},
+		},
+	}
+
+	if options.RevisionTimeoutSeconds > 0 {
+		spec.RevisionTemplate.Spec.TimeoutSeconds = options.RevisionTimeoutSeconds
+	}
+
+	if options.EnvVars != nil {
+		spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
+	}
+
+	return spec
+}
+
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by imagePath.
 func Configuration(namespace string, names ResourceNames, imagePath string, options *Options) *v1alpha1.Configuration {
@@ -96,23 +127,17 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 			Namespace: namespace,
 			Name:      names.Config,
 		},
-		Spec: v1alpha1.ConfigurationSpec{
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
-						Image: imagePath,
-					},
-					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
-				},
-			},
-		},
+		Spec: *ConfigurationSpec(imagePath, options),
 	}
-	if options.EnvVars != nil && len(options.EnvVars) > 0 {
-		config.Spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
+	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
+		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
 	}
 	return config
 }
 
+// ConfigurationWithBuild returns a Configurtion object in the `namespace`
+// with the name `names.Config` that uses the provided Build spec `build`
+// and image specified by `imagePath`.
 func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +159,7 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by imagePath.
-func LatestService(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
+func LatestService(namespace string, names ResourceNames, imagePath string, options *Options) *v1alpha1.Service {
 	return &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -142,18 +167,27 @@ func LatestService(namespace string, names ResourceNames, imagePath string) *v1a
 		},
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: v1alpha1.ConfigurationSpec{
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							Container: corev1.Container{
-								Image: imagePath,
-							},
-						},
-					},
-				},
+				Configuration: *ConfigurationSpec(imagePath, options),
 			},
 		},
 	}
+}
+
+// LatestServiceWithResources returns a RunLatest Service object in namespace with the name names.Service
+// that uses the image specified by imagePath, and small constant resources.
+func LatestServiceWithResources(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
+	svc := LatestService(namespace, names, imagePath, &Options{})
+	svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("50Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("20Mi"),
+		},
+	}
+	return svc
 }
 
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses
@@ -208,7 +242,7 @@ var once sync.Once
 func initSeed(logger *logging.BaseLogger) func() {
 	return func() {
 		seed := time.Now().UTC().UnixNano()
-		logger.Infof("Seeding rand.Rand with %v", seed)
+		logger.Infof("Seeding rand.Rand with %d", seed)
 		r = rand.New(rand.NewSource(seed))
 		rndMutex = &sync.Mutex{}
 	}

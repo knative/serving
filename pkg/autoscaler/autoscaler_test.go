@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	. "github.com/knative/pkg/logging/testing"
 	"go.uber.org/zap"
 )
@@ -468,6 +466,24 @@ func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
 	a.expectScale(t, now, 100, true)
 }
 
+func TestAutoscaler_UpdateTarget(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  60,
+			podCount:         10,
+		})
+	a.expectScale(t, now, 10, true)
+	a.Update(MetricSpec{
+		TargetConcurrency: 1.0,
+	})
+	a.expectScale(t, now, 100, true)
+}
+
 type linearSeries struct {
 	startConcurrency int
 	endConcurrency   int
@@ -500,7 +516,7 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		config: config,
 		logger: zap.NewNop().Sugar(),
 	}
-	return New(dynConfig, v1alpha1.RevisionContainerConcurrencyType(containerConcurrency), &mockReporter{})
+	return New(dynConfig, float64(containerConcurrency), &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the

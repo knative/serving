@@ -384,7 +384,7 @@ func TestResolutionFailed(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionFalse,
 			Reason:             "ContainerMissing",
-			Message:            errorMessage,
+			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           "Error",
 		}

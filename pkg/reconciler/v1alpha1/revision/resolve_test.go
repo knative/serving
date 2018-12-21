@@ -17,18 +17,24 @@ limitations under the License.
 package revision
 
 import (
+	"bytes"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -357,4 +363,117 @@ func TestResolveSkippingRegistry(t *testing.T) {
 	if got, want := resolvedDigest, ""; got != want {
 		t.Fatalf("Resolve() got %q want of %q", got, want)
 	}
+}
+
+func TestNewResolverTransport(t *testing.T) {
+	// Cert stolen from crypto/x509/example_test.go
+	const certPEM = `
+-----BEGIN CERTIFICATE-----
+MIIDujCCAqKgAwIBAgIIE31FZVaPXTUwDQYJKoZIhvcNAQEFBQAwSTELMAkGA1UE
+BhMCVVMxEzARBgNVBAoTCkdvb2dsZSBJbmMxJTAjBgNVBAMTHEdvb2dsZSBJbnRl
+cm5ldCBBdXRob3JpdHkgRzIwHhcNMTQwMTI5MTMyNzQzWhcNMTQwNTI5MDAwMDAw
+WjBpMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwN
+TW91bnRhaW4gVmlldzETMBEGA1UECgwKR29vZ2xlIEluYzEYMBYGA1UEAwwPbWFp
+bC5nb29nbGUuY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfRrObuSW5T7q
+5CnSEqefEmtH4CCv6+5EckuriNr1CjfVvqzwfAhopXkLrq45EQm8vkmf7W96XJhC
+7ZM0dYi1/qOCAU8wggFLMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjAa
+BgNVHREEEzARgg9tYWlsLmdvb2dsZS5jb20wCwYDVR0PBAQDAgeAMGgGCCsGAQUF
+BwEBBFwwWjArBggrBgEFBQcwAoYfaHR0cDovL3BraS5nb29nbGUuY29tL0dJQUcy
+LmNydDArBggrBgEFBQcwAYYfaHR0cDovL2NsaWVudHMxLmdvb2dsZS5jb20vb2Nz
+cDAdBgNVHQ4EFgQUiJxtimAuTfwb+aUtBn5UYKreKvMwDAYDVR0TAQH/BAIwADAf
+BgNVHSMEGDAWgBRK3QYWG7z2aLV29YG2u2IaulqBLzAXBgNVHSAEEDAOMAwGCisG
+AQQB1nkCBQEwMAYDVR0fBCkwJzAloCOgIYYfaHR0cDovL3BraS5nb29nbGUuY29t
+L0dJQUcyLmNybDANBgkqhkiG9w0BAQUFAAOCAQEAH6RYHxHdcGpMpFE3oxDoFnP+
+gtuBCHan2yE2GRbJ2Cw8Lw0MmuKqHlf9RSeYfd3BXeKkj1qO6TVKwCh+0HdZk283
+TZZyzmEOyclm3UGFYe82P/iDFt+CeQ3NpmBg+GoaVCuWAARJN/KfglbLyyYygcQq
+0SgeDh8dRKUiaW3HQSoYvTvdTuqzwK4CXsr3b5/dAOY8uMuG/IAR3FgwTbZ1dtoW
+RvOTa8hYiU6A475WuZKyEHcwnGYe57u2I2KbMgcKjPniocj4QzgYsVAVKW3IwaOh
+yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
+-----END CERTIFICATE-----`
+
+	cases := []struct {
+		name string
+
+		certBundle         string
+		certBundleContents []byte
+
+		wantErr bool
+	}{{
+		name:               "valid cert",
+		certBundle:         "valid-cert.crt",
+		certBundleContents: []byte(certPEM),
+		wantErr:            false,
+	}, {
+		// Fails with file not found for path.
+		name:               "cert not found",
+		certBundle:         "not-found.crt",
+		certBundleContents: nil,
+		wantErr:            true,
+	}, {
+		// Fails with invalid cert for path.
+		name:               "invalid cert",
+		certBundle:         "invalid-cert.crt",
+		certBundleContents: []byte("this will not parse"),
+		wantErr:            true,
+	}}
+
+	tmpDir, err := ioutil.TempDir("", "TestNewResolverTransport-")
+	if err != nil {
+		t.Fatalf("failed to create tempdir for certs: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	for i, tc := range cases {
+		i, tc := i, tc
+		t.Run(fmt.Sprintf("cases[%d]", i), func(t *testing.T) {
+			// Setup.
+			path, err := writeCertFile(tmpDir, tc.certBundle, tc.certBundleContents)
+			if err != nil {
+				t.Fatalf("failed to write cert bundle file: %v", err)
+			}
+
+			// The actual test.
+			if tr, err := newResolverTransport(path); err != nil && !tc.wantErr {
+				t.Errorf("got unexpected err: %v", err)
+			} else if tc.wantErr && err == nil {
+				t.Errorf("didn't get an error when we wanted it")
+			} else if err == nil {
+				// If we didn't get an error, make sure everything we wanted to happen happened.
+				subjects := tr.TLSClientConfig.RootCAs.Subjects()
+
+				if !containsSubject(t, subjects, tc.certBundleContents) {
+					t.Error("cert pool does not contain certBundleContents")
+				}
+			}
+		})
+	}
+}
+
+func writeCertFile(dir, path string, contents []byte) (string, error) {
+	fp := filepath.Join(dir, path)
+	if contents != nil {
+		if err := ioutil.WriteFile(fp, contents, os.ModePerm); err != nil {
+			return "", err
+		}
+	}
+	return fp, nil
+}
+
+func containsSubject(t *testing.T, subjects [][]byte, contents []byte) bool {
+	block, _ := pem.Decode([]byte(contents))
+	if block == nil {
+		t.Fatal("failed to parse certificate PEM")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %v", err)
+	}
+
+	for _, b := range subjects {
+		if bytes.EqualFold(b, cert.RawSubject) {
+			return true
+		}
+	}
+
+	return false
 }

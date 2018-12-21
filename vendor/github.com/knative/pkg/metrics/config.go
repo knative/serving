@@ -19,7 +19,9 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -28,15 +30,17 @@ import (
 const (
 	backendDestinationKey   = "metrics.backend-destination"
 	stackdriverProjectIDKey = "metrics.stackdriver-project-id"
+	reportingPeriodKey      = "metrics.reporting-period-seconds"
 )
 
-type MetricsBackend string
+// metricsBackend specifies the backend to use for metrics
+type metricsBackend string
 
 const (
-	// The metrics backend is stackdriver
-	Stackdriver MetricsBackend = "stackdriver"
-	// The metrics backend is prometheus
-	Prometheus MetricsBackend = "prometheus"
+	// Stackdriver is used for Stackdriver backend
+	Stackdriver metricsBackend = "stackdriver"
+	// Prometheus is used for Prometheus backend
+	Prometheus metricsBackend = "prometheus"
 )
 
 type metricsConfig struct {
@@ -45,10 +49,13 @@ type metricsConfig struct {
 	// The component that emits the metrics. e.g. "activator", "autoscaler".
 	component string
 	// The metrics backend destination.
-	backendDestination MetricsBackend
+	backendDestination metricsBackend
 	// The stackdriver project ID where the stats data are uploaded to. This is
 	// not the GCP project ID.
 	stackdriverProjectID string
+	// reportingPeriod specifies the interval between reporting aggregated views.
+	// If duration is less than or equal to zero, it enables the default behavior.
+	reportingPeriod time.Duration
 }
 
 func getMetricsConfig(m map[string]string, domain string, component string, logger *zap.SugaredLogger) (*metricsConfig, error) {
@@ -57,7 +64,7 @@ func getMetricsConfig(m map[string]string, domain string, component string, logg
 	if !ok {
 		return nil, errors.New("metrics.backend-destination key is missing")
 	}
-	lb := MetricsBackend(strings.ToLower(backend))
+	lb := metricsBackend(strings.ToLower(backend))
 	switch lb {
 	case Stackdriver, Prometheus:
 		mc.backendDestination = lb
@@ -70,6 +77,25 @@ func getMetricsConfig(m map[string]string, domain string, component string, logg
 	// metrics exporter.
 	if mc.backendDestination == Stackdriver {
 		mc.stackdriverProjectID = m[stackdriverProjectIDKey]
+	}
+
+	// If reporting period is specified, use the value from the configuration.
+	// If not, set a default value based on the selected backend.
+	// Each exporter makes different promises about what the lowest supported
+	// reporting period is. For Stackdriver, this value is 1 minute.
+	// For Prometheus, we will use a lower value since the exporter doesn't
+	// push anything but just responds to pull requests, and shorter durations
+	// do not really hurt the performance and we rely on the scraping configuration.
+	if repStr, ok := m[reportingPeriodKey]; ok && repStr != "" {
+		if repInt, err := strconv.Atoi(repStr); err == nil {
+			mc.reportingPeriod = time.Duration(repInt) * time.Second
+		} else {
+			return nil, fmt.Errorf("Invalid reporting-period-seconds value \"%s\"", repStr)
+		}
+	} else if mc.backendDestination == Stackdriver {
+		mc.reportingPeriod = 60 * time.Second
+	} else if mc.backendDestination == Prometheus {
+		mc.reportingPeriod = 5 * time.Second
 	}
 
 	if domain == "" {
@@ -118,5 +144,10 @@ func isMetricsConfigChanged(newConfig *metricsConfig) bool {
 	} else if newConfig.backendDestination == Stackdriver && newConfig.stackdriverProjectID != cc.stackdriverProjectID {
 		return true
 	}
+
+	if cc.reportingPeriod != newConfig.reportingPeriod {
+		return true
+	}
+
 	return false
 }

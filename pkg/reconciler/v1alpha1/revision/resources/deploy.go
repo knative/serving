@@ -48,17 +48,6 @@ var (
 		MountPath: "/var/log",
 	}
 
-	userPorts = []corev1.ContainerPort{{
-		Name:          userPortName,
-		ContainerPort: int32(userPort),
-	}}
-
-	// Expose containerPort as env PORT.
-	userEnv = corev1.EnvVar{
-		Name:  userPortEnvName,
-		Value: strconv.Itoa(userPort),
-	}
-
 	userResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: userContainerCPU,
@@ -79,7 +68,7 @@ var (
 	}
 )
 
-func rewriteUserProbe(p *corev1.Probe) {
+func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	if p == nil {
 		return
 	}
@@ -93,33 +82,69 @@ func rewriteUserProbe(p *corev1.Probe) {
 	}
 }
 
+// applyDefaultResource
+// Implements a deep merge for ResourceRequirements
+// note: DeepCopyInto cannot be used because it replaces limits or requests instead of merging them
+func applyDefaultResources(defaults corev1.ResourceRequirements, out *corev1.ResourceRequirements) {
+	in := defaults.DeepCopy()
+	if in.Limits != nil {
+		in, out := &in.Limits, &out.Limits
+		for key, val := range *out {
+			(*in)[key] = val.DeepCopy()
+		}
+		(*out) = (*in)
+	}
+	if in.Requests != nil {
+		in, out := &in.Requests, &out.Requests
+		for key, val := range *out {
+			(*in)[key] = val.DeepCopy()
+		}
+		(*out) = (*in)
+	}
+}
+
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = userContainerName
-	userContainer.Resources = userResources
-	userContainer.Ports = userPorts
+	userContainer.Name = UserContainerName
+
+	// If client provides for some resources, override default values
+	applyDefaultResources(userResources, &userContainer.Resources)
+
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
-	userContainer.Env = append(userContainer.Env, userEnv)
+	userPort := getUserPort(rev)
+	userPortInt := int(userPort)
+	userPortStr := strconv.Itoa(userPortInt)
+	// Replacement is safe as only up to a single port is allowed on the Revision
+	userContainer.Ports = buildContainerPorts(userPort)
+	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+
 	// Prefer imageDigest from revision if available
 	if rev.Status.ImageDigest != "" {
 		userContainer.Image = rev.Status.ImageDigest
 	}
 
+	if userContainer.TerminationMessagePolicy == "" {
+		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+	}
+
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe)
-	rewriteUserProbe(userContainer.LivenessProbe)
+	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
+	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
+
+	revisionTimeout := rev.Spec.TimeoutSeconds
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
 			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
 		},
-		Volumes:            []corev1.Volume{varLogVolume},
-		ServiceAccountName: rev.Spec.ServiceAccountName,
+		Volumes:                       []corev1.Volume{varLogVolume},
+		ServiceAccountName:            rev.Spec.ServiceAccountName,
+		TerminationGracePeriodSeconds: &revisionTimeout,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
@@ -129,6 +154,30 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	}
 
 	return podSpec
+}
+
+func getUserPort(rev *v1alpha1.Revision) int32 {
+	if len(rev.Spec.Container.Ports) == 1 {
+		return rev.Spec.Container.Ports[0].ContainerPort
+	}
+
+	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value
+
+	return v1alpha1.DefaultUserPort
+}
+
+func buildContainerPorts(userPort int32) []corev1.ContainerPort {
+	return []corev1.ContainerPort{{
+		Name:          v1alpha1.UserPortName,
+		ContainerPort: userPort,
+	}}
+}
+
+func buildUserPortEnv(userPort string) corev1.EnvVar {
+	return corev1.EnvVar{
+		Name:  userPortEnvName,
+		Value: userPort,
+	}
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,

@@ -40,13 +40,14 @@ func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, imagePath string, options *test.Options) (test.ResourceNames, error) {
-	var names test.ResourceNames
-	names.Config = test.AppendRandomString(configName, logger)
-	names.Route = test.AppendRandomString(routeName, logger)
+	names := test.ResourceNames{
+		Config: test.AppendRandomString(configName, logger),
+		Route:  test.AppendRandomString(routeName, logger),
+	}
 
-	if err := test.CreateConfiguration(logger, clients, names, imagePath, options); err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, imagePath, options); err != nil {
 		return test.ResourceNames{}, err
 	}
-	err := test.CreateRoute(logger, clients, names)
+	_, err := test.CreateRoute(logger, clients, names)
 	return names, err
 }

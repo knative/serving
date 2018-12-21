@@ -17,19 +17,51 @@ limitations under the License.
 package revision
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-
 	"k8s.io/client-go/kubernetes"
 )
 
 type digestResolver struct {
 	client    kubernetes.Interface
 	transport http.RoundTripper
+}
+
+const (
+	// Kubernetes CA certificate bundle is mounted into the pod here, see:
+	// https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/#trusting-tls-in-a-cluster
+	k8sCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+)
+
+// newResolverTransport returns an http.Transport that appends the certs bundle
+// at path to the system cert pool.
+//
+// Use this with k8sCertPath to trust the same certs as the cluster.
+func newResolverTransport(path string) (*http.Transport, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		pool = x509.NewCertPool()
+	}
+
+	if crt, err := ioutil.ReadFile(path); err != nil {
+		return nil, err
+	} else if ok := pool.AppendCertsFromPEM(crt); !ok {
+		return nil, errors.New("Failed to append k8s cert bundle to cert pool.")
+	}
+
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: pool,
+		},
+	}, nil
 }
 
 // Resolve resolves the image references that use tags to digests.
