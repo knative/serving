@@ -445,16 +445,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e86db6692508c17bc4dfdc830418147aeafaa8489990f79e61e133740e58f24d"
+  digest = "1:1a5bb5e8b12ce46368d7cc9c7949b2fcb72e6f779f54135448fb017d5c4a41a8"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/loadgenerator",
     "shared/prometheus",
     "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "37f7ad78fbe7ab5a43a522e66ac82d2c8d2768ef"
+  revision = "b7d328bc3bd3258cf9f5c607d56c0c7a4997012f"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1260,6 +1261,7 @@
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/loadgenerator",
     "github.com/knative/test-infra/shared/prometheus",
     "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",

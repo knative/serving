@@ -23,11 +23,12 @@ readonly SERVING_GKE_VERSION=latest
 readonly SERVING_GKE_IMAGE=cos
 
 # Public latest stable nightly images and yaml files.
-readonly KNATIVE_ISTIO_CRD_YAML=https://storage.googleapis.com/knative-nightly/serving/latest/istio-crds.yaml
-readonly KNATIVE_ISTIO_YAML=https://storage.googleapis.com/knative-nightly/serving/latest/istio.yaml
-readonly KNATIVE_SERVING_RELEASE=https://storage.googleapis.com/knative-nightly/serving/latest/release.yaml
-readonly KNATIVE_BUILD_RELEASE=https://storage.googleapis.com/knative-nightly/build/latest/release.yaml
-readonly KNATIVE_EVENTING_RELEASE=https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
+readonly KNATIVE_BASE_YAML_SOURCE=https://storage.googleapis.com/knative-nightly/@/latest
+readonly KNATIVE_ISTIO_CRD_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio-crds.yaml
+readonly KNATIVE_ISTIO_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio.yaml
+readonly KNATIVE_SERVING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/serving}/release.yaml
+readonly KNATIVE_BUILD_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/build}/release.yaml
+readonly KNATIVE_EVENTING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/eventing}/release.yaml
 
 # Conveniently set GOPATH if unset
 if [[ -z "${GOPATH:-}" ]]; then
@@ -351,11 +352,14 @@ function report_go_test() {
 function start_latest_knative_serving() {
   header "Starting Knative Serving"
   subheader "Installing Istio"
+  echo "Installing Istio CRD from ${KNATIVE_ISTIO_CRD_YAML}"
   kubectl apply -f ${KNATIVE_ISTIO_CRD_YAML} || return 1
+  echo "Installing Istio from ${KNATIVE_ISTIO_YAML}"
   kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
   wait_until_pods_running istio-system || return 1
   kubectl label namespace default istio-injection=enabled || return 1
   subheader "Installing Knative Serving"
+  echo "Installing Serving from ${KNATIVE_SERVING_RELEASE}"
   kubectl apply -f ${KNATIVE_SERVING_RELEASE} || return 1
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running knative-build || return 1
