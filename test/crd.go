@@ -99,8 +99,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
-					Image:     imagePath,
-					Resources: options.ContainerResources,
+					Image:          imagePath,
+					Resources:      options.ContainerResources,
+					ReadinessProbe: options.ReadinessProbe,
 				},
 				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
 			},

@@ -17,14 +17,18 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"log"
 	"os"
+	"time"
 )
 
 func main() {
-	flag.Parse()
-	log.Println("Hello world app started.")
-	log.Println("Or not?")
+	log.Println("Started...")
+
+	// Sleep for 10 seconds to force a race condition, where this
+	// container becomes ready if no readinessProbe is set.
+	time.Sleep(10 * time.Second)
+
+	log.Println("Crashed...")
 	os.Exit(5)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -129,13 +130,21 @@ func TestContainerExitingMsg(t *testing.T) {
 
 	// The given image will always exit with an exit code of 5
 	exitCodeReason := "ExitCode5"
-	// ... and will print "Or not?" before it exits
-	errorLog := "Or not?"
+	// ... and will print "Crashed..." before it exits
+	errorLog := "Crashed..."
 
 	logger.Infof("Creating a new Configuration %s", imagePath)
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
+
+	// This probe is crucial for having a race free conformance test. It will prevent the
+	// pod from becoming ready intermittently.
+	probe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{},
+		},
+	}
+	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{ReadinessProbe: probe})
 	if err != nil {
-		t.Fatalf("Failed to create configuration %s", names.Config)
+		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 	}
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
