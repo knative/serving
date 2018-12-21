@@ -23,7 +23,7 @@ import (
 const (
 	// UserContainerName is the name of the user-container in the PodSpec
 	UserContainerName = "user-container"
-	// FlutentdContainerName is the name of the fluentd sidecar when enabled
+	// FluentdContainerName is the name of the fluentd sidecar when enabled
 	FluentdContainerName = "fluentd-proxy"
 	// EnvoyContainerName is the name of the envoy sidecar when enabled
 	EnvoyContainerName = "istio-proxy"

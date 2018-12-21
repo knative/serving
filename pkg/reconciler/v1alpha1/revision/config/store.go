@@ -49,6 +49,7 @@ type Store struct {
 	*configmap.UntypedStore
 }
 
+// NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
