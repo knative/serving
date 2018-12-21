@@ -237,7 +237,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Istio: &config.Istio{
-			IngressGateways: []config.IngressGateway{{
+			IngressGateways: []config.Gateway{{
 				GatewayName: "knative-shared-gateway",
 				ServiceURL:  reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system"),
 			}, {
