@@ -201,6 +201,16 @@ func (m *MultiScaler) Watch(fn func(string)) {
 	m.watcher = fn
 }
 
+// Inform sends an update to the registered watcher function, if it is set.
+func (m *MultiScaler) Inform(event string) bool {
+	watcher := m.watcher
+	if watcher != nil {
+		watcher(event)
+		return true
+	}
+	return false
+}
+
 func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
 
 	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
@@ -245,7 +255,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				return
 			case desiredScale := <-scaleChan:
 				if runner.updateLatestScale(desiredScale) {
-					m.watcher(metricKey)
+					m.Inform(metricKey)
 				}
 			}
 		}
