@@ -61,7 +61,7 @@ var (
 	userLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
 				Path: queue.RequestQueueQuitPath,
 			},
 		},
@@ -76,7 +76,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	case p.HTTPGet != nil:
 		// For HTTP probes, we route them through the queue container
 		// so that we know the queue proxy is ready/live as well.
-		p.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
+		p.HTTPGet.Port = intstr.FromInt(v1alpha1.RequestQueuePort)
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
