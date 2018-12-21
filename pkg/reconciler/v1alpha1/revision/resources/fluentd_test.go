@@ -179,7 +179,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				Value: "--no-supervisor -q",
 			}, {
 				Name:  "SERVING_CONTAINER_NAME",
-				Value: userContainerName, // matches name
+				Value: UserContainerName, // matches name
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: "", // No OwnerReference
@@ -223,7 +223,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				Value: "--no-supervisor -q",
 			}, {
 				Name:  "SERVING_CONTAINER_NAME",
-				Value: userContainerName, // matches name
+				Value: UserContainerName, // matches name
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: "the-parent-config-name", // With OwnerReference
@@ -262,7 +262,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				Value: "--no-supervisor -q",
 			}, {
 				Name:  "SERVING_CONTAINER_NAME",
-				Value: userContainerName, // matches name
+				Value: UserContainerName, // matches name
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: "", // no OwnerReference

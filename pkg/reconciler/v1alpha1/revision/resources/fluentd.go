@@ -127,7 +127,7 @@ func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 			Value: "--no-supervisor -q",
 		}, {
 			Name:  "SERVING_CONTAINER_NAME",
-			Value: userContainerName,
+			Value: UserContainerName,
 		}, {
 			Name:  "SERVING_CONFIGURATION",
 			Value: configName,

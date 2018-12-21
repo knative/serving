@@ -583,6 +583,13 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 }
 
+// MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
+func MarkContainerExiting(exitCode int32, message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkContainerExiting(exitCode, message)
+	}
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
@@ -690,4 +697,25 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// PodOption enables further configuration of a Pod.
+type PodOption func(*corev1.Pod)
+
+// WithFailingContainer sets the .Status.ContainerStatuses on the pod to
+// include a container named accordingly to fail with the given state.
+func WithFailingContainer(name string, exitCode int, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			corev1.ContainerStatus{
+				Name: name,
+				LastTerminationState: corev1.ContainerState{
+					Terminated: &corev1.ContainerStateTerminated{
+						ExitCode: int32(exitCode),
+						Message:  message,
+					},
+				},
+			},
+		}
+	}
 }
