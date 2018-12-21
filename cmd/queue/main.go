@@ -26,13 +26,12 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
@@ -324,10 +323,6 @@ func main() {
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
-	// Shutdown logic and signal handling
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-
 	// An `ErrServerClosed` should not trigger an early exit of
 	// the errgroup below.
 	catchServerError := func(runner func() error) func() error {
@@ -344,7 +339,7 @@ func main() {
 	g.Go(catchServerError(server.ListenAndServe))
 	g.Go(catchServerError(adminServer.ListenAndServe))
 	g.Go(func() error {
-		<-sigTermChan
+		<-signals.SetupSignalHandler()
 		return errors.New("Received SIGTERM")
 	})
 

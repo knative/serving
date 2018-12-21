@@ -18,10 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
+	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/test/logging"
 )
 
@@ -62,8 +60,6 @@ func ListenAndServeGracefullyWithPattern(addr string, handlers map[string]func(w
 	server := http.Server{Addr: addr, Handler: m}
 	go server.ListenAndServe()
 
-	sigTermChan := make(chan os.Signal)
-	signal.Notify(sigTermChan, syscall.SIGTERM)
-	<-sigTermChan
+	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
 }
