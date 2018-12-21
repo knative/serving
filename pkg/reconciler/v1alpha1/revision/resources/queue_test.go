@@ -65,7 +65,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -132,7 +132,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -205,7 +205,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -275,7 +275,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -340,7 +340,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,

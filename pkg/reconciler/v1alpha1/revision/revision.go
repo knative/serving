@@ -191,10 +191,19 @@ func NewController(
 
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
-	// TODO(mattmoor): When we support reconciling Deployment differences,
-	// we should consider triggering a global reconciliation here to the
-	// logging configuration changes are rolled out to active revisions.
-	c.configStore = config.NewStore(c.Logger.Named("config-store"))
+	configsToResync := []interface{}{
+		&config.Network{},
+		&config.Observability{},
+		&config.Controller{},
+	}
+
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		// Triggers syncs on all revisions when configuration
+		// changes
+		impl.GlobalResync(revisionInformer.Informer())
+	})
+
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl

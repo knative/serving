@@ -107,7 +107,7 @@ func TestMakePodSpec(t *testing.T) {
 					Value: "svc",
 				}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -194,7 +194,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -285,7 +285,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -380,7 +380,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -484,7 +484,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -586,7 +586,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -690,7 +690,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -790,7 +790,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -881,7 +881,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -924,7 +924,7 @@ func TestMakePodSpec(t *testing.T) {
 					Value: "8080",
 				}},
 			}, {
-				Name:      fluentdContainerName,
+				Name:      FluentdContainerName,
 				Image:     "indiana:jones",
 				Resources: fluentdResources,
 				Env: []corev1.EnvVar{{
@@ -1044,7 +1044,7 @@ func TestMakePodSpec(t *testing.T) {
 				Lifecycle:                userLifecycle,
 				TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,

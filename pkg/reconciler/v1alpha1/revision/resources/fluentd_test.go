@@ -170,7 +170,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		oc: &config.Observability{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "",
 			// These changed based on the Revision and configs passed in.
@@ -214,7 +214,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		oc: &config.Observability{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "",
 			// These changed based on the Revision and configs passed in.
@@ -253,7 +253,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "some-test-image",
 			// These changed based on the Revision and configs passed in.

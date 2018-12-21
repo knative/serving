@@ -85,7 +85,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	}
 
 	return &corev1.Container{
-		Name:           queueContainerName,
+		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          queuePorts,
