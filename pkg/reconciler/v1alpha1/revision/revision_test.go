@@ -730,9 +730,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})
-			defer func() {
-				close(stopCh)
-			}()
+			defer close(stopCh)
 
 			rev := getTestRevision()
 			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
