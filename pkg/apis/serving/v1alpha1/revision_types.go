@@ -345,6 +345,11 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
+func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
+}
+
 func (rs *RevisionStatus) MarkResourcesAvailable() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
@@ -381,6 +386,12 @@ func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 // cannot be pulled correctly.
 func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+// RevisionContainerExitingMessage constructs the status message if a container
+// fails to come up.
+func RevisionContainerExitingMessage(message string) string {
+	return fmt.Sprintf("Container failed with: %s", message)
 }
 
 const (

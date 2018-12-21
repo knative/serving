@@ -411,7 +411,7 @@
   revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
 
 [[projects]]
-  digest = "1:d42667321774adca6cab604182c8cb7c3e91557bd19c81666fa47840ca72e6be"
+  digest = "1:c90254fd95872ee4f1a17112a29e2a6aca865d6e73ed7a2f189b0f62678e4f73"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -454,9 +454,10 @@
     "test/zipkin",
     "tracker",
     "webhook",
+    "websocket",
   ]
   pruneopts = "NUT"
-  revision = "b04c0947ad2f7bf081c0a22a742a49f045e117b2"
+  revision = "fff36e41c69f31f4f2522c47f808e9bef7156d3c"
 
 [[projects]]
   branch = "master"
@@ -1275,6 +1276,7 @@
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/webhook",
+    "github.com/knative/pkg/websocket",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/shared/loadgenerator",
     "github.com/knative/test-infra/shared/prometheus",

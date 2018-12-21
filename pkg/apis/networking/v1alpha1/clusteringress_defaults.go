@@ -40,6 +40,9 @@ func (c *IngressSpec) SetDefaults() {
 	for i := range c.Rules {
 		c.Rules[i].SetDefaults()
 	}
+	if c.Visibility == "" {
+		c.Visibility = IngressVisibilityExternalIP
+	}
 }
 
 func (t *ClusterIngressTLS) SetDefaults() {

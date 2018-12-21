@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,6 +33,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -39,10 +41,10 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/pkg/websocket"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -249,7 +251,6 @@ func setupAdminHandlers(server *http.Server) {
 	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
 	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
 	server.Handler = mux
-	server.ListenAndServe()
 }
 
 func main() {
@@ -317,22 +318,42 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
 		Handler: nil,
 	}
+	setupAdminHandlers(adminServer)
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", queue.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
-	go server.ListenAndServe()
-	go setupAdminHandlers(adminServer)
-
 	// Shutdown logic and signal handling
 	sigTermChan := make(chan os.Signal)
 	signal.Notify(sigTermChan, syscall.SIGTERM)
-	// Blocks until we actually receive a TERM signal.
-	<-sigTermChan
+
+	// An `ErrServerClosed` should not trigger an early exit of
+	// the errgroup below.
+	catchServerError := func(runner func() error) func() error {
+		return func() error {
+			err := runner()
+			if err != http.ErrServerClosed {
+				return err
+			}
+			return nil
+		}
+	}
+
+	var g errgroup.Group
+	g.Go(catchServerError(server.ListenAndServe))
+	g.Go(catchServerError(adminServer.ListenAndServe))
+	g.Go(func() error {
+		<-sigTermChan
+		return errors.New("Received SIGTERM")
+	})
+
+	if err := g.Wait(); err != nil {
+		logger.Error("Shutting down", zap.Error(err))
+	}
+
 	// Calling server.Shutdown() allows pending requests to
 	// complete, while no new work is accepted.
-	logger.Debug("Received TERM signal, attempting to gracefully shutdown servers.")
 	if err := adminServer.Shutdown(context.Background()); err != nil {
 		logger.Error("Failed to shutdown admin-server", zap.Error(err))
 	}

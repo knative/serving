@@ -31,12 +31,15 @@ const (
 	// customizations for istio related features.
 	IstioConfigName = "config-istio"
 
-	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways.
+	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public ClusterIngresses.
 	GatewayKeyPrefix = "gateway."
+
+	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
+	LocalGatewayKeyPrefix = "local-gateway."
 )
 
-// IngressGateway specifies the name of the Gateway and the K8s Service backing it.
-type IngressGateway struct {
+// Gateway specifies the name of the Gateway and the K8s Service backing it.
+type Gateway struct {
 	GatewayName string
 	ServiceURL  string
 }
@@ -44,37 +47,54 @@ type IngressGateway struct {
 // Istio contains istio related configuration defined in the
 // istio config map.
 type Istio struct {
-	// IngressGateway specifies the ingress gateway url.
-	IngressGateways []IngressGateway
+	// IngressGateway specifies the gateway urls for public ClusterIngress.
+	IngressGateways []Gateway
+
+	// LocalGateway specifies the gateway urls for public & private ClusterIngress.
+	LocalGateways []Gateway
 }
 
-// NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
-func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
+func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
 	urls := map[string]string{}
 	gatewayNames := []string{}
 	for k, v := range configMap.Data {
-		if !strings.HasPrefix(k, GatewayKeyPrefix) {
+		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
-		gatewayName, serviceURL := k[len(GatewayKeyPrefix):], v
+		gatewayName, serviceURL := k[len(prefix):], v
 		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
 		gatewayNames = append(gatewayNames, gatewayName)
 		urls[gatewayName] = serviceURL
 	}
-	if len(gatewayNames) == 0 {
-		return nil, errors.New("at least one gateway is required")
-	}
 	sort.Strings(gatewayNames)
-	gateways := make([]IngressGateway, len(gatewayNames))
+	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
-		gateways[i] = IngressGateway{
+		gateways[i] = Gateway{
 			GatewayName: gatewayName,
 			ServiceURL:  urls[gatewayName],
 		}
 	}
+	return gateways, nil
+}
+
+// NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
+func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
+	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
+	if err != nil {
+		return nil, err
+	}
+	if len(gateways) == 0 {
+		// TODO(nghia): Relax this so that users can disallowed public Gateways altogether.
+		return nil, errors.New("at least one gateway is required")
+	}
+	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
+	if err != nil {
+		return nil, err
+	}
 	return &Istio{
 		IngressGateways: gateways,
+		LocalGateways:   localGateways,
 	}, nil
 }

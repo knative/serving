@@ -91,13 +91,18 @@ function install_knative_serving() {
   # to avoid having too much flakes in the tests.  That would allow us to be stricter
   # when checking non-probe requests to discover other routing issues.
   #
+  # To compensate for this scaling down, we increase the CPU request for these pods.
+  #
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system istio-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
-  if kubectl get svc -n istio-system knative-ingressgateway > /dev/null 2>&1 ; then
-    kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
-  fi
+  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway; do
+    if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
+      kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
+      kubectl set resources deploy -n istio-system ${gateway} \
+        -c=istio-proxy --requests=cpu=50m 2> /dev/null
+    fi
+  done
 
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to verify if we can reduce flakes.
