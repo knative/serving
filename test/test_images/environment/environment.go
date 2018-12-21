@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/conformance"
 )
 
 func envvarsHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,10 +43,36 @@ func envvarsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func filepathInfoHandler(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get(test.EnvImageFilePathQueryParam)
+	if len(filePath) == 0 {
+		fmt.Fprintf(w, "no filepath found in queryparam")
+		return
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		fmt.Fprintf(w, fmt.Sprintf("Error encountered retrieving info for path '%s': %v", filePath, err))
+		return
+	}
+
+	resp, err := json.Marshal(conformance.FilePathInfo{
+		FilePath: filePath,
+		IsDirectory: info.IsDir(),
+		PermString: info.Mode().Perm().String(),
+	})
+	if err != nil {
+		fmt.Fprintf(w, fmt.Sprintf("error building response : %v", err))
+	} else {
+		fmt.Fprintf(w, string(resp))
+	}
+}
+
 func main() {
 	flag.Parse()
 	log.Print("Environment test app started.")
-	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request){
-		test.EnvImageEnvVarsPath: envvarsHandler,
+	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request) {
+		test.EnvImageEnvVarsPath : envvarsHandler,
+		test.EnvImageFilePathInfoPath : filepathInfoHandler,
 	})
 }
