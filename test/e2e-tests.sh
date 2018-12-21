@@ -73,6 +73,7 @@ publish_test_images || fail_test "one or more test images weren't published"
 
 header "Running tests"
 
+failed=0
 # Run conformance tests, but don't exit if it fails.
 go_test_e2e -timeout=8m ./test/conformance || failed=1
 
