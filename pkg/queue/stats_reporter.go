@@ -73,10 +73,11 @@ type Reporter struct {
 	configTagKey    tag.Key
 	namespaceTagKey tag.Key
 	revisionTagKey  tag.Key
+	podTagKey       tag.Key
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue metrics
-func NewStatsReporter(namespace string, config string, revision string) (*Reporter, error) {
+func NewStatsReporter(namespace string, config string, revision string, pod string) (*Reporter, error) {
 	var r = &Reporter{}
 	if len(namespace) < 1 {
 		return nil, errors.New("Namespace must not be empty")
@@ -86,6 +87,9 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 	}
 	if len(revision) < 1 {
 		return nil, errors.New("Revision must not be empty")
+	}
+	if len(pod) < 1 {
+		return nil, errors.New("Pod must not be empty")
 	}
 
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -104,6 +108,11 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 		return nil, err
 	}
 	r.revisionTagKey = revTag
+	podTag, err := tag.NewKey("destination_pod")
+	if err != nil {
+		return nil, err
+	}
+	r.podTagKey = podTag
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -113,19 +122,19 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 			Description: "Number of requests received since last Stat",
 			Measure:     measurements[OperationsPerSecondM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
 		},
 		&view.View{
 			Description: "Number of requests currently being handled by this pod",
 			Measure:     measurements[AverageConcurrentRequestsM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
 		},
 		&view.View{
 			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
 			Measure:     measurements[LameDuckM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
 		},
 	)
 	if err != nil {
@@ -137,6 +146,7 @@ func NewStatsReporter(namespace string, config string, revision string) (*Report
 		tag.Insert(r.namespaceTagKey, namespace),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, revision),
+		tag.Insert(r.podTagKey, pod),
 	)
 	if err != nil {
 		return nil, err
