@@ -116,7 +116,8 @@ type MultiScaler struct {
 
 	logger *zap.SugaredLogger
 
-	watcher func(string)
+	watcher      func(string)
+	watcherMutex sync.RWMutex
 }
 
 // NewMultiScaler constructs a MultiScaler.
@@ -195,6 +196,9 @@ func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error 
 
 // Watch registers a singleton function to call when MetricStatus is updated.
 func (m *MultiScaler) Watch(fn func(string)) {
+	m.watcherMutex.Lock()
+	defer m.watcherMutex.Unlock()
+
 	if m.watcher != nil {
 		m.logger.Fatal("Multiple calls to Watch() not supported")
 	}
@@ -203,9 +207,11 @@ func (m *MultiScaler) Watch(fn func(string)) {
 
 // Inform sends an update to the registered watcher function, if it is set.
 func (m *MultiScaler) Inform(event string) bool {
-	watcher := m.watcher
-	if watcher != nil {
-		watcher(event)
+	m.watcherMutex.RLock()
+	defer m.watcherMutex.RUnlock()
+
+	if m.watcher != nil {
+		m.watcher(event)
 		return true
 	}
 	return false
