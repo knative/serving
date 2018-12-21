@@ -74,14 +74,12 @@ publish_test_images || fail_test "one or more test images weren't published"
 header "Running tests"
 
 # Run conformance tests, but don't exit if it fails.
-go_test_e2e -timeout=8m ./test/conformance
-CONFORMANCE_EXIT_CODE=$?
+go_test_e2e -timeout=8m ./test/conformance || failed=1
 
 # So that we can also identify failing E2E tests.
-go_test_e2e -timeout=12m ./test/e2e
-E2E_EXIT_CODE=$?
+go_test_e2e -timeout=12m ./test/e2e || failed=1
 
 # Require that both set of tests succeeded.
-([ $CONFORMANCE_EXIT_CODE -eq 0 ] && [ $E2E_EXIT_CODE -eq 0 ]) || fail_test
+(( failed )) && fail_test
 
 success
