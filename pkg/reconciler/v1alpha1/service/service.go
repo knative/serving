@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
@@ -38,7 +39,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "service-controller"
+const (
+	// ReconcilerName is the name of the reconciler
+	ReconcilerName      = "Services"
+	controllerAgentName = "service-controller"
+)
+
 
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
@@ -68,7 +74,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Services", reconciler.MustNewStatsReporter("Services", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -220,11 +226,18 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if reflect.DeepEqual(service.Status, desired.Status) {
 		return service, nil
 	}
+	becomesRdy := desired.Status.IsReady() && !service.Status.IsReady()
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	return c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+	if err == nil && becomesRdy {
+		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
+		c.Logger.Infof("Service %v became ready after %v", service.Name, duration)
+		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
+	}
+	return svc, err
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {

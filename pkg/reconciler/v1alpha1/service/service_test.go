@@ -18,8 +18,6 @@ package service
 
 import (
 	"fmt"
-	"testing"
-
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
@@ -34,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	"testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -153,6 +152,9 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
 		},
+		WantServiceReadyStats: map[string]int{
+			"foo/pinned3": 1,
+		},
 	}, {
 		Name: "release - create route and service",
 		Objects: []runtime.Object{
@@ -211,6 +213,9 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/release-ready": 1,
 		},
 	}, {
 		Name: "release - create route and service and percentage",
@@ -424,6 +429,9 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/all-ready": 1,
 		},
 	}, {
 		Name: "runLatest - config fails, propagate failure",
