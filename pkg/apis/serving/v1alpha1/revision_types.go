@@ -123,9 +123,26 @@ const (
 	// Deployment and Pod created by a Revision. This name will be set regardless of if
 	// a user specifies a port or the default value is chosen.
 	UserPortName = "user-port"
+
 	// DefaultUserPort is the default port value the QueueProxy will
 	// use for connecting to the user container.
 	DefaultUserPort = 8080
+
+	// RequestQueuePortName specifies the port name to use for http requests
+	// in queue-proxy container.
+	RequestQueuePortName string = "queue-port"
+
+	// RequestQueuePort specifies the port number to use for http requests
+	// in queue-proxy container.
+	RequestQueuePort = 8012
+
+	// RequestQueueAdminPortName specifies the port name for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPortName string = "queueadm-port"
+
+	// RequestQueueAdminPort specifies the port number for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPort = 8022
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).

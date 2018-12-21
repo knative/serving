@@ -35,6 +35,7 @@ import (
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -314,13 +315,13 @@ func main() {
 	}, time.Now())
 
 	adminServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
+		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
 		Handler: nil,
 	}
 	setupAdminHandlers(adminServer)
 
 	server = h2c.NewServer(
-		fmt.Sprintf(":%d", queue.RequestQueuePort),
+		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	// An `ErrServerClosed` should not trigger an early exit of
