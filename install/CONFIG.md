@@ -2,7 +2,7 @@
 
 ## Cluster local routes
 Routes assigned the domain `.svc.cluster.local` will not be exposed to an
-Ingress with external IP address.  This can be done by specifying custom
+Ingress with an external IP address.  This can be done by specifying a custom
 label selector rule in the following section.
 
 In addition to that, the label `serving.knative.dev/visibility` can be
@@ -51,5 +51,5 @@ then
 We require that at least one domain is provided without any selector as the
 default domain suffix option.
 
-The label `serving.knative.dev/visibility`, if set will take precedence over
+The label `serving.knative.dev/visibility`, if set, will take precedence over
 all the custom label selectors specified in the config map.
