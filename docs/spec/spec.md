@@ -388,10 +388,12 @@ status:
 
 ## Container
 
-This is a [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
+This is a
+[core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
 Some fields are not allowed, such as name and volumeMounts.
 
-This type is not used on its own but is found composed inside [Service](#service), [Configuration](#configuration), and [Revision](#revision).
+This type is not used on its own but is found composed inside
+[Service](#service), [Configuration](#configuration), and [Revision](#revision).
 
 ```yaml
 container: # v1.Container
@@ -401,15 +403,15 @@ container: # v1.Container
   # If buildRef is provided, it is expected that this image will be
   # present when the referenced build is complete.
   image: gcr.io/...
-  command: ['run']
+  command: ["run"]
   args: []
   env:
-  # list of environment vars
-  - name: FOO
-    value: bar
-  - name: HELLO
-    value: world
-  - ...
+    # list of environment vars
+    - name: FOO
+      value: bar
+    - name: HELLO
+      value: world
+    - ...
 
   # Optional, only a single containerPort may be specified.
   # This can be specified to select a specific port for incoming traffic.
@@ -419,11 +421,11 @@ container: # v1.Container
   ports: # core.v1.ContainerPort array
     # Valid range is [1-65535], except 8012 (RequestQueuePort)
     # and 8022 (RequestQueueAdminPort).
-  - containerPort: ... 
-    name: ... # Optional, one of "http1", "h2c"
-    protocol: ... # Optional, one of "", "tcp"
+    - containerPort: ...
+      name: ... # Optional, one of "http1", "h2c"
+      protocol: ... # Optional, one of "", "tcp"
 
-  livenessProbe: ...  # Optional
-  readinessProbe: ...  # Optional
-  resources: ...  # Optional
+  livenessProbe: ... # Optional
+  readinessProbe: ... # Optional
+  resources: ... # Optional
 ```

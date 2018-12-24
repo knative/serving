@@ -12,7 +12,9 @@ Currently the server exposes:
 
 - /envvars : To provide a JSON payload containing all the environment variables
   set inside the container
-- /filepath?path=<path-to-file>: Provides FileInfo for the <path-to-file> query-param. The JSON payload returned as response is specified in [runtime_contract_types](../../conformance/runtime_contract_types.go)
+- /filepath?path=<path-to-file>: Provides FileInfo for the <path-to-file>
+  query-param. The JSON payload returned as response is specified in
+  [runtime_contract_types](../../conformance/runtime_contract_types.go)
 
 ## Building
 
