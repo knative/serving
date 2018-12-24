@@ -18,9 +18,10 @@ package reconciler
 
 import (
 	"fmt"
-	"go.opencensus.io/tag"
 	"testing"
 	"time"
+
+	"go.opencensus.io/tag"
 
 	"go.opencensus.io/stats/view"
 )
@@ -62,13 +63,13 @@ func TestReporter_ReportDuration(t *testing.T) {
 	}
 
 	latency := getMetric(t, ServiceReadyLatencyN)
-	if v := latency.Data.(*view.LastValueData).Value;  v != 1000 {
+	if v := latency.Data.(*view.LastValueData).Value; v != 1000 {
 		t.Errorf("expected latency %v, Got %v", 1000, v)
 	}
 	checkTags(t, expectedTags, latency.Tags)
 
 	count := getMetric(t, ServiceReadyCountN)
-	if v := count.Data.(*view.CountData).Value;  v != 1 {
+	if v := count.Data.(*view.CountData).Value; v != 1 {
 		t.Errorf("expected latency %v, Got %v", 1, v)
 	}
 	checkTags(t, expectedTags, count.Tags)
