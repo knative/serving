@@ -205,4 +205,4 @@ rules to take the Activator back out of the serving path.
 
 _Currently the Slow Brain is not implemented and the desired concurrency level
 is hardcoded at 1.0
-([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/autoscaler/main.go#L36))._
+([code](https://github.com/knative/serving/blob/master/cmd/autoscaler/main.go#L51))._
