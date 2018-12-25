@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+	"testing"
+
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
@@ -32,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.

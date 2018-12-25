@@ -30,7 +30,7 @@ type Measurement int
 
 const (
 	// ServiceReadyCountN is the number of services that have become ready.
-	ServiceReadyCountN  = "service_ready_count"
+	ServiceReadyCountN = "service_ready_count"
 	// ServiceReadyLatencyN is the time it takes for a service to become ready since the resource is created.
 	ServiceReadyLatencyN = "service_ready_latency"
 )
@@ -38,9 +38,9 @@ const (
 var (
 	serviceReadyLatencyStat = stats.Int64(
 		ServiceReadyLatencyN,
-			"Time it takes for a service to become ready since created",
-			stats.UnitMilliseconds)
-	serviceReadyCountStat   = stats.Int64(
+		"Time it takes for a service to become ready since created",
+		stats.UnitMilliseconds)
+	serviceReadyCountStat = stats.Int64(
 		ServiceReadyCountN,
 		"Number of services that became ready",
 		stats.UnitDimensionless)
@@ -48,7 +48,6 @@ var (
 	reconcilerTagKey tag.Key
 	keyTagKey        tag.Key
 )
-
 
 func init() {
 	var err error
@@ -100,7 +99,7 @@ func NewStatsReporter(reconciler string) (StatsReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &reporter{ ctx: ctx }, nil
+	return &reporter{ctx: ctx}, nil
 }
 
 // ReportServiceReady reports the time it took a service to become Ready

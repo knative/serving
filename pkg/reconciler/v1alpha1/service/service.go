@@ -45,7 +45,6 @@ const (
 	controllerAgentName = "service-controller"
 )
 
-
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	*reconciler.Base
