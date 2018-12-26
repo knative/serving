@@ -34,7 +34,7 @@ func verifyPermString(resp string, expected string) error {
 	}
 
 	for index := range expected {
-		if string(expected[index]) != "*" && expected[index] != resp[index]  {
+		if string(expected[index]) != "*" && expected[index] != resp[index] {
 			return fmt.Errorf("Permission strings don't match at Index : %d. Expected : '%s' Received Response : '%s'",
 				index, expected, resp)
 		}
@@ -47,7 +47,7 @@ func TestMustFileSystemPermissions(t *testing.T) {
 	logger := logging.GetContextLogger("TestFileSystemPermissions")
 	clients := setup(t)
 	for key, value := range MustFilePathSpecs {
-		resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageFilePathInfoPath + "?" + test.EnvImageFilePathQueryParam + "=" + key, &test.Options{})
+		resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
 		if err != nil {
 			t.Fatal(err)
 		}
