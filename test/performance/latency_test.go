@@ -76,7 +76,9 @@ func TestPerformanceLatency(t *testing.T) {
 	// Add latency metrics
 	var tc []testgrid.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
-		tc = append(tc, CreatePerfTestCase(float32(p.Value), fmt.Sprintf("p%d", int(p.Percentile)), "TestPerformanceLatency"))
+		val := float32(p.Value) * 1000
+		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
+		tc = append(tc, CreatePerfTestCase(val, name, "TestPerformanceLatency"))
 	}
 
 	if err = testgrid.CreateTestgridXML(tc, "TestPerformanceLatency"); err != nil {
