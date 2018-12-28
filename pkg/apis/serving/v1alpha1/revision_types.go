@@ -147,6 +147,10 @@ const (
 	// RequestQueueMetricsPort specifies the port number for metrics emitted
 	// by queue-proxy.
 	RequestQueueMetricsPort = 9090
+
+	// RequestQueueMetricsPortName specifies the port name to use for metrics
+	// emitted by queue-proxy.
+	RequestQueueMetricsPortName = "queue-metrics"
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).

@@ -42,6 +42,9 @@ var (
 		// Provides health checks and lifecycle hooks.
 		Name:          v1alpha1.RequestQueueAdminPortName,
 		ContainerPort: int32(v1alpha1.RequestQueueAdminPort),
+	}, {
+		Name:          v1alpha1.RequestQueueMetricsPortName,
+		ContainerPort: int32(v1alpha1.RequestQueueMetricsPort),
 	}}
 	// This handler (1) marks the service as not ready and (2)
 	// adds a small delay before the container is killed.
