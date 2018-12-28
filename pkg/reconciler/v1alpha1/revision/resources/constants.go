@@ -42,6 +42,10 @@ const (
 	ServicePortName = "http"
 	// ServicePort is the external port of the service
 	ServicePort = int32(80)
+	// MetricsPortName is the name of the external port of the service for metrics
+	MetricsPortName = "metrics"
+	// MetricsPort is the external port of the service for metrics
+	MetricsPort = int32(9090)
 	AppLabelKey = "app"
 )
 

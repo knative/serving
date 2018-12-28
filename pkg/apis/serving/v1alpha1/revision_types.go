@@ -143,6 +143,10 @@ const (
 	// RequestQueueAdminPort specifies the port number for
 	// health check and lifecyle hooks for queue-proxy.
 	RequestQueueAdminPort = 8022
+
+	// RequestQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy.
+	RequestQueueMetricsPort = 9090
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
