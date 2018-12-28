@@ -16,18 +16,22 @@ limitations under the License.
 
 package test
 
-//image_constants.go defines constants that are shared between test-images and conformance tests
+//image_constants.go defines constants that are shared between different test packages
 
-//EnvImageServerPort is the port on which the environment test-image server starts.
-// TODO: Modify this port number after https://github.com/knative/serving/issues/2258 is fixed for a stricter verification.
-const EnvImageServerPort = 8080
+const (
+	// EnvImageServerPort is the port on which the environment test-image server starts.
+	// TODO: Modify this port number after https://github.com/knative/serving/issues/2258 is fixed for a stricter verification.
+	EnvImageServerPort = 8080
 
-//EnvImageEnvVarsPath path exposed by environment test-image to fetch environment variables.
-const EnvImageEnvVarsPath = "/envvars"
+	// EnvImageEnvVarsPath path exposed by environment test-image to fetch environment variables.
+	EnvImageEnvVarsPath = "/envvars"
 
-//EnvImageFilePathInfoPath path exposed by environment test-image to fetch information for filepaths
-const EnvImageFilePathInfoPath = "/filepath"
+	// EnvImageFilePathInfoPath path exposed by environment test-image to fetch information for filepaths
+	EnvImageFilePathInfoPath = "/filepath"
 
-//EnvImageFilePathQueryParam query param to be used with EnvImageFilePathInfoPath to specify filepath
-const EnvImageFilePathQueryParam = "path"
+	// EnvImageFilePathQueryParam query param to be used with EnvImageFilePathInfoPath to specify filepath
+	EnvImageFilePathQueryParam = "path"
 
+	// KnativeObjectsCreateServicePath is the endpoint exposed by knative objects image that creates service
+	KnativeObjectsCreateServicePath = "/create_service"
+)
