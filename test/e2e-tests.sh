@@ -66,6 +66,8 @@ header "Setting up environment"
 set +o errexit
 set +o pipefail
 
+cd /tmp
+
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
