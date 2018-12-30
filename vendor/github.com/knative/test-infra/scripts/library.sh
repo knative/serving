@@ -44,6 +44,12 @@ readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
+# On a Prow job, redirect stderr to stdout so it's correctly added to the log.
+(( IS_PROW )) && exec 2>&1
+
+echo "** stdout" > /dev/stdout
+echo "** stderr" > /dev/stderr
+
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
 function abort() {
