@@ -36,7 +36,7 @@ function build_resource_name() {
 }
 
 # Test cluster parameters
-readonly E2E_BASE_NAME=k$(basename ${REPO_ROOT_DIR})
+readonly E2E_BASE_NAME="k${REPO_NAME}"
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
 readonly E2E_CLUSTER_REGION=us-central1

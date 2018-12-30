@@ -46,7 +46,7 @@ var (
 		Container: corev1.Container{
 			Image: "busybox",
 		},
-		TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
+		TimeoutSeconds: 60,
 	}
 )
 

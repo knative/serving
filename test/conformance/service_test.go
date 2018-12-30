@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	userPort = int32(8888)
+	userPort = int32(8081)
 )
 
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service. The checks in this method should be able to be performed at any point in a

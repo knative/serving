@@ -64,6 +64,9 @@ type TableRow struct {
 	// WantEvents holds the set of events we expect during reconciliation.
 	WantEvents []string
 
+	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.
+	WantServiceReadyStats map[string]int
+
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
 	WithReactors []clientgotesting.ReactionFunc
@@ -80,13 +83,14 @@ func objKey(o runtime.Object) string {
 	return path.Join(reflect.TypeOf(o).String(), on.GetNamespace(), on.GetName())
 }
 
-// Factory returns a Reconciler.Interface to perform reconciliation in table test and
-// ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation.
-type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList)
+// Factory returns a Reconciler.Interface to perform reconciliation in table test,
+// ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation
+// and FakeStatsReporter to capture stats.
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter)
 
 // Test executes the single table test.
 func (r *TableRow) Test(t *testing.T, factory Factory) {
-	c, recorderList, eventList := factory(t, r)
+	c, recorderList, eventList, statsReporter := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
@@ -215,6 +219,11 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		for _, extra := range gotEvents[want:] {
 			t.Errorf("Extra event: %s", extra)
 		}
+	}
+
+	gotStats := statsReporter.GetServiceReadyStats()
+	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
+		t.Errorf("Unexpected service ready stats (-want +got): %s", diff)
 	}
 }
 

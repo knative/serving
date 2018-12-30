@@ -19,7 +19,6 @@ package resources
 import (
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -54,9 +53,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
@@ -68,7 +65,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -121,9 +118,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
@@ -137,7 +132,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -198,9 +193,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
@@ -212,7 +205,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -265,9 +258,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{
@@ -284,7 +275,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -337,9 +328,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 10,
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds:       45,
 			},
 		},
 		lc: &logging.Config{},
@@ -351,7 +340,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,

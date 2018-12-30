@@ -19,7 +19,7 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["serving.knative.dev"]
-    resources: ["configurations", "configurationgenerations", "routes", "revisions", "revisionuids", "autoscalers", "services"]
+    resources: ["configurations", "routes", "revisions", "services"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["autoscaling.internal.knative.dev"]
     resources: ["podautoscalers"]

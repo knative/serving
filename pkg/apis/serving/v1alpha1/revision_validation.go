@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
@@ -27,7 +26,6 @@ import (
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -63,11 +61,12 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	return errs
 }
 
-func validateTimeoutSeconds(timeoutSeconds *metav1.Duration) *apis.FieldError {
-	if timeoutSeconds != nil {
-		if timeoutSeconds.Duration > networkingv1alpha1.DefaultTimeout ||
-			timeoutSeconds.Duration < 0*time.Second {
-			return apis.ErrOutOfBoundsValue(timeoutSeconds.Duration.String(), "0s", networkingv1alpha1.DefaultTimeout.String(), "timeoutSeconds")
+func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+	if timeoutSeconds != 0 {
+		if timeoutSeconds > int64(networkingv1alpha1.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+			return apis.ErrOutOfBoundsValue(fmt.Sprintf("%ds", timeoutSeconds), "0s",
+				fmt.Sprintf("%ds", int(networkingv1alpha1.DefaultTimeout.Seconds())),
+				"timeoutSeconds")
 		}
 	}
 	return nil
@@ -197,6 +196,11 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	}
 	if len(disallowedFields) != 0 {
 		errs = errs.Also(apis.ErrDisallowedFields(disallowedFields...))
+	}
+
+	// Don't allow userPort to conflict with QueueProxy sidecar
+	if userPort.ContainerPort == RequestQueuePort || userPort.ContainerPort == RequestQueueAdminPort {
+		errs = errs.Also(apis.ErrInvalidValue(strconv.Itoa(int(userPort.ContainerPort)), "ContainerPort"))
 	}
 
 	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {

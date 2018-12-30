@@ -181,7 +181,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults()
 
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx))
+	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx, ci))
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -194,23 +194,62 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
-	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: gatewayServiceURLFromContext(ctx)},
-	})
+	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
-func gatewayServiceURLFromContext(ctx context.Context) string {
-	return config.FromContext(ctx).Istio.IngressGateways[0].ServiceURL
+func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
+	// The ClusterIngress isn't load-balanced by any particular
+	// Service, but through a Service mesh.
+	if gatewayServiceURL == "" {
+		return []v1alpha1.LoadBalancerIngressStatus{
+			{MeshOnly: true},
+		}
+	}
+	return []v1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: gatewayServiceURL},
+	}
 }
 
-func gatewayNamesFromContext(ctx context.Context) []string {
-	gateways := []string{}
-	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
-		gateways = append(gateways, gw.GatewayName)
+// gatewayServiceURLFromContext return an address of a load-balancer
+// that the given ClusterIngress is exposed to, or empty string if
+// none.
+func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
+		return cfg.IngressGateways[0].ServiceURL
 	}
-	return gateways
+	if len(cfg.LocalGateways) > 0 && !ci.IsPublic() {
+		return cfg.LocalGateways[0].ServiceURL
+	}
+	return ""
+}
+
+func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
+	gateways := []string{}
+	if ci.IsPublic() {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	} else {
+		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	}
+	return dedup(gateways)
+}
+
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

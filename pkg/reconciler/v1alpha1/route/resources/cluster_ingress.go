@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -30,15 +31,20 @@ import (
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/system"
 )
 
+func isClusterLocal(r *servingv1alpha1.Route) bool {
+	return strings.HasSuffix(r.Status.Domain, config.ClusterLocalDomain)
+}
+
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
 func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha1.ClusterIngress {
-	return &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
 			// here we use GenerateName to avoid conflict.
@@ -52,6 +58,7 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.TrafficConfig) *v1
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
+	return ci
 }
 
 func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha1.IngressSpec {
@@ -69,9 +76,14 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traff
 	for _, name := range names {
 		rules = append(rules, *makeClusterIngressRule(getRouteDomains(name, r, domain), r.Namespace, targets[name]))
 	}
-	return v1alpha1.IngressSpec{
-		Rules: rules,
+	spec := v1alpha1.IngressSpec{
+		Rules:      rules,
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
+	if isClusterLocal(r) {
+		spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
+	}
+	return spec
 }
 
 func getRouteDomains(targetName string, r *servingv1alpha1.Route, domain string) []string {

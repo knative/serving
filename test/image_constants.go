@@ -24,3 +24,10 @@ const EnvImageServerPort = 8080
 
 //EnvImageEnvVarsPath path exposed by environment test-image to fetch environment variables.
 const EnvImageEnvVarsPath = "/envvars"
+
+//EnvImageFilePathInfoPath path exposed by environment test-image to fetch information for filepaths
+const EnvImageFilePathInfoPath = "/filepath"
+
+//EnvImageFilePathQueryParam query param to be used with EnvImageFilePathInfoPath to specify filepath
+const EnvImageFilePathQueryParam = "path"
+

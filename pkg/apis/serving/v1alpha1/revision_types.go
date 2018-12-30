@@ -123,9 +123,26 @@ const (
 	// Deployment and Pod created by a Revision. This name will be set regardless of if
 	// a user specifies a port or the default value is chosen.
 	UserPortName = "user-port"
+
 	// DefaultUserPort is the default port value the QueueProxy will
 	// use for connecting to the user container.
 	DefaultUserPort = 8080
+
+	// RequestQueuePortName specifies the port name to use for http requests
+	// in queue-proxy container.
+	RequestQueuePortName string = "queue-port"
+
+	// RequestQueuePort specifies the port number to use for http requests
+	// in queue-proxy container.
+	RequestQueuePort = 8012
+
+	// RequestQueueAdminPortName specifies the port name for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPortName string = "queueadm-port"
+
+	// RequestQueueAdminPort specifies the port number for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPort = 8022
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
@@ -190,7 +207,7 @@ type RevisionSpec struct {
 
 	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
 	// +optional
-	TimeoutSeconds *metav1.Duration `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds int64 `json:"timeoutSeconds,omitempty"`
 }
 
 const (
@@ -345,6 +362,11 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
+func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
+}
+
 func (rs *RevisionStatus) MarkResourcesAvailable() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
@@ -381,6 +403,12 @@ func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 // cannot be pulled correctly.
 func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+// RevisionContainerExitingMessage constructs the status message if a container
+// fails to come up.
+func RevisionContainerExitingMessage(message string) string {
+	return fmt.Sprintf("Container failed with: %s", message)
 }
 
 const (

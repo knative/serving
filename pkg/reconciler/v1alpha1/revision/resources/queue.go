@@ -36,19 +36,19 @@ var (
 		},
 	}
 	queuePorts = []corev1.ContainerPort{{
-		Name:          queue.RequestQueuePortName,
-		ContainerPort: int32(queue.RequestQueuePort),
+		Name:          v1alpha1.RequestQueuePortName,
+		ContainerPort: int32(v1alpha1.RequestQueuePort),
 	}, {
 		// Provides health checks and lifecycle hooks.
-		Name:          queue.RequestQueueAdminPortName,
-		ContainerPort: int32(queue.RequestQueueAdminPort),
+		Name:          v1alpha1.RequestQueueAdminPortName,
+		ContainerPort: int32(v1alpha1.RequestQueueAdminPort),
 	}}
 	// This handler (1) marks the service as not ready and (2)
 	// adds a small delay before the container is killed.
 	queueLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
 				Path: queue.RequestQueueQuitPath,
 			},
 		},
@@ -56,7 +56,7 @@ var (
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
 				Path: queue.RequestQueueHealthPath,
 			},
 		},
@@ -85,7 +85,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	}
 
 	return &corev1.Container{
-		Name:           queueContainerName,
+		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          queuePorts,
@@ -111,7 +111,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
-			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds.Duration.Seconds())),
+			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{

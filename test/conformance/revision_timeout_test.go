@@ -37,11 +37,9 @@ import (
 
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by imagePath
-func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int) (*v1alpha1.Service, error) {
+func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
 	service := test.LatestService(test.ServingNamespace, names, imagePath, &test.Options{})
-	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{
-		Duration: time.Duration(revisionTimeoutSeconds) * time.Second,
-	}
+	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = revisionTimeoutSeconds
 	test.LogResourceObject(logger, test.ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
@@ -51,7 +49,7 @@ func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, re
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/revisionTemplate/spec/timeoutSeconds",
-		Value:     (time.Duration(revisionTimeoutSeconds) * time.Second).String(),
+		Value:     revisionTimeoutSeconds,
 	}}
 	patchBytes, err := json.Marshal(patches)
 	if err != nil {

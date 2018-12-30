@@ -88,7 +88,7 @@ var (
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{Duration: 60 * time.Second},
+				TimeoutSeconds: 60,
 			},
 		},
 	}
@@ -293,6 +293,11 @@ func WithAddress(r *v1alpha1.Route) {
 // WithAnotherDomain sets the .Status.Domain field to an atypical domain.
 func WithAnotherDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
+}
+
+// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+func WithLocalDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
@@ -583,6 +588,13 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 }
 
+// MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
+func MarkContainerExiting(exitCode int32, message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkContainerExiting(exitCode, message)
+	}
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
@@ -631,12 +643,24 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
-// WithTargetAnnotation adds a target annotation to the PA.
-func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+// WithContainerConcurrency returns a PodAutoscalerOption which sets
+// the PodAutoscaler containerConcurrency to the provided value.
+func WithContainerConcurrency(cc int32) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(cc)
 	}
-	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
+}
+
+// WithTargetAnnotation returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/target to the provided
+// value.
+func WithTargetAnnotation(target string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
 }
 
 // WithMetricAnnotation adds a metric annotation to the PA.
@@ -678,4 +702,25 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// PodOption enables further configuration of a Pod.
+type PodOption func(*corev1.Pod)
+
+// WithFailingContainer sets the .Status.ContainerStatuses on the pod to
+// include a container named accordingly to fail with the given state.
+func WithFailingContainer(name string, exitCode int, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			corev1.ContainerStatus{
+				Name: name,
+				LastTerminationState: corev1.ContainerState{
+					Terminated: &corev1.ContainerStateTerminated{
+						ExitCode: int32(exitCode),
+						Message:  message,
+					},
+				},
+			},
+		}
+	}
 }

@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
@@ -191,6 +190,24 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrDisallowedFields("ports.HostIP"),
+	}, {
+		name: "port conflicts with queue proxy admin",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8022,
+			}},
+		},
+		want: apis.ErrInvalidValue("8022", "ports.ContainerPort"),
+	}, {
+		name: "port conflicts with queue proxy",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8012,
+			}},
+		},
+		want: apis.ErrInvalidValue("8012", "ports.ContainerPort"),
 	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
@@ -522,22 +539,22 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: &metav1.Duration{
-				Duration: 600 * time.Second,
-			},
+			TimeoutSeconds: 600,
 		},
-		want: apis.ErrOutOfBoundsValue("10m0s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("600s", "0s",
+			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			"timeoutSeconds"),
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
 			Container: corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: &metav1.Duration{
-				Duration: -30 * time.Second,
-			},
+			TimeoutSeconds: -30,
 		},
-		want: apis.ErrOutOfBoundsValue("-30s", "0s", netv1alpha1.DefaultTimeout.String(), "timeoutSeconds"),
+		want: apis.ErrOutOfBoundsValue("-30s", "0s",
+			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			"timeoutSeconds"),
 	}}
 
 	for _, test := range tests {

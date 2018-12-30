@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
@@ -60,19 +61,27 @@ func TestPerformanceLatency(t *testing.T) {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
-	url := fmt.Sprintf("http://%s", *endpoint)
-	resp, err := RunLoadTest(duration, 1, 5, url, domain)
+	opts := loadgenerator.GeneratorOptions{
+		Duration:       duration,
+		NumThreads:     1,
+		NumConnections: 5,
+		Domain:         domain,
+		URL:            fmt.Sprintf("http://%s", *endpoint),
+	}
+	resp, err := opts.RunLoadTest(false)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
 	// Add latency metrics
 	var tc []testgrid.TestCase
-	for _, p := range resp.DurationHistogram.Percentiles {
-		tc = append(tc, CreatePerfTestCase(float32(p.Value), fmt.Sprintf("p%d", int(p.Percentile)), "TestPerformanceLatency"))
+	for _, p := range resp.Result.DurationHistogram.Percentiles {
+		val := float32(p.Value) * 1000
+		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
+		tc = append(tc, CreatePerfTestCase(val, name, "TestPerformanceLatency"))
 	}
 
-	if err = testgrid.CreateTestgridXML(tc); err != nil {
+	if err = testgrid.CreateTestgridXML(tc, "TestPerformanceLatency"); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

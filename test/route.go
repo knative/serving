@@ -54,7 +54,7 @@ func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, b
 		return nil, err
 	}
 	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
-	newRoute.ObjectMeta.ResourceVersion = route.ObjectMeta.ResourceVersion
+	newRoute.ObjectMeta = route.ObjectMeta
 	LogResourceObject(logger, ResourceObjects{Route: newRoute})
 	patchBytes, err := createPatch(route, newRoute)
 	if err != nil {

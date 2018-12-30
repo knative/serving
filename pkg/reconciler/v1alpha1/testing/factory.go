@@ -42,7 +42,7 @@ type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList) {
+	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
 		ls := NewListers(r.Objects)
 
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
@@ -51,6 +51,7 @@ func MakeFactory(ctor Ctor) Factory {
 		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme(), ls.GetBuildObjects()...)
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
+		statsReporter := &FakeStatsReporter{}
 
 		// Set up our Controller from the fakes.
 		c := ctor(&ls, reconciler.Options{
@@ -60,6 +61,7 @@ func MakeFactory(ctor Ctor) Factory {
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
 			Recorder:         eventRecorder,
+			StatsReporter:    statsReporter,
 			Logger:           TestLogger(t),
 		})
 
@@ -76,8 +78,8 @@ func MakeFactory(ctor Ctor) Factory {
 		client.PrependReactor("update", "*", ValidateUpdates)
 
 		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
-		eventList := EventList{eventRecorder}
+		eventList := EventList{Recorder: eventRecorder}
 
-		return c, actionRecorderList, eventList
+		return c, actionRecorderList, eventList, statsReporter
 	}
 }

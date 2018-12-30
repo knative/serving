@@ -28,3 +28,9 @@ data:
   # Although it will match all routes, it is the least-specific rule so it
   # will only be used if no other domain matches.
   example.com: |
+
+  # Routes having domain suffix of 'svc.cluster.local' will not be exposed
+  # through Ingress. You can define your own label selector to assign that
+  # domain suffix to your Route here, or you can set the label
+  #    "serving.knative.dev/visibility=cluster-local"
+  # to achieve the same effect.

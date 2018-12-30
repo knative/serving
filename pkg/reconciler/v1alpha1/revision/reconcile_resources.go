@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -63,6 +64,26 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		if err != nil {
 			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 			return err
+		}
+	}
+
+	// If a container keeps crashing (no active pods in the deployment although we want some)
+	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
+		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
+		if err != nil {
+			logger.Errorf("Error getting pods: %v", err)
+		} else if len(pods.Items) > 0 {
+			// Arbitrarily grab the very first pod, as they all should be crashing
+			pod := pods.Items[0]
+
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == resources.UserContainerName {
+					if t := status.LastTerminationState.Terminated; t != nil {
+						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+					}
+					break
+				}
+			}
 		}
 	}
 
