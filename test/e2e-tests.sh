@@ -85,7 +85,7 @@ cd $GOPATH/src
 rm -fr github.com/google/go-containerregistry
 #echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 #set
-#set +x
+set +x
 echo "#####<"
 cd ${REPO_ROOT_DIR}
 
