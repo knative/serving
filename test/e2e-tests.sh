@@ -83,10 +83,11 @@ go build
 mv ko $GOPATH/bin
 cd $GOPATH/src
 rm -fr github.com/google/go-containerregistry
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-set
-set +x
+#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+#set
+#set +x
 echo "#####<"
+cd ${REPO_ROOT_DIR}
 
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
