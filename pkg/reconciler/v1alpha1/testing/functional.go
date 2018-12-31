@@ -397,13 +397,14 @@ func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType)
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Generation = gen
+		//TODO(dprotaso) remove this for 0.4 release
 		cfg.Spec.Generation = gen
 	}
 }
 
 // WithObservedGen sets the observed generation of the Configuration.
 func WithObservedGen(cfg *v1alpha1.Configuration) {
-	cfg.Status.ObservedGeneration = cfg.Spec.Generation
+	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name

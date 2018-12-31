@@ -208,11 +208,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	// Update our Status based on the state of our underlying Route.
 	service.Status.PropagateRouteStatus(route.Status)
-
-	// Update the Status of the Service with the latest generation that
-	// we just reconciled against so we don't keep generating Revisions.
-	// TODO(#642): Remove this.
-	service.Status.ObservedGeneration = service.Spec.Generation
+	service.Status.ObservedGeneration = service.Generation
 
 	return nil
 }

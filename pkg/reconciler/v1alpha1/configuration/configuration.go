@@ -179,7 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Spec.Generation
+	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
