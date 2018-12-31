@@ -25,6 +25,7 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
@@ -172,6 +173,26 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/matching-revision-done",
 	}, {
+		Name: "reconcile a ready revision without the config metadata generation label",
+		Objects: []runtime.Object{
+			cfg("legacy-revision-ready", "foo", 5555,
+				WithLatestCreated,
+				WithObservedGen,
+				WithLatestReady),
+			rev("legacy-revision-ready", "foo", 5555,
+				WithCreationTimestamp(now),
+				MarkRevisionReady,
+				WithoutConfigurationMetadataGenerationLabel,
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("legacy-revision-ready", "foo", 5555,
+				WithCreationTimestamp(now),
+				MarkRevisionReady,
+			),
+		}},
+		Key: "foo/legacy-revision-ready",
+	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,
@@ -305,6 +326,25 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		Key: "foo/revision-recovers",
+	}, {
+		// The name is a bit misleading but essentially we are testing that
+		// querying the latest created revision includes the configuration name
+		// as part of the selector
+		Name: "two steady state configs with same generation should be a noop",
+		Objects: []runtime.Object{
+			// double-trouble needs to be first for this test to fail
+			// when no fix is present
+			cfg("double-trouble", "foo", 1,
+				WithLatestCreated, WithLatestReady, WithObservedGen),
+			cfg("first-trouble", "foo", 1,
+				WithLatestCreated, WithLatestReady, WithObservedGen),
+
+			rev("first-trouble", "foo", 1,
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("double-trouble", "foo", 1,
+				WithCreationTimestamp(now), MarkRevisionReady),
+		},
+		Key: "foo/double-trouble",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -393,8 +433,12 @@ func TestGCReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			// Create a revision where the LatestReady is 5554, but LatestCreated is 5556.
 			// We should keep LatestReady even if it is old.
-			cfg("keep-two", "foo", 5554, WithLatestCreated, WithLatestReady,
-				WithGeneration(5556), WithLatestCreated, WithObservedGen),
+			cfg("keep-two", "foo", 5554,
+				WithLatestCreated,
+				WithLatestReady,
+				WithGeneration(5556),
+				WithLatestCreated,
+				WithObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithCreationTimestamp(oldest),
 				WithLastPinned(tenMinutesAgo)),
@@ -580,4 +624,13 @@ func TestIsRevisionStale(t *testing.T) {
 			}
 		})
 	}
+}
+
+// WithoutConfigurationMetadataGenerationLabel clears the label from the revision
+func WithoutConfigurationMetadataGenerationLabel(rev *v1alpha1.Revision) {
+	if rev.Labels == nil {
+		return
+	}
+
+	delete(rev.Labels, serving.ConfigurationMetadataGenerationLabelKey)
 }

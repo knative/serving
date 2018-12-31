@@ -396,6 +396,7 @@ func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType)
 // WithGeneration sets the generation of the Configuration.
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
+		cfg.Generation = gen
 		cfg.Spec.Generation = gen
 	}
 }
