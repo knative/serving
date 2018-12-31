@@ -57,9 +57,9 @@ func filepathInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := json.Marshal(conformance.FilePathInfo{
-		FilePath: filePath,
+		FilePath:    filePath,
 		IsDirectory: info.IsDir(),
-		PermString: info.Mode().Perm().String(),
+		PermString:  info.Mode().Perm().String(),
 	})
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("error building response : %v", err))
@@ -71,8 +71,8 @@ func filepathInfoHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	log.Print("Environment test app started.")
-	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request) {
-		test.EnvImageEnvVarsPath : envvarsHandler,
-		test.EnvImageFilePathInfoPath : filepathInfoHandler,
+	test.ListenAndServeGracefullyWithPattern(fmt.Sprintf(":%d", test.EnvImageServerPort), map[string]func(w http.ResponseWriter, r *http.Request){
+		test.EnvImageEnvVarsPath:      envvarsHandler,
+		test.EnvImageFilePathInfoPath: filepathInfoHandler,
 	})
 }
