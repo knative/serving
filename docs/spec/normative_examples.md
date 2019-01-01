@@ -6,14 +6,12 @@ from the smallest, most frequent operations.
 
 Examples in this section illustrate:
 
-* [Automatic rollout of a new Revision to an existing Service with a
-  pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
-* [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
-* [Configuration changes and managed rollout
-  options](#3-managed-release-of-a-new-revision---config-change-only)
-* [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)
-* [Creating a revision from source](#5-deploy-a-revision-from-source)
-* [Creating a function from source](#6-deploy-a-function)
+- [Automatic rollout of a new Revision to an existing Service with a pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
+- [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
+- [Configuration changes and managed rollout options](#3-managed-release-of-a-new-revision---config-change-only)
+- [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)
+- [Creating a revision from source](#5-deploy-a-revision-from-source)
+- [Creating a function from source](#6-deploy-a-function)
 
 Note that these API operations are identical for both app and function based
 services. (to see the full resource definitions, see the
@@ -292,18 +290,16 @@ creating a new Service, which will create both a Configuration and a new Route
 referring to that configuration. In turn, the Configuration will generate a new
 Revision. Note that these steps may occur in in parallel.
 
-In this getting started example, deploying a first Revision is
-accomplished by creating a new Service, which will create both a
-Configuration and a new Route referring to that configuration. In
-turn, the Configuration will generate a new Revision. Note that these
-steps may occur in in parallel.
+In this getting started example, deploying a first Revision is accomplished by
+creating a new Service, which will create both a Configuration and a new Route
+referring to that configuration. In turn, the Configuration will generate a new
+Revision. Note that these steps may occur in in parallel.
 
-In the `runLatest` style of Service, the Route always references the
-latest ready revision of a Configuration, as this example
-illustrates. This is the most straightforward scenario that many
-Knative Serving customers are expected to use, and is consistent with the
-experience of deploying code that is rolled out immediately.  A Route
-may also directly reference a Revision, which is shown in
+In the `runLatest` style of Service, the Route always references the latest
+ready revision of a Configuration, as this example illustrates. This is the most
+straightforward scenario that many Knative Serving customers are expected to
+use, and is consistent with the experience of deploying code that is rolled out
+immediately. A Route may also directly reference a Revision, which is shown in
 [example 3](#3-managed-release-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by several GET
@@ -512,12 +508,11 @@ status:
   observedGeneration: 1
 ```
 
-
 ## 3) Managed release of a new Revision - config change only
 
 **_Scenario_**: User updates configuration with new runtime arguments (env var
-  change) to an existing service, tests the revision, then proceeds with a
-  human-controlled rollout to 100%.
+change) to an existing service, tests the revision, then proceeds with a
+human-controlled rollout to 100%.
 
 ```
 $ knative release --service my-service strategy release
@@ -569,28 +564,27 @@ current,latest    100%     ghi   2018-01-19 12:16    user1         a6f92d1
 
 **Steps**:
 
-* Update the Service to switch from a `runLatest` strategy to a `release`
+- Update the Service to switch from a `runLatest` strategy to a `release`
   strategy.
 
-* Update the Service with the new configuration (env var).
+- Update the Service with the new configuration (env var).
 
-* Update the Service include the new revision in its revision list, which makes
+- Update the Service include the new revision in its revision list, which makes
   it address the new Revision as `candidate`.
 
-* Adjust the `percentRollout` controlling the traffic on `candidate`.
+- Adjust the `percentRollout` controlling the traffic on `candidate`.
 
-* Complete the rollout so the new revision is `current`.
+- Complete the rollout so the new revision is `current`.
 
 **Results:**
 
-* The system creates the new revision from the configuration, addressable at
+- The system creates the new revision from the configuration, addressable at
   `latest.my-service...`, but traffic is not routed to it until the rollout to
   that revision is begun (which marks it as `candidate.my-service...`) and the
   percentage is manually ramped up. Upon completing the rollout, the candidate
   revision is now the current revision.
 
 ![Release mode](images/release_mode.png)
-
 
 In the previous examples, the Service automatically made changes to the
 configuration (newly created Revision) routable when they became ready. While
@@ -599,8 +593,9 @@ simple development flows, the Service can also reference Revisions directly in
 `release` mode to route traffic to two specific revisions: the revision that's
 been running, and the new revision the user would like test or canary a portion
 of traffic to, prior to rolling out entirely. This mode is also useful to roll
-back to a known-good previous revision. (Note: see [Appendix
-B](complex_examples.md) for a semi-automatic variation of managed rollouts).
+back to a known-good previous revision. (Note: see
+[Appendix B](complex_examples.md) for a semi-automatic variation of managed
+rollouts).
 
 The client updates the service to switch to release mode.
 
@@ -616,7 +611,7 @@ metadata:
 spec:
   release:
     revisions: [def]
-    configuration:  # Copied from spec.runLatest.configuration
+    configuration: # Copied from spec.runLatest.configuration
       revisionTemplate:
         spec:
           container:
@@ -639,12 +634,12 @@ metadata:
 spec:
   rollout:
     traffic:
-    - revisionName: def
-      name: current  # addressable as current.my-service.default.mydomain.com
-      percent: 100
-    - configurationName: my-service  # LatestReadyRevision of my-service
-      name: latest  # addressable as latest.my-service.default.mydomain.com
-      percent: 0 # no direct traffic ever.
+      - revisionName: def
+        name: current # addressable as current.my-service.default.mydomain.com
+        percent: 100
+      - configurationName: my-service # LatestReadyRevision of my-service
+        name: latest # addressable as latest.my-service.default.mydomain.com
+        percent: 0 # no direct traffic ever.
 ```
 
 Next, the user updates the Service with the new variables, which causes the
@@ -669,10 +664,10 @@ spec:
             revisionNonce: "l01itSaN0nC3"
         spec:
           container:
-            env:  # k8s-style strategic merge patch, updating a single list value
-            # Image etc. do not change
-            - name: HELLO
-              value: blurg  # changed value
+            env: # k8s-style strategic merge patch, updating a single list value
+              # Image etc. do not change
+              - name: HELLO
+                value: blurg # changed value
 ```
 
 As in the previous example, the configuration is updated to trigger the creation
@@ -717,6 +712,7 @@ The user can then begin the rollout of revision `ghi`:
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -728,17 +724,18 @@ spec:
     rolloutPercent: 0
 ```
 
-This makes the route update the `candidate` name to point to the revision `ghi`. (The
-list of revisions can contain one or two items. If two, the first is `current`
-and the latter is `candidate`.) The new revision will still not receive any traffic,
-but can be accessed for testing, verification, etc under the
-`candidate.my-service...` name.
+This makes the route update the `candidate` name to point to the revision `ghi`.
+(The list of revisions can contain one or two items. If two, the first is
+`current` and the latter is `candidate`.) The new revision will still not
+receive any traffic, but can be accessed for testing, verification, etc under
+the `candidate.my-service...` name.
 
 To put traffic on `ghi`, the user can adjust `rolloutPercent`:
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -761,36 +758,36 @@ metadata:
 spec:
   rollout:
     traffic:
+      - revisionName: def
+        name: current # addressable as current.my-service.default.mydomain.com
+        percent: 95
+      - revisionName: ghi
+        name: candidate # addressable as candidate.my-service.default.mydomain.com
+        percent: 5
+      - configurationName: my-service # LatestReadyRevision of my-service
+        name: latest # addressable as latest.my-service.default.mydomain.com
+        percent: 0 # no direct traffic ever.
+status:
+  domain: my-service.default.mydomain.com
+  traffic:
     - revisionName: def
-      name: current  # addressable as current.my-service.default.mydomain.com
+      name: current # addressable as current.my-service.default.mydomain.com
       percent: 95
     - revisionName: ghi
       name: candidate # addressable as candidate.my-service.default.mydomain.com
       percent: 5
-    - configurationName: my-service  # LatestReadyRevision of my-service
-      name: latest  # addressable as latest.my-service.default.mydomain.com
-      percent: 0 # no direct traffic ever.
-status:
-  domain: my-service.default.mydomain.com
-  traffic:
-  - revisionName: def
-    name: current  # addressable as current.my-service.default.mydomain.com
-    percent: 95
-  - revisionName: ghi
-    name: candidate # addressable as candidate.my-service.default.mydomain.com
-    percent: 5
-  - configurationName: my-service  # LatestReadyRevision of my-service
-    name: latest
-    percent: 0
+    - configurationName: my-service # LatestReadyRevision of my-service
+      name: latest
+      percent: 0
   conditions:
     - type: Ready
       status: True
 ```
 
 After testing and gradually rolling out the new revision at
-`candidate.my-service.default.mydomain.com`, it can be promoted to a fully-rolled-out
-`current` revision by updating the service to list only `ghi` in the revision
-list.
+`candidate.my-service.default.mydomain.com`, it can be promoted to a
+fully-rolled-out `current` revision by updating the service to list only `ghi`
+in the revision list.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -810,7 +807,8 @@ This causes the service to update the route to assign 100% of traffic to ghi.
 
 Once the update has been completed, if the latest ready revision is the same as
 the current revision, the names `current` and `latest` will point to the same
-revision. The name `candidate` is inactive until you're rolling out a revision again.
+revision. The name `candidate` is inactive until you're rolling out a revision
+again.
 
 Note that throughout this whole process, `latest` remains pointing to the latest
 ready revision of the service. This allows your team to continue to pre-check
@@ -829,21 +827,21 @@ metadata:
 spec:
   rollout:
     traffic:
-    - revisionName: ghi
-      name: current
-      percent: 100
-    - configurationName: my-service  # LatestReadyRevision of my-service
-      name: latest
-      percent: 0
+      - revisionName: ghi
+        name: current
+        percent: 100
+      - configurationName: my-service # LatestReadyRevision of my-service
+        name: latest
+        percent: 0
 status:
   domain: my-service.default.mydomain.com
   traffic:
-  - revisionName: ghi
-    name: current  # addressable as current.my-service.default.mydomain.com
-    percent: 100
-  - configurationName: my-service
-    name: latest # addressable as latest.my-service.default.mydomain.com
-    percent: 0
+    - revisionName: ghi
+      name: current # addressable as current.my-service.default.mydomain.com
+      percent: 100
+    - configurationName: my-service
+      name: latest # addressable as latest.my-service.default.mydomain.com
+      percent: 0
   conditions:
     - type: Ready
       status: True
@@ -862,20 +860,21 @@ Rolled back to revision [abc] serving at [my-service.default.mydomain.com]
 
 **Steps**:
 
-* Set the service to `release` mode (if it isn't already there), with the
+- Set the service to `release` mode (if it isn't already there), with the
   `revisions` list equal to the revision you need to roll back to. Leave the
   configuration the same (or copy it over from `runLatest` mode, if the service
   wasn't already in `release` mode).
 
 **Results**:
 
-* The Route is updated to put 100% of traffic on your rollback Revision. Your
+- The Route is updated to put 100% of traffic on your rollback Revision. Your
   latest ready Revision remains available for validation under the
   `latest.my-service.defaultdomain.com`-style name.
 
 ```http
 PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
+
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
@@ -884,7 +883,7 @@ metadata:
 spec:
   release:
     revisions: [abc]
-    configuration:  # Copied from spec.runLatest.configuration if needed
+    configuration: # Copied from spec.runLatest.configuration if needed
       revisionTemplate:
         spec:
           container:
