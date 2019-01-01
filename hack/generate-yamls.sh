@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script builds all the YAMLs that Knative publishes. It may be varied
-# between different branches, of what it does, but the following usage must
-# be observed:
+# This script builds all the YAMLs that Knative serving publishes. It may be
+# varied between different branches, of what it does, but the following usage
+# must be observed:
 #
 # generate-yamls.sh  <repo-root-dir> <generated-yaml-list>
 #     repo-root-dir         the root directory of the repository.
@@ -53,7 +53,6 @@ fi
 rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 
 # Generated Knative component YAML files
-readonly BUILD_YAML=${YAML_OUTPUT_DIR}/build.yaml
 readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
@@ -73,9 +72,6 @@ readonly KO_YAML_FLAGS="-P ${KO_FLAGS}"
 export KO_DOCKER_REPO
 
 cd "${YAML_REPO_ROOT}"
-
-echo "Copying Build release"
-cp "third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
 ko resolve ${KO_YAML_FLAGS} -f config/ > "${SERVING_YAML}"
@@ -107,10 +103,8 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${
 
 echo "Building Release bundles"
 
-# NO_MON is just build and serving
-cp "${BUILD_YAML}" "${RELEASE_NO_MON_YAML}"
-echo "---" >> "${RELEASE_NO_MON_YAML}"
-cat "${SERVING_YAML}" >> "${RELEASE_NO_MON_YAML}"
+# NO_MON is just serving
+cp "${SERVING_YAML}" "${RELEASE_NO_MON_YAML}"
 echo "---" >> "${RELEASE_NO_MON_YAML}"
 
 # LITE is NO_MON plus "lean" monitoring
