@@ -16,6 +16,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: knative-serving-controller-admin
+  labels:
+    serving.knative.dev/release: devel
 subjects:
   - kind: ServiceAccount
     name: controller

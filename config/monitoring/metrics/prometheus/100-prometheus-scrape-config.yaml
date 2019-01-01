@@ -18,6 +18,7 @@ metadata:
   name: prometheus-scrape-config
   labels:
     name: prometheus-scrape-config
+    serving.knative.dev/release: devel
   namespace: knative-monitoring
 data:
   prometheus.yml: |-

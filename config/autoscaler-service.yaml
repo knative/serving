@@ -17,6 +17,7 @@ kind: Service
 metadata:
   labels:
     app: autoscaler
+    serving.knative.dev/release: devel
   name: autoscaler
   namespace: knative-serving
 spec:

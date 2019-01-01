@@ -17,6 +17,8 @@ kind: Deployment
 metadata:
   name: controller
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
   selector:

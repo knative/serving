@@ -6,6 +6,8 @@ kind: Gateway
 metadata:
   name: cluster-local-gateway
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   selector:
     istio: cluster-local-gateway

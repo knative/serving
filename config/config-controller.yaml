@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: config-controller
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 data:
   # CONTROLLER CONFIGURATION
 

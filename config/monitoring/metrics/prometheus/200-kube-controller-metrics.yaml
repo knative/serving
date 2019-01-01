@@ -19,6 +19,7 @@ metadata:
   name: kube-controller-manager
   labels:
     app: kube-controller-manager
+    serving.knative.dev/release: devel
 spec:
   selector:
     k8s-app: kube-controller-manager

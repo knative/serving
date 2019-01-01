@@ -19,6 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     app: activator
+    serving.knative.dev/release: devel
 spec:
   selector:
     app: activator

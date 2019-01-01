@@ -69,6 +69,12 @@ readonly RELEASE_NO_MON_YAML=${YAML_OUTPUT_DIR}/release-no-mon.yaml
 # Flags for all ko commands
 readonly KO_YAML_FLAGS="-P ${KO_FLAGS}"
 
+if [[ -n "${TAG}" ]]; then
+  LABEL_YAML_CMD=(sed -e "s|serving.knative.dev/release: devel|serving.knative.dev/release: \"${TAG}\"|")
+else
+  LABEL_YAML_CMD=(cat)
+fi
+
 : ${KO_DOCKER_REPO:="ko.local"}
 export KO_DOCKER_REPO
 
@@ -78,7 +84,7 @@ echo "Copying Build release"
 cp "third_party/config/build/release.yaml" "${BUILD_YAML}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_YAML_FLAGS} -f config/ > "${SERVING_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_YAML}"
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
@@ -87,23 +93,23 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f config/monitoring/logging/elasticsearch \
     -f third_party/config/monitoring/metrics/prometheus \
     -f config/monitoring/metrics/prometheus \
-    -f config/monitoring/tracing/zipkin > "${MONITORING_YAML}"
+    -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus > "${MONITORING_METRIC_PROMETHEUS_YAML}"
+    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
 
 # Logs via ElasticSearch, Fluentd & Kibana
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
+    -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
 # Traces via Zipkin when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin > "${MONITORING_TRACE_ZIPKIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
 
 # Traces via Zipkin in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 echo "Building Release bundles"
 

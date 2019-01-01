@@ -17,6 +17,8 @@ kind: Deployment
 metadata:
   name: activator
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
   selector:
@@ -30,6 +32,7 @@ spec:
       labels:
         app: activator
         role: activator
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:

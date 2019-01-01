@@ -19,6 +19,7 @@ metadata:
   namespace: knative-monitoring
   labels:
     addonmanager.kubernetes.io/mode: Reconcile
+    serving.knative.dev/release: devel
 data:
   100.system.conf: |-
     <system>
