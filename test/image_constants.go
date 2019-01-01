@@ -30,4 +30,3 @@ const EnvImageFilePathInfoPath = "/filepath"
 
 //EnvImageFilePathQueryParam query param to be used with EnvImageFilePathInfoPath to specify filepath
 const EnvImageFilePathQueryParam = "path"
-
