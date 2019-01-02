@@ -199,7 +199,9 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	}
 
 	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == RequestQueuePort || userPort.ContainerPort == RequestQueueAdminPort {
+	if userPort.ContainerPort == RequestQueuePort ||
+		userPort.ContainerPort == RequestQueueAdminPort ||
+		userPort.ContainerPort == RequestQueueMetricsPort {
 		errs = errs.Also(apis.ErrInvalidValue(strconv.Itoa(int(userPort.ContainerPort)), "ContainerPort"))
 	}
 
