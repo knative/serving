@@ -247,9 +247,9 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
-func hasConfigChanges(config, desiredConfig *v1alpha1.Configuration) bool {
-	return !equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) ||
-		!equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
+func configSemanticEquals(config, desiredConfig *v1alpha1.Configuration) bool {
+	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -262,7 +262,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if !hasConfigChanges(config, desiredConfig) {
+	if configSemanticEquals(config, desiredConfig) {
 		// No differences to reconcile.
 		return config, nil
 	}
@@ -291,9 +291,9 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
-func hasRouteChanges(route, desiredRoute *v1alpha1.Route) bool {
-	return !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) ||
-		!equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
+func routeSemanticEquals(route, desiredRoute *v1alpha1.Route) bool {
+	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -309,7 +309,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	// TODO(#642): Remove this (needed to avoid continuous updates).
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
-	if !hasRouteChanges(route, desiredRoute) {
+	if routeSemanticEquals(route, desiredRoute) {
 		// No differences to reconcile.
 		return route, nil
 	}
