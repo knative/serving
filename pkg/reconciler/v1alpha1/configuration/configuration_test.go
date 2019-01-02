@@ -25,7 +25,6 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
@@ -323,19 +322,24 @@ func TestReconcile(t *testing.T) {
 func TestGCReconcile(t *testing.T) {
 	now := time.Now()
 	tenMinutesAgo := now.Add(-10 * time.Minute)
+
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
 	table := TableTest{{
 		Name: "delete oldest, keep two",
 		Objects: []runtime.Object{
 			cfg("keep-two", "foo", 5556,
 				WithLatestCreated, WithObservedGen, WithLatestReady),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(oldest),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(older),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -358,12 +362,12 @@ func TestGCReconcile(t *testing.T) {
 				WithLatestCreated, WithObservedGen, WithLatestReady),
 			// No lastPinned so we will keep this.
 			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo)),
+				WithCreationTimestamp(oldest)),
 			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(older),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
 		Key: "foo/keep-no-last-pinned",
@@ -373,14 +377,14 @@ func TestGCReconcile(t *testing.T) {
 			cfg("keep-recent-last-pinned", "foo", 5556,
 				WithLatestCreated, WithObservedGen, WithLatestReady),
 			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(oldest),
 				// This is an indication that things are still routing here.
 				WithLastPinned(now)),
 			rev("keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(older),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
 		Key: "foo/keep-recent-last-pinned",
@@ -392,16 +396,29 @@ func TestGCReconcile(t *testing.T) {
 			cfg("keep-two", "foo", 5554, WithLatestCreated, WithLatestReady,
 				WithGeneration(5556), WithLatestCreated, WithObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(oldest),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-two", "foo", 5555, // Not Ready
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(older),
 				WithLastPinned(tenMinutesAgo)),
 			rev("keep-two", "foo", 5556, // Not Ready
-				WithCreationTimestamp(tenMinutesAgo),
+				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
 		Key: "foo/keep-two",
+	}, {
+		Name: "keep stale revision because of minimum generations",
+		Objects: []runtime.Object{
+			cfg("keep-all", "foo", 5554,
+				// Don't set the latest ready revision here
+				// since those by default are always retained
+				WithLatestCreated,
+				WithObservedGen),
+			rev("keep-all", "foo", 5554,
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+		},
+		Key: "foo/keep-all",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -480,38 +497,29 @@ func TestIsRevisionStale(t *testing.T) {
 		latestRev string
 		want      bool
 	}{{
-		name: "new no lastPinned",
+		name: "fresh revision that was never pinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
-				CreationTimestamp: metav1.Time{curTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "1",
-				},
+				CreationTimestamp: metav1.NewTime(curTime),
 			},
 		},
 		want: false,
 	}, {
-		name: "old no lastPinned",
+		name: "stale revision that was never pinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
-				CreationTimestamp: metav1.Time{staleTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "1",
-				},
+				CreationTimestamp: metav1.NewTime(staleTime),
 			},
 		},
 		want: false,
 	}, {
-		name: "stale lastPinned",
+		name: "stale revision that was previously pinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
-				CreationTimestamp: metav1.Time{staleTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "1",
-				},
+				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
@@ -519,31 +527,13 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: true,
 	}, {
-		name: "not stale lastPinned",
+		name: "fresh revision that was previously pinned",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
-				CreationTimestamp: metav1.Time{staleTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "1",
-				},
+				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", curTime.Unix()),
-				},
-			},
-		},
-		want: false,
-	}, {
-		name: "stale within miniumGenerations",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.Time{staleTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "2",
-				},
-				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
 			},
 		},
@@ -553,10 +543,7 @@ func TestIsRevisionStale(t *testing.T) {
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
-				CreationTimestamp: metav1.Time{staleTime},
-				Labels: map[string]string{
-					serving.ConfigurationGenerationLabelKey: "1",
-				},
+				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
 				},
@@ -580,15 +567,13 @@ func TestIsRevisionStale(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 3,
-				},
 				Status: v1alpha1.ConfigurationStatus{
 					LatestReadyRevisionName: test.latestRev,
 				},
 			}
 
 			got := isRevisionStale(ctx, test.rev, cfg)
+
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
 			}
