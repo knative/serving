@@ -478,12 +478,9 @@ func TestIsRevisionStale(t *testing.T) {
 	curTime := time.Now()
 	staleTime := curTime.Add(-10 * time.Minute)
 
-	expiryOlderThanStale := metav1.NewTime(staleTime.Add(-1 * time.Second))
-
 	tests := []struct {
 		name      string
 		rev       *v1alpha1.Revision
-		expiry    *metav1.Time
 		latestRev string
 		want      bool
 	}{{
@@ -529,19 +526,6 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: false,
 	}, {
-		name:   "stale revision newer than expiry",
-		expiry: &expiryOlderThanStale,
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(staleTime),
-				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
-				},
-			},
-		},
-		want: false,
-	}, {
 		name: "stale latest ready revision",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -575,7 +559,7 @@ func TestIsRevisionStale(t *testing.T) {
 				},
 			}
 
-			got := isRevisionStale(ctx, test.rev, cfg, test.expiry)
+			got := isRevisionStale(ctx, test.rev, cfg)
 
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)

@@ -305,17 +305,14 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
 	})
 
-	var expiry *metav1.Time
+	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
 
-	minRevisions := cfg.StaleRevisionMinimumGenerations
-	if int64(len(revs)) > minRevisions && minRevisions != 0 {
-		offset := cfg.StaleRevisionMinimumGenerations - 1
-		revisionCreation := revs[offset].CreationTimestamp
-		expiry = &revisionCreation
+	if int64(len(revs)) < gcSkipOffset {
+		gcSkipOffset = 0
 	}
 
-	for _, rev := range revs {
-		if isRevisionStale(ctx, rev, config, expiry) {
+	for _, rev := range revs[gcSkipOffset:] {
+		if isRevisionStale(ctx, rev, config) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.Errorf("Failed to delete stale revision: %v", err)
@@ -326,21 +323,11 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	return nil
 }
 
-func isRevisionStale(
-	ctx context.Context,
-	rev *v1alpha1.Revision,
-	config *v1alpha1.Configuration,
-	expiry *metav1.Time,
-) bool {
-
+func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
 	if config.Status.LatestReadyRevisionName == rev.Name {
-		return false
-	}
-
-	if expiry != nil && (expiry.Before(&rev.CreationTimestamp) || expiry.Equal(&rev.CreationTimestamp)) {
 		return false
 	}
 
