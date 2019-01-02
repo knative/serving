@@ -278,7 +278,7 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
 		}},
 	}, {
-		Name: "runLatest - update route and service labels",
+		Name: "runLatest - update route and config labels",
 		Objects: []runtime.Object{
 			// Mutate the Service to add some more labels
 			svc("update-route-and-config-labels", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
