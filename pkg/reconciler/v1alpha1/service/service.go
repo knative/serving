@@ -45,7 +45,6 @@ const (
 	controllerAgentName = "service-controller"
 )
 
-
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	*reconciler.Base
@@ -248,6 +247,11 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
+func hasConfigChanges(config, desiredConfig *v1alpha1.Configuration) bool {
+	return !equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) ||
+		!equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
+}
+
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
@@ -258,7 +262,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
+	if !hasConfigChanges(config, desiredConfig) {
 		// No differences to reconcile.
 		return config, nil
 	}
@@ -270,8 +274,9 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 
 	// Don't modify the informers copy.
 	existing := config.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta).
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
+	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
 
@@ -284,6 +289,11 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 		return nil, err
 	}
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
+}
+
+func hasRouteChanges(route, desiredRoute *v1alpha1.Route) bool {
+	return !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) ||
+		!equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -299,7 +309,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	// TODO(#642): Remove this (needed to avoid continuous updates).
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
-	if equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
+	if !hasRouteChanges(route, desiredRoute) {
 		// No differences to reconcile.
 		return route, nil
 	}
@@ -311,7 +321,8 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta).
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredRoute.Spec
+	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }

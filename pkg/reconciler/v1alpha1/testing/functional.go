@@ -103,6 +103,16 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
+// WithServiceLabel attaches a particular label to the service.
+func WithServiceLabel(key, value string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		service.Labels[key] = value
+	}
+}
+
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
 // which is pinned to the named revision.
 // Deprecated, since PinnedType is deprecated.

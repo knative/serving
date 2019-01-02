@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+	"testing"
+
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
@@ -32,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -275,6 +276,20 @@ func TestReconcile(t *testing.T) {
 			Object: config("update-route-and-config", "foo", WithRunLatestRollout),
 		}, {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
+		}},
+	}, {
+		Name: "runLatest - update route and service labels",
+		Objects: []runtime.Object{
+			// Mutate the Service to add some more labels
+			svc("update-route-and-config-labels", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
+			config("update-route-and-config-labels", "foo", WithRunLatestRollout),
+			route("update-route-and-config-labels", "foo", WithRunLatestRollout),
+		},
+		Key: "foo/update-route-and-config-labels",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-route-and-config-labels", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
+		}, {
+			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel("new-label", "new-value")),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
