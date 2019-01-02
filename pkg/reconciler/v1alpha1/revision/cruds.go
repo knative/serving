@@ -63,6 +63,10 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	// Preserve the current scale of the Deployment.
 	deployment.Spec.Replicas = have.Spec.Replicas
 
+	// Preserve the label selector since it's immutable
+	// TODO(dprotaso) Determine other immutable properties
+	deployment.Spec.Selector = have.Spec.Selector
+
 	// If the spec we want is the spec we have, then we're good.
 	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
 		return have, Unchanged, nil

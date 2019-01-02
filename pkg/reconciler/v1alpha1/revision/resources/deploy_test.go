@@ -1160,9 +1160,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1232,9 +1230,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1299,9 +1295,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1372,9 +1366,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
