@@ -300,16 +300,16 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 		return err
 	}
 
+	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
+
+	if gcSkipOffset >= int64(len(revs)) {
+		return nil
+	}
+
 	// Sort by creation timestamp descending
 	sort.Slice(revs, func(i, j int) bool {
 		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
 	})
-
-	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
-
-	if int64(len(revs)) < gcSkipOffset {
-		gcSkipOffset = 0
-	}
 
 	for _, rev := range revs[gcSkipOffset:] {
 		if isRevisionStale(ctx, rev, config) {

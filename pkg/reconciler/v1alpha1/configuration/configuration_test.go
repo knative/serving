@@ -406,6 +406,19 @@ func TestGCReconcile(t *testing.T) {
 				WithLastPinned(tenMinutesAgo)),
 		},
 		Key: "foo/keep-two",
+	}, {
+		Name: "keep stale revision because of minimum generations",
+		Objects: []runtime.Object{
+			cfg("keep-all", "foo", 5554,
+				// Don't set the latest ready revision here
+				// since those by default are always retained
+				WithLatestCreated,
+				WithObservedGen),
+			rev("keep-all", "foo", 5554,
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+		},
+		Key: "foo/keep-all",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
