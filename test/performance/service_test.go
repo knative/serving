@@ -33,6 +33,10 @@ import (
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
+func createTestCase(name string, val float64) testgrid.TestCase {
+	return CreatePerfTestCase(float32(val), name, "TestCreateService")
+}
+
 func TestCreateService(t *testing.T) {
 	logger := logging.GetContextLogger("TestCreateService")
 
@@ -74,11 +78,14 @@ func TestCreateService(t *testing.T) {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	// Add latency metrics
+	// Add metrics
 	var tc []testgrid.TestCase
-	for _, p := range resp.Result.DurationHistogram.Percentiles {
-		tc = append(tc, CreatePerfTestCase(float32(p.Value), fmt.Sprintf("p%d", int(p.Percentile)), "TestCreateServicePerformance"))
-	}
+
+	tc = append(tc, createTestCase("Min", resp.Result.DurationHistogram.Min))
+	tc = append(tc, createTestCase("Max", resp.Result.DurationHistogram.Max))
+	tc = append(tc, createTestCase("Avg", resp.Result.DurationHistogram.Avg))
+	tc = append(tc, createTestCase("StdDev", resp.Result.DurationHistogram.StdDev))
+	tc = append(tc, createTestCase("Sum", resp.Result.DurationHistogram.Sum))
 
 	if err = testgrid.CreateTestgridXML(tc, "TestCreateServicePerformance"); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
