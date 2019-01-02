@@ -162,7 +162,7 @@ func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageCon
 		return errors.New("StatsReporter is not Initialized yet")
 	}
 	_lameDuck := float64(0)
-	if !lameDuck {
+	if lameDuck {
 		_lameDuck = float64(1)
 	}
 	stats.Record(r.ctx, measurements[LameDuckM].M(_lameDuck))
