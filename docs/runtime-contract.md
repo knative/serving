@@ -366,8 +366,13 @@ such variables will follow demonstrated usage and utility.
 
 ### User
 
-The user which the process is run as SHOULD be specified by the operator or
-platform provider, rather than the developer.
+Developers MAY specify that containers should be run as a specific user or group ID using the `runAsUser` container property.
+If specified, the runtime MUST run the container as the specified user ID if allowed by the platform (see below).
+If no `runAsUser` is specified, a platform-specific default SHALL be used.
+Platform Providers SHOULD document this default behavior.
+
+Operators and Platform Providers MAY prohibit certain user IDs, such as `root`, from executing code.
+In this case, if the identity selected by the developer is invalid, the container execution MUST be failed.
 
 ### Default Filesystems
 
