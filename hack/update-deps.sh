@@ -35,3 +35,7 @@ update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 # cherrypick of #66078.  Remove this once that reaches a client version
 # we have pulled in.
 git apply ${REPO_ROOT_DIR}/hack/66078.patch
+
+# Delete all vendored broken symlinks.
+# From https://stackoverflow.com/questions/22097130/delete-all-broken-symbolic-links-with-a-line
+find vendor/ -type l -exec sh -c 'for x; do [ -e "$x" ] || rm "$x"; done' _ {} +
