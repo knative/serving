@@ -123,7 +123,7 @@ This function makes use of [the environment flag `resolvableDomain`](#use-flags)
 to determine if the ingress should be used or the domain should be used
 directly.
 
-_See [request.go](./request.go)._
+_See [request.go](https://github.com/knative/pkg/blob/master/test/request.go)._
 
 If you need more low-level access to the http request or response against a
 deployed service, you can directly use the `SpoofingClient` that
@@ -141,7 +141,7 @@ resp, err := client.Do(req)
 resp, err := client.Poll(req, test.BodyMatches(expectedText))
 ```
 
-_See [spoof.go](./spoof/spoof.go)._
+_See [spoof.go](https://github.com/knative/pkg/blob/master/test/spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
@@ -190,7 +190,7 @@ err := test.CheckConfigurationState(clients.ServingClient, configName, func(c *v
 })
 ```
 
-_See [crd_checks.go](./crd_checks.go) and [kube_checks.go](./kube_checks.go)._
+_See [crd_checks.go](./crd_checks.go) and [kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
