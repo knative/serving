@@ -151,6 +151,11 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
+
+		if want.GetSubresource() != "" {
+			t.Errorf("Expectation was invalid - it should not include a subresource: %#v", want)
+		}
+
 		got := updates[i].GetObject()
 
 		// Update the object state.
@@ -181,6 +186,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
+
 		got := statusUpdates[i].GetObject()
 
 		// Update the object state.
@@ -194,6 +200,18 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		for _, extra := range statusUpdates[want:] {
 			t.Errorf("Extra status update: %#v", extra)
 		}
+	}
+
+	if len(statusUpdates)+len(updates) != len(actions.Updates) {
+		var unexpected []clientgotesting.UpdateAction
+
+		for _, update := range actions.Updates {
+			if update.GetSubresource() != "status" && update.GetSubresource() != "" {
+				unexpected = append(unexpected, update)
+			}
+		}
+
+		t.Errorf("Unexpected subresource updates occurred %#v", unexpected)
 	}
 
 	for i, want := range r.WantDeletes {
