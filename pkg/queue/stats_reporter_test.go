@@ -114,7 +114,7 @@ func TestReporter_Report(t *testing.T) {
 	if err := reporter.Report(true, float64(39), float64(3)); err != nil {
 		t.Error(err)
 	}
-	checkData(t, LameDuckN, 0, testTagKeyValueMap)
+	checkData(t, LameDuckN, 1, testTagKeyValueMap)
 	checkData(t, OperationsPerSecondN, 39, testTagKeyValueMap)
 	checkData(t, AverageConcurrentRequestsN, 3, testTagKeyValueMap)
 	if err := reporter.UnregisterViews(); err != nil {
