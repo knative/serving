@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -252,12 +253,23 @@ func configSemanticEquals(config, desiredConfig *v1alpha1.Configuration) bool {
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
 }
 
+func mergeRouteLabel(desiredConfig, config *v1alpha1.Configuration) {
+	routeLabel, existed := config.ObjectMeta.Labels[serving.RouteLabelKey]
+	if !existed {
+		delete(desiredConfig.ObjectMeta.Labels, serving.RouteLabelKey)
+	} else {
+		desiredConfig.ObjectMeta.Labels[serving.RouteLabelKey] = routeLabel
+	}
+}
+
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
+	// Route label is automatically set by another reconciler.
+	mergeRouteLabel(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation

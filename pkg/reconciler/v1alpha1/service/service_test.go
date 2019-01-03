@@ -292,6 +292,23 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel("new-label", "new-value")),
 		}},
 	}, {
+		Name: "runLatest - update route config labels ignoring serving.knative.dev/route",
+		Objects: []runtime.Object{
+			// Mutate the Service to add some more labels
+			svc("update-child-labels-ignore-route-label", "foo",
+				WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
+			config("update-child-labels-ignore-route-label", "foo",
+				WithRunLatestRollout, WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
+			route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout),
+		},
+		Key: "foo/update-child-labels-ignore-route-label",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value"),
+				WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
+		}, {
+			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel("new-label", "new-value")),
+		}},
+	}, {
 		Name: "runLatest - bad config update",
 		Objects: []runtime.Object{
 			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
