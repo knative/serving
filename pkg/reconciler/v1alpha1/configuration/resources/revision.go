@@ -26,13 +26,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// MakeRevision creates a revision object from configuration and build reference.
 func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReference) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
 		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
 		Spec:       config.Spec.RevisionTemplate.Spec,
 	}
-	// Populate the Namespace and Nme
+	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace
 	rev.Name = names.Revision(config)
 

@@ -22,10 +22,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
+// Revision formats and returns a revision name for the given config name and generation.
 func Revision(config *v1alpha1.Configuration) string {
 	return fmt.Sprintf("%s-%05d", config.Name, config.Spec.Generation)
 }
 
+// Build returns the revision name for the configuration, if Build is not nil, else empty string.
 func Build(config *v1alpha1.Configuration) string {
 	if config.Spec.Build == nil {
 		return ""

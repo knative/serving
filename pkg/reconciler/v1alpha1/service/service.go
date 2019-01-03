@@ -176,7 +176,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return err
 		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", config.GetName())
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
@@ -197,7 +197,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return err
 		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", route.GetName())
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
 		return err
@@ -234,7 +234,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
 	if err == nil && becomesRdy {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
-		c.Logger.Infof("Service %v became ready after %v", service.Name, duration)
+		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
 	return svc, err
@@ -289,7 +289,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff Configuration: %v", err)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", diff)
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", diff)
 
 	// Don't modify the informers copy.
 	existing := config.DeepCopy()
@@ -336,7 +336,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff Route: %v", err)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed): %v", diff)
+	logger.Infof("Reconciling route diff (-desired, +observed): %s", diff)
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()

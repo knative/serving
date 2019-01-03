@@ -106,7 +106,7 @@ func NewController(
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		c.Logger.Errorf("invalid resource key: %s", key)
@@ -116,7 +116,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	ctx = c.configStore.ToContext(ctx)
 
-	// Get the Configuration resource with this namespace/name
+	// Get the Configuration resource with this namespace/name.
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
@@ -157,7 +157,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	config.Status.InitializeConditions()
 
-	// First, fetch the revision that should exist for the current generation
+	// First, fetch the revision that should exist for the current generation.
 	revName := resourcenames.Revision(config)
 	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
 	if errors.IsNotFound(err) {
@@ -194,7 +194,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
 		if ready == "" {
 			// Surface an event for the first revision becoming ready.
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			c.Recorder.Event(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
 		// Update the LatestReadyRevisionName and surface an event for the transition.
@@ -333,7 +333,7 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 
 	curTime := time.Now()
 	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
-		// Revision was created sooner than staleRevisionCreateDelay. Ignore it
+		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
 		return false
 	}
 
