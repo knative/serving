@@ -253,6 +253,9 @@ func configSemanticEquals(config, desiredConfig *v1alpha1.Configuration) bool {
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
 }
 
+// mergeRouteLabel sets desiredConfig[serving.RouteLabelKey] to same
+// as config[serving.RouteLabelKey], so that we do nothing about
+// configuration label serving.RouteLabelKey in our reconciliation.
 func mergeRouteLabel(desiredConfig, config *v1alpha1.Configuration) {
 	routeLabel, existed := config.ObjectMeta.Labels[serving.RouteLabelKey]
 	if !existed {
@@ -268,7 +271,10 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	if err != nil {
 		return nil, err
 	}
-	// Route label is automatically set by another reconciler.
+	// Route label is automatically set by another reconciler.  We
+	// want to ignore that label in our reconciliation here by setting
+	// desiredConfig[serving.RouteLabelKey] to the same as
+	// config[serving.RouteLabelKey].
 	mergeRouteLabel(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
