@@ -248,15 +248,16 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
-func configSemanticEquals(config, desiredConfig *v1alpha1.Configuration) bool {
+func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
 }
 
-// mergeRouteLabel sets desiredConfig[serving.RouteLabelKey] to same
-// as config[serving.RouteLabelKey], so that we do nothing about
-// configuration label serving.RouteLabelKey in our reconciliation.
-func mergeRouteLabel(desiredConfig, config *v1alpha1.Configuration) {
+// ignoreRouteLabelChange sets desiredConfig[serving.RouteLabelKey] to
+// same as config[serving.RouteLabelKey], so that we do nothing about
+// the configuration label serving.RouteLabelKey in our
+// reconciliation.
+func ignoreRouteLabelChange(desiredConfig, config *v1alpha1.Configuration) {
 	routeLabel, existed := config.ObjectMeta.Labels[serving.RouteLabelKey]
 	if !existed {
 		delete(desiredConfig.ObjectMeta.Labels, serving.RouteLabelKey)
@@ -274,13 +275,13 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// Route label is automatically set by another reconciler.  We
 	// want to ignore that label in our reconciliation here by setting
 	// desiredConfig[serving.RouteLabelKey] to the same as
-	// config[serving.RouteLabelKey].
-	mergeRouteLabel(desiredConfig, config)
+	// config[erving.RouteLabelKey].
+	ignoreRouteLabelChange(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if configSemanticEquals(config, desiredConfig) {
+	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.
 		return config, nil
 	}
@@ -309,7 +310,7 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
-func routeSemanticEquals(route, desiredRoute *v1alpha1.Route) bool {
+func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
 }
@@ -327,7 +328,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	// TODO(#642): Remove this (needed to avoid continuous updates).
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
-	if routeSemanticEquals(route, desiredRoute) {
+	if routeSemanticEquals(desiredRoute, route) {
 		// No differences to reconcile.
 		return route, nil
 	}
