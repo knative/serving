@@ -153,6 +153,5 @@ function uninstall_knative_serving() {
 function publish_test_images() {
   echo ">> Publishing test images"
   kubectl create namespace serving-tests
-
   ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }
