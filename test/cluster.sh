@@ -153,8 +153,5 @@ function uninstall_knative_serving() {
 function publish_test_images() {
   echo ">> Publishing test images"
   kubectl create namespace serving-tests
-  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})" || return 1
-  done
+  ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }

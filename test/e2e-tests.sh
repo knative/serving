@@ -70,7 +70,6 @@ install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
-
 header "Running tests"
 
 failed=0
