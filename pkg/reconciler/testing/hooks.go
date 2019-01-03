@@ -18,7 +18,7 @@ limitations under the License.
 package testing
 
 import (
-	"fmt"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -134,28 +134,24 @@ func (h *Hooks) OnDelete(fake *kubetesting.Fake, resource string, rf DeleteHookF
 // WaitForHooks waits until all attached hooks have returned true at least once.
 // If the given timeout expires before that happens, an error is returned.
 func (h *Hooks) WaitForHooks(timeout time.Duration) error {
-	if h.completionIndex == -1 {
+	ci := int(atomic.LoadInt32(&h.completionIndex))
+	if ci == -1 {
 		return nil
 	}
+	// Convert index to count.
+	ci++
 	timer := time.After(timeout)
-	hookCompletions := make([]HookResult, h.completionIndex+1)
+	hookCompletions := map[int32]HookResult{}
 	for {
-		res := true
-		for _, r := range hookCompletions {
-			if !r {
-				res = false
-				break
-			}
-		}
-		if res {
-			h.completionIndex = -1
-			return nil
-		}
 		select {
 		case i := <-h.completionCh:
 			hookCompletions[i] = HookComplete
+			if len(hookCompletions) == ci {
+				atomic.StoreInt32(&h.completionIndex, -1)
+				return nil
+			}
 		case <-timer:
-			return fmt.Errorf("Timed out waiting for hooks to complete")
+			return errors.New("timed out waiting for hooks to complete")
 		}
 	}
 }

@@ -67,9 +67,9 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 
 // GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (t *TrafficConfig) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
-	results := []v1alpha1.TrafficTarget{}
-	for _, tt := range t.RevisionTargets {
-		results = append(results, v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent})
+	results := make([]v1alpha1.TrafficTarget, len(t.RevisionTargets))
+	for i, tt := range t.RevisionTargets {
+		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 	}
 	return results
 }
@@ -225,9 +225,9 @@ func consolidate(targets []RevisionTarget) []RevisionTarget {
 			byName[name] = cur
 		}
 	}
-	consolidated := []RevisionTarget{}
-	for _, name := range names {
-		consolidated = append(consolidated, byName[name])
+	consolidated := make([]RevisionTarget, len(names))
+	for i, name := range names {
+		consolidated[i] = byName[name]
 	}
 	if len(consolidated) == 1 {
 		consolidated[0].TrafficTarget.Percent = 100
