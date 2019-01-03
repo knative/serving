@@ -154,5 +154,5 @@ function publish_test_images() {
   echo ">> Publishing test images"
   kubectl create namespace serving-tests
 
-  source $(dirname $0)/upload-test-images.sh
+  ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }
