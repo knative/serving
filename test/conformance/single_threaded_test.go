@@ -34,10 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	singleThreadedImage = "singlethreaded"
-)
-
 func TestSingleConcurrency(t *testing.T) {
 	clients := setup(t)
 
@@ -58,27 +54,21 @@ func TestSingleConcurrency(t *testing.T) {
 		ContainerConcurrency: 1,
 	}
 	logger.Info("Creating a new Configuration")
-	err := test.CreateConfiguration(logger, clients, names, imagePath, &configOptions)
+	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &configOptions)
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
 	logger.Info("Creating a new Route")
-	err = test.CreateRoute(logger, clients, names)
+	_, err = test.CreateRoute(logger, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
-	revisionName, err := getNextRevisionName(clients, names)
+	logger.Info("The Configuration will be updated with the name of the Revision")
+	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
-	}
-	names.Revision = revisionName
-
-	logger.Infof("Waiting for revision %q to be ready", names.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q still can't serve traffic: %v", names.Revision, err)
 	}
 
 	logger.Info("When the Route reports as Ready, everything should be ready.")

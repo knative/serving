@@ -153,8 +153,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 	// Don't modify the informers copy
 	existing := route.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update.
-	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Update(existing)
+	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.

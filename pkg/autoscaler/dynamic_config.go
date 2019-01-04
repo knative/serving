@@ -27,8 +27,7 @@ type DynamicConfig struct {
 	mutex  sync.RWMutex
 	config interface{} // discourage direct access as this is not goroutine safe
 
-	logger               *zap.SugaredLogger
-	containerConcurrency float64
+	logger *zap.SugaredLogger
 }
 
 func NewDynamicConfig(config *Config, logger *zap.SugaredLogger) *DynamicConfig {

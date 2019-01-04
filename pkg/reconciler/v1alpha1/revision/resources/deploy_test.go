@@ -17,8 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strconv"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -26,7 +26,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +35,8 @@ import (
 )
 
 var (
-	one int32 = 1
+	one            int32  = 1
+	defaultPortStr string = strconv.Itoa(int(v1alpha1.DefaultUserPort))
 )
 
 func refInt64(num int64) *int64 {
@@ -54,6 +54,105 @@ func TestMakePodSpec(t *testing.T) {
 		cc   *config.Controller
 		want *corev1.PodSpec
 	}{{
+		name: "user-defined user port, queue proxy have PORT env",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels:    labels,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       45,
+				Container: corev1.Container{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 8888,
+						},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:      UserContainerName,
+				Image:     "busybox",
+				Resources: userResources,
+				Ports: []corev1.ContainerPort{
+					{
+						Name:          v1alpha1.UserPortName,
+						ContainerPort: 8888,
+					},
+				},
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "8888", // match user port
+				}, {
+					Name:  "K_REVISION",
+					Value: "bar",
+				}, {
+					Name:  "K_CONFIGURATION",
+					Value: "cfg",
+				}, {
+					Name:  "K_SERVICE",
+					Value: "svc",
+				}},
+			}, {
+				Name:           QueueContainerName,
+				Resources:      queueResources,
+				Ports:          queuePorts,
+				Lifecycle:      queueLifecycle,
+				ReadinessProbe: queueReadinessProbe,
+				Env: []corev1.EnvVar{{
+					Name:  "SERVING_NAMESPACE",
+					Value: "foo", // matches namespace
+				}, {
+					Name: "SERVING_CONFIGURATION",
+					// No OwnerReference
+				}, {
+					Name:  "SERVING_REVISION",
+					Value: "bar", // matches name
+				}, {
+					Name:  "SERVING_AUTOSCALER",
+					Value: "autoscaler", // no autoscaler configured.
+				}, {
+					Name:  "SERVING_AUTOSCALER_PORT",
+					Value: "8080",
+				}, {
+					Name:  "CONTAINER_CONCURRENCY",
+					Value: "1",
+				}, {
+					Name:  "REVISION_TIMEOUT_SECONDS",
+					Value: "45",
+				}, {
+					Name: "SERVING_POD",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
+				}, {
+					Name: "SERVING_LOGGING_CONFIG",
+					// No logging configuration
+				}, {
+					Name: "SERVING_LOGGING_LEVEL",
+					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8888", // Match user port
+				}},
+			}},
+			Volumes:                       []corev1.Volume{varLogVolume},
+			TerminationGracePeriodSeconds: refInt64(45),
+		},
+	}, {
 		name: "simple concurrency=single no owner",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -67,9 +166,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -78,13 +175,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         userContainerName,
-				Image:        "busybox",
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Name:                     UserContainerName,
+				Image:                    "busybox",
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -96,7 +194,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -134,6 +232,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -153,9 +254,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 			Status: v1alpha1.RevisionStatus{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -167,13 +266,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         userContainerName,
-				Image:        "busybox@sha256:deadbeef",
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Name:                     UserContainerName,
+				Image:                    "busybox@sha256:deadbeef",
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -185,7 +285,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -223,6 +323,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -249,9 +352,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -260,13 +361,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         userContainerName,
-				Image:        "busybox",
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Name:                     UserContainerName,
+				Image:                    "busybox",
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -278,7 +380,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -316,6 +418,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -337,15 +442,13 @@ func TestMakePodSpec(t *testing.T) {
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(userPort),
+								Port: intstr.FromInt(v1alpha1.DefaultUserPort),
 								Path: "/",
 							},
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -354,21 +457,22 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  userContainerName,
+				Name:  UserContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
-							Port: intstr.FromInt(queue.RequestQueuePort),
+							Port: intstr.FromInt(v1alpha1.RequestQueuePort),
 							Path: "/",
 						},
 					},
 				},
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -380,7 +484,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -418,6 +522,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -444,9 +551,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -455,7 +560,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  userContainerName,
+				Name:  UserContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -464,11 +569,12 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -480,7 +586,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -518,6 +624,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -544,9 +653,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -555,22 +662,23 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  userContainerName,
+				Name:  UserContainerName,
 				Image: "busybox",
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							// HTTP probes route through the queue
-							Port: intstr.FromInt(queue.RequestQueuePort),
+							Port: intstr.FromInt(v1alpha1.RequestQueuePort),
 						},
 					},
 				},
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -582,7 +690,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -620,6 +728,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -644,9 +755,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					},
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -655,20 +764,21 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  userContainerName,
+				Name:  UserContainerName,
 				Image: "busybox",
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(userPort),
+							Port: intstr.FromInt(v1alpha1.DefaultUserPort),
 						},
 					},
 				},
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -680,7 +790,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -718,6 +828,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -737,9 +850,7 @@ func TestMakePodSpec(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -751,13 +862,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         userContainerName,
-				Image:        "busybox",
-				Resources:    userResources,
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
-				Env: []corev1.EnvVar{userEnv,
+				Name:                     UserContainerName,
+				Image:                    "busybox",
+				Resources:                userResources,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				Env: []corev1.EnvVar{buildUserPortEnv(defaultPortStr),
 					{
 						Name:  "K_REVISION",
 						Value: "bar",
@@ -769,7 +881,7 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "svc",
 					}},
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -807,9 +919,12 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}, {
-				Name:      fluentdContainerName,
+				Name:      FluentdContainerName,
 				Image:     "indiana:jones",
 				Resources: fluentdResources,
 				Env: []corev1.EnvVar{{
@@ -817,7 +932,7 @@ func TestMakePodSpec(t *testing.T) {
 					Value: "--no-supervisor -q",
 				}, {
 					Name:  "SERVING_CONTAINER_NAME",
-					Value: userContainerName,
+					Value: UserContainerName,
 				}, {
 					Name: "SERVING_CONFIGURATION",
 					// No owner reference
@@ -880,10 +995,9 @@ func TestMakePodSpec(t *testing.T) {
 							corev1.ResourceCPU:    resource.MustParse("888m"),
 						},
 					},
+					TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -892,7 +1006,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:    userContainerName,
+				Name:    UserContainerName,
 				Image:   "busybox",
 				Command: []string{"/bin/bash"},
 				Args:    []string{"-c", "echo Hello world"},
@@ -925,11 +1039,12 @@ func TestMakePodSpec(t *testing.T) {
 						corev1.ResourceCPU:    resource.MustParse("888m"),
 					},
 				},
-				Ports:        userPorts,
-				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
-				Lifecycle:    userLifecycle,
+				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
+				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:                userLifecycle,
+				TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 			}, {
-				Name:           queueContainerName,
+				Name:           QueueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -967,6 +1082,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name: "SERVING_LOGGING_LEVEL",
 					// No logging level
+				}, {
+					Name:  "USER_PORT",
+					Value: "8080",
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -1011,9 +1129,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1044,9 +1160,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1085,9 +1199,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1118,9 +1230,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1152,9 +1262,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1187,9 +1295,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -1225,9 +1331,7 @@ func TestMakeDeployment(t *testing.T) {
 				Container: corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: &metav1.Duration{
-					Duration: 45 * time.Second,
-				},
+				TimeoutSeconds: 45,
 			},
 		},
 		lc: &logging.Config{},
@@ -1262,9 +1366,7 @@ func TestMakeDeployment(t *testing.T) {
 				Replicas: &one,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						serving.RevisionLabelKey: "bar",
-						serving.RevisionUID:      "1234",
-						AppLabelKey:              "bar",
+						serving.RevisionUID: "1234",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,

@@ -29,6 +29,7 @@ type (
 	EventList          = testing.EventList
 	Factory            = testing.Factory
 	HookResult         = testing.HookResult
+	FakeStatsReporter  = testing.FakeStatsReporter
 )
 
 var (
@@ -45,5 +46,6 @@ var (
 )
 
 const (
-	HookComplete = testing.HookComplete
+	HookComplete   = testing.HookComplete
+	HookIncomplete = testing.HookIncomplete
 )

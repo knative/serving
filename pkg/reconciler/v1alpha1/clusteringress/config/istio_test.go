@@ -60,13 +60,17 @@ func TestGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				IngressGatewayKey: "_invalid",
+				"gateway.invalid": "_invalid",
 			},
 		}}, {
 		name:    "gateway configuration with valid url",
 		wantErr: false,
 		wantIstio: &Istio{
-			IngressGateway: "istio-ingressgateway.istio-system.svc.cluster.local",
+			IngressGateways: []Gateway{{
+				GatewayName: "knative-ingress-gateway",
+				ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+			}},
+			LocalGateways: []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,20 +78,21 @@ func TestGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				IngressGatewayKey: "istio-ingressgateway.istio-system.svc.cluster.local",
+				"gateway.knative-ingress-gateway": "istio-ingressgateway.istio-system.svc.cluster.local",
 			},
 		}},
 	}
 
 	for _, tt := range gatewayConfigTests {
-		actualIstio, err := NewIstioFromConfigMap(tt.config)
+		t.Run(tt.name, func(t *testing.T) {
+			actualIstio, err := NewIstioFromConfigMap(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewIstioFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+			}
 
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewIstioFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
-
-		if diff := cmp.Diff(actualIstio, tt.wantIstio); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantIstio, actualIstio)
-		}
+			if diff := cmp.Diff(actualIstio, tt.wantIstio); diff != "" {
+				t.Fatalf("Want %v, but got %v", tt.wantIstio, actualIstio)
+			}
+		})
 	}
 }

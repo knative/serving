@@ -4,9 +4,9 @@ This doc explains how to setup a development environment so you can get started
 [contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
 to `Knative Serving`. Also take a look at:
 
-* [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
-* [How to add and run tests](./test/README.md)
-* [Iterating](#iterating)
+- [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
+- [How to add and run tests](./test/README.md)
+- [Iterating](#iterating)
 
 ## Prerequisites <a name="getting-started"></a>
 
@@ -25,24 +25,24 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is built in
+1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
+   built in
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
-1. [`ko`](https://github.com/google/go-containerregistry/tree/master/cmd/ko): For
-development.
+1. [`ko`](https://github.com/google/go-containerregistry/tree/master/cmd/ko):
+   For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
 ### Create a cluster and a repo
 
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). You
-   do *not* need install Istio or Knative using the instructions in that page -
+   do _not_ need install Istio or Knative using the instructions in that page -
    simply create the cluster and come back here. However, if you _did_ install
    Istio/Knative following those instructions, that's fine too, you'll just
    redeploy over them, below.
-1. [Set up a docker repository you can push
-   to](./docs/setting-up-a-docker-registry.md)
+1. [Set up a docker repository you can push to](./docs/setting-up-a-docker-registry.md)
 
 ### Setup your environment <a name="environment-setup"></a>
 
@@ -50,13 +50,15 @@ To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
-`export GOPATH=...`
+   `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-work properly.
+   work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
-developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-   * **Note**: if you are using docker hub to store your images your `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-   * **Note**: Currently Docker Hub doesn't let you create subdirs under your username.
+   developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+   - **Note**: if you are using docker hub to store your images your
+     `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+   - **Note**: Currently Docker Hub doesn't let you create subdirs under your
+     username.
 
 `.bashrc` example:
 
@@ -68,43 +70,47 @@ export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
 ```
 
-Make sure to configure [authentication](
-https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
-for your `KO_DOCKER_REPO` if required. To be able to push images to `gcr.io/<project>`, you need to run this once:
+Make sure to configure
+[authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
+for your `KO_DOCKER_REPO` if required. To be able to push images to
+`gcr.io/<project>`, you need to run this once:
 
 ```shell
 gcloud auth configure-docker
 ```
 
-For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
-with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
-should be put in this variable.
+For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with
+authentication configured with `kubectl`. You can list the clusters you
+currently have configured via: `kubectl config get-contexts`. For the cluster
+you want to target, the value in the CLUSTER column should be put in this
+variable.
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/knative/serving` directory
-in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
+The Go tools require that you clone the repository to the
+`src/github.com/knative/serving` directory in your
+[`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
 
-1. Create your own [fork of this
-  repo](https://help.github.com/articles/fork-a-repo/)
+1. Create your own
+   [fork of this repo](https://help.github.com/articles/fork-a-repo/)
 1. Clone it to your machine:
 
-  ```shell
-  mkdir -p ${GOPATH}/src/github.com/knative
-  cd ${GOPATH}/src/github.com/knative
-  git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
-  cd serving
-  git remote add upstream git@github.com:knative/serving.git
-  git remote set-url --push upstream no_push
-  ```
+```shell
+mkdir -p ${GOPATH}/src/github.com/knative
+cd ${GOPATH}/src/github.com/knative
+git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
+cd serving
+git remote add upstream git@github.com:knative/serving.git
+git remote set-url --push upstream no_push
+```
 
-_Adding the `upstream` remote sets you up nicely for regularly [syncing your
-fork](https://help.github.com/articles/syncing-a-fork/)._
+_Adding the `upstream` remote sets you up nicely for regularly
+[syncing your fork](https://help.github.com/articles/syncing-a-fork/)._
 
-Once you reach this point you are ready to do a full build and deploy as described below.
+Once you reach this point you are ready to do a full build and deploy as
+described below.
 
 ## Starting Knative Serving
 
@@ -115,10 +121,11 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform
-the setup needed for Knative.
+Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform the setup needed
+for Knative.
 
-The value you use depends on [your cluster setup](./docs/creating-a-kubernetes-cluster.md):
+The value you use depends on
+[your cluster setup](./docs/creating-a-kubernetes-cluster.md):
 
 ```shell
 # When using Minikube, the K8s user is your local user.
@@ -142,16 +149,18 @@ done
 kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
-to set up static IP for Ingresses in the cluster.
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
+set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
 
-This step includes building Knative Serving, creating and pushing developer images and deploying them to your Kubernetes cluster.
+This step includes building Knative Serving, creating and pushing developer
+images and deploying them to your Kubernetes cluster.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file.
-If this file is edited and deployed after Knative Serving installation, the changes in it will be
-effective only for newly created revisions.
+First, edit [config-network.yaml](config/config-network.yaml) as instructed
+within the file. If this file is edited and deployed after Knative Serving
+installation, the changes in it will be effective only for newly created
+revisions.
 
 Next, run:
 
@@ -174,9 +183,11 @@ You can access the Knative Serving Controller's logs with:
 kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name)
 ```
 
-If you're using a GCP project to host your Kubernetes cluster, it's good to check the
+If you're using a GCP project to host your Kubernetes cluster, it's good to
+check the
 [Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
-page to ensure that all services are up and running (and not blocked by a quota issue, for example).
+page to ensure that all services are up and running (and not blocked by a quota
+issue, for example).
 
 ### Install logging and monitoring backends
 
@@ -193,30 +204,35 @@ kubectl apply -R -f config/monitoring/100-namespace.yaml \
 
 ## Iterating
 
-As you make changes to the code-base, there are two special cases to be aware of:
+As you make changes to the code-base, there are two special cases to be aware
+of:
 
-* **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
+- **If you change an input to generated code**, then you must run
+  [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
 
-  * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
-  * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - API type definitions in
+    [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
-* **If you change a package's deps** (including adding external dep), then you must run
-  [`./hack/update-deps.sh`](./hack/update-deps.sh).
+- **If you change a package's deps** (including adding external dep), then you
+  must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
-These are both idempotent, and we expect that running these at `HEAD` to have no diffs.
-Code generation and dependencies are automatically checked to produce no diffs for each pull request.
+These are both idempotent, and we expect that running these at `HEAD` to have no
+diffs. Code generation and dependencies are automatically checked to produce no
+diffs for each pull request.
 
-update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies are required, you
-need to run "dep ensure -update package-name" manually.
+update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies
+are required, you need to run "dep ensure -update package-name" manually.
 
-Once the codegen and dependency information is correct, redeploying the controller is simply:
+Once the codegen and dependency information is correct, redeploying the
+controller is simply:
 
 ```shell
 ko apply -f config/controller.yaml
 ```
 
-Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and [completely
-redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
+Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
+[completely redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
 
 ## Clean up
 

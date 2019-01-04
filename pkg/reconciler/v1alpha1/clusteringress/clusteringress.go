@@ -167,14 +167,20 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 	// Don't modify the informers copy
 	existing := ci.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update.
-	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(existing)
+	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().UpdateStatus(existing)
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	ci.SetDefaults()
+
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci)
+	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx, ci))
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -187,15 +193,62 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
-	ci.Status.MarkLoadBalancerReady([]v1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: ingressGatewayFromContext(ctx)},
-	})
+	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
 
-func ingressGatewayFromContext(ctx context.Context) string {
-	return config.FromContext(ctx).Istio.IngressGateway
+func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
+	// The ClusterIngress isn't load-balanced by any particular
+	// Service, but through a Service mesh.
+	if gatewayServiceURL == "" {
+		return []v1alpha1.LoadBalancerIngressStatus{
+			{MeshOnly: true},
+		}
+	}
+	return []v1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: gatewayServiceURL},
+	}
+}
+
+// gatewayServiceURLFromContext return an address of a load-balancer
+// that the given ClusterIngress is exposed to, or empty string if
+// none.
+func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
+		return cfg.IngressGateways[0].ServiceURL
+	}
+	if len(cfg.LocalGateways) > 0 && !ci.IsPublic() {
+		return cfg.LocalGateways[0].ServiceURL
+	}
+	return ""
+}
+
+func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
+	gateways := []string{}
+	if ci.IsPublic() {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	} else {
+		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	}
+	return dedup(gateways)
+}
+
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

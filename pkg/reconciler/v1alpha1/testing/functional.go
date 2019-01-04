@@ -88,6 +88,7 @@ var (
 				Container: corev1.Container{
 					Image: "busybox",
 				},
+				TimeoutSeconds: 60,
 			},
 		},
 	}
@@ -102,14 +103,39 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
+// WithServiceLabel attaches a particular label to the service.
+func WithServiceLabel(key, value string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		service.Labels[key] = value
+	}
+}
+
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
 // which is pinned to the named revision.
+// Deprecated, since PinnedType is deprecated.
 func WithPinnedRollout(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
 			Pinned: &v1alpha1.PinnedType{
 				RevisionName:  name,
 				Configuration: configSpec,
+			},
+		}
+	}
+}
+
+// WithReleaseRolloutAndPercentage configures the Service to use a "release" rollout,
+// which spans the provided revisions.
+func WithReleaseRolloutAndPercentage(percentage int, names ...string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec = v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:      names,
+				RolloutPercent: percentage,
+				Configuration:  configSpec,
 			},
 		}
 	}
@@ -154,6 +180,27 @@ func WithReadyRoute(s *v1alpha1.Service) {
 			Status: "True",
 		}},
 	})
+}
+
+// WithSvcStatusDomain propagates the domain name to the status of the Service.
+func WithSvcStatusDomain(s *v1alpha1.Service) {
+	n, ns := s.GetName(), s.GetNamespace()
+	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
+	s.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
+}
+
+// WithSvcStatusAddress updates the service's status with the address.
+func WithSvcStatusAddress(s *v1alpha1.Service) {
+	s.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+	}
+}
+
+// WithSvcStatusTraffic sets the Service's status traffic block to the specified traffic targets.
+func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
+	return func(r *v1alpha1.Service) {
+		r.Status.Traffic = traffic
+	}
 }
 
 // WithFailedRoute reflects a Route's failure in the Service resource.
@@ -258,6 +305,11 @@ func WithAnotherDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
 }
 
+// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+func WithLocalDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+}
+
 // WithInitRouteConditions initializes the Service's conditions.
 func WithInitRouteConditions(rt *v1alpha1.Route) {
 	rt.Status.InitializeConditions()
@@ -344,25 +396,27 @@ func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType)
 // WithGeneration sets the generation of the Configuration.
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
+		cfg.Generation = gen
+		//TODO(dprotaso) remove this for 0.4 release
 		cfg.Spec.Generation = gen
 	}
 }
 
 // WithObservedGen sets the observed generation of the Configuration.
 func WithObservedGen(cfg *v1alpha1.Configuration) {
-	cfg.Status.ObservedGeneration = cfg.Spec.Generation
+	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestCreated(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestCreatedRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestCreatedRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // WithLatestReady initializes the .status.latestReadyRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestReady(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestReadyRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestReadyRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // MarkRevisionCreationFailed calls .Status.MarkRevisionCreationFailed.
@@ -546,6 +600,13 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 }
 
+// MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
+func MarkContainerExiting(exitCode int32, message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkContainerExiting(exitCode, message)
+	}
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
@@ -594,12 +655,34 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
-// WithTargetAnnotation adds a target annotation to the PA.
-func WithTargetAnnotation(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+// WithContainerConcurrency returns a PodAutoscalerOption which sets
+// the PodAutoscaler containerConcurrency to the provided value.
+func WithContainerConcurrency(cc int32) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(cc)
 	}
-	pa.Annotations[autoscaling.TargetAnnotationKey] = "50"
+}
+
+// WithTargetAnnotation returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/target to the provided
+// value.
+func WithTargetAnnotation(target string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
+}
+
+// WithMetricAnnotation adds a metric annotation to the PA.
+func WithMetricAnnotation(metric string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.MetricAnnotationKey] = metric
+	}
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.
@@ -631,4 +714,25 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// PodOption enables further configuration of a Pod.
+type PodOption func(*corev1.Pod)
+
+// WithFailingContainer sets the .Status.ContainerStatuses on the pod to
+// include a container named accordingly to fail with the given state.
+func WithFailingContainer(name string, exitCode int, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			corev1.ContainerStatus{
+				Name: name,
+				LastTerminationState: corev1.ContainerState{
+					Terminated: &corev1.ContainerStateTerminated{
+						ExitCode: int32(exitCode),
+						Message:  message,
+					},
+				},
+			},
+		}
+	}
 }

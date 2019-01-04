@@ -36,11 +36,10 @@ function build_resource_name() {
 }
 
 # Test cluster parameters
-readonly E2E_BASE_NAME=k$(basename ${REPO_ROOT_DIR})
+readonly E2E_BASE_NAME="k${REPO_NAME}"
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
 readonly E2E_CLUSTER_REGION=us-central1
-readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_REGION}-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
@@ -156,13 +155,11 @@ function create_test_cluster() {
     --provider=gke
     --deployment=gke
     --cluster="${E2E_CLUSTER_NAME}"
-    --gcp-zone="${E2E_CLUSTER_ZONE}"
+    --gcp-region="${E2E_CLUSTER_REGION}"
     --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
-  if (( IS_BOSKOS )); then
-    CLUSTER_CREATION_ARGS+=(--gcp-service-account=/etc/service-account/service-account.json)
-  else
+  if (( ! IS_BOSKOS )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${GCP_PROJECT})
   fi
   # SSH keys are not used, but kubetest checks for their existence.
@@ -241,7 +238,7 @@ function setup_test_cluster() {
   if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
     USING_EXISTING_CLUSTER=0
     export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
-    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_ZONE}
+    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION}
     # Make sure we're in the default namespace. Currently kubetest switches to
     # test-pods namespace when creating the cluster.
     kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
@@ -257,6 +254,7 @@ function setup_test_cluster() {
   echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
   export KO_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
+  export KO_DATA_PATH="${REPO_ROOT_DIR}/.git"
 
   trap teardown_test_resources EXIT
 
@@ -293,11 +291,6 @@ USING_EXISTING_CLUSTER=1
 GCP_PROJECT=""
 E2E_SCRIPT=""
 E2E_CLUSTER_VERSION=""
-
-function abort() {
-  echo "error: $@"
-  exit 1
-}
 
 # Parse flags and initialize the test cluster.
 function initialize() {
@@ -357,11 +350,9 @@ function initialize() {
   (( IS_PROW )) && [[ -z "${GCP_PROJECT}" ]] && IS_BOSKOS=1
 
   # Safety checks
-
-  if [[ "${DOCKER_REPO_OVERRIDE}" =~ ^gcr.io/knative-(releases|nightly)/?$ ]]; then
-    abort "\$DOCKER_REPO_OVERRIDE is set to ${DOCKER_REPO_OVERRIDE}, which is forbidden"
-  fi
-
+  is_protected_gcr ${DOCKER_REPO_OVERRIDE} && \
+    abort "\$DOCKER_REPO_OVERRIDE set to ${DOCKER_REPO_OVERRIDE}, which is forbidden"
+  
   readonly RUN_TESTS
   readonly EMIT_METRICS
   readonly E2E_CLUSTER_VERSION

@@ -21,46 +21,107 @@ package performance
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/prometheus"
-	"github.com/knative/test-infra/tools/testgrid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/knative/test-infra/shared/testgrid"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	tName       = "TestObservedConcurrency"
-	perfLatency = "perf_latency"
 	concurrency = 5
-	duration    = 1 * time.Minute
-	numThreads  = 1
 )
 
-func createTestCase(val float32, name string) testgrid.TestCase {
-	tp := []testgrid.TestProperty{{Name: perfLatency, Value: val}}
-	tc := testgrid.TestCase{
-		ClassName:  tName,
-		Name:       fmt.Sprintf("%s/%s", tName, name),
-		Properties: testgrid.TestProperties{Property: tp}}
-	return tc
+// generateTraffic loads the given endpoint with the given concurrency for the given duration.
+// All responses are forwarded to a channel, if given.
+func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response) (int32, error) {
+	var (
+		group    errgroup.Group
+		requests int32
+	)
+
+	for i := 0; i < concurrency; i++ {
+		group.Go(func() error {
+			done := time.After(duration)
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				return fmt.Errorf("error creating http request: %v", err)
+			}
+			for {
+				select {
+				case <-done:
+					return nil
+				default:
+					res, _ := client.Do(req)
+					if resChannel != nil {
+						resChannel <- res
+					}
+					atomic.AddInt32(&requests, 1)
+				}
+			}
+		})
+	}
+
+	err := group.Wait()
+	requestsMade := atomic.LoadInt32(&requests)
+
+	if err != nil {
+		return requestsMade, fmt.Errorf("error making requests for scale up: %v", err)
+	}
+	return requestsMade, nil
 }
 
-func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var revisionName string
-	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.LatestCreatedRevisionName != names.Revision {
-			revisionName = s.Status.LatestCreatedRevisionName
-			return true, nil
+// event represents the start or end of a request
+type event struct {
+	concurrencyModifier int32
+	timestamp           time.Time
+}
+
+// parseResponse parses a string of the form TimeInNano,TimeInNano into the respective
+// start and end event
+func parseResponse(body string) (*event, *event, error) {
+	body = strings.TrimSpace(body)
+	parts := strings.Split(body, ",")
+	start, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("failed to parse start duration, body %s", body))
+	}
+
+	end, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("failed to parse end duration, body %s", body))
+	}
+
+	startEvent := &event{1, time.Unix(0, int64(start))}
+	endEvent := &event{-1, time.Unix(0, int64(end))}
+
+	return startEvent, endEvent, nil
+}
+
+// timeToScale calculates the time it took to scale to a given scale, starting from a given
+// time. Returns an error if that scale was never reached.
+func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Duration, error) {
+	var currentConcurrency int32
+	for _, event := range events {
+		currentConcurrency += event.concurrencyModifier
+		if currentConcurrency == desiredScale {
+			return event.timestamp.Sub(start), nil
 		}
-		return false, nil
-	}, "ServiceUpdatedWithRevision")
-	return revisionName, err
+	}
+
+	return 0, fmt.Errorf("desired scale of %d was never reached", desiredScale)
 }
 
 func TestObservedConcurrency(t *testing.T) {
@@ -72,71 +133,73 @@ func TestObservedConcurrency(t *testing.T) {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
-	var imagePath = test.ImagePath("observed-concurrency")
-	names := test.ResourceNames{Service: test.AppendRandomString("observed-concurrency", logger)}
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("observed-concurrency", logger),
+		Image:   "observed-concurrency",
+	}
 	clients := perfClients.E2EClients
 
 	defer TearDown(perfClients, logger, names)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, imagePath)
+	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerConcurrency: 1})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	names.Revision, err = waitForServiceLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-	}
-
-	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Revision, err)
-	}
-
-	domain := route.Status.Domain
+	domain := objs.Route.Status.Domain
 	endpoint, err := spoof.GetServiceEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
 	url := fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
-	resp, err := RunLoadTest(duration, numThreads, concurrency, url, domain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("Generating traffic via fortio failed: %v", err)
+		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
-	// Wait for prometheus to scrape the data
-	prometheus.AllowPrometheusSync(logger)
+	trafficStart := time.Now()
 
-	promAPI, err := prometheus.PromAPI()
+	responseChannel := make(chan *spoof.Response, 1000)
+
+	logger.Infof("Running %d concurrent requests for %v", concurrency, duration)
+	requestsMade, err := generateTraffic(client, url, concurrency, duration, responseChannel)
 	if err != nil {
-		logger.Errorf("Cannot setup prometheus API")
+		t.Fatalf("Failed to generate traffic, err: %v", err)
 	}
 
-	// Add latency metrics
+	// Collect all responses, parse their bodies and create the resulting events.
+	var events []*event
+	for i := int32(0); i < requestsMade; i++ {
+		response := <-responseChannel
+		body := string(response.Body)
+		start, end, err := parseResponse(body)
+		if err != nil {
+			logger.Errorf("Failed to parse body")
+		} else {
+			events = append(events, start, end)
+		}
+	}
+
+	// Sort all events by their timestamp
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].timestamp.Before(events[j].timestamp)
+	})
+
 	var tc []testgrid.TestCase
-	for _, p := range resp.DurationHistogram.Percentiles {
-		tc = append(tc, createTestCase(float32(p.Value), fmt.Sprintf("p%f", p.Percentile)))
+	for i := int32(1); i <= concurrency; i++ {
+		toConcurrency, err := timeToScale(events, trafficStart, i)
+		if err != nil {
+			logger.Infof("Never scaled to %d\n", i)
+		} else {
+			logger.Infof("Took %v to scale to %d\n", toConcurrency, i)
+			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d", i), tName))
+		}
 	}
 
-	// Add concurrency metrics
-	metrics := []string{"autoscaler_observed_stable_concurrency", "autoscaler_observed_panic_concurrency", "autoscaler_target_concurrency_per_pod"}
-	for _, metric := range metrics {
-		val := prometheus.RunQuery(context.Background(), logger, promAPI, metric, names)
-		tc = append(tc, createTestCase(float32(val), metric))
-	}
-
-	if err = testgrid.CreateTestgridXML(tc); err != nil {
+	if err = testgrid.CreateTestgridXML(tc, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

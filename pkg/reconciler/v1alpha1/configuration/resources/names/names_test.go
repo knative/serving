@@ -42,7 +42,7 @@ func TestNamer(t *testing.T) {
 				Generation: 42,
 			},
 		},
-		f:    Revision,
+		f:    DeprecatedRevision,
 		want: "foo-00042",
 	}, {
 		name: "Revision(31)",
@@ -55,7 +55,7 @@ func TestNamer(t *testing.T) {
 				Generation: 31,
 			},
 		},
-		f:    Revision,
+		f:    DeprecatedRevision,
 		want: "bar-00031",
 	}, {
 		name: "Build(no build)",
@@ -68,7 +68,7 @@ func TestNamer(t *testing.T) {
 				Generation: 16,
 			},
 		},
-		f:    Build,
+		f:    DeprecatedBuild,
 		want: "",
 	}, {
 		name: "Build(999, with build)",
@@ -84,7 +84,7 @@ func TestNamer(t *testing.T) {
 				},
 			},
 		},
-		f:    Build,
+		f:    DeprecatedBuild,
 		want: "blah-00999",
 	}}
 

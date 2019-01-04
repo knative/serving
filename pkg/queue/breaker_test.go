@@ -22,8 +22,13 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+	"sync/atomic"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+const semSleepInterval = 20 * time.Millisecond
 
 type request struct {
 	lock     *sync.Mutex
@@ -37,23 +42,31 @@ func (r *request) wait() {
 }
 
 func TestBreakerOverload(t *testing.T) {
-	b := NewBreaker(1, 1)             // Breaker capacity = 2
+	b := NewBreaker(1, 1, 1)          // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
 	locks := b.concurrentRequests(3)
 
 	unlockAll(locks)
 
-	got := accepted(locks)
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
+	assertEqual(want, accepted(locks), t)
+}
+
+func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
+	b := NewBreaker(1, 1, 0)          // Breaker capacity = 2
+	want := []bool{true, true, false} // Only first two requests are processed
+
+	b.sem.Release()
+	locks := b.concurrentRequests(3)
+
+	unlockAll(locks)
+
+	assertEqual(want, accepted(locks), t)
 }
 
 func TestBreakerNoOverload(t *testing.T) {
-	b := NewBreaker(1, 1)                  // Breaker capacity = 2
+	b := NewBreaker(1, 1, 1)               // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
-
 	locks := make([]request, 4)
 	locks[0] = b.concurrentRequest()
 	locks[1] = b.concurrentRequest()
@@ -62,15 +75,12 @@ func TestBreakerNoOverload(t *testing.T) {
 	unlock(locks[1])
 	locks[3] = b.concurrentRequest()
 	unlockAll(locks[2:])
-	got := accepted(locks)
 
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
+	assertEqual(want, accepted(locks), t)
 }
 
 func TestBreakerRecover(t *testing.T) {
-	b := NewBreaker(1, 1)                                // Breaker capacity = 2
+	b := NewBreaker(1, 1, 1)                             // Breaker capacity = 2
 	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
 	locks := b.concurrentRequests(4)
@@ -79,15 +89,12 @@ func TestBreakerRecover(t *testing.T) {
 	moreLocks := b.concurrentRequests(2)
 	unlockAll(moreLocks)
 
-	got := accepted(append(locks, moreLocks...))
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
+	assertEqual(want, accepted(append(locks, moreLocks...)), t)
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
-	b := NewBreaker(5, 45)    // Breaker capacity = 50
-	want := make([]bool, 150) // Process 150 requests
+	b := NewBreaker(5, 45, 45) // Breaker capacity = 50
+	want := make([]bool, 150)  // Process 150 requests
 	for i := 0; i < 50; i++ {
 		want[i] = true // First 50 will fill the breaker capacity
 	}
@@ -109,10 +116,101 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	}
 	unlockAll(locks[50:])
 
-	got := accepted(locks)
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v\n. Got %v\n.", want, got)
+	assertEqual(want, accepted(locks), t)
+}
+
+// Test empty semaphore, token cannot be acquired
+func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
+	want := int32(0)
+	acquired := int32(0)
+	sem := NewSemaphore(1, 0)
+	tryAcquire(sem, &acquired, 0)
+
+	// wait in case `acquired` changes
+	time.Sleep(semSleepInterval)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
+}
+
+// Test empty semaphore, add capacity, token can be acquired
+func TestSemaphore_Get_HasCapacity(t *testing.T) {
+	want := int32(1)
+	acquired := int32(0)
+	sem := NewSemaphore(1, 0)
+	tryAcquire(sem, &acquired, 0)
+	sem.Release()
+
+	// to allow `acquired` to change
+	time.Sleep(semSleepInterval)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
+}
+
+//Test all put items can be consumed
+func TestSemaphore_Put(t *testing.T) {
+	want := int32(2)
+	requests := 3
+	var acquired int32
+	sem := NewSemaphore(2, 0)
+	for i := 0; i < requests; i++ {
+		tryAcquire(sem, &acquired, i)
 	}
+	sem.Release()
+	sem.Release()
+
+	time.Sleep(semSleepInterval)
+	assertEqual(want, atomic.LoadInt32(&acquired), t)
+}
+
+func TestSemaphore_AddCapacity(t *testing.T) {
+	sem := NewSemaphore(2, 1)
+	assertEqual(int32(1), sem.capacity, t)
+	sem.Acquire()
+	sem.AddCapacity(2)
+	assertEqual(int32(3), sem.capacity, t)
+}
+
+// Test the case when we add more capacity then the number of waiting reducers
+func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
+	sem := NewSemaphore(2, 2)
+	sem.Acquire()
+	sem.Acquire()
+	sem.ReduceCapacity(2)
+	assertEqual(int32(2), sem.reducers, t)
+	sem.AddCapacity(3)
+	assertEqual(int32(0), sem.reducers, t)
+}
+
+func TestSemaphore_ReduceCapacity(t *testing.T) {
+	want := int32(0)
+	sem := NewSemaphore(1, 0)
+	sem.AddCapacity(int32(1))
+	sem.ReduceCapacity(1)
+	assertEqual(want, sem.capacity, t)
+}
+
+func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
+	sem := NewSemaphore(1, 1)
+	sem.Acquire()
+	sem.ReduceCapacity(1)
+	assertEqual(int32(1), sem.reducers, t)
+	sem.Release()
+	assertEqual(int32(0), sem.reducers, t)
+	assertEqual(int32(0), sem.capacity, t)
+}
+
+func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
+	sem := NewSemaphore(1, 1)
+	sem.Acquire()
+	err := sem.ReduceCapacity(2)
+	assertEqual(err, errors.New("the capacity that is released must be <= to added capacity"), t)
+}
+
+func TestSemaphore_WrongInitialCapacity(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	_ = NewSemaphore(1, 2)
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
@@ -121,9 +219,9 @@ func (b *Breaker) concurrentRequest() request {
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
 	r.lock.Lock()
 
-	if len(b.activeRequests) < cap(b.activeRequests) {
+	if len(b.sem.queue) > 0 {
 		// Expect request to be performed
-		defer waitForQueue(b.activeRequests, len(b.activeRequests)+1)
+		defer waitForQueue(b.sem.queue, len(b.sem.queue)-1)
 	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
 		// Expect request to be queued
 		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)
@@ -183,4 +281,18 @@ func unlockAll(requests []request) {
 	for _, lc := range requests {
 		unlock(lc)
 	}
+}
+
+func assertEqual(want, got interface{}, t *testing.T) {
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("Wanted %v. Got %v.", want, got)
+	}
+}
+
+func tryAcquire(sem *Semaphore, acquired *int32, i int) {
+	go func() {
+		// blocking until someone puts the token into the semaphore
+		sem.Acquire()
+		atomic.AddInt32(acquired, 1)
+	}()
 }

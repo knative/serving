@@ -23,11 +23,12 @@ readonly SERVING_GKE_VERSION=latest
 readonly SERVING_GKE_IMAGE=cos
 
 # Public latest stable nightly images and yaml files.
-readonly KNATIVE_ISTIO_CRD_YAML=https://storage.googleapis.com/knative-nightly/serving/latest/istio-crds.yaml
-readonly KNATIVE_ISTIO_YAML=https://storage.googleapis.com/knative-nightly/serving/latest/istio.yaml
-readonly KNATIVE_SERVING_RELEASE=https://storage.googleapis.com/knative-nightly/serving/latest/release.yaml
-readonly KNATIVE_BUILD_RELEASE=https://storage.googleapis.com/knative-nightly/build/latest/release.yaml
-readonly KNATIVE_EVENTING_RELEASE=https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
+readonly KNATIVE_BASE_YAML_SOURCE=https://storage.googleapis.com/knative-nightly/@/latest
+readonly KNATIVE_ISTIO_CRD_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio-crds.yaml
+readonly KNATIVE_ISTIO_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio.yaml
+readonly KNATIVE_SERVING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/serving}/release.yaml
+readonly KNATIVE_BUILD_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/build}/release.yaml
+readonly KNATIVE_EVENTING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/eventing}/release.yaml
 
 # Conveniently set GOPATH if unset
 if [[ -z "${GOPATH:-}" ]]; then
@@ -41,13 +42,21 @@ fi
 [[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
+
+# Print error message and exit 1
+# Parameters: $1..$n - error message to be displayed
+function abort() {
+  echo "error: $@"
+  exit 1
+}
 
 # Display a box banner.
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.
 function make_banner() {
     local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,\/]/$1}"
+    local border="${msg//[-0-9A-Za-z _.,\/()]/$1}"
     echo -e "${border}\n${msg}\n${border}"
 }
 
@@ -72,20 +81,6 @@ function function_exists() {
   [[ "$(type -t $1)" == "function" ]]
 }
 
-# Remove ALL images in the given GCR repository.
-# Parameters: $1 - GCR repository.
-function delete_gcr_images() {
-  for image in $(gcloud --format='value(name)' container images list --repository=$1); do
-    echo "Checking ${image} for removal"
-    delete_gcr_images ${image}
-    for digest in $(gcloud --format='get(digest)' container images list-tags ${image} --limit=99999); do
-      local full_image="${image}@${digest}"
-      echo "Removing ${full_image}"
-      gcloud container images delete -q --force-delete-tags ${full_image}
-    done
-  done
-}
-
 # Waits until the given object doesn't exist.
 # Parameters: $1 - the kind of the object.
 #             $2 - object's name.
@@ -100,8 +95,8 @@ function wait_until_object_does_not_exist() {
   fi
   echo -n "Waiting until ${DESCRIPTION} does not exist"
   for i in {1..150}; do  # timeout after 5 minutes
-    if kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
-      echo "\n${DESCRIPTION} does not exist"
+    if ! kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
+      echo -e "\n${DESCRIPTION} does not exist"
       return 0
     fi
     echo -n "."
@@ -201,12 +196,12 @@ function get_app_pods() {
 # Sets the given user as cluster admin.
 # Parameters: $1 - user
 #             $2 - cluster name
-#             $3 - cluster zone
+#             $3 - cluster region
 function acquire_cluster_admin_role() {
   # Get the password of the admin and use it, as the service account (or the user)
   # might not have the necessary permission.
   local password=$(gcloud --format="value(masterAuth.password)" \
-      container clusters describe $2 --zone=$3)
+      container clusters describe $2 --region=$3)
   if [[ -n "${password}" ]]; then
     # Cluster created with basic authentication
     kubectl config set-credentials cluster-admin \
@@ -216,9 +211,9 @@ function acquire_cluster_admin_role() {
     local key=$(mktemp)
     echo "Certificate in ${cert}, key in ${key}"
     gcloud --format="value(masterAuth.clientCertificate)" \
-      container clusters describe $2 --zone=$3 | base64 -d > ${cert}
+      container clusters describe $2 --region=$3 | base64 -d > ${cert}
     gcloud --format="value(masterAuth.clientKey)" \
-      container clusters describe $2 --zone=$3 | base64 -d > ${key}
+      container clusters describe $2 --region=$3 | base64 -d > ${key}
     kubectl config set-credentials cluster-admin \
       --client-certificate=${cert} --client-key=${key}
   fi
@@ -229,7 +224,7 @@ function acquire_cluster_admin_role() {
       --user=$1
   # Reset back to the default account
   gcloud container clusters get-credentials \
-      $2 --zone=$3 --project $(gcloud config get-value project)
+      $2 --region=$3 --project $(gcloud config get-value project)
 }
 
 # Runs a go test and generate a junit summary through bazel.
@@ -258,17 +253,18 @@ function report_go_test() {
   local targets=""
   local last_run=""
   local test_files=""
+  local summary=$(mktemp)
   # Parse the report and generate fake tests for each passing/failing test.
-  echo "Start parsing results, summary:"
   while read line ; do
     local fields=(`echo -n ${line}`)
     local field0="${fields[0]}"
     local field1="${fields[1]}"
     local name="${fields[2]}"
-    # Deal with a SIGQUIT log entry (usually a test timeout).
+    # Deal with a SIGQUIT or panic log entry (usually a test timeout).
     # This is a fallback in case there's no kill signal log entry.
     # SIGQUIT: quit
-    if [[ "${field0}" == "SIGQUIT:" ]]; then
+    # panic: test timed out after 5m0s
+    if [[ "${field0}" == "SIGQUIT:" || "${field0}" == "panic:" ]]; then
       name="${last_run}"
       field1="FAIL:"
       error="${fields[@]}"
@@ -296,7 +292,9 @@ function report_go_test() {
       fi
       # Handle regular go test pass/fail entry for a test.
       if [[ "${field1}" == "PASS:" || "${field1}" == "FAIL:" ]]; then
-        echo "- ${name} :${field1}"
+        local status="> pass"
+        [[ "${field1}" == "FAIL:" ]] && status="X FAIL"
+        echo "  ${status} ${name}" >> ${summary}
         test_count=$(( test_count + 1 ))
         local src="${name}.sh"
         echo "exit 0" > ${src}
@@ -313,7 +311,9 @@ function report_go_test() {
         # Populate BUILD.bazel
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
       elif [[ "${field0}" == "FAIL" || "${field0}" == "ok" ]] && [[ -n "${field1}" ]]; then
-        echo "- ${field0} ${field1}"
+        local status="> pass"
+        [[ "${field0}" == "FAIL" ]] && status="X FAIL"
+        echo "${status} ${field1}" >> ${summary}
         # Create the package structure, move tests and BUILD file
         local package=${field1/github.com\//}
         local bazel_files="$(ls -1 ${test_files} BUILD.bazel 2> /dev/null)"
@@ -328,7 +328,10 @@ function report_go_test() {
       fi
     fi
   done < ${report}
-  echo "Done parsing ${test_count} tests, ${tests_failed} tests failed"
+  echo "Test summary:"
+  # Dump summary reversed, as go test dumps test first, package later.
+  tac ${summary}
+  echo "Parsed ${test_count} tests, ${tests_failed} tests failed"
   # If any test failed, show the detailed report.
   # Otherwise, we already shown the summary.
   # Exception: when emitting metrics, dump the full report.
@@ -349,11 +352,14 @@ function report_go_test() {
 function start_latest_knative_serving() {
   header "Starting Knative Serving"
   subheader "Installing Istio"
+  echo "Installing Istio CRD from ${KNATIVE_ISTIO_CRD_YAML}"
   kubectl apply -f ${KNATIVE_ISTIO_CRD_YAML} || return 1
+  echo "Installing Istio from ${KNATIVE_ISTIO_YAML}"
   kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
   wait_until_pods_running istio-system || return 1
   kubectl label namespace default istio-injection=enabled || return 1
   subheader "Installing Knative Serving"
+  echo "Installing Serving from ${KNATIVE_SERVING_RELEASE}"
   kubectl apply -f ${KNATIVE_SERVING_RELEASE} || return 1
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running knative-build || return 1
@@ -432,8 +438,22 @@ function check_links_in_markdown() {
 }
 
 # Check format of the given markdown files.
-# Parameters: $1...$n - files to inspect
+# Parameters: $1..$n - files to inspect
 function lint_markdown() {
   # https://github.com/markdownlint/markdownlint
   run_lint_tool mdl "linting markdown files" "-r ~MD013" $@
 }
+
+# Return 0 if the given parameter is an integer, otherwise 1
+# Parameters: $1 - an integer
+function is_int() {
+  [[ -n $1 && $1 =~ ^[0-9]+$ ]]
+}
+
+# Return 0 if the given parameter is the knative release/nightly gcr, 1
+# otherwise
+# Parameters: $1 - gcr name, e.g. gcr.io/knative-nightly
+function is_protected_gcr() {
+  [[ -n $1 && "$1" =~ "^gcr.io/knative-(releases|nightly)/?$" ]]
+}
+

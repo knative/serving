@@ -18,10 +18,8 @@ package v1alpha1
 
 import (
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -36,9 +34,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: &metav1.Duration{
-							Duration: 60 * time.Second,
-						},
+						TimeoutSeconds: defaultTimeoutSeconds,
 					},
 				},
 			},
@@ -50,9 +46,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
-						TimeoutSeconds: &metav1.Duration{
-							Duration: 99 * time.Second,
-						},
+						TimeoutSeconds:       99,
 					},
 				},
 			},
@@ -62,9 +56,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
-						TimeoutSeconds: &metav1.Duration{
-							Duration: 99 * time.Second,
-						},
+						TimeoutSeconds:       99,
 					},
 				},
 			},

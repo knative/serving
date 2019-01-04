@@ -36,7 +36,7 @@ import (
 // MakeVirtualService creates an Istio VirtualService as network programming.
 // Such VirtualService specifies which Gateways and Hosts that it applies to,
 // as well as the routing rules.
-func MakeVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
+func MakeVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.VirtualService(ci),
@@ -44,7 +44,7 @@ func MakeVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 			Annotations:     ci.ObjectMeta.Annotations,
 		},
-		Spec: *makeVirtualServiceSpec(ci),
+		Spec: *makeVirtualServiceSpec(ci, gateways),
 	}
 
 	// Populate the ClusterIngress labels.
@@ -60,17 +60,14 @@ func MakeVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
 	return vs
 }
 
-func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualServiceSpec {
 	spec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Knative shared
 		// Gateway, and the 'mesh' Gateway.  The former provides
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
-		Gateways: []string{
-			names.K8sGatewayFullname,
-			"mesh",
-		},
-		Hosts: getHosts(ci),
+		Gateways: append(gateways, "mesh"),
+		Hosts:    getHosts(ci),
 	}
 
 	for _, rule := range ci.Spec.Rules {
