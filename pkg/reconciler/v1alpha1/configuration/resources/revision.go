@@ -53,7 +53,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	return rev
 }
 
-// UpdateRevisionLabels sets the revisions labels given a Configuration
+// UpdateRevisionLabels sets the revisions labels given a Configuration.
 func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration) {
 	if rev.Labels == nil {
 		rev.Labels = make(map[string]string)
@@ -69,7 +69,7 @@ func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration
 	}
 }
 
-// RevisionLabelValueForKey returns the label value for the given key
+// RevisionLabelValueForKey returns the label value for the given key.
 func RevisionLabelValueForKey(key string, config *v1alpha1.Configuration) string {
 	switch key {
 	case serving.ConfigurationLabelKey:
@@ -77,9 +77,9 @@ func RevisionLabelValueForKey(key string, config *v1alpha1.Configuration) string
 	case serving.ServiceLabelKey:
 		return config.Labels[serving.ServiceLabelKey]
 	case serving.DeprecatedConfigurationGenerationLabelKey:
-		return fmt.Sprintf("%v", config.Spec.Generation)
+		return fmt.Sprintf("%d", config.Spec.Generation)
 	case serving.ConfigurationMetadataGenerationLabelKey:
-		return fmt.Sprintf("%v", config.Generation)
+		return fmt.Sprintf("%d", config.Generation)
 	}
 
 	return ""

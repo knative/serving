@@ -55,7 +55,8 @@ type TableRow struct {
 	// WantUpdates holds the set of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
-	// WantUpdates holds the set of Update calls we expect during reconciliation.
+	// WantStatusUpdates holds the set of Update calls, with dprotaso`status` subresource set,
+	// that we expect during reconciliation.
 	WantStatusUpdates []clientgotesting.UpdateActionImpl
 
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
@@ -171,7 +172,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
-	//TODO(dprotaso)Refactor
+	//TODO(#2843): refactor.
 	statusUpdates := filterUpdatesWithSubresource("status", actions.Updates)
 	for i, want := range r.WantStatusUpdates {
 		if i >= len(statusUpdates) {
@@ -279,17 +280,13 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 }
 
-func filterUpdatesWithSubresource(
-	subresource string,
-	actions []clientgotesting.UpdateAction,
-) (result []clientgotesting.UpdateAction) {
-
+func filterUpdatesWithSubresource(subresource string,
+	actions []clientgotesting.UpdateAction) (result []clientgotesting.UpdateAction) {
 	for _, action := range actions {
 		if action.GetSubresource() == subresource {
 			result = append(result, action)
 		}
 	}
-
 	return
 }
 
