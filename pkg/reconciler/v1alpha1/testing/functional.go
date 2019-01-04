@@ -722,7 +722,7 @@ type PodOption func(*corev1.Pod)
 func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	return func(pod *corev1.Pod) {
 		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
-			corev1.ContainerStatus{
+			{
 				Name: name,
 				LastTerminationState: corev1.ContainerState{
 					Terminated: &corev1.ContainerStateTerminated{
