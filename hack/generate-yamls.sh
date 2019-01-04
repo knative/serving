@@ -101,28 +101,9 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin > "${MONITORI
 # Traces via Zipkin in Memory when ElasticSearch is not installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
-echo "Building Release bundles"
-
-# NO_MON is just serving
-cp "${SERVING_YAML}" "${RELEASE_NO_MON_YAML}"
-echo "---" >> "${RELEASE_NO_MON_YAML}"
-
-# LITE is NO_MON plus "lean" monitoring
-cp "${RELEASE_NO_MON_YAML}" "${RELEASE_LITE_YAML}"
-echo "---" >> "${RELEASE_LITE_YAML}"
-cat "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${RELEASE_LITE_YAML}"
-echo "---" >> "${RELEASE_LITE_YAML}"
-
-# RELEASE is NO_MON plus full monitoring
-cp "${RELEASE_NO_MON_YAML}" "${RELEASE_YAML}"
-echo "---" >> "${RELEASE_YAML}"
-cat "${MONITORING_YAML}" >> "${RELEASE_YAML}"
-echo "---" >> "${RELEASE_YAML}"
-
 echo "All manifests generated"
 
 # List generated YAML files
 
-ls -1 ${RELEASE_YAML} > ${YAML_LIST_FILE}
-ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${RELEASE_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${YAML_OUTPUT_DIR}/*.yaml > ${YAML_LIST_FILE}
 ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} >> ${YAML_LIST_FILE}
