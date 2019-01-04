@@ -280,7 +280,8 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 }
 
-func filterUpdatesWithSubresource(subresource string,
+func filterUpdatesWithSubresource(
+	subresource string,
 	actions []clientgotesting.UpdateAction) (result []clientgotesting.UpdateAction) {
 	for _, action := range actions {
 		if action.GetSubresource() == subresource {
