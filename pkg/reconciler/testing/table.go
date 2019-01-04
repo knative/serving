@@ -172,7 +172,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
-	//TODO(#2843): refactor.
+	// TODO(#2843): refactor.
 	statusUpdates := filterUpdatesWithSubresource("status", actions.Updates)
 	for i, want := range r.WantStatusUpdates {
 		if i >= len(statusUpdates) {
