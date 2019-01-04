@@ -9,7 +9,7 @@ gateway, you just need to set the external IP address of the
 "istio-ingressgateway" service to the static IP you need. If the gateway service
 has been replaced to that of other service, you'll need to replace
 "istio-ingressgateway" with the service name accordingly. See
-[instructions](../setting-up-custom-ingress-gateway.md) for more details.
+[instructions](setting-up-custom-ingress-gateway.md) for more details.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ TODO: add documentation on reserving static IP in other cloud platforms.
 ### Prerequisite 2: Deploy Istio And Knative Serving
 
 Follow the
-[instructions](https://github.com/knative/serving/blob/master/DEVELOPMENT.md) to
+[instructions](../DEVELOPMENT.md) to
 deploy Istio and Knative Serving into your cluster.
 
 Once you reach this point, you can start to set up static IP for Knative
