@@ -46,7 +46,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 		}},
 	}, {

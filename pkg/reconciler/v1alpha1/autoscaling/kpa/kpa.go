@@ -277,6 +277,5 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 	existing := pa.DeepCopy()
 	existing.Status = desired.Status
 
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(existing)
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
 }

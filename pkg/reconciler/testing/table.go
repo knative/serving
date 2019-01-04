@@ -55,6 +55,9 @@ type TableRow struct {
 	// WantUpdates holds the set of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
+	// WantUpdates holds the set of Update calls we expect during reconciliation.
+	WantStatusUpdates []clientgotesting.UpdateActionImpl
+
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
@@ -134,8 +137,9 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
+	updates := filterUpdatesWithSubresource("", actions.Updates)
 	for i, want := range r.WantUpdates {
-		if i >= len(actions.Updates) {
+		if i >= len(updates) {
 			wo := want.GetObject()
 			key := objKey(wo)
 			oldObj, ok := objPrevState[key]
@@ -147,7 +151,12 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
-		got := actions.Updates[i].GetObject()
+
+		if want.GetSubresource() != "" {
+			t.Errorf("Expectation was invalid - it should not include a subresource: %#v", want)
+		}
+
+		got := updates[i].GetObject()
 
 		// Update the object state.
 		objPrevState[objKey(got)] = got
@@ -156,10 +165,53 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("Unexpected update (-want +got): %s", diff)
 		}
 	}
-	if got, want := len(actions.Updates), len(r.WantUpdates); got > want {
-		for _, extra := range actions.Updates[want:] {
+	if got, want := len(updates), len(r.WantUpdates); got > want {
+		for _, extra := range updates[want:] {
 			t.Errorf("Extra update: %#v", extra)
 		}
+	}
+
+	//TODO(dprotaso)Refactor
+	statusUpdates := filterUpdatesWithSubresource("status", actions.Updates)
+	for i, want := range r.WantStatusUpdates {
+		if i >= len(statusUpdates) {
+			wo := want.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Missing status update for %s (-want, +prevState): %s", key,
+				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+			continue
+		}
+
+		got := statusUpdates[i].GetObject()
+
+		// Update the object state.
+		objPrevState[objKey(got)] = got
+
+		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected status update (-want +got): %s", diff)
+		}
+	}
+	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
+		for _, extra := range statusUpdates[want:] {
+			t.Errorf("Extra status update: %#v", extra)
+		}
+	}
+
+	if len(statusUpdates)+len(updates) != len(actions.Updates) {
+		var unexpected []clientgotesting.UpdateAction
+
+		for _, update := range actions.Updates {
+			if update.GetSubresource() != "status" && update.GetSubresource() != "" {
+				unexpected = append(unexpected, update)
+			}
+		}
+
+		t.Errorf("Unexpected subresource updates occurred %#v", unexpected)
 	}
 
 	for i, want := range r.WantDeletes {
@@ -225,6 +277,20 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
 		t.Errorf("Unexpected service ready stats (-want +got): %s", diff)
 	}
+}
+
+func filterUpdatesWithSubresource(
+	subresource string,
+	actions []clientgotesting.UpdateAction,
+) (result []clientgotesting.UpdateAction) {
+
+	for _, action := range actions {
+		if action.GetSubresource() == subresource {
+			result = append(result, action)
+		}
+	}
+
+	return
 }
 
 // TableTest represents a list of TableRow tests instances.

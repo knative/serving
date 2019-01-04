@@ -208,11 +208,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	// Update our Status based on the state of our underlying Route.
 	service.Status.PropagateRouteStatus(route.Status)
-
-	// Update the Status of the Service with the latest generation that
-	// we just reconciled against so we don't keep generating Revisions.
-	// TODO(#642): Remove this.
-	service.Status.ObservedGeneration = service.Spec.Generation
+	service.Status.ObservedGeneration = service.Generation
 
 	return nil
 }
@@ -230,13 +226,14 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update.
-	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Update(existing)
+
+	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
 	if err == nil && becomesRdy {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
 		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
+
 	return svc, err
 }
 

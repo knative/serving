@@ -67,7 +67,7 @@ func TestReconcile(t *testing.T) {
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
@@ -87,7 +87,7 @@ func TestReconcile(t *testing.T) {
 			config("pinned", "foo", WithPinnedRollout("pinned-0001")),
 			route("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("pinned", "foo", WithPinnedRollout("pinned-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
@@ -109,7 +109,7 @@ func TestReconcile(t *testing.T) {
 			config("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 			route("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("pinned2", "foo", WithReleaseRollout("pinned2-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
@@ -135,7 +135,7 @@ func TestReconcile(t *testing.T) {
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
 		Key: "foo/pinned3",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// Make sure that status contains all the required propagated fields
 			// from config and route status.
 			Object: svc("pinned3", "foo",
@@ -166,7 +166,7 @@ func TestReconcile(t *testing.T) {
 			config("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 			route("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("release", "foo", WithReleaseRollout("release-00001", "release-00002"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
@@ -196,7 +196,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestCreated, WithLatestReady),
 		},
 		Key: "foo/release-ready",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("release-ready", "foo",
 				WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
 					"release-ready-00001", "release-ready-00002"),
@@ -229,7 +229,7 @@ func TestReconcile(t *testing.T) {
 			config("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 			route("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
@@ -245,7 +245,7 @@ func TestReconcile(t *testing.T) {
 			svc("manual", "foo", WithManualRollout),
 		},
 		Key: "foo/manual",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("manual", "foo", WithManualRollout,
 				// The first reconciliation will initialize the status conditions.
 				WithManualStatus),
@@ -336,7 +336,7 @@ func TestReconcile(t *testing.T) {
 			config("create-route-failure", "foo", WithRunLatestRollout),
 			route("create-route-failure", "foo", WithRunLatestRollout),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("create-route-failure", "foo", WithRunLatestRollout,
 				// First reconcile initializes conditions.
 				WithInitSvcConditions),
@@ -361,7 +361,7 @@ func TestReconcile(t *testing.T) {
 			config("create-config-failure", "foo", WithRunLatestRollout),
 			// We don't get to creating the Route.
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("create-config-failure", "foo", WithRunLatestRollout,
 				// First reconcile initializes conditions.
 				WithInitSvcConditions),
@@ -421,7 +421,7 @@ func TestReconcile(t *testing.T) {
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("run-latest", "foo", WithRunLatestRollout,
 				// We attempt to update the Service to initialize its
 				// conditions, which is where we induce the failure.
@@ -449,7 +449,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestCreated, WithLatestReady),
 		},
 		Key: "foo/all-ready",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("all-ready", "foo", WithRunLatestRollout,
 				WithReadyConfig("all-ready-00001"),
 				// The delta induced by route object.
@@ -475,7 +475,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestCreated, MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				// When the Route is Ready, and the Configuration has failed,
 				// we expect the following changes to our status conditions.
@@ -497,7 +497,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestCreated, WithLatestReady),
 		},
 		Key: "foo/route-fails",
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				// When the Configuration is Ready, and the Route has failed,
 				// we expect the following changed to our status conditions.

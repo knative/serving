@@ -396,25 +396,27 @@ func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType)
 // WithGeneration sets the generation of the Configuration.
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
+		cfg.Generation = gen
+		//TODO(dprotaso) remove this for 0.4 release
 		cfg.Spec.Generation = gen
 	}
 }
 
 // WithObservedGen sets the observed generation of the Configuration.
 func WithObservedGen(cfg *v1alpha1.Configuration) {
-	cfg.Status.ObservedGeneration = cfg.Spec.Generation
+	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestCreated(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestCreatedRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestCreatedRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // WithLatestReady initializes the .status.latestReadyRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestReady(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestReadyRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestReadyRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // MarkRevisionCreationFailed calls .Status.MarkRevisionCreationFailed.

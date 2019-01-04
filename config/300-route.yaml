@@ -30,6 +30,8 @@ spec:
     shortNames:
     - rt
   scope: Namespaced
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Domain
     type: string

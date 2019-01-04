@@ -158,10 +158,10 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation.
-	revName := resourcenames.Revision(config)
-	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
+	revName := resourcenames.DeprecatedRevision(config)
+	latestCreatedRevision, err := c.getLatestCreatedRevision(config)
 	if errors.IsNotFound(err) {
-		latestCreatedRevision, err = c.createRevision(ctx, config, revName)
+		latestCreatedRevision, err = c.createRevision(ctx, config)
 		if err != nil {
 			logger.Errorf("Failed to create Revision %q: %v", revName, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
@@ -179,7 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Spec.Generation
+	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
@@ -225,7 +225,44 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
-func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
+func (c *Reconciler) getLatestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
+	lister := c.revisionLister.Revisions(config.Namespace)
+
+	generationKey := serving.ConfigurationMetadataGenerationLabelKey
+
+	list, err := lister.List(labels.SelectorFromSet(map[string]string{
+		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	if err == nil && len(list) > 0 {
+		return list[0], nil
+	}
+
+	// This is a legacy path for older revisions that don't have
+	// the configuration metadata generation label
+	//
+	// We will update these revisions with the label
+	revName := resourcenames.DeprecatedRevision(config)
+	rev, err := lister.Get(revName)
+
+	if err != nil {
+		return rev, err
+	}
+
+	rev = rev.DeepCopy()
+	resources.UpdateRevisionLabels(rev, config)
+
+	rev, err = c.ServingClientSet.Serving().Revisions(config.Namespace).Update(rev)
+
+	if err != nil {
+		return nil, fmt.Errorf("error migrating revision metadata generation label: %s", err)
+	}
+
+	return rev, nil
+}
+
+func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 
 	var buildRef *corev1.ObjectReference
@@ -286,8 +323,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Co
 	// Don't modify the informers copy
 	existing := config.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Update(existing)
+	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).UpdateStatus(existing)
 }
 
 func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {

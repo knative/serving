@@ -28,6 +28,8 @@ spec:
     - knative-internal
     - networking
   scope: Cluster
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Ready
     type: string
