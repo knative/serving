@@ -55,7 +55,7 @@ type TableRow struct {
 	// WantUpdates holds the set of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
-	// WantStatusUpdates holds the set of Update calls, with dprotaso`status` subresource set,
+	// WantStatusUpdates holds the set of Update calls, with `status` subresource set,
 	// that we expect during reconciliation.
 	WantStatusUpdates []clientgotesting.UpdateActionImpl
 
