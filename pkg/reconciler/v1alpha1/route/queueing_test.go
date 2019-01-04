@@ -123,6 +123,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	servingInformer.Start(stopCh)
 	configMapWatcher.Start(stopCh)
 
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
+
 	// Run the controller.
 	eg.Go(func() error {
 		return controller.Run(2, stopCh)
