@@ -14,8 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script provides helper methods to perform cluster actions.
+# Temporarily increasing the cluster size for serving tests to rule out
+# resource / eviction as causes of flakiness.  These env vars are consumed
+# in the test-infra/scripts/e2e-tests.sh.
+E2E_MIN_CLUSTER_NODES=4
+E2E_MAX_CLUSTER_NODES=4
 
+# This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Current YAMLs used to install Knative Serving.
