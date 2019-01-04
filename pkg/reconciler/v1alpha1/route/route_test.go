@@ -928,6 +928,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	}}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
 			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
@@ -952,6 +953,10 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 
 			servingInformer.Start(stopCh)
 			kubeInformer.Start(stopCh)
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+
 			if err := watcher.Start(stopCh); err != nil {
 				t.Fatalf("failed to start configuration manager: %v", err)
 			}
@@ -962,8 +967,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 			route.Labels = map[string]string{"app": "prod"}
 
-			routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
-			routeClient.Create(route)
+			servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route)
 
 			test.doThings(watcher)
 

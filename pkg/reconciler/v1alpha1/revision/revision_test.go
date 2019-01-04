@@ -725,6 +725,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestControllerConfig()
 			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
@@ -759,6 +760,10 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 			servingInformer.Start(stopCh)
 			kubeInformer.Start(stopCh)
 			cachingInformer.Start(stopCh)
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+			cachingInformer.WaitForCacheSync(stopCh)
 
 			if err := watcher.Start(stopCh); err != nil {
 				t.Fatalf("Failed to start configuration manager: %v", err)
