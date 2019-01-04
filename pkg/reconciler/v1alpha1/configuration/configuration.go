@@ -159,9 +159,9 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// First, fetch the revision that should exist for the current generation.
 	revName := resourcenames.DeprecatedRevision(config)
-	latestCreatedRevision, err := c.getLatestCreatedRevision(config)
+	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
-		latestCreatedRevision, err = c.createRevision(ctx, config)
+		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
 			logger.Errorf("Failed to create Revision %q: %v", revName, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
@@ -183,7 +183,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
-	rc := latestCreatedRevision.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	rc := lcr.Status.GetCondition(v1alpha1.RevisionConditionReady)
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
 		logger.Infof("Revision %q of configuration %q is not ready", revName, config.Name)
@@ -198,19 +198,19 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 				"Configuration becomes ready")
 		}
 		// Update the LatestReadyRevisionName and surface an event for the transition.
-		config.Status.SetLatestReadyRevisionName(latestCreatedRevision.Name)
+		config.Status.SetLatestReadyRevisionName(lcr.Name)
 		if created != ready {
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", latestCreatedRevision.Name)
+				"LatestReadyRevisionName updated to %q", lcr.Name)
 		}
 
 	case rc.Status == corev1.ConditionFalse:
 		logger.Infof("Revision %q of configuration %q has failed", revName, config.Name)
 
 		// TODO(mattmoor): Only emit the event the first time we see this.
-		config.Status.MarkLatestCreatedFailed(latestCreatedRevision.Name, rc.Message)
+		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
-			"Latest created revision %q has failed", latestCreatedRevision.Name)
+			"Latest created revision %q has failed", lcr.Name)
 
 	default:
 		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
@@ -225,7 +225,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
-func (c *Reconciler) getLatestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
+func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
 	lister := c.revisionLister.Revisions(config.Namespace)
 
 	generationKey := serving.ConfigurationMetadataGenerationLabelKey
@@ -240,12 +240,12 @@ func (c *Reconciler) getLatestCreatedRevision(config *v1alpha1.Configuration) (*
 	}
 
 	// This is a legacy path for older revisions that don't have
-	// the configuration metadata generation label
+	// the configuration metadata generation label.
 	//
-	// We will update these revisions with the label
+	// We will update these revisions with the label.
 	revName := resourcenames.DeprecatedRevision(config)
-	rev, err := lister.Get(revName)
 
+	rev, err := lister.Get(revName)
 	if err != nil {
 		return rev, err
 	}
@@ -254,9 +254,8 @@ func (c *Reconciler) getLatestCreatedRevision(config *v1alpha1.Configuration) (*
 	resources.UpdateRevisionLabels(rev, config)
 
 	rev, err = c.ServingClientSet.Serving().Revisions(config.Namespace).Update(rev)
-
 	if err != nil {
-		return nil, fmt.Errorf("error migrating revision metadata generation label: %s", err)
+		return nil, fmt.Errorf("error migrating revision metadata generation label: %v", err)
 	}
 
 	return rev, nil
