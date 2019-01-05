@@ -209,6 +209,15 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("8012", "ports.ContainerPort"),
 	}, {
+		name: "port conflicts with queue proxy metrics",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 9090,
+			}},
+		},
+		want: apis.ErrInvalidValue("9090", "ports.ContainerPort"),
+	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
 			Image: "foo",

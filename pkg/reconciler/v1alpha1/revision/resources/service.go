@@ -33,7 +33,12 @@ var (
 		Name:       ServicePortName,
 		Protocol:   corev1.ProtocolTCP,
 		Port:       ServicePort,
-		TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: v1alpha1.RequestQueuePortName},
+		TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
+	}, {
+		Name:       MetricsPortName,
+		Protocol:   corev1.ProtocolTCP,
+		Port:       MetricsPort,
+		TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 	}}
 )
 

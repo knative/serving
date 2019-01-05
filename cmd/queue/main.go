@@ -298,7 +298,7 @@ func main() {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promExporter)
-		http.ListenAndServe(":9090", mux)
+		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
 	// Open a websocket connection to the autoscaler
