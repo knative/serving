@@ -26,7 +26,7 @@ readonly SERVING_GKE_IMAGE=cos
 readonly KNATIVE_BASE_YAML_SOURCE=https://storage.googleapis.com/knative-nightly/@/latest
 readonly KNATIVE_ISTIO_CRD_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio-crds.yaml
 readonly KNATIVE_ISTIO_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio.yaml
-readonly KNATIVE_SERVING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/serving}/release.yaml
+readonly KNATIVE_SERVING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/serving}/serving.yaml
 readonly KNATIVE_BUILD_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/build}/release.yaml
 readonly KNATIVE_EVENTING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/eventing}/release.yaml
 

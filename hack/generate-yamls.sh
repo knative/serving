@@ -60,11 +60,6 @@ readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipk
 readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
 
-# Generated Knative "bundled" YAML files
-readonly RELEASE_YAML=${YAML_OUTPUT_DIR}/release.yaml
-readonly RELEASE_LITE_YAML=${YAML_OUTPUT_DIR}/release-lite.yaml
-readonly RELEASE_NO_MON_YAML=${YAML_OUTPUT_DIR}/release-no-mon.yaml
-
 # Flags for all ko commands
 readonly KO_YAML_FLAGS="-P ${KO_FLAGS}"
 
