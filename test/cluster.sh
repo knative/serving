@@ -55,17 +55,23 @@ function install_knative_serving() {
     build_knative_from_source
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
-    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
+    INSTALL_BUILD_YAML=third_party/config/build/release.yaml
+    # TODO(#2122): Install monitoring as well once we have e2e testing for it.
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+
+  echo ">> Installing Build"
+  # TODO: should this use a released copy of Build?
+  kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing up Serving"
   # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
