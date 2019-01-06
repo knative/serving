@@ -55,10 +55,12 @@ function install_knative_serving() {
     build_knative_from_source
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
-    INSTALL_BUILD_YAML=third_party/config/build/release.yaml
     # TODO(#2122): Install monitoring as well once we have e2e testing for it.
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
+  # TODO: Should we install build from a release?
+  INSTALL_BUILD_YAML=third_party/config/build/release.yaml
+
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
@@ -144,11 +146,15 @@ function uninstall_knative_serving() {
   echo ">> Uninstalling Knative serving"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative BUILD YAML: ${INSTALL_BUILD_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
 
   echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  echo ">> Bringing down Build"
+  ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
