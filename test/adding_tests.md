@@ -141,7 +141,8 @@ resp, err := client.Do(req)
 resp, err := client.Poll(req, test.BodyMatches(expectedText))
 ```
 
-_See [spoof.go](https://github.com/knative/pkg/blob/master/test/spoof/spoof.go)._
+_See
+[spoof.go](https://github.com/knative/pkg/blob/master/test/spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
@@ -190,7 +191,8 @@ err := test.CheckConfigurationState(clients.ServingClient, configName, func(c *v
 })
 ```
 
-_See [crd_checks.go](./crd_checks.go) and [kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
+_See [crd_checks.go](./crd_checks.go) and
+[kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
