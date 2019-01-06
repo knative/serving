@@ -34,7 +34,7 @@ set +o pipefail
 
 # Build Knative, but don't install the default "no monitoring" version
 build_knative_from_source
-install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${RELEASE_YAML}" \
+install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}" \
     || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 

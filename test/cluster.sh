@@ -56,7 +56,7 @@ function install_knative_serving() {
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
     # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-    INSTALL_RELEASE_YAML="${RELEASE_NO_MON_YAML}"
+    INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
