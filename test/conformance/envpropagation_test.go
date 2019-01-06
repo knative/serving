@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	testKey = "testKey"
-	testValue = "testValue"
-	secretName = "test-secret"
+	testKey       = "testKey"
+	testValue     = "testValue"
+	secretName    = "test-secret"
 	configMapName = "test-configmap"
 )
 
@@ -43,7 +43,7 @@ func TestSecretsFromEnv(t *testing.T) {
 
 	//Creating test secret
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta {
+		ObjectMeta: metav1.ObjectMeta{
 			Name: secretName,
 		},
 		Type: corev1.SecretTypeOpaque,
@@ -95,7 +95,7 @@ func TestConfigsFromEnv(t *testing.T) {
 	err = fetchEnvironmentAndVerify(clients, logger, corev1.EnvVar{
 		Name: testKey,
 		ValueFrom: &corev1.EnvVarSource{
-			ConfigMapKeyRef: &corev1.ConfigMapKeySelector {
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: configMapName,
 				},
@@ -108,7 +108,7 @@ func TestConfigsFromEnv(t *testing.T) {
 	}
 }
 
-func fetchEnvironmentAndVerify(clients *test.Clients, logger *logging.BaseLogger, envVar corev1.EnvVar, cleanup func(clients *test.Clients) (error)) error {
+func fetchEnvironmentAndVerify(clients *test.Clients, logger *logging.BaseLogger, envVar corev1.EnvVar, cleanup func(clients *test.Clients) error) error {
 	resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageEnvVarsPath, &test.Options{
 		EnvVars: []corev1.EnvVar{envVar},
 	})
