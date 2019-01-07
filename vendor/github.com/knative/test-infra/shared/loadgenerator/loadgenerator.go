@@ -19,17 +19,22 @@ limitations under the License.
 package loadgenerator
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
+	"github.com/knative/test-infra/shared/testgrid"
 )
 
 const (
-	p50 = 50.0
-	p90 = 90.0
-	p99 = 99.0
+	p50     = 50.0
+	p90     = 90.0
+	p99     = 99.0
+	jsonExt = ".json"
 )
 
 // GeneratorOptions provides knobs to run the perf test
@@ -76,4 +81,30 @@ func (g *GeneratorOptions) CreateRunnerOptions(resolvableDomain bool) *fhttp.HTT
 func (g *GeneratorOptions) RunLoadTest(resolvableDomain bool) (*GeneratorResults, error) {
 	r, err := fhttp.RunHTTPTest(g.CreateRunnerOptions(resolvableDomain))
 	return &GeneratorResults{Result: r}, err
+}
+
+// SaveJSON saves the results as Json in the artifacts directory
+func (gr *GeneratorResults) SaveJSON(testName string) error {
+	dir, err := testgrid.GetArtifactsDir()
+	if err != nil {
+		return err
+	}
+
+	outputFile := dir + "/" + testName + jsonExt
+	log.Printf("Storing json output in %s", outputFile)
+	f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	json, err := json.Marshal(gr)
+	if err != nil {
+		return err
+	}
+	if _, err = f.Write(json); err != nil {
+		return err
+	}
+
+	return nil
 }

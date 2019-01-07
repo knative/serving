@@ -40,9 +40,13 @@ readonly E2E_BASE_NAME="k${REPO_NAME}"
 readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
 readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
 readonly E2E_CLUSTER_REGION=us-central1
-readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
+# Each knative repository may have a different cluster size requirement here,
+# so we allow calling code to set these parameters.  If they are not set we
+# use some sane defaults.
+readonly E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-1}
+readonly E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-3}
 
 # Flag whether test is using a boskos GCP project
 IS_BOSKOS=0
@@ -57,14 +61,6 @@ function teardown_test_resources() {
 
   # Delete the kubernetes source downloaded by kubetest
   rm -fr kubernetes kubernetes.tar.gz
-}
-
-# Exit test, dumping current state info.
-# Parameters: $1 - error message (optional).
-function fail_test() {
-  [[ -n $1 ]] && echo "ERROR: $1"
-  dump_cluster_state
-  exit 1
 }
 
 # Run the given E2E tests. Assume tests are tagged e2e, unless `-tags=XXX` is passed.
@@ -148,10 +144,13 @@ function create_test_cluster() {
   set -o pipefail
 
   header "Creating test cluster"
+
+  echo "Cluster will have a minimum of ${E2E_MIN_CLUSTER_NODES} and a maximum of ${E2E_MAX_CLUSTER_NODES} nodes."
+
   # Smallest cluster required to run the end-to-end-tests
   local CLUSTER_CREATION_ARGS=(
-    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate"
-    --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
+    --gke-create-args="--enable-autoscaling --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate"
+    --gke-shape={\"default\":{\"Nodes\":${E2E_MIN_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
     --cluster="${E2E_CLUSTER_NAME}"
@@ -172,8 +171,8 @@ function create_test_cluster() {
   # be a writeable docker repo.
   export K8S_USER_OVERRIDE=
   export K8S_CLUSTER_OVERRIDE=
-  # Assume test failed (see more details at the end of this script).
-  echo -n "1"> ${TEST_RESULT_FILE}
+  # Assume test failed (see details in set_test_return_code()).
+  set_test_return_code 1
   local test_cmd_args="--run-tests"
   (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   [[ -n "${GCP_PROJECT}" ]] && test_cmd_args+=" --gcp-project ${GCP_PROJECT}"
@@ -272,17 +271,32 @@ function setup_test_cluster() {
   set +o pipefail
 }
 
-function success() {
+# Set the return code that the test script will return.
+# Parameters: $1 - return code (0-255)
+function set_test_return_code() {
   # kubetest teardown might fail and thus incorrectly report failure of the
   # script, even if the tests pass.
   # We store the real test result to return it later, ignoring any teardown
   # failure in kubetest.
   # TODO(adrcunha): Get rid of this workaround.
-  echo -n "0"> ${TEST_RESULT_FILE}
+  echo -n "$1"> ${TEST_RESULT_FILE}
+}
+
+function success() {
+  set_test_return_code 0
   echo "**************************************"
   echo "***        E2E TESTS PASSED        ***"
   echo "**************************************"
   exit 0
+}
+
+# Exit test, dumping current state info.
+# Parameters: $1 - error message (optional).
+function fail_test() {
+  set_test_return_code 1
+  [[ -n $1 ]] && echo "ERROR: $1"
+  dump_cluster_state
+  exit 1
 }
 
 RUN_TESTS=0
@@ -352,7 +366,7 @@ function initialize() {
   # Safety checks
   is_protected_gcr ${DOCKER_REPO_OVERRIDE} && \
     abort "\$DOCKER_REPO_OVERRIDE set to ${DOCKER_REPO_OVERRIDE}, which is forbidden"
-  
+
   readonly RUN_TESTS
   readonly EMIT_METRICS
   readonly E2E_CLUSTER_VERSION

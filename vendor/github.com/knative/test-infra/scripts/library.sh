@@ -44,6 +44,9 @@ readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
+# On a Prow job, redirect stderr to stdout so it's synchronously added to log
+(( IS_PROW )) && exec 2>&1
+
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
 function abort() {
@@ -135,7 +138,6 @@ function wait_until_pods_running() {
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for pods to come up\n${pods}"
-  kubectl get pods -n $1
   return 1
 }
 
@@ -227,7 +229,7 @@ function acquire_cluster_admin_role() {
       $2 --region=$3 --project $(gcloud config get-value project)
 }
 
-# Runs a go test and generate a junit summary through bazel.
+# Runs a go test and generate a junit summary.
 # Parameters: $1... - parameters to go test
 function report_go_test() {
   # Run tests in verbose mode to capture details.
@@ -241,110 +243,15 @@ function report_go_test() {
   fi
   echo "Running tests with '${go_test}'"
   local report=$(mktemp)
-  local failed=0
-  local test_count=0
-  local tests_failed=0
-  ${go_test} > ${report} || failed=$?
+  ${go_test} | tee ${report}
+  local failed=( ${PIPESTATUS[@]} )
+  [[ ${failed[0]} -eq 0 ]] && failed=${failed[1]} || failed=${failed[0]}
   echo "Finished run, return code is ${failed}"
-  # Tests didn't run.
-  [[ ! -s ${report} ]] && return 1
-  # Create WORKSPACE file, required to use bazel, if necessary.
-  touch WORKSPACE
-  local targets=""
-  local last_run=""
-  local test_files=""
-  local summary=$(mktemp)
-  # Parse the report and generate fake tests for each passing/failing test.
-  while read line ; do
-    local fields=(`echo -n ${line}`)
-    local field0="${fields[0]}"
-    local field1="${fields[1]}"
-    local name="${fields[2]}"
-    # Deal with a SIGQUIT or panic log entry (usually a test timeout).
-    # This is a fallback in case there's no kill signal log entry.
-    # SIGQUIT: quit
-    # panic: test timed out after 5m0s
-    if [[ "${field0}" == "SIGQUIT:" || "${field0}" == "panic:" ]]; then
-      name="${last_run}"
-      field1="FAIL:"
-      error="${fields[@]}"
-    fi
-    # Ignore subtests (those containing slashes)
-    if [[ -n "${name##*/*}" ]]; then
-      local error=""
-      # Deal with a kill signal log entry (usually a test timeout).
-      # *** Test killed with quit: ran too long (10m0s).
-      if [[ "${field0}" == "***" ]]; then
-        name="${last_run}"
-        field1="FAIL:"
-        error="${fields[@]:1}"
-      fi
-      # Deal with a fatal log entry, which has a different format:
-      # fatal   TestFoo   foo_test.go:275 Expected "foo" but got "bar"
-      if [[ "${field0}" == "fatal" ]]; then
-        name="${field1}"
-        field1="FAIL:"
-        error="${fields[@]:3}"
-      fi
-      # Keep track of the test currently running.
-      if [[ "${field1}" == "RUN" ]]; then
-        last_run="${name}"
-      fi
-      # Handle regular go test pass/fail entry for a test.
-      if [[ "${field1}" == "PASS:" || "${field1}" == "FAIL:" ]]; then
-        local status="> pass"
-        [[ "${field1}" == "FAIL:" ]] && status="X FAIL"
-        echo "  ${status} ${name}" >> ${summary}
-        test_count=$(( test_count + 1 ))
-        local src="${name}.sh"
-        echo "exit 0" > ${src}
-        if [[ "${field1}" == "FAIL:" ]]; then
-          tests_failed=$(( tests_failed + 1 ))
-          [[ -z "${error}" ]] && read error
-          echo "cat <<ERROR-EOF" > ${src}
-          echo "${error}" >> ${src}
-          echo "ERROR-EOF" >> ${src}
-          echo "exit 1" >> ${src}
-        fi
-        chmod +x ${src}
-        test_files="${test_files} ${src}"
-        # Populate BUILD.bazel
-        echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
-      elif [[ "${field0}" == "FAIL" || "${field0}" == "ok" ]] && [[ -n "${field1}" ]]; then
-        local status="> pass"
-        [[ "${field0}" == "FAIL" ]] && status="X FAIL"
-        echo "${status} ${field1}" >> ${summary}
-        # Create the package structure, move tests and BUILD file
-        local package=${field1/github.com\//}
-        local bazel_files="$(ls -1 ${test_files} BUILD.bazel 2> /dev/null)"
-        if [[ -n "${bazel_files}" ]]; then
-          mkdir -p ${package}
-          targets="${targets} //${package}/..."
-          mv ${bazel_files} ${package}
-        else
-          echo "*** INTERNAL ERROR: missing tests for ${package}, got [${bazel_files/$'\n'/, }]"
-        fi
-        test_files=""
-      fi
-    fi
-  done < ${report}
-  echo "Test summary:"
-  # Dump summary reversed, as go test dumps test first, package later.
-  tac ${summary}
-  echo "Parsed ${test_count} tests, ${tests_failed} tests failed"
-  # If any test failed, show the detailed report.
-  # Otherwise, we already shown the summary.
-  # Exception: when emitting metrics, dump the full report.
-  if (( failed )) || [[ "$@" == *" -emitmetrics"* ]]; then
-    if (( failed )); then
-      echo "There were ${tests_failed} test failures, full log:"
-    else
-      echo "Dumping full log as metrics were requested:"
-    fi
-    cat ${report}
-  fi
-  # Always generate the junit summary.
-  bazel test ${targets} > /dev/null 2>&1 || true
+  # Install go-junit-report if necessary.
+  run_go_tool github.com/jstemmer/go-junit-report go-junit-report --help > /dev/null 2>&1
+  local xml=$(mktemp ${ARTIFACTS}/junit_XXXXXXXX.xml)
+  cat ${report} | go-junit-report > ${xml}
+  echo "XML report written to ${xml}"
   return ${failed}
 }
 
