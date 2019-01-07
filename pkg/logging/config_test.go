@@ -119,7 +119,7 @@ func TestNewLogger(t *testing.T) {
 func TestNewConfigNoEntry(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 	})
@@ -139,7 +139,7 @@ func TestNewConfig(t *testing.T) {
 	wantLevel := zapcore.InfoLevel
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 		Data: map[string]string{
@@ -187,7 +187,7 @@ func TestNewLoggerFromConfig(t *testing.T) {
 func TestEmptyLevel(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 		Data: map[string]string{
@@ -207,7 +207,7 @@ func TestInvalidLevel(t *testing.T) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	_, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 		Data: map[string]string{
@@ -225,7 +225,7 @@ func getTestConfig() (*logging.Config, string, string) {
 	wantLevel := "debug"
 	c, _ := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 		Data: map[string]string{
@@ -245,7 +245,7 @@ func TestUpdateLevelFromConfigMap(t *testing.T) {
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      "config-logging",
 		},
 		Data: map[string]string{

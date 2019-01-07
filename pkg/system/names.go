@@ -18,15 +18,12 @@ package system
 
 import "os"
 
-var (
-	// Namespace holds the K8s namespace where our build system
-	// components run.
-	Namespace string
+const (
+	NamespaceEnvKey = "SYSTEM_NAMESPACE"
 )
 
-func init() {
-	Namespace = os.Getenv("SYSTEM_NAMESPACE")
-	if Namespace == "" {
-		Namespace = "knative-serving"
-	}
+// Namespace holds the K8s namespace where our build system
+// components run.
+func Namespace() string {
+	return os.Getenv(NamespaceEnvKey)
 }

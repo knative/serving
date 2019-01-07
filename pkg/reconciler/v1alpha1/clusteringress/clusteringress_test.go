@@ -154,7 +154,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice",
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
 						serving.RouteLabelKey:          "test-route",
@@ -195,7 +195,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q",
-				system.Namespace, "reconcile-virtualservice"),
+				system.Namespace(), "reconcile-virtualservice"),
 		},
 		Key: "reconcile-virtualservice",
 	}}
@@ -286,7 +286,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.IstioConfigName,
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 			},
 			Data: originGateways,
 		},
@@ -295,7 +295,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -392,7 +392,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	domainConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.IstioConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: newGateways,
 	}

@@ -142,7 +142,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
+			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace()),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -177,7 +177,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.DomainConfigName,
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
 				defaultDomainSuffix: "",
@@ -187,7 +187,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      gc.ConfigName,
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{},
 		},
@@ -196,7 +196,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	servingClient = fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
@@ -815,7 +815,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -830,7 +830,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					"newdefault.net":   "",
@@ -847,7 +847,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					"mytestdomain.com": "selector:\n  app: prod",
@@ -887,7 +887,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -902,7 +902,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -917,7 +917,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",

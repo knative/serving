@@ -140,7 +140,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	opt := rclr.Options{
 		KubeClientSet:    kubeClient,
@@ -177,12 +177,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -191,7 +191,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -201,7 +201,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -401,7 +401,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -420,7 +420,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	// Update controllers logging URL
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -517,14 +517,14 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "config-controller",
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Look for the revision deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace()).Get(rev.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
@@ -580,7 +580,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			config.IstioOutboundIPRangesKey: configMapValue,

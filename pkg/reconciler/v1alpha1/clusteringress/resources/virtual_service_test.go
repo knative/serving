@@ -45,7 +45,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 	}
 	expected := metav1.ObjectMeta{
 		Name:      "test-ingress",
-		Namespace: system.Namespace,
+		Namespace: system.Namespace(),
 		Labels: map[string]string{
 			networking.IngressLabelKey:     "test-ingress",
 			serving.RouteLabelKey:          "test-route",

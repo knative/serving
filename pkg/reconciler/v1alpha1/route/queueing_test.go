@@ -64,7 +64,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
@@ -73,7 +73,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})
