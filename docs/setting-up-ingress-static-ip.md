@@ -26,9 +26,8 @@ TODO: add documentation on reserving static IP in other cloud platforms.
 
 ### Prerequisite 2: Deploy Istio And Knative Serving
 
-Follow the
-[instructions](../DEVELOPMENT.md) to
-deploy Istio and Knative Serving into your cluster.
+Follow the [instructions](../DEVELOPMENT.md) to deploy Istio and Knative Serving
+into your cluster.
 
 Once you reach this point, you can start to set up static IP for Knative
 gateway.
