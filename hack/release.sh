@@ -39,7 +39,7 @@ export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 readonly YAML_LIST="$(mktemp)"
 $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
 readonly YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
-readonly RELEASE_YAML="$(grep serving.yaml ${YAML_LIST})"
+readonly RELEASE_YAML="$(head -n1 ${YAML_LIST})"
 
 tag_images_in_yaml "${RELEASE_YAML}"
 
