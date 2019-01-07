@@ -62,10 +62,8 @@ function install_knative_serving() {
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
   # TODO: Should we install build from a nightly release?
-  # This bit of jq extracts the asset named "release.yaml" from the
-  # most recent release.
-  INSTALL_BUILD_YAML=$(curl -s https://api.github.com/repos/knative/build/releases | \
-     jq '.[0].assets | map(select(.name == "release.yaml")) | .[0].browser_download_url')
+  # The latest released Build is always at this location.
+  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
