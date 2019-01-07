@@ -21,7 +21,10 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.s
 # Current YAMLs used to install Knative Serving.
 INSTALL_ISTIO_CRD_YAML=""
 INSTALL_ISTIO_YAML=""
+# TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
+# Build is used by some tests and so is also included here.
+INSTALL_BUILD_YAML=""
 
 # Create all manifests required to install Knative Serving.
 # This will build everything from the current source.
@@ -58,8 +61,11 @@ function install_knative_serving() {
     # TODO(#2122): Install monitoring as well once we have e2e testing for it.
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
-  # TODO: Should we install build from a release?
-  INSTALL_BUILD_YAML=third_party/config/build/release.yaml
+  # TODO: Should we install build from a nightly release?
+  # This bit of jq extracts the asset named "release.yaml" from the
+  # most recent release.
+  INSTALL_BUILD_YAML=$(curl -s https://api.github.com/repos/knative/build/releases
+     | jq '.[0].assets | map(select(.name == "release.yaml")) | .[0].browser_download_url')
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
@@ -146,7 +152,7 @@ function uninstall_knative_serving() {
   echo ">> Uninstalling Knative serving"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-  echo "Knative BUILD YAML: ${INSTALL_BUILD_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
 

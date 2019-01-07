@@ -98,7 +98,8 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem >> "${
 
 echo "All manifests generated"
 
-# List generated YAML files
+# List generated YAML files, with serving.yaml first.
 
-ls -1 ${YAML_OUTPUT_DIR}/*.yaml > ${YAML_LIST_FILE}
+ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
+ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
 ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} >> ${YAML_LIST_FILE}

@@ -42,7 +42,7 @@ readonly LATEST_SERVING_RELEASE_VERSION=0.2.3
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
-  # TODO: do we need to install Build here, too?
+  # TODO: should this test install istio and build at all, or only serving?
   install_knative_serving \
     "${url}/istio-crds.yaml" \
     "${url}/istio.yaml" \
