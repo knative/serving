@@ -18,8 +18,9 @@ package main
 
 import (
 	"flag"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
 

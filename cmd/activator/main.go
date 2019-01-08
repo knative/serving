@@ -20,10 +20,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net/http"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
