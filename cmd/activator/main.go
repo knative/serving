@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net/http"
 	"time"
@@ -43,7 +44,6 @@ import (
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -64,6 +64,9 @@ const (
 )
 
 var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+
 	logger *zap.SugaredLogger
 
 	statSink *websocket.ManagedConnection
@@ -105,9 +108,9 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
+		logger.Fatal("Error getting cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {

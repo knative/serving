@@ -64,12 +64,12 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Error building kubeconfig: %v", err)
+		logger.Fatal("Failed to get cluster config", zap.Error(err))
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
 	}
