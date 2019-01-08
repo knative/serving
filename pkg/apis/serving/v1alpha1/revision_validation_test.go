@@ -548,9 +548,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: 600,
+			TimeoutSeconds: 6000,
 		},
-		want: apis.ErrOutOfBoundsValue("600s", "0s",
+		want: apis.ErrOutOfBoundsValue("6000s", "0s",
 			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
 			"timeoutSeconds"),
 	}, {

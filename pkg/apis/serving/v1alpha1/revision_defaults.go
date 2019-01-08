@@ -18,7 +18,7 @@ package v1alpha1
 
 const (
 	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
-	defaultTimeoutSeconds = 60
+	defaultTimeoutSeconds = 5 * 60
 )
 
 func (r *Revision) SetDefaults() {
