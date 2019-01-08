@@ -26,7 +26,10 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.s
 # Current YAMLs used to install Knative Serving.
 INSTALL_ISTIO_CRD_YAML=""
 INSTALL_ISTIO_YAML=""
+# TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
+# Build is used by some tests and so is also included here.
+INSTALL_BUILD_YAML=""
 
 # Create all manifests required to install Knative Serving.
 # This will build everything from the current source.
@@ -60,17 +63,26 @@ function install_knative_serving() {
     build_knative_from_source
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
-    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-    INSTALL_RELEASE_YAML="${RELEASE_NO_MON_YAML}"
+    # TODO(#2122): Install monitoring as well once we have e2e testing for it.
+    INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
+  # TODO: Should we install build from a nightly release?
+  # The latest released Build is always at this location.
+  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
+
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+
+  echo ">> Installing Build"
+  # TODO: should this use a released copy of Build?
+  kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing up Serving"
   # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
@@ -143,11 +155,15 @@ function uninstall_knative_serving() {
   echo ">> Uninstalling Knative serving"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
 
   echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  echo ">> Bringing down Build"
+  ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
