@@ -73,6 +73,9 @@ func TestPerformanceLatency(t *testing.T) {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
+	// Save the json result for benchmarking
+	resp.SaveJSON("TestPerformanceLatency")
+
 	// Add latency metrics
 	var tc []testgrid.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
