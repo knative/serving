@@ -359,6 +359,9 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		t.Fatalf("failed to start cluster ingress manager: %v", err)
 	}
 
+	servingInformer.WaitForCacheSync(stopCh)
+	sharedInformer.WaitForCacheSync(stopCh)
+
 	go controller.Run(1, stopCh)
 
 	ingress := ingressWithStatus("config-update", 1234,
