@@ -152,7 +152,7 @@ func checkKeysPresent(expected map[string]string, actual map[string]string, t *t
 	t.Helper()
 	m := []string{}
 	for k := range expected {
-		if _, ok := actual[k]; ok {
+		if _, ok := actual[k]; !ok {
 			m = append(m, k)
 		}
 	}
