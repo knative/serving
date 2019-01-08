@@ -221,7 +221,7 @@ func TestRouteSpecValidation(t *testing.T) {
 			Paths:   []string{"traffic[0].name", "traffic[1].name"},
 		},
 	}, {
-		name: "valid name collision (same revision)",
+		name: "collision (same revision)",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				Name:         "foo",
@@ -233,7 +233,27 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: nil,
+		want: &apis.FieldError{
+			Message: `Multiple definitions for "foo"`,
+			Paths:   []string{"traffic[0].name", "traffic[1].name"},
+		},
+	}, {
+		name: "collision (same config)",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				Name:              "foo",
+				ConfigurationName: "bar",
+				Percent:           50,
+			}, {
+				Name:              "foo",
+				ConfigurationName: "bar",
+				Percent:           50,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `Multiple definitions for "foo"`,
+			Paths:   []string{"traffic[0].name", "traffic[1].name"},
+		},
 	}, {
 		name: "invalid total percentage",
 		rs: &RouteSpec{

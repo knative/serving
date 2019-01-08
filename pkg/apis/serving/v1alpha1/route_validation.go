@@ -65,7 +65,9 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 		if ent, ok := trafficMap[tt.Name]; !ok {
 			// No entry exists, so add ours
 			trafficMap[tt.Name] = nt
-		} else if ent.r != nt.r || ent.c != nt.c {
+		} else {
+			// We want only single definition of the route, even if it points
+			// to the same config or revision.
 			errs = errs.Also(&apis.FieldError{
 				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
 				Paths: []string{
