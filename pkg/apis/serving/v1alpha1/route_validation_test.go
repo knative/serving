@@ -131,6 +131,10 @@ func TestRouteValidation(t *testing.T) {
 }
 
 func TestRouteSpecValidation(t *testing.T) {
+	multipleDefinitionError := &apis.FieldError{
+		Message: `Multiple definitions for "foo"`,
+		Paths:   []string{"traffic[0].name", "traffic[1].name"},
+	}
 	tests := []struct {
 		name string
 		rs   *RouteSpec
@@ -216,10 +220,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: &apis.FieldError{
-			Message: `Multiple definitions for "foo"`,
-			Paths:   []string{"traffic[0].name", "traffic[1].name"},
-		},
+		want: multipleDefinitionError,
 	}, {
 		name: "collision (same revision)",
 		rs: &RouteSpec{
@@ -233,10 +234,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: &apis.FieldError{
-			Message: `Multiple definitions for "foo"`,
-			Paths:   []string{"traffic[0].name", "traffic[1].name"},
-		},
+		want: multipleDefinitionError,
 	}, {
 		name: "collision (same config)",
 		rs: &RouteSpec{
@@ -250,10 +248,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:           50,
 			}},
 		},
-		want: &apis.FieldError{
-			Message: `Multiple definitions for "foo"`,
-			Paths:   []string{"traffic[0].name", "traffic[1].name"},
-		},
+		want: multipleDefinitionError,
 	}, {
 		name: "invalid total percentage",
 		rs: &RouteSpec{
