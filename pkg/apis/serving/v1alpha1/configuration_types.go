@@ -17,12 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -167,14 +166,14 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		"Revision %q failed with message: %q.", name, message)
+		"Revision %q failed with message: %s.", name, message)
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		"Revision creation failed with message: %q.", message)
+		"Revision creation failed with message: %s.", message)
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
