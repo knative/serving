@@ -622,7 +622,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		configMapToUpdate: corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.NetworkConfigName,
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
 				"istio.sidecar.includeOutboundIPRanges": "10.0.0.1/24",
@@ -638,7 +638,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "",
 		configMapToUpdate: corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -658,7 +658,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "http://log-here.test.com?filter=",
 		configMapToUpdate: corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -677,7 +677,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "newFluentdImage",
 		configMapToUpdate: corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -703,7 +703,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "myAwesomeQueueImage",
 		configMapToUpdate: corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      config.ControllerConfigName,
 			},
 			Data: map[string]string{

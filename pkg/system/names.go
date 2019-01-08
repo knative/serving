@@ -22,8 +22,11 @@ const (
 	NamespaceEnvKey = "SYSTEM_NAMESPACE"
 )
 
-// Namespace holds the K8s namespace where our build system
+// Namespace holds the K8s namespace where our serving system
 // components run.
 func Namespace() string {
-	return os.Getenv(NamespaceEnvKey)
+	if ns := os.Getenv(NamespaceEnvKey); ns != "" {
+		return ns
+	}
+	return "knative-serving"
 }
