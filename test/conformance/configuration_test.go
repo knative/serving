@@ -79,7 +79,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkKeysPresent(cfg.Labels, r.Labels, t), nil
+		return checkNoKeysPresent(cfg.Labels, r.Labels, t), nil
 	})
 	if err != nil {
 		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
@@ -107,7 +107,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkKeysPresent(cfg.Annotations, r.Annotations, t), nil
+		return checkNoKeysPresent(cfg.Annotations, r.Annotations, t), nil
 	})
 	if err != nil {
 		t.Errorf("The annotations for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
@@ -146,19 +146,16 @@ func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.Res
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
 }
 
-// checkKeysPresent returns true if all the keys from `expected` are present in `actual`.
-// checkKeysPresent logs to `t.Log` all the missing keys.
-func checkKeysPresent(expected map[string]string, actual map[string]string, t *testing.T) bool {
+// checkNoKeysPresent returns true if _no_ keys from `expected`, are present in `actual`.
+// checkNoKeysPresent will log the offending keys to t.Log.
+func checkNoKeysPresent(expected map[string]string, actual map[string]string, t *testing.T) bool {
 	t.Helper()
-	m := []string{}
+	present := []string{}
 	for k := range expected {
-		if _, ok := actual[k]; !ok {
-			m = append(m, k)
+		if _, ok := actual[k]; ok {
+			present = append(present, k)
 		}
 	}
-	if len(m) > 0 {
-		t.Logf("The following keys were missing: %v", m)
-		return false
-	}
-	return true
+	t.Logf("Unexpected keys: %v", present)
+	return len(present) == 0
 }
