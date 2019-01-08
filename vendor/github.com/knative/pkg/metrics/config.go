@@ -62,7 +62,7 @@ func getMetricsConfig(m map[string]string, domain string, component string, logg
 	var mc metricsConfig
 	backend, ok := m[backendDestinationKey]
 	if !ok {
-		return nil, errors.New("metrics.backend-destination key is missing")
+		backend = string(Prometheus)
 	}
 	lb := metricsBackend(strings.ToLower(backend))
 	switch lb {
