@@ -20,6 +20,43 @@ set -o pipefail
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
+# Remove two type of invalid symlinks
+# 1. Broken symlinks
+# 2. Symlinks pointing outside of the source tree
+# We use recursion to find the canonical path of a symlink
+# because both `realpath` and `readlink -m` are not available on Mac.
+function remove_invalid_symlink() {
+  cd ${REPO_ROOT_DIR}
+
+  local target_file=$1
+  if [[ ! -e ${target_file} ]] ; then
+    echo "Removing broken symlink:" $1
+    unlink $1
+    return
+  fi
+
+  cd $(dirname ${target_file})
+  target_file=$(basename ${target_file})
+  # Iterate down a [possible] chain of symlinks
+  while [[ -L ${target_file} ]] ; do
+    target_file=$(readlink ${target_file})
+    cd $(dirname ${target_file})
+    target_file=$(basename ${target_file})
+  done
+
+  # Compute the canonicalized name by finding the physical path
+  # for the directory we're in and appending the target file.
+  local phys_dir=`pwd -P`
+  target_file=${phys_dir/}${target_file}
+
+  if [[ ${target_file} != *"github.com/knative/serving"* ]]; then
+    echo "Removing symlink outside the source tree: " $1 "->" ${target_file}
+    unlink $1
+  fi
+}
+
+
+
 cd ${REPO_ROOT_DIR}
 
 # Ensure we have everything we need under vendor/
@@ -36,6 +73,7 @@ update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 # we have pulled in.
 git apply ${REPO_ROOT_DIR}/hack/66078.patch
 
-# Delete all vendored broken symlinks.
-# From https://stackoverflow.com/questions/22097130/delete-all-broken-symbolic-links-with-a-line
-find vendor/ -type l -exec sh -c 'for x; do [ -e "$x" ] || rm "$x"; done' _ {} +
+# Remove all invalid symlinks under ./vendor
+for l in $(find vendor/ -type l); do
+  remove_invalid_symlink $l
+done
