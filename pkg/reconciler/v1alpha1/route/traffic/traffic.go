@@ -30,9 +30,9 @@ type RevisionTarget struct {
 	Active bool
 }
 
-// TrafficConfig encapsulates details of our traffic so that we don't need to make API calls, or use details of the
+// Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
-type TrafficConfig struct {
+type Config struct {
 	// Group of traffic splits.  Un-named targets are grouped together
 	// under the key "", and named target are under the respective
 	// name.  This is used to configure network configuration to
@@ -54,7 +54,7 @@ type TrafficConfig struct {
 //
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	u *v1alpha1.Route) (*TrafficConfig, error) {
+	u *v1alpha1.Route) (*Config, error) {
 	builder := newBuilder(configLister, revLister, u.Namespace)
 	for _, tt := range u.Spec.Traffic {
 		if err := builder.addTrafficTarget(&tt); err != nil {
@@ -66,7 +66,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 }
 
 // GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *TrafficConfig) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
+func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := []v1alpha1.TrafficTarget{}
 	for _, tt := range t.RevisionTargets {
 		results = append(results, v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent})
@@ -243,12 +243,12 @@ func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTa
 	return consolidated
 }
 
-func (t *trafficConfigBuilder) build() (*TrafficConfig, error) {
+func (t *trafficConfigBuilder) build() (*Config, error) {
 	if t.deferredTargetErr != nil {
 		t.targets = nil
 		t.revisionTargets = nil
 	}
-	return &TrafficConfig{
+	return &Config{
 		Targets:         consolidateAll(t.targets),
 		RevisionTargets: t.revisionTargets,
 		Configurations:  t.configurations,

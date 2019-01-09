@@ -96,11 +96,11 @@ func TestReconcileTargetRevisions(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		tc        traffic.TrafficConfig
+		tc        traffic.Config
 		expectErr error
 	}{{
 		name: "Valid target revision",
-		tc: traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
+		tc: traffic.Config{Targets: map[string][]traffic.RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					RevisionName: "revision",
@@ -110,7 +110,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 			}}}},
 	}, {
 		name: "invalid target revision",
-		tc: traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
+		tc: traffic.Config{Targets: map[string][]traffic.RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					RevisionName: "inal-revision",
@@ -139,7 +139,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 }
 
 func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
-	tc := &traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
+	tc := &traffic.Config{Targets: map[string][]traffic.RevisionTarget{
 		"": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				RevisionName: "revision",
