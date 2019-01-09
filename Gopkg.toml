@@ -36,8 +36,8 @@ required = [
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2018-08-06
-  revision = "5f7b0e4895413d785ff15b84d218d73e8a47866a"
+  # HEAD as of 2019-01-08
+  revision = "15b751c1c044fd2c31a13c46d9e97600a88eb8cb"
 
 [[override]]
   name = "k8s.io/api"

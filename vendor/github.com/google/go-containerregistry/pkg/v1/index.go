@@ -12,29 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1util
+package v1
 
 import (
-	"io"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-func nop() error {
-	return nil
-}
+type ImageIndex interface {
+	// MediaType of this image's manifest.
+	MediaType() (types.MediaType, error)
 
-// NopWriteCloser wraps the io.Writer as an io.WriteCloser with a Close() method that does nothing.
-func NopWriteCloser(w io.Writer) io.WriteCloser {
-	return &writeAndCloser{
-		Writer:    w,
-		CloseFunc: nop,
-	}
-}
+	// Digest returns the sha256 of this index's manifest.
+	Digest() (Hash, error)
 
-// NopReadCloser wraps the io.Reader as an io.ReadCloser with a Close() method that does nothing.
-// This is technically redundant with ioutil.NopCloser, but provided for symmetry and clarity.
-func NopReadCloser(r io.Reader) io.ReadCloser {
-	return &readAndCloser{
-		Reader:    r,
-		CloseFunc: nop,
-	}
+	// IndexManifest returns this image index's manifest object.
+	IndexManifest() (*IndexManifest, error)
+
+	// RawIndexManifest returns the serialized bytes of IndexManifest().
+	RawIndexManifest() ([]byte, error)
 }
