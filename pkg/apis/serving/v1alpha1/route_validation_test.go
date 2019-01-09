@@ -131,6 +131,10 @@ func TestRouteValidation(t *testing.T) {
 }
 
 func TestRouteSpecValidation(t *testing.T) {
+	multipleDefinitionError := &apis.FieldError{
+		Message: `Multiple definitions for "foo"`,
+		Paths:   []string{"traffic[0].name", "traffic[1].name"},
+	}
 	tests := []struct {
 		name string
 		rs   *RouteSpec
@@ -216,12 +220,9 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: &apis.FieldError{
-			Message: `Multiple definitions for "foo"`,
-			Paths:   []string{"traffic[0].name", "traffic[1].name"},
-		},
+		want: multipleDefinitionError,
 	}, {
-		name: "valid name collision (same revision)",
+		name: "collision (same revision)",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				Name:         "foo",
@@ -233,7 +234,21 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: nil,
+		want: multipleDefinitionError,
+	}, {
+		name: "collision (same config)",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				Name:              "foo",
+				ConfigurationName: "bar",
+				Percent:           50,
+			}, {
+				Name:              "foo",
+				ConfigurationName: "bar",
+				Percent:           50,
+			}},
+		},
+		want: multipleDefinitionError,
 	}, {
 		name: "invalid total percentage",
 		rs: &RouteSpec{
@@ -322,14 +337,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "foo",
 			Percent:      -5,
 		},
-		want: apis.ErrInvalidValue("-5", "percent"),
+		want: apis.ErrOutOfBoundsValue("-5", "0", "100", "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
 			Percent:      101,
 		},
-		want: apis.ErrInvalidValue("101", "percent"),
+		want: apis.ErrOutOfBoundsValue("101", "0", "100", "percent"),
 	}}
 
 	for _, test := range tests {

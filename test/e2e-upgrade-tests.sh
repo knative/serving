@@ -37,15 +37,16 @@ source $(dirname $0)/cluster.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly LATEST_SERVING_RELEASE_VERSION=0.2.2
+readonly LATEST_SERVING_RELEASE_VERSION=0.2.3
 
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
+  # TODO: should this test install istio and build at all, or only serving?
   install_knative_serving \
     "${url}/istio-crds.yaml" \
     "${url}/istio.yaml" \
-    "${url}/release-no-mon.yaml" \
+    "${url}/serving.yaml" \
     || fail_test "Knative latest release installation failed"
 }
 
@@ -64,21 +65,23 @@ function teardown() {
 initialize $@
 
 header "Setting up environment"
-publish_test_images
+publish_test_images || fail_test "one or more test images weren't published"
 
 install_latest_release
 
+# TODO(#2656): Reduce the timeout after we get this test to consistently passing.
+TIMEOUT=10m
 header "Running preupgrade tests"
-go_test_e2e -tags=preupgrade -timeout=5m ./test/upgrade || fail_test
+go_test_e2e -tags=preupgrade -timeout=$TIMEOUT ./test/upgrade || fail_test
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=5m ./test/upgrade || fail_test
+go_test_e2e -tags=postupgrade -timeout=$TIMEOUT ./test/upgrade || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=5m ./test/upgrade || fail_test
+go_test_e2e -tags=postdowngrade -timeout=$TIMEOUT ./test/upgrade || fail_test
 
 success

@@ -119,6 +119,12 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
+	transport := http.DefaultTransport
+	if rt, err := newResolverTransport(k8sCertPath); err != nil {
+		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
+	} else {
+		transport = rt
+	}
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -131,7 +137,7 @@ func NewController(
 		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    opt.KubeClientSet,
-			transport: http.DefaultTransport,
+			transport: transport,
 		},
 	}
 	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
@@ -185,10 +191,19 @@ func NewController(
 
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
-	// TODO(mattmoor): When we support reconciling Deployment differences,
-	// we should consider triggering a global reconciliation here to the
-	// logging configuration changes are rolled out to active revisions.
-	c.configStore = config.NewStore(c.Logger.Named("config-store"))
+	configsToResync := []interface{}{
+		&config.Network{},
+		&config.Observability{},
+		&config.Controller{},
+	}
+
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		// Triggers syncs on all revisions when configuration
+		// changes
+		impl.GlobalResync(revisionInformer.Informer())
+	})
+
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
@@ -324,7 +339,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	}
 	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(err.Error())
+		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
 		return err
 	}
 
@@ -335,6 +350,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	rev.SetDefaults()
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
@@ -408,6 +429,5 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	// Don't modify the informers copy
 	existing := rev.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
+	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
 }

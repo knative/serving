@@ -26,9 +26,8 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/prometheus"
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"github.com/knative/test-infra/shared/prometheus"
+	"github.com/knative/test-infra/shared/testgrid"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -38,6 +37,9 @@ const (
 	istioNS      = "istio-system"
 	monitoringNS = "knative-monitoring"
 	gateway      = "istio-ingressgateway"
+	// Property name used by testgrid.
+	perfLatency = "perf_latency"
+	duration    = 1 * time.Minute
 )
 
 type PerformanceClient struct {
@@ -72,21 +74,12 @@ func TearDown(client *PerformanceClient, logger *logging.BaseLogger, names test.
 	}
 }
 
-// RunLoadTest runs the load test with fortio and returns the response
-func RunLoadTest(duration time.Duration, nThreads, nConnections int, url, domain string) (*fhttp.HTTPRunnerResults, error) {
-	o := fhttp.NewHTTPOptions(url)
-	o.NumConnections = nConnections
-	o.AddAndValidateExtraHeader(fmt.Sprintf("Host: %s", domain))
-
-	opts := fhttp.HTTPRunnerOptions{
-		RunnerOptions: periodic.RunnerOptions{
-			Duration:    duration,
-			NumThreads:  nThreads,
-			Percentiles: []float64{50.0, 90.0, 99.0},
-		},
-		HTTPOptions:        *o,
-		AllowInitialErrors: true,
-	}
-
-	return fhttp.RunHTTPTest(&opts)
+// CreatePerfTestCase creates a perf test case with the provided name and value
+func CreatePerfTestCase(metricValue float32, metricName, testName string) testgrid.TestCase {
+	tp := []testgrid.TestProperty{{Name: perfLatency, Value: metricValue}}
+	tc := testgrid.TestCase{
+		ClassName:  testName,
+		Name:       fmt.Sprintf("%s/%s", testName, metricName),
+		Properties: testgrid.TestProperties{Property: tp}}
+	return tc
 }

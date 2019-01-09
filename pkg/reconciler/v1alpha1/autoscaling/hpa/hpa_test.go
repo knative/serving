@@ -44,11 +44,17 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
-			hpa(testRevision, testNamespace, WithHPAClass),
+			hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 		}},
+	}, {
+		Name: "do not create hpa when non-hpa-class pod autoscaler",
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithKPAClass),
+		},
+		Key: key(testRevision, testNamespace),
 	}, {
 		Name:    "delete when pa does not exist",
 		Objects: []runtime.Object{},
@@ -68,12 +74,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation),
-			hpa(testRevision, testNamespace, WithHPAClass),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation("1")),
+			hpa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu")),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation),
+			Object: hpa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu")),
 		}},
 	}}
 

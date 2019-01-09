@@ -93,11 +93,23 @@ type IngressSpec struct {
 	// +optional
 	Rules []ClusterIngressRule `json:"rules,omitempty"`
 
-	// TODO: We need to consider a way to specify if the ClusterIngress address
-	// should be exposed to the Internet, or only exposed privately (cluster local,
-	// VPC, RFC1918).  An example use case is for
-	//   https://github.com/knative/serving/issues/2127.
+	// Visibility setting.
+	Visibility IngressVisibility `json:"visibility,omitempty"`
 }
+
+// IngressVisibility describes whether the Ingress should be exposed to
+// public gateways or not.
+type IngressVisibility string
+
+const (
+	// IngressVisibilityExternalIP is used to denote that the Ingress
+	// should be exposed to an external IP, for example a LoadBalancer
+	// Service.  This is the default value for IngressVisibility.
+	IngressVisibilityExternalIP IngressVisibility = "ExternalIP"
+	// IngressVisibilityClusterLocal is used to denote that the Ingress
+	// should be only be exposed locally to the cluster.
+	IngressVisibilityClusterLocal IngressVisibility = "ClusterLocal"
+)
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
 type ClusterIngressTLS struct {
@@ -273,6 +285,10 @@ type LoadBalancerIngressStatus struct {
 	//
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// MeshOnly is set if the ClusterIngress is only load-balanced through a Service mesh.
+	// +optional
+	MeshOnly bool `json:"meshOnly,omitempty"`
 }
 
 // ConditionType represents a ClusterIngress condition value
@@ -301,6 +317,11 @@ var _ apis.Defaultable = (*ClusterIngress)(nil)
 
 func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ClusterIngress")
+}
+
+// IsPublic returns whether the ClusterIngress should be exposed publicly.
+func (ci *ClusterIngress) IsPublic() bool {
+	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of

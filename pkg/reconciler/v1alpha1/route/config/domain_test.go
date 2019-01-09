@@ -166,6 +166,9 @@ func TestLookupDomainForLabels(t *testing.T) {
 	}, {
 		labels: map[string]string{},
 		domain: "default.com",
+	}, {
+		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
+		domain: "svc.cluster.local",
 	}}
 
 	for _, expected := range expectations {

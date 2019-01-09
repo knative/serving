@@ -26,6 +26,33 @@ data:
       scrape_timeout: 10s
       evaluation_interval: 30s
     scrape_configs:
+    # Controller endpoint
+    - job_name: controller
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;controller;metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        regex: (.*)
+        target_label: namespace
+        replacement: $1
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        regex: (.*)
+        target_label: pod
+        replacement: $1
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        regex: (.*)
+        target_label: service
+        replacement: $1
     # Autoscaler endpoint
     - job_name: autoscaler
       scrape_interval: 3s

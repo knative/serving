@@ -31,6 +31,8 @@ spec:
     - kservice
     - ksvc
   scope: Namespaced
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Domain
     type: string

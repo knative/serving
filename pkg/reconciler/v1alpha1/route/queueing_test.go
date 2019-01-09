@@ -59,11 +59,6 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		}},
 	)
 
-	// TODO(grantr): inserting the route at client creation is necessary
-	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
-	// upgrade to 1.10 we can remove the config argument here and instead use the
-	// Create() method.
-
 	// Create fake clients
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -83,7 +78,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		Data: map[string]string{},
 	})
 	sharedClient := fakesharedclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset(rev, route)
+	servingClient := fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -128,10 +123,21 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	servingInformer.Start(stopCh)
 	configMapWatcher.Start(stopCh)
 
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
+
 	// Run the controller.
 	eg.Go(func() error {
 		return controller.Run(2, stopCh)
 	})
+
+	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Errorf("Unexpected error creating revision: %v", err)
+	}
+
+	if _, err := servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route); err != nil {
+		t.Errorf("Unexpected error creating route: %v", err)
+	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

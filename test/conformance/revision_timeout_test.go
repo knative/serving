@@ -37,11 +37,9 @@ import (
 
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by imagePath
-func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int) (*v1alpha1.Service, error) {
-	service := test.LatestService(test.ServingNamespace, names, imagePath)
-	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = &metav1.Duration{
-		Duration: time.Duration(revisionTimeoutSeconds) * time.Second,
-	}
+func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
+	service := test.LatestService(test.ServingNamespace, names, imagePath, &test.Options{})
+	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = revisionTimeoutSeconds
 	test.LogResourceObject(logger, test.ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
@@ -51,7 +49,7 @@ func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, re
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/revisionTemplate/spec/timeoutSeconds",
-		Value:     (time.Duration(revisionTimeoutSeconds) * time.Second).String(),
+		Value:     revisionTimeoutSeconds,
 	}}
 	patchBytes, err := json.Marshal(patches)
 	if err != nil {
@@ -65,19 +63,22 @@ func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, re
 }
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
-func sendRequest(logger *logging.BaseLogger, clients *test.Clients, domain string, sleepSeconds int, expectedResponseCode int) error {
+func sendRequest(logger *logging.BaseLogger, clients *test.Clients, domain string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		logger.Infof("Spoofing client failed: %v", err)
 		return err
 	}
 
+	initialSleepMs := initialSleepSeconds * 1000
+	sleepMs := sleepSeconds * 1000
+
 	start := time.Now().UnixNano()
 	defer func() {
 		end := time.Now().UnixNano()
-		logger.Infof("domain: %v, sleep: %v, request elapsed %.2f ms", domain, sleepSeconds*1000, float64(end-start)/1e6)
+		logger.Infof("domain: %v, initialSleep: %v, sleep: %v, request elapsed %.2f ms", domain, initialSleepMs, sleepMs, float64(end-start)/1e6)
 	}()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?timeout=%v", domain, sleepSeconds*1000), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?initialTimeout=%v&timeout=%v", domain, initialSleepMs, sleepMs), nil)
 	if err != nil {
 		logger.Infof("Failed new request: %v", err)
 		return err
@@ -119,7 +120,7 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 
 	logger.Info("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
+	revisionName, err := test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
 	}
@@ -130,8 +131,8 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
-	_, err = test.UpdateManualService(logger, clients, svc)
+	logger.Info("Patching to a Manual Service to allow configuration and route to be manually modified")
+	_, err = test.PatchManualService(logger, clients, svc)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
@@ -146,7 +147,7 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Revision = rev2s.Revision
 
 	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	rev5s.Revision, err = getNextRevisionName(clients, names)
+	rev5s.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision with timeout 5s: %v", names.Config, err)
 	}
@@ -193,22 +194,27 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)
 	}
 
-	if err := sendRequest(logger, clients, rev2sDomain, 0, http.StatusOK); err != nil {
+	// Quick sanity check
+	if err := sendRequest(logger, clients, rev2sDomain, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 0, http.StatusOK); err != nil {
+	if err := sendRequest(logger, clients, rev5sDomain, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 5s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev2sDomain, 7, http.StatusServiceUnavailable); err != nil {
-		t.Errorf("Did not fail request with sleep 7s with revision timeout 2s: %v", err)
+
+	// Fail by surpassing the initial timeout.
+	if err := sendRequest(logger, clients, rev2sDomain, 5, 0, http.StatusServiceUnavailable); err != nil {
+		t.Errorf("Did not fail request with sleep 5s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 7, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(logger, clients, rev5sDomain, 7, 0, http.StatusServiceUnavailable); err != nil {
 		t.Errorf("Did not fail request with sleep 7s with revision timeout 5s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev2sDomain, 3, http.StatusServiceUnavailable); err != nil {
-		t.Errorf("Did not fail request with sleep 3s with revision timeout 2s: %v", err)
+
+	// Not fail by not surpassing in the initial timeout, but in the overall request duration.
+	if err := sendRequest(logger, clients, rev2sDomain, 1, 3, http.StatusOK); err != nil {
+		t.Errorf("Did not fail request with sleep 1s/3s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(logger, clients, rev5sDomain, 3, http.StatusOK); err != nil {
-		t.Errorf("Failed request with sleep 3s with revision timeout 5s: %v", err)
+	if err := sendRequest(logger, clients, rev5sDomain, 3, 3, http.StatusOK); err != nil {
+		t.Errorf("Failed request with sleep 3s/3s with revision timeout 5s: %v", err)
 	}
 }

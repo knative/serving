@@ -24,11 +24,13 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
+// Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate() *apis.FieldError {
 	return ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
 		Also(c.Spec.Validate().ViaField("spec"))
 }
 
+// Validate makes sure that ConfigurationSpec is properly configured.
 func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)

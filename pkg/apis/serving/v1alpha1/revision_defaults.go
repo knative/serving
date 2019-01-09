@@ -16,15 +16,9 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 const (
-	// defaultTimeout will be set if timeoutSeconds not specified.
-	defaultTimeout = 60 * time.Second
+	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
+	defaultTimeoutSeconds = 5 * 60
 )
 
 func (r *Revision) SetDefaults() {
@@ -38,7 +32,7 @@ func (rs *RevisionSpec) SetDefaults() {
 		rs.ContainerConcurrency = 1
 	}
 
-	if rs.TimeoutSeconds == nil {
-		rs.TimeoutSeconds = &metav1.Duration{Duration: defaultTimeout}
+	if rs.TimeoutSeconds == 0 {
+		rs.TimeoutSeconds = defaultTimeoutSeconds
 	}
 }

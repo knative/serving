@@ -30,6 +30,8 @@ spec:
     shortNames:
     - kpa
   scope: Namespaced
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Ready
     type: string

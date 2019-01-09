@@ -26,25 +26,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// MakeRevision creates a revision object from configuration and build reference.
 func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReference) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
 		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
 		Spec:       config.Spec.RevisionTemplate.Spec,
 	}
-	// Populate the Namespace and Nme
+	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace
-	rev.Name = names.Revision(config)
+	rev.Name = names.DeprecatedRevision(config)
 
-	// Populate the Configuration label.
-	if rev.Labels == nil {
-		rev.Labels = make(map[string]string)
-	}
-	rev.Labels[serving.ConfigurationLabelKey] = config.Name
-
-	configLabels := config.Labels
-	rev.Labels[serving.ServiceLabelKey] = configLabels[serving.ServiceLabelKey]
-	rev.Labels[serving.ConfigurationGenerationLabelKey] = fmt.Sprintf("%v", config.Spec.Generation)
+	UpdateRevisionLabels(rev, config)
 
 	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {
@@ -58,4 +51,36 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	rev.Spec.BuildRef = buildRef
 
 	return rev
+}
+
+// UpdateRevisionLabels sets the revisions labels given a Configuration.
+func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration) {
+	if rev.Labels == nil {
+		rev.Labels = make(map[string]string)
+	}
+
+	for _, key := range []string{
+		serving.ConfigurationLabelKey,
+		serving.ServiceLabelKey,
+		serving.DeprecatedConfigurationGenerationLabelKey,
+		serving.ConfigurationMetadataGenerationLabelKey,
+	} {
+		rev.Labels[key] = RevisionLabelValueForKey(key, config)
+	}
+}
+
+// RevisionLabelValueForKey returns the label value for the given key.
+func RevisionLabelValueForKey(key string, config *v1alpha1.Configuration) string {
+	switch key {
+	case serving.ConfigurationLabelKey:
+		return config.Name
+	case serving.ServiceLabelKey:
+		return config.Labels[serving.ServiceLabelKey]
+	case serving.DeprecatedConfigurationGenerationLabelKey:
+		return fmt.Sprintf("%d", config.Spec.Generation)
+	case serving.ConfigurationMetadataGenerationLabelKey:
+		return fmt.Sprintf("%d", config.Generation)
+	}
+
+	return ""
 }

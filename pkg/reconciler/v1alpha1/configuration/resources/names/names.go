@@ -22,13 +22,23 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func Revision(config *v1alpha1.Configuration) string {
+// DeprecatedRevision produces revision name in the format
+// '{config-name}-{config.spec.generation}'
+//
+// This should eventually change to something like
+// '{config-name}-{config.metadata.generation}'
+func DeprecatedRevision(config *v1alpha1.Configuration) string {
 	return fmt.Sprintf("%s-%05d", config.Name, config.Spec.Generation)
 }
 
-func Build(config *v1alpha1.Configuration) string {
+// DeprecatedBuild produces build name in the format
+// '{config-name}-{config.spec.generation}'
+//
+// This should eventually change to something like
+// '{config-name}-{config.metadata.generation}'
+func DeprecatedBuild(config *v1alpha1.Configuration) string {
 	if config.Spec.Build == nil {
 		return ""
 	}
-	return Revision(config)
+	return DeprecatedRevision(config)
 }

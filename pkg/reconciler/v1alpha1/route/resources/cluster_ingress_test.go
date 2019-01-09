@@ -141,6 +141,35 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	}
 }
 
+func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
+	cases := []struct {
+		name              string
+		route             v1alpha1.Route
+		expectedVisbility netv1alpha1.IngressVisibility
+	}{{
+		name: "public route",
+		route: v1alpha1.Route{
+			Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+		},
+		expectedVisbility: netv1alpha1.IngressVisibilityExternalIP,
+	}, {
+		name: "private route",
+		route: v1alpha1.Route{
+			Status: v1alpha1.RouteStatus{Domain: "local-route.default.svc.cluster.local"},
+		},
+		expectedVisbility: netv1alpha1.IngressVisibilityClusterLocal,
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := makeClusterIngressSpec(&c.route, nil).Visibility
+			if diff := cmp.Diff(c.expectedVisbility, v); diff != "" {
+				t.Errorf("Unexpected visibility (-want +got): %v", diff)
+			}
+		})
+	}
+	return
+}
+
 func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{

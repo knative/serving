@@ -23,7 +23,7 @@ import (
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	testbuildtyped "github.com/knative/serving/test/client/clientset/versioned/typed/testing/v1alpha1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
@@ -105,13 +105,12 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 		return nil, err
 	}
 
-	var clients = &ServingClients{}
-	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
-	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
-	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
-	clients.Services = cs.ServingV1alpha1().Services(namespace)
-
-	return clients, nil
+	return &ServingClients{
+		Configs:   cs.ServingV1alpha1().Configurations(namespace),
+		Revisions: cs.ServingV1alpha1().Revisions(namespace),
+		Routes:    cs.ServingV1alpha1().Routes(namespace),
+		Services:  cs.ServingV1alpha1().Services(namespace),
+	}, nil
 }
 
 // Delete will delete all Routes and Configs with the names routes and configs, if clients

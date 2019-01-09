@@ -45,6 +45,7 @@ type Options struct {
 	DynamicClientSet dynamic.Interface
 	CachingClientSet cachingclientset.Interface
 	Recorder         record.EventRecorder
+	StatsReporter    StatsReporter
 
 	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
@@ -85,6 +86,9 @@ type Base struct {
 	// Kubernetes API.
 	Recorder record.EventRecorder
 
+	// StatsReporter reports reconciler's metrics.
+	StatsReporter StatsReporter
+
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
 	// and use the returned raw logger instead. In addition to the
@@ -110,6 +114,16 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 	}
 
+	statsReporter := opt.StatsReporter
+	if statsReporter == nil {
+		logger.Debug("Creating stats reporter")
+		var err error
+		statsReporter, err = NewStatsReporter(controllerAgentName)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	base := &Base{
 		KubeClientSet:    opt.KubeClientSet,
 		SharedClientSet:  opt.SharedClientSet,
@@ -118,6 +132,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		CachingClientSet: opt.CachingClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,
 		Recorder:         recorder,
+		StatsReporter:    statsReporter,
 		Logger:           logger,
 	}
 
