@@ -544,6 +544,24 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
+func TestRevisionNotOwnedStuff(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "NotOwned"
+	r.Status.MarkResourceNotOwned("Resource", "mark")
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
 func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)

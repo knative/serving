@@ -507,6 +507,31 @@ func TestRouteUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
 }
 
+func TestServiceNotOwnedStuff(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	want := "NotOwned"
+	svc.Status.MarkRouteNotOwned("mark")
+	if got := checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedService(svc.Status, ServiceConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+
+	svc.Status.MarkConfigurationNotOwned("jon")
+	if got := checkConditionFailedService(svc.Status, ServiceConditionConfigurationsReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedService(svc.Status, ServiceConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
 func TestRouteStatusPropagation(t *testing.T) {
 	svc := &Service{}
 	svc.Status.PropagateRouteStatus(RouteStatus{

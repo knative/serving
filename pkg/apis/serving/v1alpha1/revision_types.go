@@ -352,6 +352,13 @@ func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) 
 	}
 }
 
+// MarkResourceNotOwned changes the "ResourcesAvailable" condition to false to reflect that the
+// resource of the given kind and name has already been created, and we do not own it.
+func (rs *RevisionStatus) MarkResourceNotOwned(kind, name string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
+}
+
 func (rs *RevisionStatus) MarkDeploying(reason string) {
 	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
 	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")

@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -237,6 +239,21 @@ func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha
 // InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
+}
+
+// MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
+// status noting that the Configuration with the name we want has already
+// been created and we do not own it.
+func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, "NotOwned",
+		fmt.Sprintf("There is an existing Configuration %q that we do not own.", name))
+}
+
+// MarkRouteNotOwned surfaces a failure via the RoutesReady status noting that the Route
+// with the name we want has already been created and we do not own it.
+func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "NotOwned",
+		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
 }
 
 // PropagateConfigurationStatus takes the Configuration status and applies its values
