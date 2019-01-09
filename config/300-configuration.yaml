@@ -31,6 +31,8 @@ spec:
     - config
     - cfg
   scope: Namespaced
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: LatestCreated
     type: string

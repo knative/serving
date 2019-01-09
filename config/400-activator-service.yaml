@@ -27,8 +27,10 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 8080
+    nodePort: # empty removing existing value to avoid upgrade error # TODO delete after v0.4
   - name: metrics
     protocol: TCP
     port: 9090
     targetPort: 9090
-  type: NodePort
+    nodePort: # empty removing existing value to avoid upgrade error # TODO delete after v0.4
+  type: ClusterIP

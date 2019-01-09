@@ -18,10 +18,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/knative/pkg/apis"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"reflect"
 	"testing"
+
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
@@ -41,28 +42,28 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		name:        "minScale is 0",
 		annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "0"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MinScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MinScaleAnnotationKey),
 			Paths:   []string{autoscaling.MinScaleAnnotationKey},
 		},
 	}, {
 		name:        "maxScale is 0",
 		annotations: map[string]string{autoscaling.MaxScaleAnnotationKey: "0"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MaxScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MaxScaleAnnotationKey),
 			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
 		},
 	}, {
 		name:        "minScale is foo",
 		annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "foo"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MinScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MinScaleAnnotationKey),
 			Paths:   []string{autoscaling.MinScaleAnnotationKey},
 		},
 	}, {
 		name:        "maxScale is bar",
 		annotations: map[string]string{autoscaling.MaxScaleAnnotationKey: "bar"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be integer greater than 0", autoscaling.MaxScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MaxScaleAnnotationKey),
 			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
 		},
 	}, {

@@ -20,13 +20,16 @@ package test
 
 import (
 	"fmt"
+
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// TODO(dangerd): Move function to duck.CreateBytePatch
 func createPatch(cur, desired interface{}) ([]byte, error) {
 	patch, err := duck.CreatePatch(cur, desired)
 	if err != nil {
@@ -35,17 +38,112 @@ func createPatch(cur, desired interface{}) ([]byte, error) {
 	return patch.MarshalJSON()
 }
 
-// CreateLatestService creates a service in namespace with the name names.Service
-// that uses the image specified by imagePath
-func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
-	service := LatestService(ServingNamespace, names, imagePath)
+func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error {
+	return CheckServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+		if s.Status.Domain == "" {
+			return false, fmt.Errorf("domain is not present in Service status: %v", s)
+		}
+		names.Domain = s.Status.Domain
+		if s.Status.LatestCreatedRevisionName == "" {
+			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
+		}
+		names.Revision = s.Status.LatestCreatedRevisionName
+		if s.Status.DomainInternal == "" {
+			return false, fmt.Errorf("domainInternal is not present in Service status: %v", s)
+		}
+		if s.Status.LatestReadyRevisionName == "" {
+			return false, fmt.Errorf("lastReadyRevision is not present in Service status: %v", s)
+		}
+		if s.Status.LatestReadyRevisionName == "" {
+			return false, fmt.Errorf("lastReadyRevision is not present in Service status: %v", s)
+		}
+		if s.Status.ObservedGeneration != 1 {
+			return false, fmt.Errorf("observedGeneration is not 1 in Service status: %v", s)
+		}
+		return true, nil
+	})
+}
+
+func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects, error) {
+	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	serviceObject, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	configObject, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	revisionObject, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ResourceObjects{
+		Route:    routeObject,
+		Service:  serviceObject,
+		Config:   configObject,
+		Revision: revisionObject,
+	}, nil
+}
+
+// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
+// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options) (*ResourceObjects, error) {
+	if names.Service == "" || names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+	}
+
+	logger.Info("Creating a new Service as RunLatest.")
+	svc, err := CreateLatestService(logger, clients, *names, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, err
+	}
+
+	logger.Info("Checking to ensure Service Status is populated for Ready service.")
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info("Getting latest objects Created by Service.")
+	return getResourceObjects(clients, *names)
+}
+
+// CreateLatestService creates a service in namespace with the name names.Service and names.Image
+func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options) (*v1alpha1.Service, error) {
+	service := LatestService(ServingNamespace, names, ImagePath(names.Image), options)
 	LogResourceObject(logger, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
 }
 
-// UpdateReleaseService updates an existing service in namespace with the name names.Service
-func UpdateReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, revisions []string, rolloutPercent int) (*v1alpha1.Service, error) {
+// CreateLatestServiceWithResources creates a service in namespace with the name names.Service
+// that uses the image specified by imagePath
+func CreateLatestServiceWithResources(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
+	service := LatestServiceWithResources(ServingNamespace, names, imagePath)
+	LogResourceObject(logger, ResourceObjects{Service: service})
+	return clients.ServingClient.Services.Create(service)
+}
+
+// PatchReleaseService patches an existing service in namespace with the name names.Service
+func PatchReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, revisions []string, rolloutPercent int) (*v1alpha1.Service, error) {
 	newSvc := ReleaseService(svc, revisions, rolloutPercent)
 	LogResourceObject(logger, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
@@ -55,8 +153,8 @@ func UpdateReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1a
 	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
-// UpdateManualService updates an existing service in namespace with the name names.Service
-func UpdateManualService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service) (*v1alpha1.Service, error) {
+// PatchManualService patches an existing service in namespace with the name names.Service
+func PatchManualService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	newSvc := ManualService(svc)
 	LogResourceObject(logger, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
@@ -66,7 +164,8 @@ func UpdateManualService(logger *logging.BaseLogger, clients *Clients, svc *v1al
 	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
-func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
+// PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
+func PatchServiceImage(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
@@ -77,6 +176,7 @@ func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath strin
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
+	LogResourceObject(logger, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
@@ -84,8 +184,18 @@ func UpdateServiceImage(clients *Clients, svc *v1alpha1.Service, imagePath strin
 	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
-// Updates an existing service by adding metadata to the service's RevisionTemplateSpec.
-func UpdateServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
+// PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
+func PatchService(logger *logging.BaseLogger, clients *Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+	LogResourceObject(logger, ResourceObjects{Service: desiredSvc})
+	patchBytes, err := createPatch(curSvc, desiredSvc)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
+// PatchServiceRevisionTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
+func PatchServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
@@ -102,4 +212,26 @@ func UpdateServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *
 		return nil, err
 	}
 	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
+// WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
+// Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to be set in LatestReadyRevisionName
+// before returning the name of the revision.
+func WaitForServiceLatestRevision(clients *Clients, names ResourceNames) (string, error) {
+	var revisionName string
+	err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+		if s.Status.LatestCreatedRevisionName != names.Revision {
+			revisionName = s.Status.LatestCreatedRevisionName
+			return true, nil
+		}
+		return false, nil
+	}, "ServiceUpdatedWithRevision")
+	if err != nil {
+		return "", err
+	}
+	err = WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+		return (s.Status.LatestReadyRevisionName == revisionName), nil
+	}, "ServiceReadyWithRevision")
+
+	return revisionName, err
 }

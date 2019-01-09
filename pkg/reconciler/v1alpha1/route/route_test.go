@@ -43,8 +43,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/watch"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -319,6 +319,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -407,6 +408,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -489,6 +491,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -588,6 +591,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -707,6 +711,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -868,55 +873,17 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
-
-	stopCh := make(chan struct{})
-	defer func() {
-		close(stopCh)
-	}()
-
-	servingInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	if err := watcher.Start(stopCh); err != nil {
-		t.Fatalf("failed to start configuration manager: %v", err)
-	}
-
-	go controller.Run(1, stopCh)
-
-	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
-	routeWatcher, err := routeClient.Watch(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("Could not create route watcher")
-	}
-	defer routeWatcher.Stop()
-
-	routeModifiedCh := make(chan struct{})
-	defer close(routeModifiedCh)
-
-	go func() {
-		for event := range routeWatcher.ResultChan() {
-			if event.Type == watch.Modified {
-				routeModifiedCh <- struct{}{}
-			}
-		}
-	}()
-
-	// Create a route.
-	route.Labels = map[string]string{"app": "prod"}
-	routeClient.Create(route)
-
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
-		doThings             func()
+		doThings             func(*configmap.ManualWatcher)
 		expectedDomainSuffix string
 	}{{
 		expectedDomainSuffix: prodDomainSuffix,
-		doThings:             func() {}, // The update will still happen: status will be updated to match the route labels
+		doThings:             func(*configmap.ManualWatcher) {}, // The update will still happen: status will be updated to match the route labels
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
-		doThings: func() {
+		doThings: func(watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -931,7 +898,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 		},
 	}, {
 		expectedDomainSuffix: "newprod.net",
-		doThings: func() {
+		doThings: func(watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -946,7 +913,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 		},
 	}, {
 		expectedDomainSuffix: defaultDomainSuffix,
-		doThings: func() {
+		doThings: func(watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -959,23 +926,53 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			watcher.OnChange(&domainConfig)
 		},
 	}}
+
 	for _, test := range tests {
+		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			test.doThings()
+			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
-			select {
-			case <-routeModifiedCh:
-			case <-time.NewTimer(10 * time.Second).C:
-				t.Logf("routeWatcher did not receive a Type==Modified event for %s in 10s", test.expectedDomainSuffix)
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+
+			h := NewHooks()
+
+			// Check for ClusterIngress created as a signal that syncHandler ran
+			h.OnUpdate(&servingClient.Fake, "routes", func(obj runtime.Object) HookResult {
+				rt := obj.(*v1alpha1.Route)
+				t.Logf("route updated: %q", rt.Name)
+
+				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
+				if rt.Status.Domain != expectedDomain {
+					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.Domain)
+					return HookIncomplete
+				}
+
+				return HookComplete
+			})
+
+			servingInformer.Start(stopCh)
+			kubeInformer.Start(stopCh)
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+
+			if err := watcher.Start(stopCh); err != nil {
+				t.Fatalf("failed to start configuration manager: %v", err)
 			}
 
-			route, err := routeClient.Get(route.Name, metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("Error getting a route, test: '%s'", test.expectedDomainSuffix)
-			}
-			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, test.expectedDomainSuffix)
-			if route.Status.Domain != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			go controller.Run(1, stopCh)
+
+			// Create a route.
+			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+			route.Labels = map[string]string{"app": "prod"}
+
+			servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route)
+
+			test.doThings(watcher)
+
+			if err := h.WaitForHooks(3 * time.Second); err != nil {
+				t.Error(err)
 			}
 		})
 	}

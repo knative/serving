@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -100,7 +100,13 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
 	}
 
-	if diff := cmp.Diff(original.Spec, current.Spec); diff != "" {
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff PodAutoscaler",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
@@ -108,7 +114,7 @@ func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.Fiel
 		}
 	}
 	// Verify the PA class does not change.
-	// For backward compatability, we allow a new class where there was none before.
+	// For backward compatibility, we allow a new class where there was none before.
 	if oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]; ok {
 		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
 			return &apis.FieldError{

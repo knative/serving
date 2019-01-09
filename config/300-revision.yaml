@@ -30,6 +30,8 @@ spec:
     shortNames:
     - rev
   scope: Namespaced
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Service Name
     type: string

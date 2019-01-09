@@ -24,7 +24,7 @@ import (
 
 const (
 	// DefaultTimeout will be set if timeout not specified.
-	DefaultTimeout = 60 * time.Second
+	DefaultTimeout = 10 * time.Minute
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
 )
@@ -39,6 +39,9 @@ func (c *IngressSpec) SetDefaults() {
 	}
 	for i := range c.Rules {
 		c.Rules[i].SetDefaults()
+	}
+	if c.Visibility == "" {
+		c.Visibility = IngressVisibilityExternalIP
 	}
 }
 

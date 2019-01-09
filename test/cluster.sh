@@ -14,14 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script provides helper methods to perform cluster actions.
+# Temporarily increasing the cluster size for serving tests to rule out
+# resource / eviction as causes of flakiness.  These env vars are consumed
+# in the test-infra/scripts/e2e-tests.sh.
+E2E_MIN_CLUSTER_NODES=4
+E2E_MAX_CLUSTER_NODES=4
 
+# This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
 # Current YAMLs used to install Knative Serving.
 INSTALL_ISTIO_CRD_YAML=""
 INSTALL_ISTIO_YAML=""
+# TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
+# Build is used by some tests and so is also included here.
+INSTALL_BUILD_YAML=""
 
 # Create all manifests required to install Knative Serving.
 # This will build everything from the current source.
@@ -55,17 +63,26 @@ function install_knative_serving() {
     build_knative_from_source
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
-    # TODO(#2122): Use RELEASE_YAML once we have monitoring e2e.
-    INSTALL_RELEASE_YAML="${RELEASE_NO_MON_YAML}"
+    # TODO(#2122): Install monitoring as well once we have e2e testing for it.
+    INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
+  # TODO: Should we install build from a nightly release?
+  # The latest released Build is always at this location.
+  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
+
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+
+  echo ">> Installing Build"
+  # TODO: should this use a released copy of Build?
+  kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing up Serving"
   # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
@@ -79,7 +96,9 @@ function install_knative_serving() {
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Adding more activator pods."
-  kubectl scale deploy --replicas=2 -n knative-serving activator || return 1
+  # This command would fail if the HPA already exist, like during upgrade test.
+  # Therefore we don't exit on failure, and don't log an error message.
+  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
 
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
   #
@@ -89,18 +108,28 @@ function install_knative_serving() {
   # to avoid having too much flakes in the tests.  That would allow us to be stricter
   # when checking non-probe requests to discover other routing issues.
   #
+  # To compensate for this scaling down, we increase the CPU request for these pods.
+  #
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  kubectl patch hpa -n istio-system istio-ingressgateway --patch '{"spec": {"maxReplicas": 1}}' || return 1
+  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway; do
+    if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
+      kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
+      kubectl set resources deploy -n istio-system ${gateway} \
+        -c=istio-proxy --requests=cpu=50m 2> /dev/null
+    fi
+  done
 
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to verify if we can reduce flakes.
-  if kubectl get hpa -n istio-system istio-pilot ; then
+  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
     # If HPA exists, update it.  Since patching will return non-zero if no change
     # is made, we don't return on failure here.
     kubectl patch hpa -n istio-system istio-pilot \
-      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}'
+      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
+      `# Ignore error messages to avoid causing red herrings in the tests` \
+      2>/dev/null
   else
     # Some versions of Istio doesn't provide an HPA for pilot.
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
@@ -111,6 +140,9 @@ function install_knative_serving() {
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
+  if kubectl get svc -n istio-system knative-ingressgateway > /dev/null 2>&1 ; then
+    wait_until_service_has_external_ip istio-system knative-ingressgateway
+  fi
   wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
@@ -123,11 +155,15 @@ function uninstall_knative_serving() {
   echo ">> Uninstalling Knative serving"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
 
   echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  echo ">> Bringing down Build"
+  ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing down Istio"
   kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
@@ -138,8 +174,5 @@ function uninstall_knative_serving() {
 function publish_test_images() {
   echo ">> Publishing test images"
   kubectl create namespace serving-tests
-  local image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})" || return 1
-  done
+  ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }

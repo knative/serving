@@ -21,7 +21,6 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,12 @@ var (
 		Name:       ServicePortName,
 		Protocol:   corev1.ProtocolTCP,
 		Port:       ServicePort,
-		TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
+		TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
+	}, {
+		Name:       MetricsPortName,
+		Protocol:   corev1.ProtocolTCP,
+		Port:       MetricsPort,
+		TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 	}}
 )
 

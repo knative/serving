@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -64,7 +65,9 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 		if ent, ok := trafficMap[tt.Name]; !ok {
 			// No entry exists, so add ours
 			trafficMap[tt.Name] = nt
-		} else if ent.r != nt.r || ent.c != nt.c {
+		} else {
+			// We want only single definition of the route, even if it points
+			// to the same config or revision.
 			errs = errs.Also(&apis.FieldError{
 				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
 				Paths: []string{
@@ -84,6 +87,7 @@ func (rs *RouteSpec) Validate() *apis.FieldError {
 	return errs
 }
 
+// Validate verifies that TrafficTarget is properly configured.
 func (tt *TrafficTarget) Validate() *apis.FieldError {
 	var errs *apis.FieldError
 	switch {
@@ -101,7 +105,7 @@ func (tt *TrafficTarget) Validate() *apis.FieldError {
 		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
 	if tt.Percent < 0 || tt.Percent > 100 {
-		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%d", tt.Percent), "percent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(tt.Percent), "0", "100", "percent"))
 	}
 	return errs
 }

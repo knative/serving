@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 )
 
@@ -78,10 +79,22 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: balancer.Domain,
 		}, nil
+	case balancer.MeshOnly:
+		// The ClusterIngress is loadbalanced through a Service mesh.
+		// We won't have a specific LB endpoint to route traffic to,
+		// but we still need to create a ClusterIP service to make
+		// sure the domain name is available for access within the
+		// mesh.
+		return &corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{{
+				Name: revisionresources.ServicePortName,
+				Port: revisionresources.ServicePort,
+			}},
+		}, nil
 	case len(balancer.IP) != 0:
 		// TODO(lichuqiang): deal with LoadBalancer IP.
 		// We'll also need ports info to make it take effect.
 	}
-
 	return nil, errLoadBalancerNotFound
 }

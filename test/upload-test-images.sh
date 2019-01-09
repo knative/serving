@@ -24,7 +24,7 @@ DOCKER_TAG=$1
 
 for image_dir in ${IMAGE_DIRS}; do
   IMAGE="github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  ko publish -P $IMAGE
+  ko publish -B $IMAGE
   if [ -n "$DOCKER_TAG" ]; then
     IMAGE=$KO_DOCKER_REPO/$IMAGE
     DIGEST=$(docker images | grep $IMAGE | head -1 | awk '{print $2}')

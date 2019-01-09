@@ -21,17 +21,19 @@ import (
 )
 
 const (
-	userContainerName    = "user-container"
-	fluentdContainerName = "fluentd-proxy"
-	envoyContainerName   = "istio-proxy"
-	queueContainerName   = "queue-proxy"
+	// UserContainerName is the name of the user-container in the PodSpec
+	UserContainerName = "user-container"
+	// FluentdContainerName is the name of the fluentd sidecar when enabled
+	FluentdContainerName = "fluentd-proxy"
+	// EnvoyContainerName is the name of the envoy sidecar when enabled
+	EnvoyContainerName = "istio-proxy"
+	// QueueContainerName is the name of the queue proxy side car
+	QueueContainerName = "queue-proxy"
 
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
-	userPortName    = "user-port"
-	userPort        = 8080
 	userPortEnvName = "PORT"
 
 	autoscalerPort = 8080
@@ -40,6 +42,10 @@ const (
 	ServicePortName = "http"
 	// ServicePort is the external port of the service
 	ServicePort = int32(80)
+	// MetricsPortName is the name of the external port of the service for metrics
+	MetricsPortName = "metrics"
+	// MetricsPort is the external port of the service for metrics
+	MetricsPort = int32(9090)
 	AppLabelKey = "app"
 )
 

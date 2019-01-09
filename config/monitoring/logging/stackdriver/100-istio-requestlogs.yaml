@@ -55,7 +55,7 @@ metadata:
   name: requestlogtofluentd
   namespace: istio-system
 spec:
-  match: "true"
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
    - handler: requestloghandler.fluentd
      instances:

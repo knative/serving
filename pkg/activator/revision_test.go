@@ -34,11 +34,10 @@ import (
 )
 
 const (
-	testNamespace     = "test-namespace"
-	testConfiguration = "test-configuration"
-	testRevision      = "test-rev"
-	testService       = testRevision + "-service"
-	testServiceFQDN   = testService + "." + testNamespace + ".svc.cluster.local"
+	testNamespace   = "test-namespace"
+	testRevision    = "test-rev"
+	testService     = testRevision + "-service"
+	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
 var defaultRevisionLabels map[string]string
@@ -50,16 +49,6 @@ func init() {
 	}
 }
 
-type mockReporter struct{}
-
-func (r *mockReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
-	return nil
-}
-
-func (r *mockReporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
-	return nil
-}
-
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
@@ -67,7 +56,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
 	ch := make(chan ActivationResult)
 	go func() {
@@ -118,7 +107,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan ActivationResult)

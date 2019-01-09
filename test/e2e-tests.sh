@@ -46,6 +46,7 @@ function dump_extra_cluster_state() {
   kubectl get revisions -o yaml --all-namespaces
 
   dump_app_logs controller
+  dump_app_logs webhook
   dump_app_logs autoscaler
   dump_app_logs activator
 }
@@ -69,8 +70,16 @@ install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
-
 header "Running tests"
-go_test_e2e -timeout=20m ./test/conformance ./test/e2e || fail_test
+
+failed=0
+# Run conformance tests, but don't exit if it fails.
+go_test_e2e -timeout=10m ./test/conformance || failed=1
+
+# So that we can also identify failing E2E tests.
+go_test_e2e -timeout=15m ./test/e2e || failed=1
+
+# Require that both set of tests succeeded.
+(( failed )) && fail_test
 
 success

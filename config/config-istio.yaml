@@ -18,5 +18,16 @@ metadata:
   name: config-istio
   namespace: knative-serving
 data:
-  # Gateway used for knative traffic. Default to istio-ingressgateway.
-  ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
+  # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
+
+  # Default Knative Gateway after v0.3. It points to the Istio
+  # standard istio-ingressgateway, instead of a custom one that we
+  # used pre-0.3.
+  gateway.knative-ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
+  # This is the pre-0.3 shared Gateway.  We leave it here for backward
+  # compatibility.
+  gateway.knative-shared-gateway: "knative-ingressgateway.istio-system.svc.cluster.local"
+  # A cluster local gateway to allow pods outside of the mesh to access
+  # Services and Routes not exposing through an ingress.  If the users
+  # do have a service mesh setup, this isn't required.
+  local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"

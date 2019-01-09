@@ -26,8 +26,24 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	// Sleep for a set amount of time before sending headers
+	if initialTimeout := r.URL.Query().Get("initialTimeout"); initialTimeout != "" {
+		parsed, _ := strconv.Atoi(initialTimeout)
+		time.Sleep(time.Duration(parsed) * time.Millisecond)
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// Explicitly flush the already written data to trigger (or not)
+	// the time-to-first-byte timeout.
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	// Sleep for a set amount of time before sending response
 	timeout, _ := strconv.Atoi(r.URL.Query().Get("timeout"))
 	time.Sleep(time.Duration(timeout) * time.Millisecond)
+
 	fmt.Fprintf(w, "Slept for %d milliseconds", timeout)
 }
 
