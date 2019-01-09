@@ -157,7 +157,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
-func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.TrafficConfig, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1alpha1.Route) error {
 	gcConfig := config.FromContext(ctx).GC
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 

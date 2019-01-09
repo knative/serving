@@ -122,12 +122,46 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
+					Percent:           100,
+				},
+				Active: true,
+			}},
+		},
+		RevisionTargets: []RevisionTarget{{
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: goodConfig.Name,
+				RevisionName:      goodNewRev.Name,
+				Percent:           100,
+			},
+			Active: true,
+		}},
+		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
+		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
+func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		RevisionName: goodNewRev.Name,
+		Percent:      100,
+	}}
+	expected := &Config{
+		Targets: map[string][]RevisionTarget{
+			"": {{
+				TrafficTarget: v1alpha1.TrafficTarget{
+					RevisionName:      goodNewRev.Name,
+					ConfigurationName: goodConfig.Name,
 					Percent:           100,
 				},
 				Active: true,
@@ -157,7 +191,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 		ConfigurationName: inactiveConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -195,7 +229,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -245,7 +279,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -303,7 +337,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           1,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -394,7 +428,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -446,7 +480,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 		RevisionName: niceNewRev.Name,
 		Percent:      60,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -501,7 +535,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 		Name:              "alpha",
 		ConfigurationName: niceConfig.Name,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -582,7 +616,7 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 		Name:              "alpha",
 		ConfigurationName: missingConfig.Name,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
@@ -603,7 +637,7 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 		RevisionName: unreadyRev.Name,
 		Percent:      100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{},
 		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
@@ -624,7 +658,7 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 		ConfigurationName: unreadyConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
@@ -645,7 +679,7 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		ConfigurationName: emptyConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
@@ -669,7 +703,7 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 		ConfigurationName: failedConfig.Name,
 		Percent:           50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{
 			emptyConfig.Name:  emptyConfig,
@@ -696,7 +730,7 @@ func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 		ConfigurationName: emptyConfig.Name,
 		Percent:           50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{
 			emptyConfig.Name:  emptyConfig,
@@ -723,7 +757,7 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
@@ -775,7 +809,7 @@ func getTestConfig(name string) *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization
+			// This is a workaround for generation initialization.
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
@@ -885,6 +919,5 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 
 func TestMain(m *testing.M) {
 	setUp()
-	code := m.Run()
-	os.Exit(code)
+	os.Exit(m.Run())
 }

@@ -57,7 +57,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			*kmeta.NewControllerRef(r),
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta
+	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
 		t.Errorf("Unexpected metadata (-want +got): %v", diff)
 	}
