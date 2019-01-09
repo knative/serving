@@ -31,7 +31,7 @@ function remove_invalid_symlink() {
   local target_file=$1
   if [[ ! -e ${target_file} ]] ; then
     echo "Removing broken symlink:" $1
-    unlink $1
+    unlink ${REPO_ROOT_DIR}/$1
     return
   fi
 
@@ -47,11 +47,11 @@ function remove_invalid_symlink() {
   # Compute the canonicalized name by finding the physical path
   # for the directory we're in and appending the target file.
   local phys_dir=`pwd -P`
-  target_file=${phys_dir/}${target_file}
+  target_file=${phys_dir}/${target_file}
 
   if [[ ${target_file} != *"github.com/knative/serving"* ]]; then
     echo "Removing symlink outside the source tree: " $1 "->" ${target_file}
-    unlink $1
+    unlink ${REPO_ROOT_DIR}/$1
   fi
 }
 
