@@ -126,16 +126,22 @@ func main() {
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 
-	// Retry on 503's for up to 60 seconds. The reason is there is
-	// a small delay for k8s to include the ready IP in service.
+	// Retry on 502's, 503's and 504's for up to 60 seconds.
+	// The reason is there is a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
+	// For 502's and 504's the reason is that some apps (like java) may take time to server requests
+	// even after the container is running
+	// https://github.com/knative/eventing/issues/671#issuecomment-446711743
+	shouldRetry503 := activatorutil.RetryStatus(http.StatusServiceUnavailable)
+	shouldRetry502 := activatorutil.RetryStatus(http.StatusBadGateway)
+	shouldRetry504 := activatorutil.RetryStatus(http.StatusGatewayTimeout)
 	backoffSettings := wait.Backoff{
 		Duration: minRetryInterval,
 		Factor:   exponentialBackoffBase,
 		Steps:    maxRetries,
 	}
-	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
+	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings,
+		shouldRetry502, shouldRetry503, shouldRetry504)
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()

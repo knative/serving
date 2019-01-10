@@ -85,6 +85,8 @@ func TestRetryRoundTripper(t *testing.T) {
 	conditions := []RetryCond{
 		RetryStatus(http.StatusInternalServerError),
 		RetryStatus(http.StatusBadRequest),
+		RetryStatus(http.StatusBadGateway),
+		RetryStatus(http.StatusGatewayTimeout),
 	}
 
 	examples := []struct {
@@ -130,6 +132,22 @@ func TestRetryRoundTripper(t *testing.T) {
 		{
 			label:          "retry on condition 2",
 			resp:           resp(http.StatusBadRequest),
+			err:            nil,
+			cond:           conditions,
+			wantAttempts:   2,
+			wantBodyClosed: true,
+		},
+		{
+			label:          "retry on condition 3",
+			resp:           resp(http.StatusGatewayTimeout),
+			err:            nil,
+			cond:           conditions,
+			wantAttempts:   2,
+			wantBodyClosed: true,
+		},
+		{
+			label:          "retry on condition 4",
+			resp:           resp(http.StatusBadGateway),
 			err:            nil,
 			cond:           conditions,
 			wantAttempts:   2,
