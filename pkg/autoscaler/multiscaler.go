@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 )
 
 const (
@@ -106,9 +107,11 @@ func NewMetricKey(namespace string, name string) string {
 
 // MultiScaler maintains a collection of Uniscalers.
 type MultiScaler struct {
-	scalers       map[string]*scalerRunner
-	scalersMutex  sync.RWMutex
-	scalersStopCh <-chan struct{}
+	scalers           map[string]*scalerRunner
+	scalersMutex      sync.RWMutex
+	scalersStopCh     <-chan struct{}
+	statsCh           chan<- *StatMessage
+	endpointsInformer corev1informers.EndpointsInformer
 
 	dynConfig *DynamicConfig
 
@@ -121,14 +124,22 @@ type MultiScaler struct {
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+func NewMultiScaler(
+	dynConfig *DynamicConfig,
+	endpointsInformer corev1informers.EndpointsInformer,
+	stopCh <-chan struct{},
+	statsCh chan<- *StatMessage,
+	uniScalerFactory UniScalerFactory,
+	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:          make(map[string]*scalerRunner),
-		scalersStopCh:    stopCh,
-		dynConfig:        dynConfig,
-		uniScalerFactory: uniScalerFactory,
-		logger:           logger,
+		scalers:           make(map[string]*scalerRunner),
+		scalersStopCh:     stopCh,
+		statsCh:           statsCh,
+		endpointsInformer: endpointsInformer,
+		dynConfig:         dynConfig,
+		uniScalerFactory:  uniScalerFactory,
+		logger:            logger,
 	}
 }
 
@@ -250,6 +261,26 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 			}
 		}
 	}()
+
+	if scraper, err := CreateNewStatsScraper(metric, m.endpointsInformer, m.logger); err != nil {
+		scraperTicker := time.NewTicker(time.Second)
+		go func() {
+			for {
+				select {
+				case <-m.scalersStopCh:
+					scraperTicker.Stop()
+					return
+				case <-stopCh:
+					scraperTicker.Stop()
+					return
+				case <-scraperTicker.C:
+					scraper.Scrape(m.statsCh)
+				}
+			}
+		}()
+	} else {
+		m.logger.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
+	}
 
 	metricKey := NewMetricKey(metric.Namespace, metric.Name)
 	go func() {

@@ -77,6 +77,8 @@ func main() {
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
+	// Chanel for stats
+	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
@@ -118,8 +120,6 @@ func main() {
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
-
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
@@ -133,6 +133,7 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, endpointsInformer, stopCh, statsCh, uniScalerFactory, logger)
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
@@ -163,8 +164,6 @@ func main() {
 	eg.Go(func() error {
 		return hpaCtl.Run(controllerThreads, stopCh)
 	})
-
-	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
 	statsServer := statserver.New(statsServerAddr, statsCh, logger)
 	eg.Go(func() error {
