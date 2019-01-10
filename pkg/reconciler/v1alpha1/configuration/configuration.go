@@ -34,6 +34,7 @@ import (
 	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	errutil "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -276,7 +277,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 			LabelSelector: fmt.Sprintf("%s=%s", serving.BuildHashLabelKey, buildHash),
 		})
 		if err != nil {
-			return nil, err
+			return nil, errutil.Wrapf(err, "Failed to list GroupVersionResource %+v", gvr)
 		}
 
 		var result *unstructured.Unstructured
@@ -287,7 +288,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 			// Otherwise, create a build and reference that.
 			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
 			if err != nil {
-				return nil, err
+				return nil, errutil.Wrapf(err, "Failed to create Build %v", build.GetName())
 			}
 			logger.Infof("Created Build:\n%+v", result.GetName())
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())

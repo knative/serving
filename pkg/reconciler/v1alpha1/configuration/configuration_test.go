@@ -252,11 +252,11 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("create-build-failure", "foo", 99998, WithBuild,
 				// When we fail to create a Build it should be surfaced in
 				// the Configuration status.
-				MarkRevisionCreationFailed("inducing failure for create builds")),
+				MarkRevisionCreationFailed(fmt.Sprintf("Failed to create Build %v: %v", "create-build-failure-99998", "inducing failure for create builds"))),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v",
-				"create-build-failure-99998", "inducing failure for create builds"),
+				"create-build-failure-99998", fmt.Sprintf("Failed to create Build %v: %v", "create-build-failure-99998", "inducing failure for create builds")),
 		},
 		Key: "foo/create-build-failure",
 	}, {
