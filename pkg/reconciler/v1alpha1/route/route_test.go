@@ -331,7 +331,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: "knative-serving",
+							ServiceNamespace: system.Namespace(),
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
 						},
@@ -510,7 +510,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 						Percent: 90,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: "knative-serving",
+							ServiceNamespace: system.Namespace(),
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
 						},

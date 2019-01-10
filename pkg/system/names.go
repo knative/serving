@@ -16,7 +16,10 @@ limitations under the License.
 
 package system
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 const (
 	NamespaceEnvKey = "SYSTEM_NAMESPACE"
@@ -28,5 +31,22 @@ func Namespace() string {
 	if ns := os.Getenv(NamespaceEnvKey); ns != "" {
 		return ns
 	}
-	return "knative-serving"
+
+	panic(fmt.Sprintf(`The environment variable %q is not set
+
+If this is a process running on Kubernetes, then it should be using the downward
+API to initialize this variable via:
+
+  env:
+  - name: %s
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+
+If this is a Go unit test consuming system.Namespace() then it should add the
+following import:
+
+import (
+	_ "github.com/knative/serving/pkg/system/testing"
+)`, NamespaceEnvKey, NamespaceEnvKey))
 }
