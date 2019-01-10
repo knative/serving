@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -42,6 +43,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 	domainCh := make(chan string, scale)
 	cleanupCh := make(chan test.ResourceNames, scale)
+	errCh := make(chan error, 1)
 	defer close(cleanupCh)
 
 	logger.Info("Creating new Services")
@@ -57,7 +59,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, imagePath)
 			if err != nil {
-				t.Fatalf("Failed to create Service: %v", err)
+				return errors.Wrapf(err, "failed to create service %s", names.Service)
 			}
 			names.Route = serviceresourcenames.Route(svc)
 			names.Config = serviceresourcenames.Configuration(svc)
@@ -79,7 +81,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				return false, nil
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {
-				t.Fatalf("Service %s was not updated with a domain: %v", names.Service, err)
+				return errors.Wrapf(err, "service %s was not updated with a domain", names.Service)
 			}
 
 			_, err = pkgTest.WaitForEndpointState(
@@ -90,7 +92,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				t.Fatalf("The endpoint for Service %s at domain %s didn't serve the expected text %q: %v", names.Service, domain, helloWorldExpectedOutput, err)
+				return errors.Wrapf(err, "the endpoint for Service %s at domain %s didn't serve the expected text %q", names.Service, domain, helloWorldExpectedOutput)
 			}
 			domainCh <- domain
 
@@ -100,9 +102,11 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	}
 
 	go func() {
-		defer close(domainCh)
 		if err := deployGrp.Wait(); err != nil {
-			t.Fatalf("Error waiting for endpoints to become ready: %v", err)
+			errCh <- errors.Wrap(err, "error waiting for endpoints to become ready")
+		} else {
+			// Succeeds the test
+			close(domainCh)
 		}
 	}()
 
@@ -125,6 +129,9 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 					t.Fatalf("Route %q prober failed with error: %v", domain, err)
 				}
 			}(probeCh)
+
+		case err := <-errCh:
+			t.Fatalf("An error occured during the test: %v", err)
 
 		case <-time.After(duration):
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
