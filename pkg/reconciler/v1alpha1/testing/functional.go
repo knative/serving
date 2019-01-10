@@ -243,7 +243,7 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 				Type:   "Ready",
 				Status: "False",
 				Reason: reason,
-				Message: fmt.Sprintf("Revision %q failed with message: %q.",
+				Message: fmt.Sprintf("Revision %q failed with message: %s.",
 					name, message),
 			}},
 		})
