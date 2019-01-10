@@ -20,6 +20,8 @@ import (
 	"flag"
 	"log"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
@@ -33,11 +35,15 @@ import (
 	"github.com/knative/serving/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
 	component = "webhook"
+)
+
+var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 func main() {
@@ -59,9 +65,9 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Failed to get in cluster config", zap.Error(err))
+		logger.Fatal("Failed to get cluster config", zap.Error(err))
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
