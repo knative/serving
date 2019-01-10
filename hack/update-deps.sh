@@ -20,42 +20,27 @@ set -o pipefail
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
-# Remove two type of invalid symlinks
-# 1. Broken symlinks
-# 2. Symlinks pointing outside of the source tree
-# We use recursion to find the canonical path of a symlink
-# because both `realpath` and `readlink -m` are not available on Mac.
-function remove_invalid_symlink() {
-  cd ${REPO_ROOT_DIR}
-
-  local target_file=$1
-  if [[ ! -e ${target_file} ]] ; then
-    echo "Removing broken symlink:" $1
-    unlink ${REPO_ROOT_DIR}/$1
-    return
-  fi
-
-  cd $(dirname ${target_file})
-  target_file=$(basename ${target_file})
-  # Iterate down a [possible] chain of symlinks
-  while [[ -L ${target_file} ]] ; do
-    target_file=$(readlink ${target_file})
-    cd $(dirname ${target_file})
-    target_file=$(basename ${target_file})
+# Remove symlinks in /vendor that are broken or lead outside the repo.
+function remove_broken_symlinks() {
+  for link in $(find ./vendor -type l); do
+    local target="$(ls -l ${link})"
+    target="${target##* -> }"
+    # Remove broken symlinks
+    if [[ ! -e ${link} ]]; then
+      echo "[DOESN'T EXIST] rm -f ${link}"
+      unlink ${link}
+      continue
+    fi
+    # Get canonical path to target, remove if outside the repo
+    [[ ${target} == /* ]] || target="./${target}"
+    target="$(cd `dirname ${link}` && cd ${target%/*} && echo $PWD/${target##*/})"
+    if [[ ${target} != *github.com/knative/* ]]; then
+      echo "[OUTSIDE TREE] rm -f ${link}"
+      unlink ${link}
+      continue
+    fi
   done
-
-  # Compute the canonicalized name by finding the physical path
-  # for the directory we're in and appending the target file.
-  local phys_dir=`pwd -P`
-  target_file=${phys_dir}/${target_file}
-
-  if [[ ${target_file} != *"github.com/knative/serving"* ]]; then
-    echo "Removing symlink outside the source tree: " $1 "->" ${target_file}
-    unlink ${REPO_ROOT_DIR}/$1
-  fi
 }
-
-
 
 cd ${REPO_ROOT_DIR}
 
@@ -74,6 +59,4 @@ update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 git apply ${REPO_ROOT_DIR}/hack/66078.patch
 
 # Remove all invalid symlinks under ./vendor
-for l in $(find vendor/ -type l); do
-  remove_invalid_symlink $l
-done
+remove_broken_symlinks
