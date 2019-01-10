@@ -49,6 +49,10 @@ type Stat struct {
 
 	// Lameduck indicates this Pod has received a shutdown signal.
 	LameDuck bool
+
+	// ObservedPods is the IP number of a revision from k8s API at the time when
+	// this stat is collected. It is the same with the pods number.
+	ObservedPods int32
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -66,9 +70,13 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:              window,
-		perPodAggregations:  make(map[string]*perPodAggregation),
-		activatorsContained: make(map[string]struct{}),
+		window:                  window,
+		perPodAggregations:      make(map[string]*perPodAggregation),
+		activatorsContained:     make(map[string]struct{}),
+		accumulatedConcurrency:  float64(0),
+		accumulatedObservedPods: int32(0),
+		lameDuckCount:           int32(0),
+		sampleCount:             int32(0),
 	}
 }
 
@@ -78,6 +86,12 @@ type totalAggregation struct {
 	perPodAggregations  map[string]*perPodAggregation
 	probeCount          int32
 	activatorsContained map[string]struct{}
+
+	accumulatedConcurrency  float64
+	activatorConcurrency    float64
+	accumulatedObservedPods int32
+	lameDuckCount           int32
+	sampleCount             int32
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -91,11 +105,26 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
+		if isFromActivator(stat.PodName) {
 			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
 		agg.probeCount++
+	}
+}
+
+// Aggregates a given stat to the correct pod-aggregation
+func (agg *totalAggregation) aggregateSample(stat Stat) {
+	agg.sampleCount++
+	if stat.LameDuck {
+		agg.lameDuckCount++
+	} else {
+		if isFromActivator(stat.PodName) {
+			agg.activatorsContained[stat.PodName] = struct{}{}
+			agg.activatorConcurrency += stat.AverageConcurrentRequests
+		} else {
+			agg.accumulatedObservedPods += stat.ObservedPods
+			agg.accumulatedConcurrency += stat.AverageConcurrentRequests
+		}
 	}
 }
 
@@ -120,6 +149,16 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	return podCount
 }
 
+// The number of available pods that are estimated via sample stats.
+func (agg *totalAggregation) estimatedPods(now time.Time) float64 {
+	podCount := float64(agg.accumulatedObservedPods) / float64(agg.sampleCount)
+	// Report a minimum of 1 pod if the activators are sending metrics.
+	if len(agg.activatorsContained) > 0 && podCount < 1.0 {
+		return 1.0
+	}
+	return podCount
+}
+
 // The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
 // Ignores activator sent metrics if its not the only pod reporting stats
@@ -128,8 +167,7 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(podName, ActivatorPodName) {
+		if isFromActivator(podName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
@@ -139,6 +177,17 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 		return activatorConcurrency / observedPods
 	}
 	return accumulatedConcurrency / observedPods
+}
+
+// The estimated concurrency per pod (average of concurrencies of all
+// non-lameduck samples)
+// Ignores activator sent metrics if its not the only pod reporting stats
+func (agg *totalAggregation) estimatedConcurrencyPerPod(now time.Time) float64 {
+	nonLameDuckCount := math.Max(float64(1), float64(agg.sampleCount-agg.lameDuckCount))
+	if agg.accumulatedConcurrency == 0.0 {
+		return agg.activatorConcurrency / nonLameDuckCount
+	}
+	return agg.accumulatedConcurrency / nonLameDuckCount
 }
 
 // Holds an aggregation per pod
@@ -351,4 +400,9 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 		return a.Current().MaxScaleUpRate
 	}
 	return desiredRate
+}
+
+func isFromActivator(podName string) bool {
+	// TODO(#2282): This can cause naming collisions.
+	return strings.HasPrefix(podName, ActivatorPodName)
 }

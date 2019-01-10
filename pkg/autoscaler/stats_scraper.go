@@ -32,7 +32,9 @@ import (
 
 const (
 	trueInFloat64 = float64(1)
-	sampleSize    = 3
+	// TODO(yanweiguo): tuning the sample size
+	sampleSize          = 3
+	scraperTickInterval = time.Second
 )
 
 // StatsScraper scrapes Revision metrics via a K8S service by sampling.
@@ -74,7 +76,7 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 	revName := s.metric.Labels[serving.RevisionLabelKey]
 	endpoints, err := s.endpointsLister.Endpoints(s.metric.Namespace).Get(s.serviceName)
 
-	endpointsNum := 0
+	podsNum := 0
 	if errors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
 		// or it has been torn down.
@@ -84,12 +86,12 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 		return
 	} else {
 		for _, es := range endpoints.Subsets {
-			endpointsNum += len(es.Addresses)
+			podsNum += len(es.Addresses)
 		}
 	}
 
-	s.logger.Infof("found %d endpoints for Revision %s", endpointsNum, revName)
-	if endpointsNum == 0 {
+	s.logger.Infof("found %d pods for Revision %s", podsNum, revName)
+	if podsNum == 0 {
 		// No endpoints to serving scraping requests
 		return
 	}
@@ -101,6 +103,7 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 			continue
 		}
 
+		stat.ObservedPods = int32(podsNum)
 		sm := &StatMessage{
 			Stat: stat,
 			Key:  s.metricKey,
