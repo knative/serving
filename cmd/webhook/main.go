@@ -58,11 +58,11 @@ func main() {
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	defer logger.Sync()
-	logger = logger.With(zap.String(logkey.ControllerType, "webhook"))
+	logger = logger.With(zap.String(logkey.ControllerType, component))
 
 	logger.Info("Starting the Configuration Webhook")
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
@@ -79,7 +79,7 @@ func main() {
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	if err = configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalf("failed to start configuration manager: %v", err)
+		logger.Fatal("Failed to start the ConfigMap watcher", zap.Error(err))
 	}
 
 	options := webhook.ControllerOptions{
@@ -103,8 +103,7 @@ func main() {
 		},
 		Logger: logger,
 	}
-	if err != nil {
-		logger.Fatal("Failed to create the admission controller", zap.Error(err))
+	if err = controller.Run(stopCh); err != nil {
+		logger.Fatal("Failed to start the admission controller", zap.Error(err))
 	}
-	controller.Run(stopCh)
 }
