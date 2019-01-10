@@ -27,7 +27,6 @@ function remove_broken_symlinks() {
     target="${target##* -> }"
     # Remove broken symlinks
     if [[ ! -e ${link} ]]; then
-      echo "[DOESN'T EXIST] rm -f ${link}"
       unlink ${link}
       continue
     fi
@@ -35,7 +34,6 @@ function remove_broken_symlinks() {
     [[ ${target} == /* ]] || target="./${target}"
     target="$(cd `dirname ${link}` && cd ${target%/*} && echo $PWD/${target##*/})"
     if [[ ${target} != *github.com/knative/* ]]; then
-      echo "[OUTSIDE TREE] rm -f ${link}"
       unlink ${link}
       continue
     fi
