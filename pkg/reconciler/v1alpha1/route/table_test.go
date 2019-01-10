@@ -1193,22 +1193,24 @@ func TestReconcile(t *testing.T) {
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
 				WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						RevisionName: "blue-00001",
-						Percent:      50,
+						ConfigurationName: "blue",
+						Percent:           50,
 					}, v1alpha1.TrafficTarget{
-						RevisionName: "green-00001",
-						Percent:      50,
+						ConfigurationName: "green",
+						Percent:           50,
 					}),
 				WithStatusTraffic(
 					v1alpha1.TrafficTarget{
-						RevisionName: "blue-00001",
-						Percent:      100,
+						ConfigurationName: "blue",
+						Percent:           100,
 					},
 				)),
+			cfg("default", "blue", WithGeneration(1), WithLatestCreated, WithLatestReady),
+			cfg("default", "green", WithGeneration(1), WithLatestCreated),
 			rev("default", "blue", 1, MarkRevisionReady),
 			rev("default", "green", 1),
 			simpleReadyIngress(
-				route("default", "split", WithRevTarget("blue-00001"), WithDomain),
+				route("default", "split", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
 						"": {{
@@ -1222,24 +1224,24 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			simpleK8sService(route("default", "split", WithRevTarget("blue-00001"))),
+			simpleK8sService(route("default", "split", WithConfigTarget("blue"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "split", WithDomain, WithDomainInternal, WithAddress,
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
-				MarkRevisionNotReady("green-00001"),
+				MarkConfigurationNotReady("green"),
 				WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						RevisionName: "blue-00001",
-						Percent:      50,
+						ConfigurationName: "blue",
+						Percent:           50,
 					}, v1alpha1.TrafficTarget{
-						RevisionName: "green-00001",
-						Percent:      50,
+						ConfigurationName: "green",
+						Percent:           50,
 					}),
 				WithStatusTraffic(
 					v1alpha1.TrafficTarget{
-						RevisionName: "blue-00001",
-						Percent:      100,
+						ConfigurationName: "blue",
+						Percent:           100,
 					})),
 		}},
 		Key:                     "default/split",

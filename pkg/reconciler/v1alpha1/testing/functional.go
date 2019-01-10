@@ -385,13 +385,6 @@ func MarkConfigurationFailed(name string) RouteOption {
 	}
 }
 
-// MarkRevisionNotReady calls the method of the same name on .Status
-func MarkRevisionNotReady(name string) RouteOption {
-	return func(r *v1alpha1.Route) {
-		r.Status.MarkRevisionNotReady(name)
-	}
-}
-
 // WithRouteLabel sets the specified label on the Route.
 func WithRouteLabel(key, value string) RouteOption {
 	return func(r *v1alpha1.Route) {
