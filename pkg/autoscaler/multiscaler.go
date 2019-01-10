@@ -262,7 +262,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		}
 	}()
 
-	if scraper, err := CreateNewStatsScraper(metric, m.endpointsInformer, m.logger); err != nil {
+	if scraper, err := CreateNewStatsScraper(metric, m.endpointsInformer, m.logger); err == nil {
 		scraperTicker := time.NewTicker(scraperTickInterval)
 		go func() {
 			for {

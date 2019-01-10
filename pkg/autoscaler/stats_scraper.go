@@ -90,7 +90,7 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 		}
 	}
 
-	s.logger.Infof("found %d pods for Revision %s", podsNum, revName)
+	s.logger.Debugf("found %d pods for Revision %s", podsNum, revName)
 	if podsNum == 0 {
 		// No endpoints to serving scraping requests
 		return
@@ -108,8 +108,8 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 			Stat: stat,
 			Key:  s.metricKey,
 		}
-		s.logger.Infof("StatMessage %v", sm)
-		// statsCh <- sm
+		// s.logger.Infof("StatMessage %v", sm)
+		statsCh <- sm
 	}
 }
 
@@ -139,18 +139,31 @@ func extractData(resp *http.Response) (Stat, error) {
 	}
 
 	now := time.Now()
-	concurrent := metricFamilies["queue_average_concurrent_requests"].Metric[0]
-	requestCount := metricFamilies["queue_operations_per_second"].Metric[0]
-	lameDuck := metricFamilies["queue_lame_duck"].Metric[0]
-	for _, label := range concurrent.Label {
-		if *label.Name == "destination_pod" {
-			stat.PodName = *label.Value
-			break
-		}
-	}
 	stat.Time = &now
-	stat.AverageConcurrentRequests = *concurrent.Gauge.Value
-	stat.RequestCount = int32(*requestCount.Gauge.Value)
-	stat.LameDuck = trueInFloat64 == *lameDuck.Gauge.Value
+
+	if metric, ok := metricFamilies["queue_average_concurrent_requests"]; ok {
+		for _, label := range metric.Metric[0].Label {
+			if *label.Name == "destination_pod" {
+				stat.PodName = *label.Value
+				break
+			}
+		}
+		stat.AverageConcurrentRequests = *metric.Metric[0].Gauge.Value
+	} else {
+		return stat, fmt.Errorf("required queue_average_concurrent_requests key, got: %v", metricFamilies)
+	}
+
+	if metric, ok := metricFamilies["queue_operations_per_second"]; ok {
+		stat.RequestCount = int32(*metric.Metric[0].Gauge.Value)
+	} else {
+		return stat, fmt.Errorf("required queue_operations_per_second key, got: %v", metricFamilies)
+	}
+
+	if metric, ok := metricFamilies["queue_lame_duck"]; ok {
+		stat.LameDuck = trueInFloat64 == *metric.Metric[0].Gauge.Value
+	} else {
+		return stat, fmt.Errorf("required queue_lame_duck key, got: %v", metricFamilies)
+	}
+
 	return stat, nil
 }

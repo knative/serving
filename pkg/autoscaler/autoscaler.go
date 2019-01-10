@@ -160,7 +160,10 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 
 // The number of available pods that are estimated via sample stats.
 func (agg *totalAggregation) estimatedPods(now time.Time) float64 {
-	podCount := float64(agg.accumulatedObservedPods) / float64(agg.sampleCount)
+	podCount := float64(0)
+	if agg.sampleCount > 0 {
+		podCount = float64(agg.accumulatedObservedPods) / float64(agg.sampleCount)
+	}
 	// Report a minimum of 1 pod if the activators are sending metrics.
 	if agg.activatorProbeCount > 0 && podCount < 1.0 {
 		return 1.0
@@ -199,7 +202,12 @@ func (agg *totalAggregation) estimatedConcurrencyPerPod(now time.Time, logger *z
 		logger.Warnf("got zero none lame duck pods count when calculating concurrency per pod, use 1 instead")
 		nonLameDuckCount = 1.0
 	}
+
+	// Check whether there is activator requests if there is no samples data
 	if agg.accumulatedConcurrency == 0.0 {
+		if agg.activatorProbeCount == 0 {
+			return 0
+		}
 		averageConcurrencyPerActivator := agg.accumulatedActivatorConcurrency / float64(agg.activatorProbeCount)
 		return averageConcurrencyPerActivator * float64(len(agg.activatorsContained)) / nonLameDuckCount
 	}
@@ -215,7 +223,12 @@ func (agg *totalAggregation) estimatedQPS(now time.Time, logger *zap.SugaredLogg
 		logger.Warnf("got zero none lame duck pods count when calculating concurrency per pod, use 1 instead")
 		nonLameDuckCount = 1.0
 	}
+
+	// Check whether there is activator requests if there is no samples data
 	if agg.accumulatedQPS == 0.0 {
+		if agg.activatorProbeCount == 0 {
+			return 0
+		}
 		averageQPSPerActivator := float64(agg.accumulatedActivatorQPS) / float64(agg.activatorProbeCount)
 		return averageQPSPerActivator * float64(len(agg.activatorsContained)) / nonLameDuckCount
 	}
@@ -434,6 +447,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.Report(DesiredPodCountM, float64(desiredPodCount))
+	logger.Infof("desiredPodCount = %v", desiredPodCount)
 	return desiredPodCount, true
 }
 
@@ -465,8 +479,9 @@ func (a *Autoscaler) scaleBasedOnSamples(ctx context.Context, now time.Time) (in
 		}
 	}
 
+	estimatedStablePodCount := stableData.estimatedPods(now)
 	// Do nothing when we have no data.
-	if stableData.estimatedPods(now) < 1.0 {
+	if estimatedStablePodCount < 1.0 {
 		logger.Debug("No samples data to scale on.")
 		return 0, false
 	}
@@ -477,8 +492,9 @@ func (a *Autoscaler) scaleBasedOnSamples(ctx context.Context, now time.Time) (in
 
 	estimatedStableConcurrencyPerPod := stableData.estimatedConcurrencyPerPod(now, logger)
 	estimatedPanicConcurrencyPerPod := panicData.estimatedConcurrencyPerPod(now, logger)
-	estimatedStablePodCount := stableData.estimatedPods(now)
+
 	estimatedPanicPodCount := stableData.estimatedPods(now)
+
 	// Desired scaling ratio is observed concurrency over desired (stable) concurrency.
 	// Rate limited to within MaxScaleUpRate.
 	desiredStableScalingRatio := a.rateLimited(estimatedStableConcurrencyPerPod / a.target)
@@ -520,7 +536,7 @@ func (a *Autoscaler) scaleBasedOnSamples(ctx context.Context, now time.Time) (in
 	if panicking {
 		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", panicData.observedPods(now), int(desiredPanicPodCount))
+			logger.Infof("Increasing pods to %v.", int(desiredPanicPodCount))
 			// a.panicTime = &now
 			// a.maxPanicPods = desiredPanicPodCount
 		}
