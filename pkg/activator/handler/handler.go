@@ -36,6 +36,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/tracing"
+	zipkin "github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +52,7 @@ type ActivationHandler struct {
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
 	Throttler *activator.Throttler
+	TRGetter  tracing.TracerRefGetter
 
 	// GetProbeCount is the number of attempts we should
 	// make to network probe the queue-proxy after the revision becomes
@@ -65,6 +69,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
+
+	tracerRef, err := a.TRGetter(r.Context())
+	defer tracerRef.Done()
+	tracer := tracerRef.Tracer
 
 	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
 
@@ -87,11 +95,24 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
+	// Setup tracing transport if configured
+	tr := a.Transport
+	traceTr, err := zipkinhttp.NewTransport(tracer, zipkinhttp.RoundTripper(tr))
+	if err != nil {
+		a.Logger.Errorw("Failed to create zipkin http transport", zap.Error(err))
+	} else {
+		tr = traceTr
+	}
+
 	err = a.Throttler.Try(revID, func() {
 		var (
 			httpStatus int
 			attempts   int
+			probeSpan  zipkin.Span
+			proxySpan  zipkin.Span
 		)
+
+		probeSpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "probe")
 
 		// If a GET probe interval has been configured, then probe
 		// the queue-proxy with our network probe header until it
@@ -109,6 +130,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
 				},
 			}
+			probeReq = probeReq.WithContext(reqCtx)
 			settings := wait.Backoff{
 				Duration: 100 * time.Millisecond,
 				Factor:   1.3,
@@ -116,7 +138,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			err := wait.ExponentialBackoff(settings, func() (bool, error) {
 				attempts++
-				probeResp, err := a.Transport.RoundTrip(probeReq)
+				probeResp, err := tr.RoundTrip(probeReq)
+
 				if err != nil {
 					logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
@@ -139,10 +162,14 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			success = (err == nil) && httpStatus == http.StatusOK
 		}
 
+		probeSpan.Finish()
+
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
-			httpStatus = a.proxyRequest(w, r, target)
+			proxySpan, reqCtx = tracer.StartSpanFromContext(r.Context(), "proxy")
+			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target, tr)
+			proxySpan.Finish()
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
@@ -171,13 +198,13 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL, tr http.RoundTripper) int {
 	capture := &statusCapture{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = a.Transport
+	proxy.Transport = tr
 	proxy.FlushInterval = -1
 
 	util.SetupHeaderPruning(proxy)

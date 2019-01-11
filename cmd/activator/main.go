@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/activator/config"
 	"github.com/knative/serving/pkg/autoscaler"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -51,6 +52,7 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/tracing"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -66,7 +68,6 @@ const (
 	component = "activator"
 
 	// This is the number of times we will perform network probes to
-	// see if the Revision is accessible before forwarding the actual
 	// request.
 	maxRetries = 18
 
@@ -122,11 +123,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	config, err := logging.NewConfigFromMap(cm)
+	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer logger.Sync()
 
@@ -234,6 +235,12 @@ func main() {
 		Handler:    handler,
 	})
 
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+
+	// Set up our config store
+	configStore := config.NewStore(createdLogger)
+	configStore.WatchConfigs(configMapWatcher)
+
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
@@ -248,6 +255,15 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
 	go cr.Run(stopCh)
 
+	tracerCache := tracing.TracerCache{
+		CreateReporter: tracing.CreateReporter,
+	}
+	defer tracerCache.Close()
+	trGetter := func(ctx context.Context) (*tracing.TracerRef, error) {
+		cfg := config.FromContext(ctx)
+		return tracerCache.NewTracerRef(cfg.Tracing, "activator", "localhost:1234")
+	}
+
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
@@ -255,17 +271,20 @@ func main() {
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
+		TRGetter:      trGetter,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = tracing.HTTPSpanMiddleware(logger, "handle_request", trGetter, ah)
+	ah = configStore.HTTPMiddleware(ah)
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {
