@@ -28,6 +28,8 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeinformers "k8s.io/client-go/informers"
+	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
 const (
@@ -361,12 +363,16 @@ func TestMultiScalerUpdate(t *testing.T) {
 }
 
 func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeUniScaler) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
+	statsCh := make(chan *autoscaler.StatMessage)
 	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
-		stopChan, uniscaler.fakeUniScalerFactory, logger)
+		kubeInformer.Core().V1().Endpoints(), stopChan, statsCh, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, uniscaler
 }

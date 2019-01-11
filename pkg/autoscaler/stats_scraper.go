@@ -115,6 +115,8 @@ func (s *StatsScraper) Scrape(statsCh chan<- *StatMessage) {
 
 func (s *StatsScraper) scrapeViaURL() (Stat, error) {
 	// Create a new Transport each time otherwise the request will be routed to same pod.
+	// TODO: In this way, it will fail to send requests after a period of time.
+	// Need to fix it.
 	tr := &http.Transport{TLSHandshakeTimeout: time.Second}
 	client := &http.Client{Transport: tr, Timeout: time.Second}
 	resp, err := client.Get(s.url)

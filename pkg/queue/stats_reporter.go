@@ -31,7 +31,7 @@ type Measurement int
 
 const (
 	// ReportingPeriod interval of time for reporting.
-	ReportingPeriod = 10 * time.Second
+	ReportingPeriod = 1 * time.Second
 
 	// OperationsPerSecondN
 	OperationsPerSecondN = "operations_per_second"
