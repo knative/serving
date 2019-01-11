@@ -40,6 +40,7 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
 	Tag              string // Test images version tag
+	IngressAddress   string
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -53,6 +54,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest",
 		"Provide the version tag for the test images.")
+
+	flag.StringVar(&f.IngressAddress, "ingressaddress", "",
+		"Provide the address of ingress gateway of the knative cluster. Defaults to spoofing the address received from kube client")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")

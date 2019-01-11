@@ -74,7 +74,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
+			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, "", test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				return fmt.Errorf("error creating spoofing client: %v", err)
 			}

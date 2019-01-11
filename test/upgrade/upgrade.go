@@ -47,7 +47,7 @@ func assertServiceResourcesUpdated(t *testing.T, logger *logging.BaseLogger, cli
 		logger,
 		routeDomain,
 		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(expectedText), http.StatusNotFound),
-		"WaitForEndpointToServeText",
+		"WaitForEndpointToServeText", test.ServingFlags.IngressAddress,
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)

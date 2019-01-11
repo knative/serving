@@ -60,7 +60,7 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 
 func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
 	logger.Infof("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
