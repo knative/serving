@@ -557,6 +557,24 @@
   version = "1.0.1"
 
 [[projects]]
+  digest = "1:0e20bcd5aa0c64a27955d29ef533a480d95d6aa136390ba558c4a18bc0d4a56d"
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "middleware/http",
+    "model",
+    "propagation",
+    "propagation/b3",
+    "reporter",
+    "reporter/http",
+    "reporter/recorder",
+  ]
+  pruneopts = "NUT"
+  revision = "bf896b1c622eed731380e8291d9b6c02043de5e8"
+  version = "v0.1.5"
+
+[[projects]]
   branch = "master"
   digest = "1:3bf17a6e6eaa6ad24152148a631d18662f7212e21637c2699bff3369b7f00fa2"
   name = "github.com/petar/GoLLRB"
@@ -1367,6 +1385,11 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/view",
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
+    "github.com/openzipkin/zipkin-go",
+    "github.com/openzipkin/zipkin-go/middleware/http",
+    "github.com/openzipkin/zipkin-go/reporter",
+    "github.com/openzipkin/zipkin-go/reporter/http",
+    "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",

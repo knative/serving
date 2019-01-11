@@ -34,6 +34,9 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 
+	"github.com/knative/serving/pkg/tracing"
+	"github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -45,6 +48,7 @@ type ActivationHandler struct {
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
 	Throttler *activator.Throttler
+	TRGetter  tracing.TracerRefGetter
 
 	// GetProbeCount is the number of attempts we should
 	// make to network probe the queue-proxy after the revision becomes
@@ -57,6 +61,58 @@ type ActivationHandler struct {
 	GetSKS      activator.SKSGetter
 }
 
+func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, tracer *zipkin.Tracer, r *http.Request, tr http.RoundTripper, target *url.URL) (bool, int, int) {
+	probeSpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "probe")
+	defer probeSpan.Finish()
+
+	var (
+		httpStatus int
+		attempts   int
+	)
+
+	probeReq := &http.Request{
+		Method:     http.MethodGet,
+		URL:        target,
+		Proto:      r.Proto,
+		ProtoMajor: r.ProtoMajor,
+		ProtoMinor: r.ProtoMinor,
+		Host:       r.Host,
+		Header: map[string][]string{
+			http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
+		},
+	}
+	probeReq = probeReq.WithContext(reqCtx)
+	settings := wait.Backoff{
+		Duration: 100 * time.Millisecond,
+		Factor:   1.3,
+		Steps:    a.GetProbeCount,
+	}
+	err := wait.ExponentialBackoff(settings, func() (bool, error) {
+		attempts++
+		probeResp, err := tr.RoundTrip(probeReq)
+
+		if err != nil {
+			logger.Warnw("Pod probe failed", zap.Error(err))
+			return false, nil
+		}
+		defer probeResp.Body.Close()
+		httpStatus = probeResp.StatusCode
+		if httpStatus != http.StatusOK {
+			logger.Warnf("Pod probe sent status: %d", httpStatus)
+			return false, nil
+		}
+		if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
+			logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
+			return false, nil
+		} else if queue.Name != string(body) {
+			logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
+			return false, nil
+		}
+		return true, nil
+	})
+	return (err == nil) && httpStatus == http.StatusOK, httpStatus, attempts
+}
+
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
@@ -64,6 +120,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
 	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
+
+	tracerRef := a.TRGetter(r.Context())
+	defer tracerRef.Done()
+	tracer := tracerRef.Tracer
 
 	revision, err := a.GetRevision(revID)
 	if err != nil {
@@ -91,6 +151,15 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
+	// Setup tracing transport
+	tr := a.Transport
+	traceTr, err := zipkinhttp.NewTransport(tracer, zipkinhttp.RoundTripper(tr))
+	if err != nil {
+		a.Logger.Errorw("Failed to create zipkin http transport", zap.Error(err))
+	} else {
+		tr = traceTr
+	}
+
 	err = a.Throttler.Try(revID, func() {
 		var (
 			httpStatus int
@@ -100,53 +169,17 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// If a GET probe interval has been configured, then probe
 		// the queue-proxy with our network probe header until it
 		// returns a 200 status code.
-		success := (a.GetProbeCount == 0)
+		success := a.GetProbeCount == 0
 		if !success {
-			probeReq := &http.Request{
-				Method:     http.MethodGet,
-				URL:        target,
-				Proto:      r.Proto,
-				ProtoMajor: r.ProtoMajor,
-				ProtoMinor: r.ProtoMinor,
-				Host:       r.Host,
-				Header: map[string][]string{
-					http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
-				},
-			}
-			settings := wait.Backoff{
-				Duration: 100 * time.Millisecond,
-				Factor:   1.3,
-				Steps:    a.GetProbeCount,
-			}
-			err := wait.ExponentialBackoff(settings, func() (bool, error) {
-				attempts++
-				probeResp, err := a.Transport.RoundTrip(probeReq)
-				if err != nil {
-					logger.Warnw("Pod probe failed", zap.Error(err))
-					return false, nil
-				}
-				defer probeResp.Body.Close()
-				httpStatus = probeResp.StatusCode
-				if httpStatus != http.StatusOK {
-					logger.Warnf("Pod probe sent status: %d", httpStatus)
-					return false, nil
-				}
-				if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
-					logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
-					return false, nil
-				} else if queue.Name != string(body) {
-					logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
-					return false, nil
-				}
-				return true, nil
-			})
-			success = (err == nil) && httpStatus == http.StatusOK
+			success, httpStatus, attempts = a.probeEndpoint(logger, tracer, r, tr, target)
 		}
 
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
-			httpStatus = a.proxyRequest(w, r, target)
+			proxySpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "proxy")
+			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target, tr)
+			proxySpan.Finish()
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
@@ -175,10 +208,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL, tr http.RoundTripper) int {
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = a.Transport
+	proxy.Transport = tr
 	proxy.FlushInterval = -1
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)

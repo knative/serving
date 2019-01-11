@@ -13,6 +13,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -37,6 +38,10 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 
+	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -379,6 +384,7 @@ func TestActivationHandler(t *testing.T) {
 		reporterCalls:   nil,
 	}}
 
+	trGetter := tracerGetter(reporterrecorder.NewReporter())
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
 			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -421,6 +427,7 @@ func TestActivationHandler(t *testing.T) {
 				Logger:        TestLogger(t),
 				Reporter:      reporter,
 				Throttler:     activator.NewThrottler(throttlerParams),
+				TRGetter:      trGetter,
 				GetProbeCount: test.gpc,
 				GetRevision:   stubRevisionGetter,
 				GetService:    stubServiceGetter,
@@ -526,6 +533,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 		GetRevision: stubRevisionGetter,
 		GetService:  stubServiceGetter,
 		GetSKS:      stubSKSGetter,
+		TRGetter:    tracerGetter(reporterrecorder.NewReporter()),
 	}
 
 	writer := httptest.NewRecorder()
@@ -577,6 +585,19 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 	return throttler
 }
 
+func tracerGetter(reporter zipkinreporter.Reporter) tracing.TracerRefGetter {
+	reporterFact := func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
+		return reporter, nil
+	}
+	tc := tracing.TracerCache{
+		CreateReporter: reporterFact,
+	}
+	trGetter := func(ctx context.Context) *tracing.TracerRef {
+		return tc.GetTracerRefOrNoop(nil, &tracingconfig.Config{}, "testapp", "localhost:1234")
+	}
+	return trGetter
+}
+
 // getHandler returns an already setup ActivationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
 func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) ActivationHandler {
@@ -590,6 +611,9 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 
 		return fake.Result(), nil
 	})
+
+	trGetter := tracerGetter(reporterrecorder.NewReporter())
+
 	handler := ActivationHandler{
 		Transport:   rt,
 		Logger:      TestLogger(t),
@@ -598,6 +622,7 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 		GetRevision: stubRevisionGetter,
 		GetService:  stubServiceGetter,
 		GetSKS:      stubSKSGetter,
+		TRGetter:    trGetter,
 	}
 	return handler
 }
