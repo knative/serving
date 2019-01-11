@@ -18,7 +18,7 @@ package reconciler
 
 import (
 	"fmt"
-	"github.com/knative/eventing/pkg/utils"
+	"github.com/knative/serving/pkg/utils"
 )
 
 func GetK8sServiceFullname(name string, namespace string) string {
@@ -26,7 +26,7 @@ func GetK8sServiceFullname(name string, namespace string) string {
 	if err != nil {
 		clusterDomainName = "cluster.local"
 	}
-	return fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, clusterDomainName)
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, clusterDomainName)
 }
 
 func GetServingK8SServiceNameForObj(name string) string {
