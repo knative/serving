@@ -131,7 +131,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			}(probeCh)
 
 		case err := <-errCh:
-			t.Fatalf("An error occured during the test: %v", err)
+			t.Fatalf("An error occurred during the test: %v", err)
 
 		case <-time.After(duration):
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
