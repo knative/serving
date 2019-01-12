@@ -24,13 +24,16 @@ import (
 	"strings"
 )
 
+const (
+	resolverFileName = "/etc/resolv.conf"
+)
+
 // GetClusterDomainName returns cluster's domain name or error
 func GetClusterDomainName() (string, error) {
-	_, err := os.Stat("/etc/resolv.conf")
-	if err != nil {
+	if _, err := os.Stat(resolverFileName); err != nil {
 		return "", err
 	}
-	f, err := os.Open("/etc/resolv.conf")
+	f, err := os.Open(resolverFileName)
 	if err != nil {
 		return "", err
 	}
@@ -51,5 +54,5 @@ func getClusterDomainName(r io.Reader) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("/etc/resolv.conf does not seem to be a valid kubernetes resolv.conf file")
+	return "", fmt.Errorf("%s does not seem to be a valid kubernetes resolv.conf file", resolverFileName)
 }
