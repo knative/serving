@@ -23,13 +23,13 @@ import (
 
 func TestGetDomainName(t *testing.T) {
 	tests := []struct {
-		descr      string
+		name       string
 		resolvConf string
 		domainName string
 		shouldFail bool
 	}{
 		{
-			descr: "all good",
+			name: "all good",
 			resolvConf: `
 nameserver 1.1.1.1
 search default.svc.abc.com svc.abc.com abc.com
@@ -39,7 +39,7 @@ options ndots:5
 			shouldFail: false,
 		},
 		{
-			descr: "missing search line",
+			name: "missing search line",
 			resolvConf: `
 nameserver 1.1.1.1
 options ndots:5
@@ -48,7 +48,7 @@ options ndots:5
 			shouldFail: true,
 		},
 		{
-			descr: "non k8s resolv.conf format",
+			name: "non k8s resolv.conf format",
 			resolvConf: `
 nameserver 1.1.1.1
 search  abc.com xyz.com
@@ -62,18 +62,18 @@ options ndots:5
 		dn, err := getClusterDomainName(strings.NewReader(tt.resolvConf))
 		if err != nil {
 			if !tt.shouldFail {
-				t.Errorf("Test %s failed with error: %q but is not supposed to.", tt.descr, err)
+				t.Errorf("Test %s failed with error: %q but is not supposed to.", tt.name, err)
 			} else {
 				continue
 			}
 		}
 		if err == nil {
 			if tt.shouldFail {
-				t.Errorf("Test %s succeeded but supposed to fail.", tt.descr)
+				t.Errorf("Test %s succeeded but supposed to fail.", tt.name)
 				continue
 			}
 			if dn != tt.domainName {
-				t.Errorf("Test %s failed expected %s but got %s", tt.descr, tt.domainName, dn)
+				t.Errorf("Test %s failed expected %s but got %s", tt.name, tt.domainName, dn)
 			}
 		}
 	}
