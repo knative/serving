@@ -257,29 +257,6 @@ const (
 	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
 )
 
-// PropagateRouteStatusLatestRevision propagates latest route revision,
-// but verifies that the traffic has migrated to the `lrr`.
-func (ss *ServiceStatus) PropagateRouteStatusLatestRevision(rs *RouteStatus, lrr string) {
-	ss.propagateRouteStatusCommon(rs)
-	rc := rs.GetCondition(RouteConditionReady)
-	if rc == nil {
-		return
-	}
-	switch {
-	case rc.Status == corev1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	case rc.Status == corev1.ConditionTrue:
-		// Also match traffic.
-		if len(rs.Traffic) > 0 && rs.Traffic[0].RevisionName != lrr {
-			serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
-		} else {
-			serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
-		}
-	case rc.Status == corev1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	}
-}
-
 // PropagateRouteStatus propagates route's status to the service's status.
 // `routeReady`, if not nil, verifies whether the ready route is the one we desire.
 // See: #2430.
