@@ -369,7 +369,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
 						"": {{
 							TrafficTarget: v1alpha1.TrafficTarget{
