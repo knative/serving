@@ -28,11 +28,9 @@ const (
 	resolverFileName = "/etc/resolv.conf"
 )
 
-// GetClusterDomainName returns cluster's domain name or error
+// GetClusterDomainName returns cluster's domain name or an error
+// Closes issue: https://github.com/knative/eventing/issues/714
 func GetClusterDomainName() (string, error) {
-	if _, err := os.Stat(resolverFileName); err != nil {
-		return "", err
-	}
 	f, err := os.Open(resolverFileName)
 	if err != nil {
 		return "", err
@@ -46,11 +44,12 @@ func getClusterDomainName(r io.Reader) (string, error) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		elements := strings.Split(scanner.Text(), " ")
-		if elements[0] == "search" {
-			for i := 1; i < len(elements)-1; i++ {
-				if strings.HasPrefix(elements[i], "svc.") {
-					return strings.Split(elements[i], "svc.")[1], nil
-				}
+		if elements[0] != "search" {
+			continue
+		}
+		for i := 1; i < len(elements)-1; i++ {
+			if strings.HasPrefix(elements[i], "svc.") {
+				return elements[i][4:], nil
 			}
 		}
 	}
