@@ -174,12 +174,12 @@ func WithManualStatus(s *v1alpha1.Service) {
 
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
-	s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   "Ready",
 			Status: "True",
 		}},
-	})
+	}, nil)
 }
 
 // WithSvcStatusDomain propagates the domain name to the status of the Service.
@@ -206,14 +206,14 @@ func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
 // WithFailedRoute reflects a Route's failure in the Service resource.
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 			Conditions: []duckv1alpha1.Condition{{
 				Type:    "Ready",
 				Status:  "False",
 				Reason:  reason,
 				Message: message,
 			}},
-		})
+		}, nil)
 	}
 }
 
@@ -248,6 +248,16 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 			}},
 		})
 	}
+}
+
+// WithRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
+func WithRouteNotReady(s *v1alpha1.Service) {
+	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   "Ready",
+			Status: "True",
+		}},
+	}, func() bool { return false })
 }
 
 // RouteOption enables further configuration of a Route.

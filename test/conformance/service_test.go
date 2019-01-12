@@ -39,7 +39,7 @@ const (
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service. The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateRunLatestControlPlane(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
-	logger.Info("Checking to ensure Revision is in desired state.")
+	logger.Info("Checking to ensure Revision is in desired state with generation: ", expectedGeneration)
 	err := test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
 		if ready, err := test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %v", names.Revision, err)
@@ -74,7 +74,7 @@ func validateRunLatestControlPlane(logger *logging.BaseLogger, clients *test.Cli
 		return err
 	}
 
-	logger.Info("Checking to ensure Route is in desired state.")
+	logger.Info("Checking to ensure Route is in desired state with generation: ", expectedGeneration)
 	err = test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
@@ -198,15 +198,17 @@ func TestRunLatestService(t *testing.T) {
 		t.Fatalf("New image not reflected in Service: %v", err)
 	}
 
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+
 	// Validate State after Image Update
-	err = validateRunLatestControlPlane(logger, clients, names, "2")
-	if err != nil {
+	if err = validateRunLatestControlPlane(logger, clients, names, "2"); err != nil {
 		t.Error(err)
 	}
-	err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort))
-	if err != nil {
+	if err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
-
 	}
 
 	// Update Metadata (Labels)
@@ -246,6 +248,11 @@ func TestRunLatestService(t *testing.T) {
 		t.Fatalf("The new revision has not become ready in Service: %v", err)
 	}
 
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+
 	// Validate Service
 	err = validateRunLatestControlPlane(logger, clients, names, "4")
 	if err != nil {
@@ -275,6 +282,11 @@ func TestRunLatestService(t *testing.T) {
 	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("The new revision has not become ready in Service: %v", err)
+	}
+
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
 	// Validate Service

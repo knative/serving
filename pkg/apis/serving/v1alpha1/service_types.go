@@ -252,12 +252,15 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	}
 }
 
-func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
-	ss.Domain = rs.Domain
-	ss.DomainInternal = rs.DomainInternal
-	ss.Address = rs.Address
-	ss.Traffic = rs.Traffic
+const (
+	trafficNotMigratedReason  = "Traffic not yet migrated"
+	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+)
 
+// PropagateRouteStatusLatestRevision propagates latest route revision,
+// but verifies that the traffic has migrated to the `lrr`.
+func (ss *ServiceStatus) PropagateRouteStatusLatestRevision(rs *RouteStatus, lrr string) {
+	ss.propagateRouteStatusCommon(rs)
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
@@ -266,10 +269,47 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	case rc.Status == corev1.ConditionUnknown:
 		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+		// Also match traffic.
+		if len(rs.Traffic) > 0 && rs.Traffic[0].RevisionName != lrr {
+			serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+		} else {
+			serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+		}
 	case rc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
+}
+
+// PropagateRouteStatus propagates route's status to the service's status.
+// `routeReady`, if not nil, verifies whether the ready route is the one we desire.
+// See: #2430.
+func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus, routeReady func() bool) {
+	ss.propagateRouteStatusCommon(rs)
+	rc := rs.GetCondition(RouteConditionReady)
+	if rc == nil {
+		return
+	}
+	switch {
+	case rc.Status == corev1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case rc.Status == corev1.ConditionTrue:
+		// If no verification function provided or if it returned true, service is ready,
+		// `Unknown` otherwise.
+		if routeReady == nil || routeReady() {
+			serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+		} else {
+			serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+		}
+	case rc.Status == corev1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	}
+}
+
+func (ss *ServiceStatus) propagateRouteStatusCommon(rs *RouteStatus) {
+	ss.Domain = rs.Domain
+	ss.DomainInternal = rs.DomainInternal
+	ss.Address = rs.Address
+	ss.Traffic = rs.Traffic
 }
 
 // SetManualStatus updates the service conditions to unknown as the underlying Route

@@ -466,6 +466,35 @@ func TestReconcile(t *testing.T) {
 			"foo/all-ready": 1,
 		},
 	}, {
+		Name: "runLatest - route ready previous version and config ready, service not ready",
+		// When both route and config are ready, but the route points to the previous revision
+		// the service should not be ready.
+		Objects: []runtime.Object{
+			svc("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-only-ready-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("config-only-ready", "foo", WithRunLatestRollout, WithGeneration(2 /*will generate revision -00002*/),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/config-only-ready",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("config-only-ready", "foo", WithRunLatestRollout,
+				WithReadyConfig("config-only-ready-00002"),
+				WithRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-only-ready-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
+		},
+	}, {
 		Name: "runLatest - config fails, propagate failure",
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
@@ -479,7 +508,7 @@ func TestReconcile(t *testing.T) {
 			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				// When the Route is Ready, and the Configuration has failed,
 				// we expect the following changes to our status conditions.
-				WithReadyRoute, WithFailedConfig(
+				WithRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
 		WantEvents: []string{
