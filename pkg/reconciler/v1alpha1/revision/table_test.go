@@ -647,7 +647,7 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
-		// TODO(mattmoor): This seems strange.
+		// TODO(#2900): This should not fire, we're not ready!
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
 				"missing-owners-service"),
