@@ -18,29 +18,40 @@ package utils
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
-	resolverFileName = "/etc/resolv.conf"
+	resolverFileName  = "/etc/resolv.conf"
+	defaultDomainName = "cluster.local"
+)
+
+var (
+	domainName string
+	once       sync.Once
 )
 
 // GetClusterDomainName returns cluster's domain name or an error
 // Closes issue: https://github.com/knative/eventing/issues/714
-func GetClusterDomainName() (string, error) {
-	f, err := os.Open(resolverFileName)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
+func GetClusterDomainName() string {
+	once.Do(func() {
+		f, err := os.Open(resolverFileName)
+		if err == nil {
+			defer f.Close()
+			domainName = getClusterDomainName(f)
 
-	return getClusterDomainName(f)
+		} else {
+			domainName = defaultDomainName
+		}
+	})
+
+	return domainName
 }
 
-func getClusterDomainName(r io.Reader) (string, error) {
+func getClusterDomainName(r io.Reader) string {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		elements := strings.Split(scanner.Text(), " ")
@@ -49,9 +60,10 @@ func getClusterDomainName(r io.Reader) (string, error) {
 		}
 		for i := 1; i < len(elements)-1; i++ {
 			if strings.HasPrefix(elements[i], "svc.") {
-				return elements[i][4:], nil
+				return elements[i][4:]
 			}
 		}
 	}
-	return "", fmt.Errorf("%s does not seem to be a valid kubernetes resolv.conf file", resolverFileName)
+	// For all abnormal cases return default domain name
+	return defaultDomainName
 }

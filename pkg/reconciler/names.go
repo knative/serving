@@ -22,11 +22,7 @@ import (
 )
 
 func GetK8sServiceFullname(name string, namespace string) string {
-	clusterDomainName, err := utils.GetClusterDomainName()
-	if err != nil {
-		clusterDomainName = "cluster.local"
-	}
-	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, clusterDomainName)
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, utils.GetClusterDomainName())
 }
 
 func GetServingK8SServiceNameForObj(name string) string {
