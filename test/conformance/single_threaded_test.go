@@ -40,11 +40,10 @@ func TestSingleConcurrency(t *testing.T) {
 	// add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestSingleConcurrency")
 
-	imagePath := test.ImagePath(singleThreadedImage)
-
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("prod", logger),
 		Route:  test.AppendRandomString("pizzaplanet", logger),
+		Image:  singleThreadedImage,
 	}
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
@@ -54,7 +53,7 @@ func TestSingleConcurrency(t *testing.T) {
 		ContainerConcurrency: 1,
 	}
 	logger.Info("Creating a new Configuration")
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &configOptions)
+	_, err := test.CreateConfiguration(logger, clients, names, &configOptions)
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}

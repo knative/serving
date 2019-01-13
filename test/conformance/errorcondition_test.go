@@ -48,13 +48,14 @@ func TestContainerErrorMsg(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerErrorMsg")
 
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-error-msg", logger)}
+	names := test.ResourceNames{
+		Config: test.AppendRandomString("test-container-error-msg", logger),
+		Image:  "invalidhelloworld",
+	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := test.ImagePath("invalidhelloworld")
-
-	logger.Infof("Creating a new Configuration %s", imagePath)
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
+	logger.Infof("Creating a new Configuration %s", names.Image)
+	_, err := test.CreateConfiguration(logger, clients, names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
@@ -125,15 +126,17 @@ func TestContainerExitingMsg(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerExitingMsg")
 
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-exiting-msg", logger)}
-	imagePath := test.ImagePath("failing")
+	names := test.ResourceNames{
+		Config: test.AppendRandomString("test-container-exiting-msg", logger),
+		Image:  "failing",
+	}
 
 	// The given image will always exit with an exit code of 5
 	exitCodeReason := "ExitCode5"
 	// ... and will print "Crashed..." before it exits
 	errorLog := "Crashed..."
 
-	logger.Infof("Creating a new Configuration %s", imagePath)
+	logger.Infof("Creating a new Configuration %s", names.Image)
 
 	// This probe is crucial for having a race free conformance test. It will prevent the
 	// pod from becoming ready intermittently.
@@ -142,7 +145,7 @@ func TestContainerExitingMsg(t *testing.T) {
 			HTTPGet: &corev1.HTTPGetAction{},
 		},
 	}
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{ReadinessProbe: probe})
+	_, err := test.CreateConfiguration(logger, clients, names, &test.Options{ReadinessProbe: probe})
 	if err != nil {
 		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 	}
