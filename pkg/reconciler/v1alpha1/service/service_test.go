@@ -535,7 +535,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkRouteNotOwned),
 		}},
 	}, {
-		Name: "runLatest - route and config ready, propagate ready",
+		Name: "runLatest - correct not owned by adding owner refs",
 		// If ready Route/Configuration that weren't owned have OwnerReferences attached,
 		// then a Reconcile will result in the Service becoming happy.
 		Objects: []runtime.Object{
