@@ -40,6 +40,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	"github.com/knative/serving/pkg/system"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/pkg/utils"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
