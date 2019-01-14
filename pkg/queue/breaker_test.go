@@ -23,12 +23,11 @@ import (
 	"time"
 
 	"errors"
-	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-const semSleepInterval = 20 * time.Millisecond
+const semAcquireTimeout = 10 * time.Second
 
 type request struct {
 	lock     *sync.Mutex
@@ -121,43 +120,56 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 
 // Test empty semaphore, token cannot be acquired
 func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
-	want := int32(0)
-	acquired := int32(0)
-	sem := NewSemaphore(1, 0)
-	tryAcquire(sem, &acquired, 0)
+	gotChan := make(chan struct{}, 1)
 
-	// wait in case `acquired` changes
-	time.Sleep(semSleepInterval)
-	assertEqual(want, atomic.LoadInt32(&acquired), t)
+	sem := NewSemaphore(1, 0)
+	tryAcquire(sem, gotChan)
+
+	select {
+	case <-gotChan:
+		t.Error("Token was acquired but shouldn't have been")
+	case <-time.After(20 * time.Millisecond):
+		// Test succeeds, semaphore didn't change in configured time
+	}
 }
 
 // Test empty semaphore, add capacity, token can be acquired
 func TestSemaphore_Get_HasCapacity(t *testing.T) {
-	want := int32(1)
-	acquired := int32(0)
+	gotChan := make(chan struct{}, 1)
+
 	sem := NewSemaphore(1, 0)
-	tryAcquire(sem, &acquired, 0)
+	tryAcquire(sem, gotChan)
 	sem.Release()
 
-	// to allow `acquired` to change
-	time.Sleep(semSleepInterval)
-	assertEqual(want, atomic.LoadInt32(&acquired), t)
+	select {
+	case <-gotChan:
+		// Test successful, successfully acquired a token.
+	case <-time.After(semAcquireTimeout):
+		t.Errorf("Was not able to acquire token before timeout")
+	}
 }
 
 //Test all put items can be consumed
 func TestSemaphore_Put(t *testing.T) {
-	want := int32(2)
+	gotChan := make(chan struct{}, 1)
+	wantAcquires := 2
+
 	requests := 3
-	var acquired int32
 	sem := NewSemaphore(2, 0)
 	for i := 0; i < requests; i++ {
-		tryAcquire(sem, &acquired, i)
+		tryAcquire(sem, gotChan)
 	}
 	sem.Release()
 	sem.Release()
 
-	time.Sleep(semSleepInterval)
-	assertEqual(want, atomic.LoadInt32(&acquired), t)
+	for i := 0; i < wantAcquires; i++ {
+		select {
+		case <-gotChan:
+			// Test successful, successfully acquired a token.
+		case <-time.After(semAcquireTimeout):
+			t.Errorf("Was not able to acquire token before timeout")
+		}
+	}
 }
 
 func TestSemaphore_AddCapacity(t *testing.T) {
@@ -289,10 +301,10 @@ func assertEqual(want, got interface{}, t *testing.T) {
 	}
 }
 
-func tryAcquire(sem *Semaphore, acquired *int32, i int) {
+func tryAcquire(sem *Semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
 		sem.Acquire()
-		atomic.AddInt32(acquired, 1)
+		gotChan <- struct{}{}
 	}()
 }
