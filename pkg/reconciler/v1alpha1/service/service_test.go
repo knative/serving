@@ -498,7 +498,7 @@ func TestReconcile(t *testing.T) {
 		Name: "runLatest - config fails, new gen, propagate failure",
 		// Gen 1: everything is fine;
 		// Gen 2: config update fails;
-		//    => service is still OK service Gen 1.
+		//    => service is still OK serving Gen 1.
 		Objects: []runtime.Object{
 			svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
