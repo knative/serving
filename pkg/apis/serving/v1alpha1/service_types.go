@@ -160,6 +160,7 @@ const (
 
 var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
+// ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
 	// +optional
 	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
@@ -218,22 +219,28 @@ type ServiceList struct {
 	Items []Service `json:"items"`
 }
 
+// GetGroupVersionKind returns the GetGroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")
 }
 
+// IsReady returns if the service is ready to serve the requested configuration.
 func (ss *ServiceStatus) IsReady() bool {
 	return serviceCondSet.Manage(ss).IsHappy()
 }
 
+// GetCondition returns the condition by name.
 func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 
+// InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
+// PropagateConfigurationStatus takes the Configuration status and applies its values
+// to the Service status.
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
 	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
@@ -293,8 +300,10 @@ func (ss *ServiceStatus) propagateRouteStatusCommon(rs *RouteStatus) {
 // can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
 // report Ready.
 func (ss *ServiceStatus) SetManualStatus() {
-	reason := "Manual"
-	message := "Service is set to Manual, and is not managing underlying resources."
+	const (
+		reason  = "Manual"
+		message = "Service is set to Manual, and is not managing underlying resources."
+	)
 
 	// Clear our fields by creating a new status and copying over only the fields and conditions we want
 	newStatus := &ServiceStatus{}
@@ -307,7 +316,6 @@ func (ss *ServiceStatus) SetManualStatus() {
 	newStatus.DomainInternal = ss.DomainInternal
 
 	*ss = *newStatus
-
 }
 
 // GetConditions returns the Conditions array. This enables generic handling of
