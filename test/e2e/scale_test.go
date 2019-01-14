@@ -111,7 +111,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	}()
 
 	logger.Info("Reached for loop")
-	timeoutCh := time.After(duration)
+	//timeoutCh := time.After(duration)
 	for {
 		select {
 		case names := <-cleanupCh:
@@ -140,7 +140,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			t.Fatalf("An error occured during the test: %v", err)
 			logger.Info("Done err channel")
 
-		case <-timeoutCh:
+		case <-time.After(duration):
 			logger.Info("Received timeout channel")
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 			logger.Info("Done timeout channel")
