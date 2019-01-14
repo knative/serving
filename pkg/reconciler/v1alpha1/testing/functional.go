@@ -250,8 +250,15 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 	}
 }
 
-// WithRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
-func WithRouteNotReady(s *v1alpha1.Service) {
+// WithServiceLatestReadyRevision sets the latest ready revision on the Service's status.
+func WithServiceLatestReadyRevision(lrr string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
+func WithServiceStatusRouteNotReady(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   "Ready",

@@ -485,7 +485,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("config-only-ready", "foo", WithRunLatestRollout,
 				WithReadyConfig("config-only-ready-00002"),
-				WithRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					RevisionName: "config-only-ready-00001",
 					Percent:      100,
@@ -493,6 +493,36 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
+		},
+	}, {
+		Name: "runLatest - config fails, new gen, propagate failure",
+		// Gen 1: everything is fine;
+		// Gen 2: config update fails;
+		//    => service is still OK service Gen 1.
+		Objects: []runtime.Object{
+			svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-fails-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithLatestReady, WithGeneration(2),
+				WithLatestCreated, MarkLatestCreatedFailed("blah")),
+		},
+		Key: "foo/config-fails",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-fails-00001",
+					Percent:      100,
+				}),
+				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
+				WithServiceLatestReadyRevision("config-fails-00001")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
 		},
 	}, {
 		Name: "runLatest - config fails, propagate failure",
@@ -506,9 +536,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/config-fails",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
-				// When the Route is Ready, and the Configuration has failed,
-				// we expect the following changes to our status conditions.
-				WithRouteNotReady, WithFailedConfig(
+				WithServiceStatusRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
 		WantEvents: []string{
