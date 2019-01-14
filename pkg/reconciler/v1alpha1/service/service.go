@@ -207,16 +207,16 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	}
 
 	// Update our Status based on the state of our underlying Route.
+	var validateFunc func() bool
 	switch {
 	case service.Spec.RunLatest != nil:
 		// In case of RunLatest, verify that traffic has already migrated
 		// to the latest revision.
-		service.Status.PropagateRouteStatus(&route.Status, func() bool {
+		validateFunc = func() bool {
 			return len(route.Status.Traffic) > 0 && route.Status.Traffic[0].RevisionName == config.Status.LatestReadyRevisionName
-		})
-	default:
-		service.Status.PropagateRouteStatus(&route.Status, nil /*no Route verification callback*/)
+		}
 	}
+	service.Status.PropagateRouteStatus(&route.Status, validateFunc)
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
@@ -231,13 +231,13 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if reflect.DeepEqual(service.Status, desired.Status) {
 		return service, nil
 	}
-	becomesRedy := desired.Status.IsReady() && !service.Status.IsReady()
+	becomesReady := desired.Status.IsReady() && !service.Status.IsReady()
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
-	if err == nil && becomesRedy {
+	if err == nil && becomesReady {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
 		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)

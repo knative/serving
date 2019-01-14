@@ -268,7 +268,11 @@ const (
 // `routeReady`, if not nil, verifies whether the ready route is the one we desire.
 // See: #2430.
 func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus, routeReady func() bool) {
-	ss.propagateRouteStatusCommon(rs)
+	ss.Domain = rs.Domain
+	ss.DomainInternal = rs.DomainInternal
+	ss.Address = rs.Address
+	ss.Traffic = rs.Traffic
+
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
@@ -287,13 +291,6 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus, routeReady func()
 	case rc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
-}
-
-func (ss *ServiceStatus) propagateRouteStatusCommon(rs *RouteStatus) {
-	ss.Domain = rs.Domain
-	ss.DomainInternal = rs.DomainInternal
-	ss.Address = rs.Address
-	ss.Traffic = rs.Traffic
 }
 
 // SetManualStatus updates the service conditions to unknown as the underlying Route
