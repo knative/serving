@@ -241,7 +241,7 @@ func (ss *ServiceStatus) InitializeConditions() {
 
 // PropagateConfigurationStatus takes the Configuration status and applies its values
 // to the Service status.
-func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
+func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
 	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
 
