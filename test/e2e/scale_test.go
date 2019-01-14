@@ -140,6 +140,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			t.Fatalf("An error occured during the test: %v", err)
 
 		case timeoutCh:
+			logger.Error("Timeout.")
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
