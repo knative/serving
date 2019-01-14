@@ -38,7 +38,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-// Constants for test images located in test/test_images
+// Constants for test images located in test/test_images.
 const (
 	pizzaPlanet1        = "pizzaplanetv1"
 	pizzaPlanet2        = "pizzaplanetv2"
@@ -57,7 +57,7 @@ const (
 	minSplitPercentage = 0.25
 )
 
-// Constants for test image output
+// Constants for test image output.
 const (
 	pizzaPlanetText1 = "What a spaceport!"
 	pizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
@@ -92,6 +92,7 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 }
 
 func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string, baseExpected, trafficTargets, targetsExpected []string) {
+	t.Helper()
 	var subdomains []string
 	for _, target := range trafficTargets {
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
@@ -100,8 +101,7 @@ func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Cli
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
 	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
-	err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0])
-	if err != nil {
+	if err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0]); err != nil {
 		t.Fatalf("Error waiting for route to update %s: %v", subdomains[0], targetsExpected[0])
 	}
 
@@ -129,7 +129,6 @@ func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Cli
 			t.Fatalf("Error sending requests: %v", err)
 		}
 	}
-
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
@@ -187,7 +186,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 	for _, ar := range actualResponses {
 		expected := false
 		for _, er := range expectedResponses {
-			if strings.Contains(string(ar), er) {
+			if strings.Contains(ar, er) {
 				counts[er]++
 				expected = true
 			}
@@ -203,15 +202,15 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
-			return fmt.Errorf("domain %s failed: want min %d, got %d for response %q", domain, min, count, er)
+			return fmt.Errorf("domain %s failed: want at least %d, got %d for response %q", domain, min, count, er)
 		}
 
-		logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
+		logger.Infof("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
 		totalMatches += count
 	}
 	// Verify that the total expected responses match the number of requests made.
 	for badResponse, count := range badCounts {
-		logger.Infof("saw unexpected response %q %d times", badResponse, count)
+		logger.Infof("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
 		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
