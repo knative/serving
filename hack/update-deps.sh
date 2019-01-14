@@ -23,14 +23,14 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 # Remove symlinks in /vendor that are broken or lead outside the repo.
 function remove_broken_symlinks() {
   for link in $(find ./vendor -type l); do
-    local target="$(ls -l ${link})"
-    target="${target##* -> }"
     # Remove broken symlinks
     if [[ ! -e ${link} ]]; then
       unlink ${link}
       continue
     fi
     # Get canonical path to target, remove if outside the repo
+    local target="$(ls -l ${link})"
+    target="${target##* -> }"
     [[ ${target} == /* ]] || target="./${target}"
     target="$(cd `dirname ${link}` && cd ${target%/*} && echo $PWD/${target##*/})"
     if [[ ${target} != *github.com/knative/* ]]; then
