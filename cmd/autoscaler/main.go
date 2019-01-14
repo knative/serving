@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
@@ -86,6 +87,10 @@ func main() {
 	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatalw("Error building kubernetes clientset", zap.Error(err))
+	}
+
+	if err := version.CheckMinimumVersion(kubeClientSet.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
