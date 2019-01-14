@@ -27,7 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// semAcquireTimeout is a timeout for tests that try to acquire
+// a token of a semaphore.
 const semAcquireTimeout = 10 * time.Second
+
+// semNoChangeTimeout is some additional wait time after a number
+// of acquires is reached to assert that no more acquires get through.
+const semNoChangeTimeout = 50 * time.Millisecond
 
 type request struct {
 	lock     *sync.Mutex
@@ -139,20 +145,14 @@ func TestSemaphore_Get_HasCapacity(t *testing.T) {
 
 	sem := NewSemaphore(1, 0)
 	tryAcquire(sem, gotChan)
-	sem.Release()
+	sem.Release() // Allows 1 acquire
 
-	select {
-	case <-gotChan:
-		// Test successful, successfully acquired a token.
-	case <-time.After(semAcquireTimeout):
-		t.Errorf("Was not able to acquire token before timeout")
-	}
+	assertAcquired(1, gotChan, t)
 }
 
 //Test all put items can be consumed
 func TestSemaphore_Put(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
-	wantAcquires := 2
 
 	requests := 3
 	sem := NewSemaphore(2, 0)
@@ -160,16 +160,9 @@ func TestSemaphore_Put(t *testing.T) {
 		tryAcquire(sem, gotChan)
 	}
 	sem.Release()
-	sem.Release()
+	sem.Release() // Allows 2 acquires
 
-	for i := 0; i < wantAcquires; i++ {
-		select {
-		case <-gotChan:
-			// Test successful, successfully acquired a token.
-		case <-time.After(semAcquireTimeout):
-			t.Errorf("Was not able to acquire token before timeout")
-		}
-	}
+	assertAcquired(2, gotChan, t)
 }
 
 func TestSemaphore_AddCapacity(t *testing.T) {
@@ -307,4 +300,25 @@ func tryAcquire(sem *Semaphore, gotChan chan struct{}) {
 		sem.Acquire()
 		gotChan <- struct{}{}
 	}()
+}
+
+// assertAcquired waits for gotChan to contain the wanted number of elements.
+// After these elements have arrived, we wait for a little longer to see if
+// unexpected elements arrive.
+func assertAcquired(want int, gotChan chan struct{}, t *testing.T) {
+	for i := 0; i < want; i++ {
+		select {
+		case <-gotChan:
+			// Successfully acquired a token.
+		case <-time.After(semAcquireTimeout):
+			t.Error("Was not able to acquire token before timeout")
+		}
+	}
+
+	select {
+	case <-gotChan:
+		t.Errorf("Got more acquires than wanted, want = %d, got at least %d", want, want+1)
+	case <-time.After(semNoChangeTimeout):
+		// No change happened, success.
+	}
 }
