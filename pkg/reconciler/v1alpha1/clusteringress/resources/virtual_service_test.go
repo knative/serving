@@ -162,6 +162,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
@@ -179,6 +180,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}}
 	routes := MakeVirtualService(ci, []string{}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
@@ -225,6 +227,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -279,6 +282,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
