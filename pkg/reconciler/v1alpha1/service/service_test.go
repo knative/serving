@@ -507,7 +507,10 @@ func TestReconcile(t *testing.T) {
 					RevisionName: "config-fails-00001",
 					Percent:      100,
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithLatestReady, WithGeneration(2),
+			config("config-fails", "foo", WithRunLatestRollout,
+				// NB: the order matters. First we create a happy config at gen 1,
+				// then we fail gen 2.
+				WithGeneration(1), WithLatestReady, WithGeneration(2),
 				WithLatestCreated, MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
