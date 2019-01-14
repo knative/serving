@@ -102,26 +102,28 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	}
 
 	go func() {
-		if err := deployGrp.Wait(); err != nil {
+		err := deployGrp.Wait()
+		logger.Info("Finished service creation.")
+
+		if err != nil {
+			logger.Errorf("An error occurred during service creation: %v", err)
 			errCh <- errors.Wrap(err, "error waiting for endpoints to become ready")
 		} else {
+			logger.Info("Service creation was successful.")
 			// Succeeds the test
 			close(domainCh)
 		}
 	}()
 
-	logger.Info("Reached for loop")
-	//timeoutCh := time.After(duration)
+	timeoutCh := time.After(duration)
 	for {
 		select {
 		case names := <-cleanupCh:
-			logger.Info("Received cleanup channel")
+			logger.Infof("Added %v to cleanup routine.")
 			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 			defer TearDown(clients, names, logger)
-			logger.Info("Done cleanup channel")
 
 		case domain, ok := <-domainCh:
-			logger.Info("Received domain channel")
 			if !ok {
 				logger.Info("All services were created successfully.")
 				return
@@ -133,17 +135,12 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 					t.Fatalf("Route %q prober failed with error: %v", domain, err)
 				}
 			}(probeCh)
-			logger.Info("Done domain channel")
 
 		case err := <-errCh:
-			logger.Info("Received err channel")
 			t.Fatalf("An error occured during the test: %v", err)
-			logger.Info("Done err channel")
 
-		case <-time.After(duration):
-			logger.Info("Received timeout channel")
+		case timeoutCh:
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
-			logger.Info("Done timeout channel")
 		}
 	}
 }
@@ -158,7 +155,7 @@ func TestScaleTo10(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo10")
 
-	testScaleToWithin(t, logger, 10, 30*time.Second)
+	testScaleToWithin(t, logger, 10, 90*time.Second)
 }
 
 func TestScaleTo50(t *testing.T) {
