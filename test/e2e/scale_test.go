@@ -158,7 +158,7 @@ func TestScaleTo10(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo10")
 
-	testScaleToWithin(t, logger, 10, 90*time.Second)
+	testScaleToWithin(t, logger, 10, 30*time.Second)
 }
 
 func TestScaleTo50(t *testing.T) {
