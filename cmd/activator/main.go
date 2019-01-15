@@ -80,12 +80,12 @@ func statReporter(stopCh <-chan struct{}) {
 		select {
 		case sm := <-statChan:
 			if statSink == nil {
-				logger.Error("Stat sink not connected.")
+				logger.Error("Stat sink not connected")
 				continue
 			}
 			err := statSink.Send(sm)
 			if err != nil {
-				logger.Error("Error while sending stat", zap.Error(err))
+				logger.Errorw("Error while sending stat", zap.Error(err))
 			}
 		case <-stopCh:
 			return
@@ -111,20 +111,20 @@ func main() {
 
 	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Error getting cluster configuration", zap.Error(err))
+		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building new kubernetes client", zap.Error(err))
+		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset", zap.Error(err))
+		logger.Fatalw("Error building serving clientset", zap.Error(err))
 	}
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
@@ -177,13 +177,13 @@ func main() {
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalf("failed to start configuration manager: %v", err)
+		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
 	srv := h2c.NewServer(":8080", ah)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			logger.Errorf("Error running HTTP server: %v", err)
+			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 

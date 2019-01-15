@@ -34,6 +34,7 @@ import (
 	clientset "github.com/knative/serving/test/client/clientset/versioned"
 	informers "github.com/knative/serving/test/client/informers/externalversions"
 	"github.com/knative/serving/test/reconciler/build"
+	"go.uber.org/zap"
 )
 
 const (
@@ -55,12 +56,12 @@ func main() {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatalf("Error building kubeconfig: %v", err)
+		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
 	testingClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building testing clientset: %v", err)
+		logger.Fatalw("Error building testing clientset", zap.Error(err))
 	}
 
 	testingInformerFactory := informers.NewSharedInformerFactory(testingClient, time.Second*30)
@@ -86,7 +87,7 @@ func main() {
 		buildInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %v to sync", i)
+			logger.Fatalf("Failed to wait for cache at index %d to sync", i)
 		}
 	}
 
@@ -96,7 +97,7 @@ func main() {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
-				logger.Fatalf("Error running controller: %v", runErr)
+				logger.Fatalw("Error running controller", zap.Error(runErr))
 			}
 		}(ctrlr)
 	}
