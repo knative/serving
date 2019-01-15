@@ -294,7 +294,7 @@ func main() {
 		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
 	}
 	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(queue.ReportingPeriod)
+	view.SetReportingPeriod(queue.ViewReportingPeriod)
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promExporter)
@@ -307,7 +307,7 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	reportTicker := time.NewTicker(time.Second).C
+	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
 	queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker,
