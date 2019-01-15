@@ -26,7 +26,6 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/system"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,5 +204,5 @@ func CheckServiceState(client *ServingClients, name string, inState func(s *v1al
 
 // GetConfigMap gets the knative serving config map.
 func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
-	return client.Kube.CoreV1().ConfigMaps(system.Namespace())
+	return client.Kube.CoreV1().ConfigMaps("knative-serving")
 }
