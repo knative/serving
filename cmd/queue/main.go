@@ -178,7 +178,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Sets up /health and /quitquitquit endpoints.
-func setupAdminHandlers(server *http.Server) {
+func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
 	prober := func() bool {
 		err := wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
@@ -204,7 +204,7 @@ func setupAdminHandlers(server *http.Server) {
 
 		time.Sleep(quitSleepDuration)
 
-		// Shutdown the server.
+		// Shutdown the proxy server.
 		currentServer := server
 		if currentServer != nil {
 			if err := currentServer.Shutdown(context.Background()); err != nil {
@@ -214,7 +214,8 @@ func setupAdminHandlers(server *http.Server) {
 			}
 		}
 	}))
-	server.Handler = mux
+
+	return mux
 }
 
 func main() {
@@ -282,7 +283,7 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
 		Handler: nil,
 	}
-	setupAdminHandlers(adminServer)
+	adminServer.Handler = createAdminHandlers()
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
