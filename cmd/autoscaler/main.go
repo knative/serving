@@ -152,7 +152,7 @@ func main() {
 		hpaInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("Failed to wait for cache at index %v to sync", i)
+			logger.Fatalf("Failed to wait for cache at index %d to sync", i)
 		}
 	}
 
