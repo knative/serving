@@ -102,10 +102,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	}
 
 	go func() {
-		err := deployGrp.Wait()
-		logger.Info("Finished service creation.")
-
-		if err != nil {
+		if err := deployGrp.Wait(); err != nil {
 			logger.Errorf("An error occurred during service creation: %v", err)
 			errCh <- errors.Wrap(err, "error waiting for endpoints to become ready")
 		} else {
@@ -119,7 +116,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	for {
 		select {
 		case names := <-cleanupCh:
-			logger.Infof("Added %v to cleanup routine.")
+			logger.Infof("Added %v to cleanup routine.", names)
 			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 			defer TearDown(clients, names, logger)
 
