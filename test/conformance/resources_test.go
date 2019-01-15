@@ -28,8 +28,6 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestCustomResourcesLimits(t *testing.T) {
@@ -39,14 +37,6 @@ func TestCustomResourcesLimits(t *testing.T) {
 	logger := logging.GetContextLogger("TestCustomResourcesLimits")
 
 	logger.Infof("Creating a new Route and Configuration")
-	resources := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("350Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("350Mi"),
-		},
-	}
 
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("test-resource-limits-", logger),
@@ -56,7 +46,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names,
+		&test.Options{ContainerResources: MediumMemoryRequirements})
+
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

@@ -32,6 +32,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+var (
+	cpuRequirement25m = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("25m"),
+		},
+	}
+
+	cpuRequirement50m = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("50m"),
+		},
+	}
+
+	cpuRequirement100m = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("100m"),
+		},
+	}
+)
+
 func TestContainerValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -67,12 +87,8 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has resources",
 		c: corev1.Container{
-			Image: "foo",
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse("25m"),
-				},
-			},
+			Image:     "foo",
+			Resources: cpuRequirement25m,
 		},
 		want: nil,
 	}, {
@@ -761,11 +777,7 @@ func TestImmutableFields(t *testing.T) {
 		new: &Revision{
 			Spec: RevisionSpec{
 				Container: corev1.Container{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"): resource.MustParse("50m"),
-						},
-					},
+					Resources: cpuRequirement50m,
 				},
 				ConcurrencyModel: "Multi",
 			},
@@ -773,11 +785,7 @@ func TestImmutableFields(t *testing.T) {
 		old: &Revision{
 			Spec: RevisionSpec{
 				Container: corev1.Container{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"): resource.MustParse("100m"),
-						},
-					},
+					Resources: cpuRequirement100m,
 				},
 				ConcurrencyModel: "Multi",
 			},

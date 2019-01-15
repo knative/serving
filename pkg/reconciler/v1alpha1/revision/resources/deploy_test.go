@@ -35,8 +35,18 @@ import (
 )
 
 var (
-	one            int32  = 1
-	defaultPortStr string = strconv.Itoa(int(v1alpha1.DefaultUserPort))
+	one                  int32  = 1
+	defaultPortStr       string = strconv.Itoa(int(v1alpha1.DefaultUserPort))
+	resourceRequirements        = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("666Mi"),
+			corev1.ResourceCPU:    resource.MustParse("666m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("888Mi"),
+			corev1.ResourceCPU:    resource.MustParse("888m"),
+		},
+	}
 )
 
 func refInt64(num int64) *int64 {
@@ -985,16 +995,7 @@ func TestMakePodSpec(t *testing.T) {
 						Name:  "BAZ",
 						Value: "blah",
 					}},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("666Mi"),
-							corev1.ResourceCPU:    resource.MustParse("666m"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("888Mi"),
-							corev1.ResourceCPU:    resource.MustParse("888m"),
-						},
-					},
+					Resources:                resourceRequirements,
 					TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 				},
 				TimeoutSeconds: 45,
@@ -1029,16 +1030,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name:  "K_SERVICE",
 					Value: "",
 				}},
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("666Mi"),
-						corev1.ResourceCPU:    resource.MustParse("666m"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("888Mi"),
-						corev1.ResourceCPU:    resource.MustParse("888m"),
-					},
-				},
+				Resources:                resourceRequirements,
 				Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
 				VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:                userLifecycle,
