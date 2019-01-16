@@ -123,7 +123,7 @@ func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
 		return fmt.Errorf("stat sink not (yet) connected")
 	}
-	if !healthState.IsAlive() {
+	if healthState.IsShuttingDown() {
 		s.LameDuck = true
 	}
 	reporter.Report(
