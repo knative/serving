@@ -1219,7 +1219,7 @@ func cfg(namespace, name string, co ...ConfigOption) *v1alpha1.Configuration {
 			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{

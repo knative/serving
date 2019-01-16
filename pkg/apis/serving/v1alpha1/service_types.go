@@ -71,7 +71,7 @@ type ServiceSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// RunLatest defines a simple Service. It will automatically
 	// configure a route that keeps the latest ready revision

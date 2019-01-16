@@ -64,7 +64,7 @@ type ConfigurationSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.

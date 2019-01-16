@@ -79,7 +79,7 @@ type IngressSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// TLS configuration. Currently the ClusterIngress only supports a single TLS
 	// port, 443. If multiple members of this list specify different hosts, they

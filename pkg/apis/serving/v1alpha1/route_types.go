@@ -93,7 +93,7 @@ type RouteSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	// +optional

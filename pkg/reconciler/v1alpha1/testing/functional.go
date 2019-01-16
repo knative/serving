@@ -398,7 +398,7 @@ func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Generation = gen
 		//TODO(dprotaso) remove this for 0.4 release
-		cfg.Spec.Generation = gen
+		cfg.Spec.DeprecatedGeneration = gen
 	}
 }
 

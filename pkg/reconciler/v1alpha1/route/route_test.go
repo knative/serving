@@ -107,7 +107,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{

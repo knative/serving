@@ -276,7 +276,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	ignoreRouteLabelChange(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
-	desiredConfig.Spec.Generation = config.Spec.Generation
+	desiredConfig.Spec.DeprecatedGeneration = config.Spec.DeprecatedGeneration
 
 	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.
@@ -323,7 +323,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates).
-	desiredRoute.Spec.Generation = route.Spec.Generation
+	desiredRoute.Spec.DeprecatedGeneration = route.Spec.DeprecatedGeneration
 
 	if routeSemanticEquals(desiredRoute, route) {
 		// No differences to reconcile.

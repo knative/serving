@@ -66,7 +66,7 @@ type PodAutoscalerSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the scale target. Defaults to Multi.

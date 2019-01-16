@@ -160,7 +160,7 @@ type RevisionSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// DeprecatedServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
