@@ -29,6 +29,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -283,45 +284,62 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	assertScaleUp(ctx)
 }
 
-func assertNumberOfPodsEvery(duration time.Duration, ctx *testContext, numReplicasMin int32, numReplicasMax int32) chan struct{} {
-	stopChan := make(chan struct{})
+func assertNumberOfPodsEvery(interval time.Duration, ctx *testContext, errChan chan error, stopChan chan struct{}, numReplicasMin int32, numReplicasMax int32) {
+	timer := time.Tick(interval)
+
 	go func() {
 		for {
 			select {
 			case <-stopChan:
 				return
-			default:
-				assertNumberOfPods(ctx, numReplicasMin, numReplicasMax)
-				time.Sleep(duration)
+			case <-timer:
+				if err := assertNumberOfPods(ctx, numReplicasMin, numReplicasMax); err != nil {
+					errChan <- err
+				}
 			}
 		}
 	}()
-	return stopChan
 }
 
-func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) {
-	deployment, err := ctx.clients.KubeClient.Kube.ExtensionsV1beta1().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
-		ctx.t.Fatalf("Failed to get deployment %s: %v", deployment, err)
+		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
 	gotReplicas := deployment.Status.Replicas
 	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
+		return errors.Errorf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
 	}
+	return nil
 }
 
 func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
-	stopChan := assertNumberOfPodsEvery(2*time.Second, ctx, numPods-1, numPods+1)
-	defer close(stopChan)
-
-	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
 	// Relaxing the pod count requirement a little bit to avoid being too flaky.
 	minPods := numPods - 1
 	maxPods := numPods + 1
-	assertNumberOfPods(ctx, minPods, maxPods)
+
+	// Allow some error to accumulate without locking
+	errChan := make(chan error, 100)
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	assertNumberOfPodsEvery(2*time.Second, ctx, errChan, stopChan, minPods, maxPods)
+
+	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
+		ctx.t.Fatalf("Error during scale up: %v", err)
+	}
+
+	if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+		errChan <- err
+	}
+
+	select {
+	case err := <-errChan:
+		ctx.t.Error(err.Error())
+	default:
+		// Success!
+	}
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
@@ -333,11 +351,11 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 
 	// increase workload for 2 replicas for 30s
 	// assert the number of wanted replicas is between 1-3 during the 30s
-	// assert the number of wanted replicas is 2-3 after 30s
+	// assert the number of wanted replicas is 1-3 after 30s
 	assertAutoscaleUpToNumPods(ctx, 2)
-	// scale to 3 replicas, assert 2-4 during scale up, assert 3-4 after scaleup
+	// scale to 3 replicas, assert 2-4 during scale up, assert 2-4 after scaleup
 	assertAutoscaleUpToNumPods(ctx, 3)
-	// scale to 4 replicas, assert 3-5 during scale up, assert 4-5 after scaleup
+	// scale to 4 replicas, assert 3-5 during scale up, assert 3-5 after scaleup
 	assertAutoscaleUpToNumPods(ctx, 4)
 
 }
