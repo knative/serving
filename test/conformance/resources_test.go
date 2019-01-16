@@ -47,7 +47,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	defer tearDown(clients, names)
 
 	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names,
-		&test.Options{ContainerResources: MediumMemoryRequirements})
+		&test.Options{ContainerResources: test.MediumMemoryRequirements})
 
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
