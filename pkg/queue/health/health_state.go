@@ -78,23 +78,17 @@ func (h *HealthState) HealthHandler(prober func() bool) func(w http.ResponseWrit
 			io.WriteString(w, "alive: false")
 		}
 
-		if h.IsAlive() {
+		switch {
+		case h.IsAlive():
 			sendAlive()
-			return
-		}
-
-		if h.IsShuttingDown() {
+		case h.IsShuttingDown():
 			sendNotAlive()
-			return
-		}
-
-		if prober != nil && !prober() {
+		case prober != nil && !prober():
 			sendNotAlive()
-			return
+		default:
+			h.setAlive()
+			sendAlive()
 		}
-
-		h.setAlive()
-		sendAlive()
 	}
 }
 
