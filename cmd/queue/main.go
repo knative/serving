@@ -203,9 +203,8 @@ func createAdminHandlers() *http.ServeMux {
 		time.Sleep(quitSleepDuration)
 
 		// Shutdown the proxy server.
-		currentServer := server
-		if currentServer != nil {
-			if err := currentServer.Shutdown(context.Background()); err != nil {
+		if server != nil {
+			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
 			} else {
 				logger.Debug("Proxy server shutdown successfully.")
