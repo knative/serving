@@ -244,7 +244,7 @@ func TestIngressSpecValidation(t *testing.T) {
 			}},
 		},
 		want: &apis.FieldError{
-			Message: "Traffic split percentage must total to 100",
+			Message: "Traffic split percentage must total to 100, but was 30",
 			Paths:   []string{"rules[0].http.paths[0].splits"},
 		},
 	}, {
