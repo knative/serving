@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -176,6 +175,8 @@ func checkNoKeysPresent(expected map[string]string, actual map[string]string, t 
 			present = append(present, k)
 		}
 	}
-	t.Logf("Unexpected keys: %v", present)
+	if len(present) != 0 {
+		t.Logf("Unexpected keys: %v", present)
+	}
 	return len(present) == 0
 }
