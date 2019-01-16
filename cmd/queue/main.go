@@ -183,15 +183,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
-		err := wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+		var err error
+		wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 			logger.Debug("TCP probing the user-container.")
-			return health.TCPProbe(userTargetAddress, 100*time.Millisecond), nil
+			err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+			return err == nil, nil
 		})
 
 		if err == nil {
 			logger.Info("User-container successfully probed.")
 		} else {
-			logger.Error("User-container could not be probed successfully.")
+			logger.Errorw("User-container could not be probed successfully.", err)
 		}
 
 		return err == nil

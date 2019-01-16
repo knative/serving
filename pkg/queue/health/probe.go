@@ -24,11 +24,11 @@ import (
 // TCPProbe checks that a TCP socket to the address can be opened.
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
-func TCPProbe(addr string, socketTimeout time.Duration) bool {
+func TCPProbe(addr string, socketTimeout time.Duration) error {
 	conn, err := net.DialTimeout("tcp", addr, socketTimeout)
 	if err != nil {
-		return false
+		return err
 	}
 	conn.Close()
-	return true
+	return nil
 }

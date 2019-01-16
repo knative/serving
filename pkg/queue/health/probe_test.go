@@ -31,12 +31,12 @@ func TestTcpProbe(t *testing.T) {
 	serverAddr := server.Listener.Addr().String()
 
 	// Connecting to the server should work
-	if TCPProbe(serverAddr, 1*time.Second) != true {
-		t.Error("Expected probe to succeed but it didn't")
+	if err := TCPProbe(serverAddr, 1*time.Second); err != nil {
+		t.Errorf("Expected probe to succeed but it failed with %v", err)
 	}
 
 	// Break the address so probing fails
-	if TCPProbe(serverAddr+"-1", 1*time.Second) != false {
+	if err := TCPProbe(serverAddr+"-1", 1*time.Second); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
