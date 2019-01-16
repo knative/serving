@@ -25,16 +25,15 @@ function teardown() {
 }
 
 function save_metadata() {
-  local md="${ARTIFACTS}/metadata.json"
-  touch "$md"
-  # Save some uber data about tools and versions in metadata.json
-  echo -e "{" >> "${md}"
-  echo -e "\t\"Region\": \"${E2E_CLUSTER_REGION}\"," >> "${md}"
-  echo -e "\t\"Zone\": \"${E2E_CLUSTER_ZONE}\"," >> "${md}"
-  echo -e "\t\"Machine\": \"${E2E_CLUSTER_MACHINE}\"," >> "${md}"
-  echo -e "\t\"MinNodes\": \"${E2E_MIN_CLUSTER_NODES}\"," >> "${md}"
-  echo -e "\t\"MaxNodes\": \"${E2E_MAX_CLUSTER_NODES}\"" >> "${md}"
-  echo -e "}" >> "${md}"
+  cat << EOF > ${ARTIFACTS}/metadata.json
+{
+  "Region": "${E2E_CLUSTER_REGION}",
+  "Zone": "${E2E_CLUSTER_ZONE}",
+  "Machine": "${E2E_CLUSTER_MACHINE}",
+  "MinNodes": "${E2E_MIN_CLUSTER_NODES}",
+  "MaxNodes": "${E2E_MAX_CLUSTER_NODES}"
+}
+EOF
 }
 
 initialize $@
@@ -47,7 +46,8 @@ set +o pipefail
 
 # Build Knative, but don't install the default "no monitoring" version
 build_knative_from_source
-install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}" || fail_test "Knative Serving installation failed"
+install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}" \
+    || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
