@@ -103,16 +103,20 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 	go func() {
 		if err := deployGrp.Wait(); err != nil {
+			logger.Errorf("An error occurred during service creation: %v", err)
 			errCh <- errors.Wrap(err, "error waiting for endpoints to become ready")
 		} else {
+			logger.Info("Service creation was successful.")
 			// Succeeds the test
 			close(domainCh)
 		}
 	}()
 
+	timeoutCh := time.After(duration)
 	for {
 		select {
 		case names := <-cleanupCh:
+			logger.Infof("Added %v to cleanup routine.", names)
 			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 			defer TearDown(clients, names, logger)
 
@@ -121,7 +125,6 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				logger.Info("All services were created successfully.")
 				return
 			}
-
 			// Start probing the domain until the test is complete.
 			probeCh := test.RunRouteProber(logger, clients, domain)
 			defer func(probeCh <-chan error) {
@@ -133,7 +136,8 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 		case err := <-errCh:
 			t.Fatalf("An error occured during the test: %v", err)
 
-		case <-time.After(duration):
+		case <-timeoutCh:
+			logger.Error("Timeout.")
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
@@ -149,14 +153,14 @@ func TestScaleTo10(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo10")
 
-	testScaleToWithin(t, logger, 10, 30*time.Second)
+	testScaleToWithin(t, logger, 10, 90*time.Second)
 }
 
 func TestScaleTo50(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo50")
 
-	testScaleToWithin(t, logger, 50, 2*time.Minute)
+	testScaleToWithin(t, logger, 50, 5*time.Minute)
 }
 
 // A version to customize for more extreme scale testing.
