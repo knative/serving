@@ -70,7 +70,6 @@ func (h *HealthState) shutdown() {
 func (h *HealthState) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
-			w.WriteHeader(http.StatusOK)
 			io.WriteString(w, "alive: true")
 		}
 
@@ -109,7 +108,6 @@ func (h *HealthState) QuitHandler(cleaner func()) func(w http.ResponseWriter, r 
 			cleaner()
 		}
 
-		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "alive: false")
 	}
 }
