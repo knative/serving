@@ -180,14 +180,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 // Sets up /health and /quitquitquit endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	prober := func() bool {
-		err := wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), healthState.HealthHandler(func() bool {
+		return wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 			logger.Debug("TCP probing the user-container")
 			return health.TCPProbe(fmt.Sprintf("localhost:%d", userTargetPort), 100*time.Millisecond), nil
-		})
-		return err == nil
-	}
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), healthState.HealthHandler(prober))
+		}) == nil
+	}))
 
 	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), healthState.QuitHandler(func() {
 		// Force send one (empty) metric to mark the pod as a lameduck before shutting
