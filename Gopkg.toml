@@ -23,7 +23,7 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-01-16
+  # HEAD as of 2019-01-16
   revision = "d3a9e54be7d4213b4018135d82b586de45f6a694"
 
 [[override]]
