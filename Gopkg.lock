@@ -430,7 +430,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:fa73f366c59a6d6b58a99e5ae1f6b212d55a88ca33a5ebe3cb93b6c741339bf0"
+  digest = "1:1443c2027c781246200c1f3149cc82e5e58163ba6676acbc22dfb01c8c7128ba"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -476,7 +476,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "5f162625780f838b56d41f8b0786224f18ff7eb4"
+  revision = "d3a9e54be7d4213b4018135d82b586de45f6a694"
 
 [[projects]]
   branch = "master"
@@ -1247,6 +1247,7 @@
     "github.com/google/go-containerregistry/pkg/v1",
     "github.com/google/go-containerregistry/pkg/v1/random",
     "github.com/google/go-containerregistry/pkg/v1/remote",
+    "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",

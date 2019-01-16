@@ -49,3 +49,17 @@ func SafeDiff(x, y interface{}, opts ...cmp.Option) (diff string, err error) {
 
 	return
 }
+
+func SafeEqual(x, y interface{}, opts ...cmp.Option) (equal bool, err error) {
+	// cmp.Equal will panic if we miss something; return error instead of crashing.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered in kmp.SafeEqual: %v", r)
+		}
+	}()
+
+	opts = append(opts, defaultOpts...)
+	equal = cmp.Equal(x, y, opts...)
+
+	return
+}
