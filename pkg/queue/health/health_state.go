@@ -22,8 +22,8 @@ import (
 	"sync"
 )
 
-// HealthState holds state about the current healthiness of the component.
-type HealthState struct {
+// State holds state about the current healthiness of the component.
+type State struct {
 	alive        bool
 	shuttingDown bool
 	mutex        sync.RWMutex
@@ -31,7 +31,7 @@ type HealthState struct {
 
 // IsAlive returns whether or not the health server is in a known
 // working state currently.
-func (h *HealthState) IsAlive() bool {
+func (h *State) IsAlive() bool {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -40,7 +40,7 @@ func (h *HealthState) IsAlive() bool {
 
 // IsShuttingDown returns whether or not the health server is currently
 // shutting down.
-func (h *HealthState) IsShuttingDown() bool {
+func (h *State) IsShuttingDown() bool {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -48,7 +48,7 @@ func (h *HealthState) IsShuttingDown() bool {
 }
 
 // setAlive updates the state to declare the service alive.
-func (h *HealthState) setAlive() {
+func (h *State) setAlive() {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -57,7 +57,7 @@ func (h *HealthState) setAlive() {
 }
 
 // shutdown updates the state to declare the service shutting down.
-func (h *HealthState) shutdown() {
+func (h *State) shutdown() {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -67,7 +67,7 @@ func (h *HealthState) shutdown() {
 
 // HealthHandler constructs a handler that returns the current state of
 // the health server.
-func (h *HealthState) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
 			io.WriteString(w, "alive: true")
@@ -94,7 +94,7 @@ func (h *HealthState) HealthHandler(prober func() bool) func(w http.ResponseWrit
 
 // QuitHandler constructs a handler that shuts the current server down.
 // Optional cleanup logic can be added via the given cleaner function.
-func (h *HealthState) QuitHandler(cleaner func()) func(w http.ResponseWriter, r *http.Request) {
+func (h *State) QuitHandler(cleaner func()) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		h.shutdown()
 

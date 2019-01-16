@@ -83,7 +83,7 @@ var (
 	httpProxy *httputil.ReverseProxy
 
 	server      *http.Server
-	healthState = &health.HealthState{}
+	healthState = &health.State{}
 	reporter    *queue.Reporter // Prometheus stats reporter.
 )
 
