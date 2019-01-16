@@ -236,7 +236,7 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, podName))
 
-	target, err := url.Parse(fmt.Sprintf("http://:%s", userTargetAddress))
+	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
 	if err != nil {
 		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
 	}
