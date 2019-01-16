@@ -27,46 +27,40 @@ const (
 	notAliveBody = "alive: false"
 )
 
-func wantAlive(s *State, t *testing.T) {
-	t.Helper()
-	if !s.IsAlive() {
-		t.Error("State was not alive but it should have been alive")
-	}
-}
-
-func wantNotAlive(s *State, t *testing.T) {
-	t.Helper()
-	if s.IsAlive() {
-		t.Error("State was alive but it shouldn't have been")
-	}
-}
-
-func wantShuttingDown(s *State, t *testing.T) {
-	t.Helper()
-	if !s.IsShuttingDown() {
-		t.Error("State was not shutting down but it should have been")
-	}
-}
-
-func wantNotShuttingDown(s *State, t *testing.T) {
-	t.Helper()
-	if s.IsShuttingDown() {
-		t.Error("State was shutting down but it shouldn't have been")
-	}
-}
-
 func TestHealthStateSetsState(t *testing.T) {
 	s := &State{}
-	wantNotAlive(s, t)
-	wantNotShuttingDown(s, t)
+
+	wantAlive := func() {
+		if !s.IsAlive() {
+			t.Error("State was not alive but it should have been alive")
+		}
+	}
+	wantNotAlive := func() {
+		if s.IsAlive() {
+			t.Error("State was alive but it shouldn't have been")
+		}
+	}
+	wantShuttingDown := func() {
+		if !s.IsShuttingDown() {
+			t.Error("State was not shutting down but it should have been")
+		}
+	}
+	wantNotShuttingDown := func() {
+		if s.IsShuttingDown() {
+			t.Error("State was shutting down but it shouldn't have been")
+		}
+	}
+
+	wantNotAlive()
+	wantNotShuttingDown()
 
 	s.setAlive()
-	wantAlive(s, t)
-	wantNotShuttingDown(s, t)
+	wantAlive()
+	wantNotShuttingDown()
 
 	s.shutdown()
-	wantNotAlive(s, t)
-	wantShuttingDown(s, t)
+	wantNotAlive()
+	wantShuttingDown()
 }
 
 func TestHealthStateHealthHandler(t *testing.T) {
