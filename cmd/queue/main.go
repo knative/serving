@@ -71,6 +71,7 @@ var (
 	servingAutoscaler      string
 	servingAutoscalerPort  int
 	userTargetPort         int
+	userTargetAddress      string
 	containerConcurrency   int
 	revisionTimeoutSeconds int
 	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
@@ -97,6 +98,7 @@ func initEnv() {
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
+	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
@@ -183,7 +185,7 @@ func createAdminHandlers() *http.ServeMux {
 	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
 		return wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 			logger.Debug("TCP probing the user-container")
-			return health.TCPProbe(fmt.Sprintf("127.0.0.1:%d", userTargetPort), 100*time.Millisecond), nil
+			return health.TCPProbe(userTargetAddress, 100*time.Millisecond), nil
 		}) == nil
 	}))
 
@@ -226,7 +228,7 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, podName))
 
-	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", userTargetPort))
+	target, err := url.Parse(fmt.Sprintf("http://:%s", userTargetAddress))
 	if err != nil {
 		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
 	}
