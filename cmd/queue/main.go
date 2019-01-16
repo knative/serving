@@ -183,7 +183,7 @@ func createAdminHandlers() *http.ServeMux {
 	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
 		return wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 			logger.Debug("TCP probing the user-container")
-			return health.TCPProbe(fmt.Sprintf("localhost:%d", userTargetPort), 100*time.Millisecond), nil
+			return health.TCPProbe(fmt.Sprintf("127.0.0.1:%d", userTargetPort), 100*time.Millisecond), nil
 		}) == nil
 	}))
 
