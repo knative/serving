@@ -27,25 +27,29 @@ const (
 	notAliveBody = "alive: false"
 )
 
-func assertAlive(s *State, t *testing.T) {
+func wantAlive(s *State, t *testing.T) {
+	t.Helper()
 	if !s.IsAlive() {
 		t.Error("State was not alive but it should have been alive")
 	}
 }
 
-func assertNotAlive(s *State, t *testing.T) {
+func wantNotAlive(s *State, t *testing.T) {
+	t.Helper()
 	if s.IsAlive() {
 		t.Error("State was alive but it shouldn't have been")
 	}
 }
 
-func assertShuttingDown(s *State, t *testing.T) {
+func wantShuttingDown(s *State, t *testing.T) {
+	t.Helper()
 	if !s.IsShuttingDown() {
 		t.Error("State was not shutting down but it should have been")
 	}
 }
 
-func assertNotShuttingDown(s *State, t *testing.T) {
+func wantNotShuttingDown(s *State, t *testing.T) {
+	t.Helper()
 	if s.IsShuttingDown() {
 		t.Error("State was shutting down but it shouldn't have been")
 	}
@@ -53,16 +57,16 @@ func assertNotShuttingDown(s *State, t *testing.T) {
 
 func TestHealthStateSetsState(t *testing.T) {
 	s := &State{}
-	assertNotAlive(s, t)
-	assertNotShuttingDown(s, t)
+	wantNotAlive(s, t)
+	wantNotShuttingDown(s, t)
 
 	s.setAlive()
-	assertAlive(s, t)
-	assertNotShuttingDown(s, t)
+	wantAlive(s, t)
+	wantNotShuttingDown(s, t)
 
 	s.shutdown()
-	assertNotAlive(s, t)
-	assertShuttingDown(s, t)
+	wantNotAlive(s, t)
+	wantShuttingDown(s, t)
 }
 
 func TestHealthStateHealthHandler(t *testing.T) {
