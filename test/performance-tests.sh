@@ -24,7 +24,9 @@ function teardown() {
   uninstall_knative_serving
 }
 
+# On a Prow job, save some metadata about the test for Testgrid.
 function save_metadata() {
+  (( ! IS_PROW )) && return
   cat << EOF > ${ARTIFACTS}/metadata.json
 {
   "Region": "${E2E_CLUSTER_REGION}",
