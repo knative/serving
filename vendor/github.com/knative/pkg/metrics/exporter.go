@@ -121,7 +121,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		DefaultMonitoringLabels: &stackdriver.Labels{},
 	})
 	if err != nil {
-		logger.Error("Failed to create the Stackdriver exporter.", zap.Error(err))
+		logger.Error("Failed to create the Stackdriver exporter: ", zap.Error(err))
 		return nil, err
 	}
 	logger.Infof("Created Opencensus Stackdriver exporter with config %v", config)
@@ -172,7 +172,7 @@ func setMonitoredResourceFunc(config *metricsConfig, logger *zap.SugaredLogger) 
 	if getMonitoredResourceFunc == nil {
 		gm := retrieveGCPMetadata()
 		metricsPrefix := config.domain + "/" + config.component
-		logger.Infof("metrics prefix", metricsPrefix)
+		logger.Infof("metrics prefix: %s", metricsPrefix)
 		if _, ok := metricskey.KnativeRevisionMetricsPrefixes[metricsPrefix]; ok {
 			getMonitoredResourceFunc = getKnativeRevisionMonitoredResource(gm)
 		} else {

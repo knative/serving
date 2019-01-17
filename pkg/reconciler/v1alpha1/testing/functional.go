@@ -222,7 +222,7 @@ func WithFailedRoute(reason, message string) ServiceOption {
 // to the provided revision name.
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
 			LatestReadyRevisionName:   name,
 			Conditions: []duckv1alpha1.Condition{{
@@ -237,7 +237,7 @@ func WithReadyConfig(name string) ServiceOption {
 // resource.  The failing revision's name is reflected in LatestCreated.
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
 			Conditions: []duckv1alpha1.Condition{{
 				Type:   "Ready",

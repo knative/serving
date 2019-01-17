@@ -24,6 +24,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -168,7 +169,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 		domain: "default.com",
 	}, {
 		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
-		domain: "svc.cluster.local",
+		domain: "svc." + utils.GetClusterDomainName(),
 	}}
 
 	for _, expected := range expectations {

@@ -41,6 +41,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -102,7 +103,7 @@ func initEnv() {
 	health = &healthServer{alive: true}
 	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 	reporter = _reporter
 }
@@ -111,7 +112,7 @@ func statReporter() {
 	for {
 		s := <-statChan
 		if err := sendStat(s); err != nil {
-			logger.Error("Error while sending stat", zap.Error(err))
+			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
 }
@@ -226,7 +227,7 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 		LameDuck: true,
 	}
 	if err := sendStat(s); err != nil {
-		logger.Error("Error while sending stat", zap.Error(err))
+		logger.Errorw("Error while sending stat", zap.Error(err))
 	}
 
 	time.Sleep(quitSleepDuration)
@@ -235,9 +236,9 @@ func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 	currentServer := server
 	if currentServer != nil {
 		if err := currentServer.Shutdown(context.Background()); err != nil {
-			logger.Error("Failed to shutdown proxy-server", zap.Error(err))
+			logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
 		} else {
-			logger.Debug("Proxy server shutdown successfully.")
+			logger.Debug("Proxy server shutdown successfully")
 		}
 	}
 
@@ -266,7 +267,7 @@ func main() {
 
 	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", userTargetPort))
 	if err != nil {
-		logger.Fatal("Failed to parse localhost url", zap.Error(err))
+		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
@@ -288,13 +289,13 @@ func main() {
 		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
 	}
 
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
+	logger.Info("Initializing OpenCensus Prometheus exporter")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
 	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
+		logger.Fatalw("Failed to create the Prometheus exporter", zap.Error(err))
 	}
 	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(queue.ReportingPeriod)
+	view.SetReportingPeriod(queue.ViewReportingPeriod)
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promExporter)
@@ -302,12 +303,12 @@ func main() {
 	}()
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s:%d", servingAutoscaler, system.Namespace, servingAutoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, system.Namespace, utils.GetClusterDomainName(), servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	reportTicker := time.NewTicker(time.Second).C
+	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
 	queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker,
@@ -345,18 +346,18 @@ func main() {
 	})
 
 	if err := g.Wait(); err != nil {
-		logger.Error("Shutting down", zap.Error(err))
+		logger.Errorw("Shutting down", zap.Error(err))
 	}
 
 	// Calling server.Shutdown() allows pending requests to
 	// complete, while no new work is accepted.
 	if err := adminServer.Shutdown(context.Background()); err != nil {
-		logger.Error("Failed to shutdown admin-server", zap.Error(err))
+		logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 	}
 
 	if statSink != nil {
 		if err := statSink.Close(); err != nil {
-			logger.Error("Failed to shutdown websocket connection", zap.Error(err))
+			logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
 		}
 	}
 }

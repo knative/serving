@@ -212,11 +212,16 @@ func (r conditionsImpl) SetCondition(new Condition) {
 }
 
 func (r conditionsImpl) isTerminal(t ConditionType) bool {
-	for _, cond := range append(r.dependents, r.happy) {
+	for _, cond := range r.dependents {
 		if cond == t {
 			return true
 		}
 	}
+
+	if t == r.happy {
+		return true
+	}
+
 	return false
 }
 

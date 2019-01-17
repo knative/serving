@@ -186,7 +186,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	}
 
 	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfigurationStatus(config.Status)
+	service.Status.PropagateConfigurationStatus(&config.Status)
 
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
