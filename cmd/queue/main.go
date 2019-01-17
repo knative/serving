@@ -193,7 +193,7 @@ func createAdminHandlers() *http.ServeMux {
 		if err == nil {
 			logger.Info("User-container successfully probed.")
 		} else {
-			logger.Errorw("User-container could not be probed successfully.", err)
+			logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
 		}
 
 		return err == nil
