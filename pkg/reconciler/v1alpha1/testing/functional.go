@@ -179,7 +179,7 @@ func WithReadyRoute(s *v1alpha1.Service) {
 			Type:   "Ready",
 			Status: "True",
 		}},
-	}, nil)
+	})
 }
 
 // WithSvcStatusDomain propagates the domain name to the status of the Service.
@@ -213,7 +213,7 @@ func WithFailedRoute(reason, message string) ServiceOption {
 				Reason:  reason,
 				Message: message,
 			}},
-		}, nil)
+		})
 	}
 }
 
@@ -259,12 +259,7 @@ func WithServiceLatestReadyRevision(lrr string) ServiceOption {
 
 // WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
 func WithServiceStatusRouteNotReady(s *v1alpha1.Service) {
-	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   "Ready",
-			Status: "True",
-		}},
-	}, func() bool { return false })
+	s.Status.MarkRouteNotYetReady()
 }
 
 // RouteOption enables further configuration of a Route.

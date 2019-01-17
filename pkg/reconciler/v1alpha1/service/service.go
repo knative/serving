@@ -207,16 +207,21 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	}
 
 	// Update our Status based on the state of our underlying Route.
-	var validateFunc func() bool
+	ss := &service.Status
+	ss.PropagateRouteStatus(&route.Status)
+
+	// Apply additional logic, once the generic data has been propagated.
 	switch {
 	case service.Spec.RunLatest != nil:
-		// In case of RunLatest, verify that traffic has already migrated
-		// to the latest revision.
-		validateFunc = func() bool {
-			return len(route.Status.Traffic) > 0 && route.Status.Traffic[0].RevisionName == config.Status.LatestReadyRevisionName
+		// If the service's RouteReady is in favorable condition.
+		if rc := ss.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+			// In case of RunLatest, verify that traffic has already migrated
+			// to the latest revision.
+			if len(route.Status.Traffic) == 0 || route.Status.Traffic[0].RevisionName != config.Status.LatestReadyRevisionName {
+				ss.MarkRouteNotYetReady()
+			}
 		}
 	}
-	service.Status.PropagateRouteStatus(&route.Status, validateFunc)
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil

@@ -260,14 +260,18 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 }
 
 const (
-	trafficNotMigratedReason  = "Traffic not yet migrated"
+	trafficNotMigratedReason  = "TrafficNotMigrated"
 	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
 )
 
+// MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
+// See: #2430, for details.
+func (ss *ServiceStatus) MarkRouteNotYetReady() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
 // PropagateRouteStatus propagates route's status to the service's status.
-// `routeReady`, if not nil, verifies whether the ready route is the one we desire.
-// See: #2430.
-func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus, routeReady func() bool) {
+func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
 	ss.Address = rs.Address
@@ -281,13 +285,7 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus, routeReady func()
 	case rc.Status == corev1.ConditionUnknown:
 		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == corev1.ConditionTrue:
-		// If no verification function provided or if it returned true, service is ready,
-		// `Unknown` otherwise.
-		if routeReady == nil || routeReady() {
-			serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
-		} else {
-			serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
-		}
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
 	case rc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
