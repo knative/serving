@@ -259,9 +259,19 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	}
 }
 
-// PropagateRouteStatus takes the Route status and applies its values
-// to the Service status.
-func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+const (
+	trafficNotMigratedReason  = "TrafficNotMigrated"
+	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+)
+
+// MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
+// See: #2430, for details.
+func (ss *ServiceStatus) MarkRouteNotYetReady() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
+// PropagateRouteStatus propagates route's status to the service's status.
+func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
 	ss.Address = rs.Address

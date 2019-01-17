@@ -174,7 +174,7 @@ func WithManualStatus(s *v1alpha1.Service) {
 
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
-	s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   "Ready",
 			Status: "True",
@@ -206,7 +206,7 @@ func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
 // WithFailedRoute reflects a Route's failure in the Service resource.
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 			Conditions: []duckv1alpha1.Condition{{
 				Type:    "Ready",
 				Status:  "False",
@@ -248,6 +248,18 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 			}},
 		})
 	}
+}
+
+// WithServiceLatestReadyRevision sets the latest ready revision on the Service's status.
+func WithServiceLatestReadyRevision(lrr string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
+func WithServiceStatusRouteNotReady(s *v1alpha1.Service) {
+	s.Status.MarkRouteNotYetReady()
 }
 
 // RouteOption enables further configuration of a Route.
