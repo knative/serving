@@ -35,8 +35,9 @@ func TestTcpProbe(t *testing.T) {
 		t.Errorf("Expected probe to succeed but it failed with %v", err)
 	}
 
-	// Break the address so probing fails
-	if err := TCPProbe(serverAddr+"-1", 1*time.Second); err == nil {
+	// Close the server so probing fails afterwards
+	server.Close()
+	if err := TCPProbe(serverAddr, 1*time.Second); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
