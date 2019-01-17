@@ -155,7 +155,10 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.logger.Debugf("Received stat message: %+v", sm)
-		s.statsCh <- &sm
+		// Drop stats from lameducked pods
+		if !sm.Stat.LameDuck {
+			s.statsCh <- &sm
+		}
 	}
 }
 

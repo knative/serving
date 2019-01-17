@@ -30,6 +30,8 @@ const (
 	// ActivatorPodName defines the pod name of the activator
 	// as defined in the metrics it sends.
 	ActivatorPodName string = "activator"
+
+	minOutOfServiceTime time.Duration = time.Second
 )
 
 // Stat defines a single measurement at a point in time
@@ -82,21 +84,24 @@ type totalAggregation struct {
 
 // Aggregates a given stat to the correct pod-aggregation
 func (agg *totalAggregation) aggregate(stat Stat) {
+	if stat.LameDuck {
+		// Drop stats from lameducked pod
+		return
+	}
+
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
-		current = &perPodAggregation{window: agg.window}
+		current = &perPodAggregation{
+			window:      agg.window,
+			isActivator: isActivator(stat.PodName),
+		}
 		agg.perPodAggregations[stat.PodName] = current
 	}
-	if stat.LameDuck {
-		current.lameduck(stat.Time)
-	} else {
-		current.aggregate(stat.AverageConcurrentRequests)
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
-			agg.activatorsContained[stat.PodName] = struct{}{}
-		}
-		agg.probeCount++
+	current.aggregate(stat)
+	if current.isActivator {
+		agg.activatorsContained[stat.PodName] = struct{}{}
 	}
+	agg.probeCount++
 }
 
 // The number of pods that are observable via stats
@@ -104,7 +109,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
-		podCount += pod.usageRatio(now)
+		podCount += pod.podWeight(now)
 	}
 
 	activatorsCount := len(agg.activatorsContained)
@@ -128,8 +133,7 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(podName, ActivatorPodName) {
+		if isActivator(podName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
@@ -146,22 +150,23 @@ type perPodAggregation struct {
 	accumulatedConcurrency float64
 	probeCount             int32
 	window                 time.Duration
-	lameduckTime           *time.Time
+	latestStatTime         *time.Time
+	isActivator            bool
 }
 
 // Aggregates the given concurrency
-func (agg *perPodAggregation) aggregate(concurrency float64) {
-	agg.accumulatedConcurrency += concurrency
+func (agg *perPodAggregation) aggregate(stat Stat) {
+	agg.accumulatedConcurrency += stat.AverageConcurrentRequests
 	agg.probeCount++
+	agg.setLatestStatTime(stat.Time)
 }
 
-// Registers the earliest lameduck metric received.
-func (agg *perPodAggregation) lameduck(t *time.Time) {
-	if agg.lameduckTime == nil {
-		agg.lameduckTime = t
-	}
-	if agg.lameduckTime.After(*t) {
-		agg.lameduckTime = t
+// Registers the latest metric received.
+func (agg *perPodAggregation) setLatestStatTime(t *time.Time) {
+	if agg.latestStatTime == nil {
+		agg.latestStatTime = t
+	} else if agg.latestStatTime.Before(*t) {
+		agg.latestStatTime = t
 	}
 }
 
@@ -170,16 +175,22 @@ func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
 	if agg.probeCount == 0 {
 		return 0.0
 	}
-	return agg.accumulatedConcurrency / float64(agg.probeCount) * agg.usageRatio(now)
+	return agg.accumulatedConcurrency / float64(agg.probeCount) * agg.podWeight(now)
 }
 
-// Calculates the weighted pod count
-func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
-	if agg.lameduckTime == nil {
-		return float64(1.0)
+// Calculates the pod weight. Assuming the latest stat time is the point when
+// pod became out of service.
+func (agg *perPodAggregation) podWeight(now time.Time) float64 {
+	if agg.isActivator {
+		return 1.0 //
 	}
-	outOfService := now.Sub(*agg.lameduckTime)
-	return float64(1.0) - (float64(outOfService) / float64(agg.window))
+
+	outOfService := now.Sub(*agg.latestStatTime)
+	// Less than minOutOfServiceTime means no out of service
+	if outOfService <= minOutOfServiceTime {
+		outOfService = 0
+	}
+	return 1.0 - (float64(outOfService) / float64(agg.window))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -351,4 +362,9 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 		return a.Current().MaxScaleUpRate
 	}
 	return desiredRate
+}
+
+func isActivator(podName string) bool {
+	// TODO(#2282): This can cause naming collisions.
+	return strings.HasPrefix(podName, ActivatorPodName)
 }
