@@ -68,6 +68,7 @@ var (
 	servingRevision        string
 	servingRevisionKey     string
 	servingAutoscaler      string
+	autoscalerNamespace    string
 	servingAutoscalerPort  int
 	userTargetPort         int
 	userTargetAddress      string
@@ -93,6 +94,7 @@ func initEnv() {
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
+	autoscalerNamespace = util.GetRequiredEnvOrFatal("AUTOSCALER_NAMESPACE", logger)
 	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
@@ -275,7 +277,7 @@ func main() {
 	}()
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, servingAutoscaler, utils.GetClusterDomainName(), servingAutoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, autoscalerNamespace, utils.GetClusterDomainName(), servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()

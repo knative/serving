@@ -135,6 +135,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
+		}, {
+			Name:  "AUTOSCALER_NAMESPACE",
+			Value: "knative-serving",
 		}},
 	}
 }
