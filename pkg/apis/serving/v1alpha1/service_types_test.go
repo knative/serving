@@ -509,7 +509,7 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 func TestRouteStatusPropagationReadyCheckFunc(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
