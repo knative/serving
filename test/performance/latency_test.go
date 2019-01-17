@@ -33,8 +33,7 @@ import (
 )
 
 func TestTimeToServeLatency(t *testing.T) {
-	testName := "TestTimeToServeLatency"
-	logger := logging.GetContextLogger(testName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -75,7 +74,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	// Save the json result for benchmarking
-	resp.SaveJSON(testName)
+	resp.SaveJSON(t.Name())
 
 	// Add latency metrics
 	var tc []testgrid.TestCase
