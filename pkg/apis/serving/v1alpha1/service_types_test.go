@@ -206,7 +206,7 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 }
 
-func TestMarkMarkRouteNotYetReady(t *testing.T) {
+func TestMarkRouteNotYetReady(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()
 	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
