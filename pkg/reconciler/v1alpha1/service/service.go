@@ -213,18 +213,22 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// Apply additional logic, once the generic data has been propagated.
 	switch {
 	case service.Spec.RunLatest != nil:
-		// If the service's RouteReady is in favorable condition.
-		if rc := ss.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-			// In case of RunLatest, verify that traffic has already migrated
-			// to the latest revision.
-			if len(route.Status.Traffic) == 0 || route.Status.Traffic[0].RevisionName != config.Status.LatestReadyRevisionName {
-				ss.MarkRouteNotYetReady()
-			}
-		}
+		runLatestCheckTrafficMigrated(ss, &route.Status, &config.Status)
 	}
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
+}
+
+func runLatestCheckTrafficMigrated(ss *v1alpha1.ServiceStatus, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
+	// If the service's RouteReady is in favorable condition.
+	if rc := ss.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+		// In case of RunLatest, verify that traffic has already migrated
+		// to the latest revision.
+		if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != cs.LatestReadyRevisionName {
+			ss.MarkRouteNotYetReady()
+		}
+	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
