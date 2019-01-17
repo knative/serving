@@ -23,9 +23,9 @@ const (
 	//   be routed to it,
 	// - adds a small delay, so that the container doesn't get killed at
 	//   the same time the pod is marked for removal.
-	RequestQueueQuitPath = "quitquitquit"
+	RequestQueueQuitPath = "/quitquitquit"
 
 	// RequestQueueHealthPath specifies the path for health checks for
 	// queue-proxy.
-	RequestQueueHealthPath = "health"
+	RequestQueueHealthPath = "/health"
 )

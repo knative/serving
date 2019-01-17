@@ -21,13 +21,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -40,12 +38,14 @@ import (
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/queue/health"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/utils"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -71,6 +71,7 @@ var (
 	servingAutoscaler      string
 	servingAutoscalerPort  int
 	userTargetPort         int
+	userTargetAddress      string
 	containerConcurrency   int
 	revisionTimeoutSeconds int
 	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
@@ -82,9 +83,9 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server   *http.Server
-	health   *healthServer
-	reporter *queue.Reporter // Prometheus stats reporter.
+	server      *http.Server
+	healthState = &health.State{}
+	reporter    *queue.Reporter // Prometheus stats reporter.
 )
 
 func initEnv() {
@@ -97,10 +98,10 @@ func initEnv() {
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
+	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	health = &healthServer{alive: true}
 	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
@@ -122,7 +123,7 @@ func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
 		return fmt.Errorf("stat sink not (yet) connected")
 	}
-	if !health.isAlive() {
+	if healthState.IsShuttingDown() {
 		s.LameDuck = true
 	}
 	reporter.Report(
@@ -178,80 +179,52 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// healthServer registers whether a PreStop hook has been called.
-type healthServer struct {
-	alive bool
-	mutex sync.RWMutex
-}
-
-// isAlive() returns true until a PreStop hook has been called.
-func (h *healthServer) isAlive() bool {
-	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-	return h.alive
-}
-
-// kill() marks that a PreStop hook has been called.
-func (h *healthServer) kill() {
-	h.mutex.Lock()
-	h.alive = false
-	h.mutex.Unlock()
-}
-
-// healthHandler is used for readinessProbe/livenessCheck of
-// queue-proxy.
-func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
-	if h.isAlive() {
-		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, "alive: true")
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, "alive: false")
-	}
-}
-
-// quitHandler() is used for preStop hook of queue-proxy. It shuts down its main
-// server and blocks until it gets successfully shut down.
-// This endpoint is also called by the user-container to block its shutdown until
-// the queue-proxy's proxy server is shutdown successfully.
-func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
-	// First mark the server as unhealthy to cause lameduck metrics being sent
-	h.kill()
-
-	// Force send one (empty) metric to mark the pod as a lameduck before shutting
-	// it down.
-	now := time.Now()
-	s := &autoscaler.Stat{
-		Time:     &now,
-		PodName:  podName,
-		LameDuck: true,
-	}
-	if err := sendStat(s); err != nil {
-		logger.Errorw("Error while sending stat", zap.Error(err))
-	}
-
-	time.Sleep(quitSleepDuration)
-
-	// Shutdown the server.
-	currentServer := server
-	if currentServer != nil {
-		if err := currentServer.Shutdown(context.Background()); err != nil {
-			logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
-		} else {
-			logger.Debug("Proxy server shutdown successfully")
-		}
-	}
-
-	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, "alive: false")
-}
-
 // Sets up /health and /quitquitquit endpoints.
-func setupAdminHandlers(server *http.Server) {
+func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), health.healthHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), health.quitHandler)
-	server.Handler = mux
+	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
+		var err error
+		wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+			logger.Debug("TCP probing the user-container.")
+			err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+			return err == nil, nil
+		})
+
+		if err == nil {
+			logger.Info("User-container successfully probed.")
+		} else {
+			logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+		}
+
+		return err == nil
+	}))
+
+	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
+		// Force send one (empty) metric to mark the pod as a lameduck before shutting
+		// it down.
+		now := time.Now()
+		s := &autoscaler.Stat{
+			Time:     &now,
+			PodName:  podName,
+			LameDuck: true,
+		}
+		if err := sendStat(s); err != nil {
+			logger.Errorw("Error while sending stat", zap.Error(err))
+		}
+
+		time.Sleep(quitSleepDuration)
+
+		// Shutdown the proxy server.
+		if server != nil {
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
+			} else {
+				logger.Debug("Proxy server shutdown successfully.")
+			}
+		}
+	}))
+
+	return mux
 }
 
 func main() {
@@ -265,7 +238,7 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, podName))
 
-	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", userTargetPort))
+	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
 	if err != nil {
 		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
 	}
@@ -319,7 +292,7 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
 		Handler: nil,
 	}
-	setupAdminHandlers(adminServer)
+	adminServer.Handler = createAdminHandlers()
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
