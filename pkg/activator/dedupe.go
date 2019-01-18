@@ -17,10 +17,9 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
 	"net/http"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 var shuttingDownError = ActivationResult{

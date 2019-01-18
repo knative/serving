@@ -16,13 +16,12 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
 	"net/http"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {

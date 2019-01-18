@@ -77,7 +77,7 @@ func TestActionsByVerb_UnrecognizedVerb(t *testing.T) {
 	}
 
 	if _, err := list.ActionsByVerb(); err == nil {
-		t.Error("expected an error to have occurred when grouping actions")
+		t.Error("Expected an error to have occurred when grouping actions")
 	}
 }
 
