@@ -133,7 +133,7 @@ func Configuration(namespace string, names ResourceNames, options *Options) *v1a
 	return config
 }
 
-// ConfigurationWithBuild returns a Configurtion object in the `namespace`
+// ConfigurationWithBuild returns a Configuration object in the `namespace`
 // with the name `names.Config` that uses the provided Build spec `build`
 // and image specified by `names.Image`.
 func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
