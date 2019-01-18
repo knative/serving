@@ -37,8 +37,6 @@ import (
 func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration) {
 	clients := Setup(t)
 
-	var imagePath = test.ImagePath("helloworld")
-
 	deployGrp, _ := errgroup.WithContext(context.Background())
 
 	domainCh := make(chan string, scale)
@@ -55,9 +53,11 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 		deployGrp.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
+				Image:   "helloworld",
 			}
 
-			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, imagePath)
+			// TODO(mattmoor): Use the test.Options
+			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, &test.Options{})
 			if err != nil {
 				return errors.Wrapf(err, "failed to create service %s", names.Service)
 			}
