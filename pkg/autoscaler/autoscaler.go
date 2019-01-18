@@ -31,10 +31,10 @@ const (
 	// as defined in the metrics it sends.
 	ActivatorPodName string = "activator"
 
-	// minOutOfServiceTime is the threshold to consider a pod becomes out of
-	// service(lameducked). There is always a gap between current time and the
-	// point receiving the lastest stat from a pod.
-	minOutOfServiceTime time.Duration = time.Second
+	// If the latest received stat from a pod is in the last activeThreshold duration,
+	// assume the pod is still active. Otherwise, the active status of a pod is
+	// unknown.
+	activeThreshold time.Duration = time.Second
 )
 
 // Stat defines a single measurement at a point in time
@@ -51,9 +51,6 @@ type Stat struct {
 
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
-
-	// Lameduck indicates this Pod has received a shutdown signal.
-	LameDuck bool
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -87,11 +84,6 @@ type totalAggregation struct {
 
 // Aggregates a given stat to the correct pod-aggregation
 func (agg *totalAggregation) aggregate(stat Stat) {
-	if stat.LameDuck {
-		// Drop stats from lameducked pod
-		return
-	}
-
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
 		current = &perPodAggregation{
@@ -161,15 +153,8 @@ type perPodAggregation struct {
 func (agg *perPodAggregation) aggregate(stat Stat) {
 	agg.accumulatedConcurrency += stat.AverageConcurrentRequests
 	agg.probeCount++
-	agg.setLatestStatTime(stat.Time)
-}
-
-// Registers the latest metric received.
-func (agg *perPodAggregation) setLatestStatTime(t *time.Time) {
-	if agg.latestStatTime == nil {
-		agg.latestStatTime = t
-	} else if agg.latestStatTime.Before(*t) {
-		agg.latestStatTime = t
+	if agg.latestStatTime == nil || agg.latestStatTime.Before(*stat.Time) {
+		agg.latestStatTime = stat.Time
 	}
 }
 
@@ -188,12 +173,12 @@ func (agg *perPodAggregation) podWeight(now time.Time) float64 {
 		return 1.0 // Activator pod weight is always 1
 	}
 
-	outOfService := now.Sub(*agg.latestStatTime)
-	// Less than minOutOfServiceTime means no out of service
-	if outOfService <= minOutOfServiceTime {
-		outOfService = 0
+	gapToNow := now.Sub(*agg.latestStatTime)
+	// Less than activeThreshold means the pod is active, give 1 weight
+	if gapToNow <= activeThreshold {
+		return 1.0
 	}
-	return 1.0 - (float64(outOfService) / float64(agg.window))
+	return 1.0 - (float64(gapToNow) / float64(agg.window))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler

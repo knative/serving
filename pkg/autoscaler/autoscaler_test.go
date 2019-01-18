@@ -267,47 +267,11 @@ func TestAutoscaler_NoScaleOnLessThanOnePod(t *testing.T) {
 			durationSeconds:  10, // 10 seconds of 2 pods
 			podCount:         2,
 		})
-	now = a.recordLinearSeries(
-		t,
-		now,
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			durationSeconds:  50, // 50 seconds of 0 pods (lameducked)
-			podCount:         2,
-			lameduck:         true,
-		})
+	now = now.Add(50 * time.Second)
 	a.expectScale(t, now, 0, false)
 }
 
-func TestAutoscaler_LameDuckDoesNotCount(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	start := time.Now()
-	end := a.recordLinearSeries(
-		t,
-		start,
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			durationSeconds:  60, // 1 pod active
-			podCount:         1,
-			podIdOffset:      0,
-		})
-	a.recordLinearSeries(
-		t,
-		start,
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			durationSeconds:  60, // 1 pod lameducked
-			podCount:         1,
-			podIdOffset:      1,
-			lameduck:         true,
-		})
-	a.expectScale(t, end, 1, true) // 2 pods reporting metrics but one doesn't count
-}
-
-func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
+func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
@@ -318,16 +282,7 @@ func TestAutoscaler_LameDucksAreAmortized(t *testing.T) {
 			durationSeconds:  30,
 			podCount:         10,
 		})
-	now = a.recordLinearSeries(
-		t,
-		now,
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			durationSeconds:  31, // one extra second because float and ceiling
-			podCount:         10,
-			lameduck:         true,
-		})
+	now = now.Add(30 * time.Second)
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
@@ -490,7 +445,6 @@ type linearSeries struct {
 	durationSeconds  int
 	podCount         int
 	podIdOffset      int
-	lameduck         bool
 }
 
 type mockReporter struct{}
@@ -541,7 +495,6 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
-				LameDuck:                  s.lameduck,
 			}
 			a.Record(TestContextWithLogger(test), stat)
 		}

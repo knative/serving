@@ -122,14 +122,14 @@ func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
 		return fmt.Errorf("stat sink not (yet) connected")
 	}
-	if !health.isAlive() {
-		s.LameDuck = true
-	}
 	reporter.Report(
-		s.LameDuck,
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
 	)
+	if !health.isAlive() {
+		// Do not send stat if the pod is terminating.
+		return nil
+	}
 	sm := autoscaler.StatMessage{
 		Stat: *s,
 		Key:  servingRevisionKey,
@@ -217,18 +217,6 @@ func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
 	// First mark the server as unhealthy to cause lameduck metrics being sent
 	h.kill()
-
-	// Force send one (empty) metric to mark the pod as a lameduck before shutting
-	// it down.
-	now := time.Now()
-	s := &autoscaler.Stat{
-		Time:     &now,
-		PodName:  podName,
-		LameDuck: true,
-	}
-	if err := sendStat(s); err != nil {
-		logger.Errorw("Error while sending stat", zap.Error(err))
-	}
 
 	time.Sleep(quitSleepDuration)
 

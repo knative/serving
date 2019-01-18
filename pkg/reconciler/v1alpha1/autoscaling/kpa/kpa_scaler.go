@@ -114,7 +114,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 
 	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
-		logger.Error("Unable to parse APIVersion.", zap.Error(err))
+		logger.Errorf("Unable to parse APIVersion: %v", zap.Error(err))
 		return desiredScale, err
 	}
 	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
@@ -123,7 +123,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 	// Identify the current scale.
 	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(resource, resourceName)
 	if err != nil {
-		logger.Errorf("Resource %q not found.", resourceName, zap.Error(err))
+		logger.Errorf("Resource %q not found: %v", resourceName, zap.Error(err))
 		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
