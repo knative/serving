@@ -142,7 +142,7 @@ func TestRouteCreation(t *testing.T) {
 	routeProberErrorChan := test.RunRouteProber(logger, clients, domain)
 
 	logger.Infof("Updating the Configuration to use a different image")
-	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, pizzaPlanet2)
+	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, test.ImagePath(pizzaPlanet2))
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, pizzaPlanet2, err)
 	}
