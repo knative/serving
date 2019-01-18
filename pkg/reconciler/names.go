@@ -18,6 +18,7 @@ package reconciler
 
 import (
 	"fmt"
+
 	"github.com/knative/serving/pkg/utils"
 )
 
