@@ -100,21 +100,19 @@ func TestRouteCreation(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestRouteCreation")
 
-	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
-	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
-
 	var objects test.ResourceObjects
-	var names test.ResourceNames
-	names.Config = test.AppendRandomString("test-route-creation-", logger)
-	names.Route = test.AppendRandomString("test-route-creation-", logger)
-	names.TrafficTarget = test.AppendRandomString("test-route-creation-", logger)
+	names := test.ResourceNames{
+		Config:        test.AppendRandomString("test-route-creation-", logger),
+		Route:         test.AppendRandomString("test-route-creation-", logger),
+		TrafficTarget: test.AppendRandomString("test-route-creation-", logger),
+		Image:         pizzaPlanet1,
+	}
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
 	logger.Info("Creating a new Route and Configuration")
-	config, err := test.CreateConfiguration(logger, clients, names, imagePaths[0], &test.Options{})
+	config, err := test.CreateConfiguration(logger, clients, names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
@@ -144,9 +142,9 @@ func TestRouteCreation(t *testing.T) {
 	routeProberErrorChan := test.RunRouteProber(logger, clients, domain)
 
 	logger.Info("Updating the Configuration to use a different image")
-	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
+	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, test.ImagePath(pizzaPlanet2))
 	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
+		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, pizzaPlanet2, err)
 	}
 
 	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")

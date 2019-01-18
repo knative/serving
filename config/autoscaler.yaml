@@ -56,6 +56,11 @@ spec:
           mountPath: /etc/config-logging
         - name: config-observability
           mountPath: /etc/config-observability
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       volumes:
         - name: config-autoscaler
           configMap:

@@ -23,8 +23,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-01-16
-  revision = "d3a9e54be7d4213b4018135d82b586de45f6a694"
+  # HEAD as of 2019-01-18
+  revision = "076ebf4e56758e76cd87fa402e9478da25ed942e"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -60,6 +60,12 @@ required = [
   # This is the commit at which k8s depends on this in 1.11
   # It seems to be broken at HEAD.
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+
+[[override]]
+  name = "github.com/rogpeppe/go-internal"
+  # HEAD as of 2019-01-09
+  # Needed because release 1.0.0 does not contain a LICENSE file
+  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
 
 [prune]
   go-tests = true

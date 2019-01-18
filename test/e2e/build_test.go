@@ -36,6 +36,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 )
 
@@ -46,13 +47,12 @@ func TestBuildSpecAndServe(t *testing.T) {
 
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildSpecAndServe")
-
-	imagePath := test.ImagePath("helloworld")
-
 	logger.Info("Creating a new Route and Configuration with build")
+
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
+		Image:  "helloworld",
 	}
 
 	build := &v1alpha1.RawExtension{
@@ -64,7 +64,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
@@ -150,13 +150,12 @@ func TestBuildAndServe(t *testing.T) {
 
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildAndServe")
-
-	imagePath := test.ImagePath("helloworld")
-
 	logger.Info("Creating a new Route and Configuration with build")
+
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
+		Image:  "helloworld",
 	}
 
 	build := &v1alpha1.RawExtension{
@@ -168,7 +167,7 @@ func TestBuildAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
@@ -274,6 +273,7 @@ func TestBuildFailure(t *testing.T) {
 	logger.Info("Creating a new Configuration with failing build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
+		Image:  "helloworld",
 	}
 
 	// Request a build that doesn't succeed.
@@ -292,8 +292,7 @@ func TestBuildFailure(t *testing.T) {
 		},
 	}
 
-	imagePath := test.ImagePath("helloworld")
-	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
+	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}

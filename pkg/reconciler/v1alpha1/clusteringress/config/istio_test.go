@@ -47,7 +47,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      IstioConfigName,
 			},
 		}}, {
@@ -56,7 +56,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
@@ -74,7 +74,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
