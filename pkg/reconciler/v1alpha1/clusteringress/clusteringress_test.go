@@ -259,8 +259,8 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 			},
 		},
 		Spec: v1alpha1.IngressSpec{
-			Generation: generation,
-			Rules:      ingressRules,
+			DeprecatedGeneration: generation,
+			Rules:                ingressRules,
 		},
 		Status: status,
 	}

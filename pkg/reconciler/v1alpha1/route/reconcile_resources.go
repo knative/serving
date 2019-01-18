@@ -77,7 +77,7 @@ func (c *Reconciler) reconcileClusterIngress(
 		return clusterIngress, nil
 	} else if err == nil {
 		// TODO(#642): Remove this (needed to avoid continuous updates)
-		desired.Spec.Generation = clusterIngress.Spec.Generation
+		desired.Spec.DeprecatedGeneration = clusterIngress.Spec.DeprecatedGeneration
 		if !equality.Semantic.DeepEqual(clusterIngress.Spec, desired.Spec) {
 			// Don't modify the informers copy
 			origin := clusterIngress.DeepCopy()

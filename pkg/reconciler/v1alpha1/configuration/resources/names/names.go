@@ -28,7 +28,7 @@ import (
 // This should eventually change to something like
 // '{config-name}-{config.metadata.generation}'
 func DeprecatedRevision(config *v1alpha1.Configuration) string {
-	return fmt.Sprintf("%s-%05d", config.Name, config.Spec.Generation)
+	return fmt.Sprintf("%s-%05d", config.Name, config.Spec.DeprecatedGeneration)
 }
 
 // DeprecatedBuild produces build name in the format
