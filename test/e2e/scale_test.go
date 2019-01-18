@@ -138,13 +138,10 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				logger.Info("All services were created successfully.")
 				return
 			}
+
 			// Start probing the domain until the test is complete.
-			probeCh := test.RunRouteProber(logger, clients, domain)
-			defer func(probeCh <-chan error) {
-				if err := test.GetRouteProberError(probeCh, logger); err != nil {
-					t.Fatalf("Route %q prober failed with error: %v", domain, err)
-				}
-			}(probeCh)
+			prober := test.RunRouteProber(logger, clients, domain)
+			defer prober.Stop(t)
 
 		case err := <-errCh:
 			t.Fatalf("An error occured during the test: %v", err)

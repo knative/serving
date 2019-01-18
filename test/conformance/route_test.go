@@ -139,7 +139,8 @@ func TestRouteCreation(t *testing.T) {
 	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "1", pizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	routeProberErrorChan := test.RunRouteProber(logger, clients, domain)
+	prober := test.RunRouteProber(logger, clients, domain)
+	defer prober.Stop(t)
 
 	logger.Infof("Updating the Configuration to use a different image")
 	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, test.ImagePath(pizzaPlanet2))
@@ -154,11 +155,4 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, domain, "2", pizzaPlanetText2)
-
-	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
-		// Currently the Route prober is flaky. So we just log the error here for future debugging instead of
-		// failing the test.
-		t.Fatalf("Route prober failed with error %s", err)
-	}
-
 }
