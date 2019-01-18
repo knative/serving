@@ -214,10 +214,15 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	switch {
 	case service.Spec.RunLatest != nil:
 		runLatestCheckTrafficMigrated(ss, &route.Status, &config.Status)
+	case service.Spic.Release != nil:
+		releaseCheckTrafficMigrated(ss, &route.Status, &config.Status)
 	}
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
+}
+
+func releaseCheckTrafficMigrated(ss *v1alpha1.ServiceStatus, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
 }
 
 func runLatestCheckTrafficMigrated(ss *v1alpha1.ServiceStatus, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
