@@ -36,9 +36,9 @@ import (
 )
 
 // createLatestService creates a service in namespace with the name names.Service
-// that uses the image specified by imagePath
-func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, imagePath string, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := test.LatestService(test.ServingNamespace, names, imagePath, &test.Options{})
+// that uses the image specified by names.Image
+func createLatestService(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
+	service := test.LatestService(test.ServingNamespace, names, &test.Options{})
 	service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = revisionTimeoutSeconds
 	test.LogResourceObject(logger, test.ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
@@ -103,16 +103,17 @@ func TestRevisionTimeout(t *testing.T) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestRevisionTimeout")
 
-	imagePath := test.ImagePath(timeout)
-
-	var names, rev2s, rev5s test.ResourceNames
-	names.Service = test.AppendRandomString("timeout", logger)
+	var rev2s, rev5s test.ResourceNames
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("timeout", logger),
+		Image:   timeout,
+	}
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
 
 	logger.Info("Creating a new Service in runLatest")
-	svc, err := createLatestService(logger, clients, names, imagePath, 2)
+	svc, err := createLatestService(logger, clients, names, 2)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

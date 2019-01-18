@@ -24,6 +24,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -68,6 +69,10 @@ var (
 		// bit more often than the default.  It is a small
 		// sacrifice for a low rate of 503s.
 		PeriodSeconds: 1,
+		// We keep the connection open for a while because we're
+		// actively probing the user-container on that endpoint and
+		// thus don't want to be limited by K8s granularity here.
+		TimeoutSeconds: 10,
 	}
 )
 
@@ -131,6 +136,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
+		}, {
+			Name:  system.NamespaceEnvKey,
+			Value: system.Namespace(),
 		}},
 	}
 }

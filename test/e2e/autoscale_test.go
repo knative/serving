@@ -28,6 +28,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -153,10 +154,8 @@ func setup(t *testing.T) *testContext {
 		t.Fatalf("Unable to parse stable-window as duration: %v", err)
 	}
 
-	imagePath := test.ImagePath("autoscale")
-
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
+	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
 		ContainerConcurrency: 10,
 	})
 	if err != nil {

@@ -39,7 +39,7 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 42,
+				DeprecatedGeneration: 42,
 			},
 		},
 		f:    DeprecatedRevision,
@@ -52,7 +52,7 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 31,
+				DeprecatedGeneration: 31,
 			},
 		},
 		f:    DeprecatedRevision,
@@ -65,7 +65,7 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 16,
+				DeprecatedGeneration: 16,
 			},
 		},
 		f:    DeprecatedBuild,
@@ -78,7 +78,7 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 999,
+				DeprecatedGeneration: 999,
 				Build: &v1alpha1.RawExtension{
 					BuildSpec: &buildv1alpha1.BuildSpec{},
 				},

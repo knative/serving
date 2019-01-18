@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
 	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
@@ -154,6 +155,10 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	} else if err != nil {
 		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
 		return err
+	} else if !metav1.IsControlledBy(hpa, pa) {
+		// Surface an error in the PodAutoscaler's status, and return an error.
+		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
+		return fmt.Errorf("PodAutoscaler: %q does not own HPA: %q", pa.Name, desiredHpa.Name)
 	} else {
 		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 			logger.Infof("Updating HPA %q", desiredHpa.Name)

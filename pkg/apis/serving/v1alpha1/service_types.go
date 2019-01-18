@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -66,12 +68,16 @@ var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
 // track the latest ready revision of a configuration or be pinned to a specific
 // revision.
 type ServiceSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// RunLatest defines a simple Service. It will automatically
 	// configure a route that keeps the latest ready revision
@@ -239,6 +245,21 @@ func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
+// MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
+// status noting that the Configuration with the name we want has already
+// been created and we do not own it.
+func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, "NotOwned",
+		fmt.Sprintf("There is an existing Configuration %q that we do not own.", name))
+}
+
+// MarkRouteNotOwned surfaces a failure via the RoutesReady status noting that the Route
+// with the name we want has already been created and we do not own it.
+func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "NotOwned",
+		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
+}
+
 // PropagateConfigurationStatus takes the Configuration status and applies its values
 // to the Service status.
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
@@ -259,9 +280,19 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	}
 }
 
-// PropagateRouteStatus takes the Route status and applies its values
-// to the Service status.
-func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+const (
+	trafficNotMigratedReason  = "TrafficNotMigrated"
+	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+)
+
+// MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
+// See: #2430, for details.
+func (ss *ServiceStatus) MarkRouteNotYetReady() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
+// PropagateRouteStatus propagates route's status to the service's status.
+func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
 	ss.Address = rs.Address

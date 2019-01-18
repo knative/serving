@@ -34,6 +34,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
@@ -122,6 +123,10 @@ func main() {
 		logger.Fatalw("Error building serving clientset", zap.Error(err))
 	}
 
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
+	}
+
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
@@ -145,7 +150,7 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace, "8080")
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter(stopCh)
@@ -172,7 +177,7 @@ func main() {
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))

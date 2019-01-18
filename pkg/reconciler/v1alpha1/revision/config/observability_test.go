@@ -52,7 +52,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -71,7 +71,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 		},
@@ -81,7 +81,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		wantController: (*Observability)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 			Data: map[string]string{

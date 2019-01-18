@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/system"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -59,7 +60,7 @@ var (
 func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: configMapData,

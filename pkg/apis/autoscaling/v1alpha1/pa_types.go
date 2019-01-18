@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -61,12 +62,16 @@ var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
 
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the scale target. Defaults to Multi.
@@ -191,6 +196,13 @@ func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
 
 func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
+}
+
+// MarkResourceNotOwned changes the "Active" condition to false to reflect that the
+// resource of the given kind and name has already been created, and we do not own it.
+func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
+	rs.MarkInactive("NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state

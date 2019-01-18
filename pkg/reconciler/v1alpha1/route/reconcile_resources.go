@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -75,9 +76,11 @@ func (c *Reconciler) reconcileClusterIngress(
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
 			"Created ClusterIngress %q", clusterIngress.Name)
 		return clusterIngress, nil
-	} else if err == nil {
+	} else if err != nil {
+		return nil, err
+	} else {
 		// TODO(#642): Remove this (needed to avoid continuous updates)
-		desired.Spec.Generation = clusterIngress.Spec.Generation
+		desired.Spec.DeprecatedGeneration = clusterIngress.Spec.DeprecatedGeneration
 		if !equality.Semantic.DeepEqual(clusterIngress.Spec, desired.Spec) {
 			// Don't modify the informers copy
 			origin := clusterIngress.DeepCopy()
@@ -121,6 +124,10 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
 	} else if err != nil {
 		return err
+	} else if !metav1.IsControlledBy(service, route) {
+		// Surface an error in the route's status, and return an error.
+		route.Status.MarkServiceNotOwned(name)
+		return fmt.Errorf("Route: %q does not own Service: %q", route.Name, name)
 	} else {
 		// Make sure that the service has the proper specification.
 		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {

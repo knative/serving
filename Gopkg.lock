@@ -430,7 +430,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:1443c2027c781246200c1f3149cc82e5e58163ba6676acbc22dfb01c8c7128ba"
+  digest = "1:f142393519821f42e957c353a38b5f8ed2ee49311c7f3e2573e329f07c4fd95c"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -472,11 +472,12 @@
     "test/spoof",
     "test/zipkin",
     "tracker",
+    "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "d3a9e54be7d4213b4018135d82b586de45f6a694"
+  revision = "076ebf4e56758e76cd87fa402e9478da25ed942e"
 
 [[projects]]
   branch = "master"
@@ -602,6 +603,13 @@
   ]
   pruneopts = "NUT"
   revision = "282c8707aa210456a825798969cc27edda34992a"
+
+[[projects]]
+  digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
+  name = "github.com/rogpeppe/go-internal"
+  packages = ["semver"]
+  pruneopts = "NUT"
+  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
@@ -1281,6 +1289,7 @@
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
+    "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
     "github.com/knative/pkg/websocket",
     "github.com/knative/test-infra/scripts",

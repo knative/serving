@@ -32,12 +32,11 @@ import (
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration) {
 	clients := Setup(t)
-
-	var imagePath = test.ImagePath("helloworld")
 
 	deployGrp, _ := errgroup.WithContext(context.Background())
 
@@ -55,9 +54,23 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 		deployGrp.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
+				Image:   "helloworld",
 			}
 
-			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, imagePath)
+			options := &test.Options{
+				// Give each request 10 seconds to respond.
+				// This is mostly to work around #2897
+				RevisionTimeoutSeconds: 10,
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}
+
+			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, options)
 			if err != nil {
 				return errors.Wrapf(err, "failed to create service %s", names.Service)
 			}
@@ -134,7 +147,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			}(probeCh)
 
 		case err := <-errCh:
-			t.Fatalf("An error occured during the test: %v", err)
+			t.Fatalf("An error occurred during the test: %v", err)
 
 		case <-timeoutCh:
 			logger.Error("Timeout.")
