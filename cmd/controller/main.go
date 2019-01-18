@@ -118,7 +118,7 @@ func main() {
 		logger.Fatalf("Version check failed: %v", err)
 	}
 
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
