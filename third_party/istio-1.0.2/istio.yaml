@@ -347,7 +347,7 @@ data:
       
       containers:
       - name: istio-proxy
-        # PATCH #2: Graceful shutdown of the istio-proxy.
+        # PATCH #2: Graceful shutdown of the istio-proxy. See https://github.com/istio/istio/issues/7136.
         lifecycle:
           preStop:
             exec:
