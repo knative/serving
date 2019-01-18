@@ -165,11 +165,11 @@ func TestRetryRoundTripper(t *testing.T) {
 			}
 
 			if e.wantBodyClosed && !e.resp.Body.(*spyReadCloser).Closed {
-				t.Errorf("Expected response body to be closed.")
+				t.Error("Expected response body to be closed.")
 			}
 
 			if !allRequestsGotRetryHeader {
-				t.Errorf("Not all retry requests had the retry header set.")
+				t.Error("Not all retry requests had the retry header set.")
 			}
 
 			if resp != nil {

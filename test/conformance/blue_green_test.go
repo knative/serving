@@ -82,25 +82,25 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 	objects.Service = svc
 
-	logger.Infof("Updating the Configuration to use a different image")
+	logger.Info("Updating the Configuration to use a different image")
 	cfg, err := test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
 	}
 	objects.Config = cfg
 
-	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	green.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
 	}
 
-	logger.Infof("Updating Route")
+	logger.Info("Updating Route")
 	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("Wait for the route domains to be ready")
+	logger.Info("Wait for the route domains to be ready")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -119,7 +119,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the route the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	logger.Infof("Probing domain %s", greenDomain)
+	logger.Info("Probing domain %s", greenDomain)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,

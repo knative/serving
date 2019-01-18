@@ -96,7 +96,7 @@ func validateRunLatestDataPlane(logger *logging.BaseLogger, clients *test.Client
 		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, names.Domain, expectedText, err)
 	}
 
-	logger.Infof("TODO: The Service's Route is accessible from inside the cluster without external DNS")
+	logger.Info("TODO: The Service's Route is accessible from inside the cluster without external DNS")
 	err = test.CheckServiceState(clients.ServingClient, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
 	if err != nil {
 		return fmt.Errorf("the Service %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Service, names.Revision, err)

@@ -58,7 +58,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
 	imagePath := test.ImagePath("helloworld")
 
-	logger.Infof("Creating manifest")
+	logger.Info("Creating manifest")
 
 	// Create manifest file.
 	newYaml, err := ioutil.TempFile("", "helloworld")
@@ -86,7 +86,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to close new manifest file: %v", err)
 	}
 
-	logger.Infof("Manifest file is '%s'", newYamlFilename)
+	logger.Infof("Manifest file is %q", newYamlFilename)
 	logger.Info("Deploying using kubectl")
 
 	// Deploy using kubectl

@@ -216,7 +216,7 @@ func TestInvalidLevel(t *testing.T) {
 		},
 	})
 	if err == nil {
-		t.Errorf("Expected errors. got nothing")
+		t.Error("Expected errors. got nothing")
 	}
 }
 

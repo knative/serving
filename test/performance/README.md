@@ -40,7 +40,7 @@ For eg.
 ```go
 promAPI, err := prometheus.PromAPI()
 if err != nil {
-	logger.Errorf("Cannot setup prometheus API")
+	logger.Error("Cannot setup prometheus API")
 }
 query := fmt.Sprintf("%s{namespace_name=\"%s\", configuration_name=\"%s\", revision_name=\"%s\"},metric, test.ServingNamespace, names.Config, names.Revision)
 val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)

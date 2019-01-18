@@ -121,7 +121,7 @@ func statReporter() {
 // sendStat sends a single StatMessage to the autoscaler.
 func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
-		return fmt.Errorf("stat sink not (yet) connected")
+		return errors.New("stat sink not (yet) connected")
 	}
 	if healthState.IsShuttingDown() {
 		s.LameDuck = true

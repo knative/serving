@@ -177,7 +177,7 @@ func TestObservedConcurrency(t *testing.T) {
 		body := string(response.Body)
 		start, end, err := parseResponse(body)
 		if err != nil {
-			logger.Errorf("Failed to parse body")
+			logger.Error("Failed to parse body")
 		} else {
 			events = append(events, start, end)
 		}

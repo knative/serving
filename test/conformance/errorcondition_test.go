@@ -19,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -62,7 +61,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	manifestUnknown := string(transport.ManifestUnknownErrorCode)
-	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
+	logger.Info("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
@@ -71,9 +70,9 @@ func TestContainerErrorMsg(t *testing.T) {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
 				return true, nil
 			}
-			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
-			return true, errors.New(s)
+			logger.Infof("Reason: %s ; Message: %s ; Status %s", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
+				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
 	}, "ContainerImageNotPresent")
@@ -87,7 +86,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	logger.Infof("When the imagepath is invalid, the revision should have error status.")
+	logger.Info("When the imagepath is invalid, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -104,7 +103,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	logger.Infof("When the revision has error condition, logUrl should be populated.")
+	logger.Info("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
@@ -128,10 +127,12 @@ func TestContainerExitingMsg(t *testing.T) {
 	names := test.ResourceNames{Config: test.AppendRandomString("test-container-exiting-msg", logger)}
 	imagePath := test.ImagePath("failing")
 
-	// The given image will always exit with an exit code of 5
-	exitCodeReason := "ExitCode5"
-	// ... and will print "Crashed..." before it exits
-	errorLog := "Crashed..."
+	const (
+		// The given image will always exit with an exit code of 5
+		exitCodeReason = "ExitCode5"
+		// ... and will print "Crashed..." before it exits
+		errorLog = "Crashed..."
+	)
 
 	logger.Infof("Creating a new Configuration %s", imagePath)
 
@@ -149,7 +150,7 @@ func TestContainerExitingMsg(t *testing.T) {
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
-	logger.Infof("When the containers keep crashing, the Configuration should have error status.")
+	logger.Info("When the containers keep crashing, the Configuration should have error status.")
 
 	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
@@ -157,7 +158,7 @@ func TestContainerExitingMsg(t *testing.T) {
 			if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
 				return true, nil
 			}
-			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
+			logger.Infof("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
 				names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
 		}
@@ -173,7 +174,7 @@ func TestContainerExitingMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	logger.Infof("When the containers keep crashing, the revision should have error status.")
+	logger.Info("When the containers keep crashing, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -190,9 +191,8 @@ func TestContainerExitingMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	logger.Infof("When the revision has error condition, logUrl should be populated.")
-	_, err = getLogURLFromRevision(clients, revisionName)
-	if err != nil {
+	logger.Info("When the revision has error condition, logUrl should be populated.")
+	if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 }

@@ -28,7 +28,7 @@ func TestRouteRunLatest(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
-		t.Errorf("expected nil for err got %q", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
@@ -240,6 +240,6 @@ func TestRouteManual(t *testing.T) {
 		t.Errorf("expected nil for r got %q", err)
 	}
 	if err == nil {
-		t.Errorf("expected err got nil")
+		t.Error("expected err got nil")
 	}
 }

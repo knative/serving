@@ -66,7 +66,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
+		t.Error("Unexpected result before revision is ready.")
 	default:
 	}
 
@@ -96,7 +96,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
 		}
 	default:
-		t.Errorf("Expected result after revision ready.")
+		t.Error("Expected result after revision ready.")
 	}
 }
 
@@ -118,7 +118,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
+		t.Error("Unexpected result before revision is ready.")
 	default:
 	}
 
@@ -126,22 +126,22 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	select {
 	case ar := <-ch:
 		if got, want := ar.Endpoint, (Endpoint{}); got != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
+			t.Errorf("Unexpected endpoint = %+v, want: %+v", got, want)
 		}
 		if got, want := ar.Status, http.StatusInternalServerError; got != want {
-			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
+			t.Errorf("Unexpected error state = %v, want: %v", got, want)
 		}
 		if ar.ServiceName != "" {
-			t.Errorf("Unexpected service name. Want empty. Got %v.", ar.ServiceName)
+			t.Errorf("Unexpected non-empty service, got: %s", ar.ServiceName)
 		}
 		if ar.ConfigurationName != "" {
-			t.Errorf("Unexpected configuration name. Want empty. Got %v.", ar.ConfigurationName)
+			t.Errorf("Unexpected non-empty configuration name; got: %s", ar.ConfigurationName)
 		}
 		if ar.Error == nil {
-			t.Errorf("Expected error. Want error. Got nil.")
+			t.Error("Expected nil error")
 		}
 	default:
-		t.Errorf("Expected result after timeout.")
+		t.Error("Expected result after timeout.")
 	}
 }
 
