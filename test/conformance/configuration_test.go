@@ -43,14 +43,14 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("Creating new configuration %s", names.Config)
-	_, err := test.CreateConfiguration(logger, clients, names, &test.Options{})
-	if err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
 	var cfg *v1alpha1.Configuration
 
 	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
+	var err error
 	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
