@@ -18,7 +18,7 @@ const (
 	ResourceTypeKnativeRevision = "knative_revision"
 
 	// LabelProject is the label for project (e.g. GCP GAIA ID, AWS project name)
-	LabelProject = "project"
+	LabelProject = "project_id"
 
 	// LabelLocation is the label for location (e.g. GCE zone, AWS region) where the service is deployed
 	LabelLocation = "location"
