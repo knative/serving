@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -183,6 +185,13 @@ func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.
 
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
+}
+
+// MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
+// there is a pre-existing placeholder service with the name we wanted to use.
+func (rs *RouteStatus) MarkServiceNotOwned(name string) {
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
+		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {

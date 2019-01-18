@@ -588,6 +588,90 @@ func TestReconcile(t *testing.T) {
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
 		Key: "foo/failed-build-stable",
+	}, {
+		Name: "ready steady state",
+		// Test the transition that Reconcile makes when Endpoints become ready.
+		// This puts the world into the stable post-reconcile state for an Active
+		// Revision.  It then creates an Endpoints resource with active subsets.
+		// This signal should make our Reconcile mark the Revision as Ready.
+		Objects: []runtime.Object{
+			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
+				// When the endpoint and KPA are ready, then we will see the
+				// Revision become ready.
+				MarkRevisionReady),
+			kpa("foo", "steady-ready", WithTraffic),
+			deploy("foo", "steady-ready"),
+			svc("foo", "steady-ready"),
+			endpoints("foo", "steady-ready", WithSubsets),
+			image("foo", "steady-ready"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"steady-ready-service"),
+		},
+		Key: "foo/steady-ready",
+	}, {
+		Name:    "lost service owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners", WithK8sSvcOwnersRemoved),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Service we see this update.
+				MarkResourceNotOwned("Service", "missing-owners-service")),
+		}},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost kpa owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for PodAutoscaler we see this update.
+				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
+		}},
+		// TODO(#2900): This should not fire, we're not ready!
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"missing-owners-service"),
+		},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost deployment owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			noOwner(deploy("foo", "missing-owners")),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Deployment we see this update.
+				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
+		}},
+		Key: "foo/missing-owners",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -752,6 +836,11 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 		Status: corev1.ConditionFalse,
 		Reason: "ProgressDeadlineExceeded",
 	}}
+	return deploy
+}
+
+func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
+	deploy.OwnerReferences = nil
 	return deploy
 }
 

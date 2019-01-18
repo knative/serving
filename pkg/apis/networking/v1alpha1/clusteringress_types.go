@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -350,6 +352,13 @@ func (cis *IngressStatus) InitializeConditions() {
 
 func (cis *IngressStatus) MarkNetworkConfigured() {
 	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionNetworkConfigured)
+}
+
+// MarkResourceNotOwned changes the "NetworkConfigured" condition to false to reflect that the
+// resource of the given kind and name has already been created, and we do not own it.
+func (cis *IngressStatus) MarkResourceNotOwned(kind, name string) {
+	clusterIngressCondSet.Manage(cis).MarkFalse(ClusterIngressConditionNetworkConfigured, "NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // MarkLoadBalancerReady marks the Ingress with ClusterIngressConditionLoadBalancerReady,

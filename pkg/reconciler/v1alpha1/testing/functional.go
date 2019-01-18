@@ -28,6 +28,8 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -111,6 +113,16 @@ func WithServiceLabel(key, value string) ServiceOption {
 		}
 		service.Labels[key] = value
 	}
+}
+
+// MarkConfigurationNotOwned calls the function of the same name on the Service's status.
+func MarkConfigurationNotOwned(service *v1alpha1.Service) {
+	service.Status.MarkConfigurationNotOwned(servicenames.Configuration(service))
+}
+
+// MarkRouteNotOwned calls the function of the same name on the Service's status.
+func MarkRouteNotOwned(service *v1alpha1.Service) {
+	service.Status.MarkRouteNotOwned(servicenames.Route(service))
 }
 
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
@@ -295,6 +307,16 @@ func WithStatusTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
 	}
 }
 
+// WithRouteOwnersRemoved clears the owner references of this Route.
+func WithRouteOwnersRemoved(r *v1alpha1.Route) {
+	r.OwnerReferences = nil
+}
+
+// MarkServiceNotOwned calls the function of the same name on the Service's status.
+func MarkServiceNotOwned(r *v1alpha1.Route) {
+	r.Status.MarkServiceNotOwned(routenames.K8sService(r))
+}
+
 // WithDomain sets the .Status.Domain field to the prototypical domain.
 func WithDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace)
@@ -398,6 +420,11 @@ func WithBuild(cfg *v1alpha1.Configuration) {
 	}
 }
 
+// WithConfigOwnersRemoved clears the owner references of this Configuration.
+func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
+	cfg.OwnerReferences = nil
+}
+
 // WithConfigConcurrencyModel sets the given Configuration's concurrency model.
 func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
@@ -472,6 +499,13 @@ func WithBuildRef(name string) RevisionOption {
 			Kind:       "Build",
 			Name:       name,
 		}
+	}
+}
+
+// MarkResourceNotOwned calls the function of the same name on the Revision's status.
+func MarkResourceNotOwned(kind, name string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Status.MarkResourceNotOwned(kind, name)
 	}
 }
 
@@ -630,6 +664,11 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
+// WithPodAutoscalerOwnersRemoved clears the owner references of this PodAutoscaler.
+func WithPodAutoscalerOwnersRemoved(r *autoscalingv1alpha1.PodAutoscaler) {
+	r.OwnerReferences = nil
+}
+
 // WithTraffic updates the PA to reflect it receiving traffic.
 func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
@@ -716,6 +755,11 @@ func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
 	}
+}
+
+// WithK8sSvcOwnersRemoved clears the owner references of this Route.
+func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
+	svc.OwnerReferences = nil
 }
 
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.

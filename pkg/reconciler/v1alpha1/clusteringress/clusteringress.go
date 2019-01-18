@@ -18,6 +18,7 @@ package clusteringress
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
@@ -37,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -270,6 +272,10 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 			"Created VirtualService %q", desired.Name)
 	} else if err != nil {
 		return err
+	} else if !metav1.IsControlledBy(vs, ci) {
+		// Surface an error in the ClusterIngress's status, and return an error.
+		ci.Status.MarkResourceNotOwned("VirtualService", name)
+		return fmt.Errorf("ClusterIngress: %q does not own VirtualService: %q", ci.Name, name)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()

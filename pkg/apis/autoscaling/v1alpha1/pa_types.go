@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -195,6 +196,13 @@ func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
 
 func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
+}
+
+// MarkResourceNotOwned changes the "Active" condition to false to reflect that the
+// resource of the given kind and name has already been created, and we do not own it.
+func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
+	rs.MarkInactive("NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state

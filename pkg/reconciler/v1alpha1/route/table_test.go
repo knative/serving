@@ -351,6 +351,53 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}, {
+		Name:    "unhappy about ownership of placeholder service",
+		WantErr: true,
+		Objects: []runtime.Object{
+			route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "unhappy-owner"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "unhappy-owner", WithConfigTarget("config")),
+				WithK8sSvcOwnersRemoved),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					}),
+				// The owner is not us, so we are unhappy.
+				MarkServiceNotOwned),
+		}},
+		Key: "default/unhappy-owner",
+	}, {
 		// This tests that when the Route is labelled differently, it is configured with a
 		// different domain from config-domain.yaml.  This is otherwise a copy of the steady
 		// state test above.
