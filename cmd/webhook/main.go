@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -73,6 +74,10 @@ func main() {
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
+	}
+
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
