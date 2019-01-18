@@ -31,6 +31,9 @@ const (
 	// as defined in the metrics it sends.
 	ActivatorPodName string = "activator"
 
+	// minOutOfServiceTime is the threshold to consider a pod becomes out of
+	// service(lameducked). There is always a gap between current time and the
+	// point receiving the lastest stat from a pod.
 	minOutOfServiceTime time.Duration = time.Second
 )
 
@@ -182,7 +185,7 @@ func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
 // pod became out of service.
 func (agg *perPodAggregation) podWeight(now time.Time) float64 {
 	if agg.isActivator {
-		return 1.0 //
+		return 1.0 // Activator pod weight is always 1
 	}
 
 	outOfService := now.Sub(*agg.latestStatTime)
