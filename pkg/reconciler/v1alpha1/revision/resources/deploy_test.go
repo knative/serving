@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/serving/pkg/system"
 	_ "github.com/knative/serving/pkg/system/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -148,6 +149,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8888", // Match user port
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -236,6 +240,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -327,6 +334,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -422,6 +432,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -526,6 +539,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -628,6 +644,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -732,6 +751,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -832,6 +854,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
@@ -923,6 +948,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}, {
 				Name:      FluentdContainerName,
@@ -1086,6 +1114,9 @@ func TestMakePodSpec(t *testing.T) {
 				}, {
 					Name:  "USER_PORT",
 					Value: "8080",
+				}, {
+					Name:  "SYSTEM_NAMESPACE",
+					Value: system.Namespace(),
 				}},
 			}},
 			Volumes:                       []corev1.Volume{varLogVolume},
