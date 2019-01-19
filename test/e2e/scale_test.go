@@ -19,9 +19,9 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,8 +30,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -41,10 +39,7 @@ import (
 func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration) {
 	clients := Setup(t)
 
-	deployGrp, _ := errgroup.WithContext(context.Background())
-
 	cleanupCh := make(chan test.ResourceNames, scale)
-	errCh := make(chan error, 1)
 	defer close(cleanupCh)
 
 	fopt := []ServiceOption{
@@ -72,18 +67,21 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
 	// 95 = 19/20, so allow a single failure with the minimum number of probes, but expect
 	// us to have 3.5 9s overall.
-	localSLO, globalSLO := 0.95, 0.9995
-	pm := test.NewProberManager(logger, clients, 20)
+	const (
+		localSLO  = 0.95
+		globalSLO = 0.9995
+		minProbes = 20
+	)
+	pm := test.NewProberManager(logger, clients, minProbes)
 
 	timeoutCh := time.After(duration)
 
 	logger.Info("Creating new Services")
+	wg := &sync.WaitGroup{}
 	for i := 0; i < scale; i++ {
-
-		// https://golang.org/doc/faq#closures_and_goroutines
-		i := i
-
-		deployGrp.Go(func() error {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
 			names := test.ResourceNames{
 				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
 				Image:   "helloworld",
@@ -104,7 +102,8 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 			svc, err := test.CreateLatestService(logger, clients, names, options, fopt...)
 			if err != nil {
-				return errors.Wrapf(err, "failed to create service %s", names.Service)
+				t.Errorf("CreateLatestService() = %v", err)
+				return
 			}
 			names.Route = serviceresourcenames.Route(svc)
 			names.Config = serviceresourcenames.Configuration(svc)
@@ -114,7 +113,8 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 			logger.Infof("Wait for %s to become ready.", names.Service)
 			if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-				return err
+				t.Errorf("WaitForServiceState(IsReady) = %v", err)
+				return
 			}
 
 			var domain string
@@ -126,7 +126,8 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				return false, nil
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {
-				return errors.Wrapf(err, "service %s was not updated with a domain", names.Service)
+				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+				return
 			}
 
 			_, err = pkgTest.WaitForEndpointState(
@@ -137,29 +138,29 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				return errors.Wrapf(err, "the endpoint for Service %s at domain %s didn't serve the expected text %q", names.Service, domain, helloWorldExpectedOutput)
+				t.Errorf("WaitForEndpointState(expected text) = %v", err)
+				return
 			}
 			// Start probing the domain until the test is complete.
 			pm.Spawn(domain)
 
 			logger.Infof("%s is ready.", names.Service)
-			return nil
-		})
+		}(i)
 	}
 
+	// Wait for all of the service creations to complete (possibly in failure),
+	// and signal the done channel.
 	doneCh := make(chan struct{})
 	go func() {
-		if err := deployGrp.Wait(); err != nil {
-			logger.Errorf("An error occurred during service creation: %v", err)
-			errCh <- errors.Wrap(err, "error waiting for endpoints to become ready")
-		} else {
-			logger.Info("Service creation was successful.")
-			// Succeeds the test
-			close(doneCh)
-		}
+		defer close(doneCh)
+		wg.Wait()
 	}()
 
 	for {
+		// As services get created, add logic to clean them up.
+		// When all of the creations have finished, then stop all of the active probers
+		// and check our SLIs against our SLOs.
+		// All of this has to finish within the configured timeout.
 		select {
 		case names := <-cleanupCh:
 			logger.Infof("Added %v to cleanup routine.", names)
@@ -167,19 +168,17 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			defer TearDown(clients, names, logger)
 
 		case <-doneCh:
-			logger.Info("All services were created successfully.")
-
+			// This ProberManager implementation waits for minProbes before actually stopping.
 			if err := pm.StopAll(); err != nil {
 				t.Fatalf("StopAll() = %v", err)
 			}
 			pm.Check(t, localSLO, globalSLO)
 			return
 
-		case err := <-errCh:
-			t.Fatalf("An error occurred during the test: %v", err)
-
 		case <-timeoutCh:
-			logger.Error("Timeout.")
+			// If we don't do this first, then we'll see tons of 503s from the ongoing probes
+			// as we tear down the things they are probing.
+			defer pm.StopAll()
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
@@ -188,14 +187,14 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 // While redundant, we run two versions of this by default:
 // 1. TestScaleTo10: a developer smoke test that's useful when changing this to assess whether
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
-// 2. TestScaleTo50: a more proper execution of the test, which verifies a slightly more
+// 2. TestScaleTo100: a more proper execution of the test, which verifies a slightly more
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 
 func TestScaleTo10(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestScaleTo10")
 
-	testScaleToWithin(t, logger, 10, 90*time.Second)
+	testScaleToWithin(t, logger, 10, 60*time.Second)
 }
 
 func TestScaleTo50(t *testing.T) {
@@ -211,5 +210,5 @@ func TestScaleTo50(t *testing.T) {
 // 	//add test case specific name to its own logger
 // 	logger := logging.GetContextLogger("TestScaleToN")
 //
-// 	testScaleToWithin(t, logger, 100, 4*time.Minute)
+// 	testScaleToWithin(t, logger, 200, 4*time.Minute)
 // }

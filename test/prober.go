@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,6 +38,9 @@ type Prober interface {
 	SLI() (total int64, failures int64)
 
 	// Stop terminates the prober, returning any observed errors.
+	// Implementations may choose to put additional requirements on
+	// the prober, which may cause this to block (e.g. a minimum number
+	// of probes to achieve a population suitable for SLI measurement).
 	Stop() error
 }
 
@@ -69,7 +72,7 @@ func (p *prober) SLI() (int64, int64) {
 // Stop implements Prober
 func (p *prober) Stop() error {
 	for {
-		if done, err := p.isDone(); err != nil {
+		if done, err := p.checkIfDone(); err != nil {
 			return err
 		} else if done {
 			return nil
@@ -78,25 +81,30 @@ func (p *prober) Stop() error {
 	}
 }
 
-func (p *prober) isDone() (bool, error) {
+// checkIfDone checks whether the given prober has completed.
+// If there is a stored error, then this returns "done" with the error.
+// If the number of processed requests satisfies our minimum, then
+// this returns "done" without error.
+// Otherwise we return "not done".
+func (p *prober) checkIfDone() (bool, error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	if p.err != nil {
+	if p.err != nil || p.stopped {
 		p.stopped = true
 		return true, p.err
 	}
 
-	if p.requests < p.minimumProbes {
-		p.logger.Infof("%q needs more probes; got %d, want %d", p.domain, p.requests, p.minimumProbes)
-		return false, nil
+	if p.requests >= p.minimumProbes {
+		p.stopped = true
+		return true, nil
 	}
 
-	p.stopped = true
-	return true, nil
+	p.logger.Infof("%q needs more probes; got %d, want %d", p.domain, p.requests, p.minimumProbes)
+	return false, nil
 }
 
-func (p *prober) handleError(err error) {
+func (p *prober) setError(err error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
@@ -119,7 +127,6 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 	}
 
 	// Returning (false, nil) causes SpoofingClient.Poll to retry.
-	// sc.logger.Infof("Retrying for code %v", resp.StatusCode)
 	return p.stopped, nil
 }
 
@@ -165,16 +172,16 @@ func (m *manager) Spawn(domain string) Prober {
 			ServingFlags.ResolvableDomain)
 		if err != nil {
 			m.logger.Infof("NewSpoofingClient() = %v", err)
-			p.handleError(err)
+			p.setError(err)
 			return
 		}
 
 		// RequestTimeout is set to 0 to make the polling infinite.
-		client.RequestTimeout = 0 * time.Minute
+		client.RequestTimeout = 0
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 		if err != nil {
 			m.logger.Infof("NewRequest() = %v", err)
-			p.handleError(err)
+			p.setError(err)
 			return
 		}
 
@@ -184,7 +191,7 @@ func (m *manager) Spawn(domain string) Prober {
 		_, err = client.Poll(req, p.handleResponse)
 		if err != nil {
 			m.logger.Infof("Poll() = %v", err)
-			p.handleError(err)
+			p.setError(err)
 			return
 		}
 	}()
@@ -207,6 +214,7 @@ func (m *manager) StopAll() error {
 
 // Check implements ProberManager
 func (m *manager) Check(t *testing.T, localSLO, globalSLO float64) {
+	t.Helper()
 	m.m.Lock()
 	defer m.m.Unlock()
 
@@ -249,6 +257,7 @@ func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string)
 }
 
 func CheckProberDefault(t *testing.T, pm ProberManager) {
+	t.Helper()
 	if err := pm.StopAll(); err != nil {
 		t.Errorf("StopAll() = %v", err)
 	}
