@@ -24,11 +24,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // ResourceNames holds names of various resources.
@@ -157,8 +158,8 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestService(namespace string, names ResourceNames, options *Options) *v1alpha1.Service {
-	return &v1alpha1.Service{
+func LatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+	svc := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Service,
@@ -169,21 +170,10 @@ func LatestService(namespace string, names ResourceNames, options *Options) *v1a
 			},
 		},
 	}
-}
 
-// LatestServiceWithResources returns a RunLatest Service object in namespace with the name names.Service
-// that uses the image specified by names.Image, and small constant resources.
-func LatestServiceWithResources(namespace string, names ResourceNames, options *Options) *v1alpha1.Service {
-	svc := LatestService(namespace, names, options)
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("50Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("20Mi"),
-		},
+	// Apply any mutations we have been provided.
+	for _, opt := range fopt {
+		opt(svc)
 	}
 	return svc
 }

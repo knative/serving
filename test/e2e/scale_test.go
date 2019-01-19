@@ -33,6 +33,9 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration) {
@@ -40,10 +43,39 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 	deployGrp, _ := errgroup.WithContext(context.Background())
 
-	domainCh := make(chan string, scale)
 	cleanupCh := make(chan test.ResourceNames, scale)
 	errCh := make(chan error, 1)
 	defer close(cleanupCh)
+
+	fopt := []ServiceOption{
+		// We set a small resource alloc so that we can pack more pods into the cluster.
+		func(svc *v1alpha1.Service) {
+			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		},
+		// See #2946 for why we do this.
+		func(svc *v1alpha1.Service) {
+			svc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = map[string]string{
+				"autoscaling.knative.dev/minScale": "1",
+				"autoscaling.knative.dev/maxScale": "1",
+			}
+		},
+	}
+	// These are the local (per-probe) and global (all probes) targets for the scale test.
+	// 95 = 19/20, so allow a single failure with the minimum number of probes, but expect
+	// us to have 3.5 9s overall.
+	localSLO, globalSLO := 0.95, 0.9995
+	pm := test.NewProberManager(logger, clients, 20)
+
+	timeoutCh := time.After(duration)
 
 	logger.Info("Creating new Services")
 	for i := 0; i < scale; i++ {
@@ -70,7 +102,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				},
 			}
 
-			svc, err := test.CreateLatestServiceWithResources(logger, clients, names, options)
+			svc, err := test.CreateLatestService(logger, clients, names, options, fopt...)
 			if err != nil {
 				return errors.Wrapf(err, "failed to create service %s", names.Service)
 			}
@@ -107,13 +139,15 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			if err != nil {
 				return errors.Wrapf(err, "the endpoint for Service %s at domain %s didn't serve the expected text %q", names.Service, domain, helloWorldExpectedOutput)
 			}
-			domainCh <- domain
+			// Start probing the domain until the test is complete.
+			pm.Spawn(domain)
 
 			logger.Infof("%s is ready.", names.Service)
 			return nil
 		})
 	}
 
+	doneCh := make(chan struct{})
 	go func() {
 		if err := deployGrp.Wait(); err != nil {
 			logger.Errorf("An error occurred during service creation: %v", err)
@@ -121,11 +155,10 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 		} else {
 			logger.Info("Service creation was successful.")
 			// Succeeds the test
-			close(domainCh)
+			close(doneCh)
 		}
 	}()
 
-	timeoutCh := time.After(duration)
 	for {
 		select {
 		case names := <-cleanupCh:
@@ -133,18 +166,14 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 			defer TearDown(clients, names, logger)
 
-		case domain, ok := <-domainCh:
-			if !ok {
-				logger.Info("All services were created successfully.")
-				return
+		case <-doneCh:
+			logger.Info("All services were created successfully.")
+
+			if err := pm.StopAll(); err != nil {
+				t.Fatalf("StopAll() = %v", err)
 			}
-			// Start probing the domain until the test is complete.
-			probeCh := test.RunRouteProber(logger, clients, domain)
-			defer func(probeCh <-chan error) {
-				if err := test.GetRouteProberError(probeCh, logger); err != nil {
-					t.Fatalf("Route %q prober failed with error: %v", domain, err)
-				}
-			}(probeCh)
+			pm.Check(t, localSLO, globalSLO)
+			return
 
 		case err := <-errCh:
 			t.Fatalf("An error occurred during the test: %v", err)
