@@ -177,6 +177,137 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release"),
 		},
 	}, {
+		Name: "release - update service, route not ready",
+		Objects: []runtime.Object{
+			svc("release-nr", "foo", WithReleaseRollout("release-nr-00002"), WithInitSvcConditions),
+			config("release-nr", "foo", WithReleaseRollout("release-nr-00002"),
+				WithCreatedAndReady("release-nr-00002", "release-nr-00002")),
+			// NB: route points to the previous revision.
+			route("release-nr", "foo", WithReleaseRollout("release-nr-00002"), RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key: "foo/release-nr",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-nr", "foo",
+				WithReleaseRollout("release-nr-00002"),
+				WithReadyConfig("release-nr-00002"),
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
+		},
+	}, {
+		Name: "release - update service, route not ready, 2 rev, no split",
+		Objects: []runtime.Object{
+			svc("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"), WithInitSvcConditions),
+			config("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
+				WithCreatedAndReady("release-nr-00003", "release-nr-00003")),
+			// NB: route points to the previous revision.
+			route("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
+				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key: "foo/release-nr",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-nr", "foo",
+				WithReleaseRollout("release-nr-00002", "release-nr-00003"),
+				WithReadyConfig("release-nr-00003"),
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
+		},
+	}, {
+		Name: "release - update service, route not ready, traffic split",
+		Objects: []runtime.Object{
+			svc("release-nr-ts", "foo",
+				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
+				WithInitSvcConditions),
+			config("release-nr-ts", "foo",
+				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
+				WithCreatedAndReady("release-nr-ts-00003", "release-nr-ts-00003")),
+			route("release-nr-ts", "foo",
+				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
+				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts-00001",
+					Percent:      58,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts-00002",
+					Percent:      42,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key: "foo/release-nr-ts",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-nr-ts", "foo",
+				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
+				WithReadyConfig("release-nr-ts-00003"),
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts-00001",
+					Percent:      58,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts-00002",
+					Percent:      42,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts"),
+		},
+	}, {
+		Name: "release - update service, route not ready, traffic split, percentage changed",
+		Objects: []runtime.Object{
+			svc("release-nr-ts2", "foo",
+				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
+				WithInitSvcConditions),
+			config("release-nr-ts2", "foo",
+				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
+				WithCreatedAndReady("release-nr-ts2-00003", "release-nr-ts2-00003")),
+			route("release-nr-ts2", "foo",
+				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
+				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				// NB: here the revisions match, but percentages, don't.
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts2-00002",
+					Percent:      58,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts2-00003",
+					Percent:      42,
+				}), MarkTrafficAssigned, MarkIngressReady),
+		},
+		Key: "foo/release-nr-ts2",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-nr-ts2", "foo",
+				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
+				WithReadyConfig("release-nr-ts2-00003"),
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts2-00002",
+					Percent:      58,
+				}, v1alpha1.TrafficTarget{
+					RevisionName: "release-nr-ts2-00003",
+					Percent:      42,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts2"),
+		},
+	}, {
 		Name: "release - route and config ready, propagate ready, percentage set",
 		Objects: []runtime.Object{
 			svc("release-ready", "foo", WithReleaseRolloutAndPercentage(10, /*candidate traffic percentage*/
