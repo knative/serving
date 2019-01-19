@@ -224,7 +224,6 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 }
 
 func (c *Reconciler) releaseCheckTrafficMigrated(s *v1alpha1.Service, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
-	c.Logger.Error("##### checking release")
 	// If the service's RouteReady condition is in a happy state.
 	if rc := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
 		// Case 1. Either all the traffic is going to the `current` or there is no `candidate` at all.
@@ -235,13 +234,13 @@ func (c *Reconciler) releaseCheckTrafficMigrated(s *v1alpha1.Service, rs *v1alph
 		revs := s.Spec.Release.Revisions
 		if rp == 0 || len(revs) == 1 {
 			if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != revs[0] {
-				c.Logger.Errorf("### %s: traffic not yet migrated to %s", s.Name, revs[0])
+				c.Logger.Debugf("%s: traffic not yet migrated to %s", s.Name, revs[0])
 				s.Status.MarkRouteNotYetReady()
 			}
 		} else {
 			// Case 2. We have two candidates and traffic is in 0-99 range.
 			if len(rs.Traffic) < 2 {
-				c.Logger.Errorf("### %s: traffic does not have enough entries yet", s.Name)
+				c.Logger.Debugf("%s: traffic does not have enough entries yet", s.Name)
 				s.Status.MarkRouteNotYetReady()
 				return
 			}
@@ -257,7 +256,7 @@ func (c *Reconciler) releaseCheckTrafficMigrated(s *v1alpha1.Service, rs *v1alph
 
 			// Not happy with `cmp` here, but it seems the best way for now.
 			if !cmp.Equal(got, want) {
-				c.Logger.Errorf("### %s: desired vs actual route config: diff(+service, -traffic): %+s",
+				c.Logger.Debugf("%s: desired vs actual route config: diff(+service, -traffic): %+s",
 					s.Name, cmp.Diff(got, want))
 				s.Status.MarkRouteNotYetReady()
 			}
