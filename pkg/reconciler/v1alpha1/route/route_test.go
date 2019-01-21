@@ -274,11 +274,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
 
 	// An inactive revision
-	rev := getTestRevisionWithCondition("test-rev",
-		duckv1alpha1.Condition{
-			Type:   v1alpha1.RevisionConditionActive,
-			Status: corev1.ConditionFalse,
-		})
+	rev := getTestRevision("test-rev")
+	rev.Status.MarkInactive("NoTraffic", "no message")
+
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
