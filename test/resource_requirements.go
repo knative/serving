@@ -21,18 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// SmallResourceRequirments - small CPU and memory requirements
-var SmallResourceRequirments = corev1.ResourceRequirements{
-	Limits: corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("10m"),
-		corev1.ResourceMemory: resource.MustParse("50Mi"),
-	},
-	Requests: corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("10m"),
-		corev1.ResourceMemory: resource.MustParse("20Mi"),
-	},
-}
-
 // MediumMemoryRequirements - medium memory requirements
 var MediumMemoryRequirements = corev1.ResourceRequirements{
 	Limits: corev1.ResourceList{
