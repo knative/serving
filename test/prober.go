@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
@@ -55,7 +54,11 @@ type prober struct {
 	requests int64
 	failures int64
 	stopped  bool
-	err      error
+
+	// This channel is used to send errors encountered probing the domain.
+	errCh chan error
+	// This channel is simply closed when minimumProbes has been satisfied.
+	minDoneCh chan struct{}
 }
 
 // prober implements Prober
@@ -71,44 +74,30 @@ func (p *prober) SLI() (int64, int64) {
 
 // Stop implements Prober
 func (p *prober) Stop() error {
-	for {
-		if done, err := p.checkIfDone(); err != nil {
-			return err
-		} else if done {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-}
-
-// checkIfDone checks whether the given prober has completed.
-// If there is a stored error, then this returns "done" with the error.
-// If the number of processed requests satisfies our minimum, then
-// this returns "done" without error.
-// Otherwise we return "not done".
-func (p *prober) checkIfDone() (bool, error) {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	if p.err != nil || p.stopped {
+	// When we're done stop sending requests.
+	defer func() {
+		p.m.Lock()
+		defer p.m.Unlock()
 		p.stopped = true
-		return true, p.err
+	}()
+
+	// Check for any immediately available errors
+	select {
+	case err := <-p.errCh:
+		return err
+	default:
+		// Don't block if there are no errors immediately available.
 	}
 
-	if p.requests >= p.minimumProbes {
-		p.stopped = true
-		return true, nil
+	// If there aren't any immediately available errors, then
+	// wait for either an error or the minimum number of probes
+	// to be satisfied.
+	select {
+	case err := <-p.errCh:
+		return err
+	case <-p.minDoneCh:
+		return nil
 	}
-
-	p.logger.Infof("%q needs more probes; got %d, want %d", p.domain, p.requests, p.minimumProbes)
-	return false, nil
-}
-
-func (p *prober) setError(err error) {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	p.err = err
 }
 
 func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
@@ -125,9 +114,12 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 			response.Header, string(response.Body))
 		p.failures++
 	}
+	if p.requests == p.minimumProbes {
+		close(p.minDoneCh)
+	}
 
 	// Returning (false, nil) causes SpoofingClient.Poll to retry.
-	return p.stopped, nil
+	return false, nil
 }
 
 // ProberManager is the interface for spawning probers, and checking their results.
@@ -165,14 +157,20 @@ func (m *manager) Spawn(domain string) Prober {
 	}
 
 	m.logger.Infof("Starting Route prober for route domain %s.", domain)
-	p := &prober{logger: m.logger, domain: domain, minimumProbes: m.minProbes}
+	p := &prober{
+		logger:        m.logger,
+		domain:        domain,
+		minimumProbes: m.minProbes,
+		errCh:         make(chan error, 1),
+		minDoneCh:     make(chan struct{}),
+	}
 	m.probes[domain] = p
 	go func() {
 		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logger, domain,
 			ServingFlags.ResolvableDomain)
 		if err != nil {
 			m.logger.Infof("NewSpoofingClient() = %v", err)
-			p.setError(err)
+			p.errCh <- err
 			return
 		}
 
@@ -181,17 +179,16 @@ func (m *manager) Spawn(domain string) Prober {
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 		if err != nil {
 			m.logger.Infof("NewRequest() = %v", err)
-			p.setError(err)
+			p.errCh <- err
 			return
 		}
 
-		// We keep polling Route if the response status is OK.
-		// If the response status is not OK, we stop the prober and
-		// generate error based on the response.z
+		// We keep polling the domain and accumulate success rates
+		// to ultimately establish the SLI and compare to the SLO.
 		_, err = client.Poll(req, p.handleResponse)
 		if err != nil {
 			m.logger.Infof("Poll() = %v", err)
-			p.setError(err)
+			p.errCh <- err
 			return
 		}
 	}()
