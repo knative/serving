@@ -50,7 +50,7 @@ type prober struct {
 	minimumProbes int64
 
 	// m guards access to these fields
-	m        sync.Mutex
+	m        sync.RWMutex
 	requests int64
 	failures int64
 	stopped  bool
@@ -66,8 +66,8 @@ var _ Prober = (*prober)(nil)
 
 // SLI implements Prober
 func (p *prober) SLI() (int64, int64) {
-	p.m.Lock()
-	defer p.m.Unlock()
+	p.m.RLock()
+	defer p.m.RUnlock()
 
 	return p.requests, p.failures
 }
@@ -141,7 +141,7 @@ type manager struct {
 	clients   *Clients
 	minProbes int64
 
-	m      sync.Mutex
+	m      sync.RWMutex
 	probes map[string]Prober
 }
 
@@ -211,8 +211,8 @@ func (m *manager) Stop() error {
 
 // SLI implements Prober
 func (m *manager) SLI() (total int64, failures int64) {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 	for _, prober := range m.probes {
 		pt, pf := prober.SLI()
 		total += pt
@@ -223,8 +223,8 @@ func (m *manager) SLI() (total int64, failures int64) {
 
 // Foreach implements ProberManager
 func (m *manager) Foreach(f func(domain string, p Prober)) {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
 	for domain, prober := range m.probes {
 		f(domain, prober)
