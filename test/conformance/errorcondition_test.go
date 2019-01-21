@@ -48,14 +48,14 @@ func TestContainerErrorMsg(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerErrorMsg")
 
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-error-msg", logger)}
+	names := test.ResourceNames{
+		Config: test.AppendRandomString("test-container-error-msg", logger),
+		Image:  "invalidhelloworld",
+	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := test.ImagePath("invalidhelloworld")
-
-	logger.Infof("Creating a new Configuration %s", imagePath)
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
-	if err != nil {
+	logger.Infof("Creating a new Configuration %s", names.Image)
+	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 	defer tearDown(clients, names)
@@ -65,7 +65,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
@@ -125,15 +125,17 @@ func TestContainerExitingMsg(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestContainerExitingMsg")
 
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-exiting-msg", logger)}
-	imagePath := test.ImagePath("failing")
+	names := test.ResourceNames{
+		Config: test.AppendRandomString("test-container-exiting-msg", logger),
+		Image:  "failing",
+	}
 
 	// The given image will always exit with an exit code of 5
 	exitCodeReason := "ExitCode5"
 	// ... and will print "Crashed..." before it exits
 	errorLog := "Crashed..."
 
-	logger.Infof("Creating a new Configuration %s", imagePath)
+	logger.Infof("Creating a new Configuration %s", names.Image)
 
 	// This probe is crucial for having a race free conformance test. It will prevent the
 	// pod from becoming ready intermittently.
@@ -142,8 +144,7 @@ func TestContainerExitingMsg(t *testing.T) {
 			HTTPGet: &corev1.HTTPGetAction{},
 		},
 	}
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{ReadinessProbe: probe})
-	if err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{ReadinessProbe: probe}); err != nil {
 		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 	}
 	defer tearDown(clients, names)
@@ -151,7 +152,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 	logger.Infof("When the containers keep crashing, the Configuration should have error status.")
 
-	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {

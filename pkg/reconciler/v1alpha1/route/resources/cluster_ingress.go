@@ -31,14 +31,14 @@ import (
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 )
 
 func isClusterLocal(r *servingv1alpha1.Route) bool {
-	return strings.HasSuffix(r.Status.Domain, config.ClusterLocalDomain)
+	return strings.HasSuffix(r.Status.Domain, utils.GetClusterDomainName())
 }
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
@@ -163,7 +163,7 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traff
 	}
 	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
 		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
-			ServiceNamespace: system.Namespace,
+			ServiceNamespace: system.Namespace(),
 			ServiceName:      activator.K8sServiceName,
 			ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
 		},

@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -180,13 +181,17 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
+	} else if !metav1.IsControlledBy(config, service) {
+		// Surface an error in the service's status,and return an error.
+		service.Status.MarkConfigurationNotOwned(configName)
+		return fmt.Errorf("Service: %q does not own Configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
 	}
 
 	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfigurationStatus(config.Status)
+	service.Status.PropagateConfigurationStatus(&config.Status)
 
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
@@ -201,16 +206,38 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
 		return err
+	} else if !metav1.IsControlledBy(route, service) {
+		// Surface an error in the service's status, and return an error.
+		service.Status.MarkRouteNotOwned(routeName)
+		return fmt.Errorf("Service: %q does not own Route: %q", service.Name, routeName)
 	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
 		return err
 	}
 
 	// Update our Status based on the state of our underlying Route.
-	service.Status.PropagateRouteStatus(route.Status)
+	ss := &service.Status
+	ss.PropagateRouteStatus(&route.Status)
+
+	// Apply additional logic, once the generic data has been propagated.
+	switch {
+	case service.Spec.RunLatest != nil:
+		runLatestCheckTrafficMigrated(ss, &route.Status, &config.Status)
+	}
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
+}
+
+func runLatestCheckTrafficMigrated(ss *v1alpha1.ServiceStatus, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
+	// If the service's RouteReady is in favorable condition.
+	if rc := ss.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+		// In case of RunLatest, verify that traffic has already migrated
+		// to the latest revision.
+		if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != cs.LatestReadyRevisionName {
+			ss.MarkRouteNotYetReady()
+		}
+	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
@@ -222,13 +249,13 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	if reflect.DeepEqual(service.Status, desired.Status) {
 		return service, nil
 	}
-	becomesRdy := desired.Status.IsReady() && !service.Status.IsReady()
+	becomesReady := desired.Status.IsReady() && !service.Status.IsReady()
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
-	if err == nil && becomesRdy {
+	if err == nil && becomesReady {
 		duration := time.Now().Sub(svc.ObjectMeta.CreationTimestamp.Time)
 		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
@@ -276,7 +303,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	ignoreRouteLabelChange(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
-	desiredConfig.Spec.Generation = config.Spec.Generation
+	desiredConfig.Spec.DeprecatedGeneration = config.Spec.DeprecatedGeneration
 
 	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.
@@ -323,7 +350,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates).
-	desiredRoute.Spec.Generation = route.Spec.Generation
+	desiredRoute.Spec.DeprecatedGeneration = route.Spec.DeprecatedGeneration
 
 	if routeSemanticEquals(desiredRoute, route) {
 		// No differences to reconcile.

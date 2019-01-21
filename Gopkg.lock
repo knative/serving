@@ -430,7 +430,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:fa73f366c59a6d6b58a99e5ae1f6b212d55a88ca33a5ebe3cb93b6c741339bf0"
+  digest = "1:f142393519821f42e957c353a38b5f8ed2ee49311c7f3e2573e329f07c4fd95c"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -472,15 +472,16 @@
     "test/spoof",
     "test/zipkin",
     "tracker",
+    "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "5f162625780f838b56d41f8b0786224f18ff7eb4"
+  revision = "076ebf4e56758e76cd87fa402e9478da25ed942e"
 
 [[projects]]
   branch = "master"
-  digest = "1:1916039feb4d32618a43dc18c8b0d4998b3354eef6c3542d14d5cb68c9b39f50"
+  digest = "1:3c42ecb5d8e961b4d4df50b33c4b5fedf56d950ac0a8e51458c9781cb16c5610"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -490,7 +491,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "2c930fb3c82934602617d9fb231fdc21c2d3cbe0"
+  revision = "8ef3dc1c2ed07e64024bc68c9dbd1a2e10e9e975"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -602,6 +603,13 @@
   ]
   pruneopts = "NUT"
   revision = "282c8707aa210456a825798969cc27edda34992a"
+
+[[projects]]
+  digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
+  name = "github.com/rogpeppe/go-internal"
+  packages = ["semver"]
+  pruneopts = "NUT"
+  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
@@ -1247,6 +1255,7 @@
     "github.com/google/go-containerregistry/pkg/v1",
     "github.com/google/go-containerregistry/pkg/v1/random",
     "github.com/google/go-containerregistry/pkg/v1/remote",
+    "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
@@ -1280,6 +1289,7 @@
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
+    "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
     "github.com/knative/pkg/websocket",
     "github.com/knative/test-infra/scripts",

@@ -250,10 +250,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
-			Message: "expected number of elements in range [1, 2], got 3",
-			Paths:   []string{"spec.release.revisions"},
-		},
+		want: apis.ErrOutOfBoundsValue("3", "1", "2", "spec.release.revisions"),
 	}, {
 		name: "invalid release -- rollout greater than 99",
 		s: &Service{
@@ -273,7 +270,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("100", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue("100", "0", "99", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- rollout less than 0",
 		s: &Service{
@@ -293,7 +290,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("-50", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue("-50", "0", "99", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- non-zero rollout for single revision",
 		s: &Service{

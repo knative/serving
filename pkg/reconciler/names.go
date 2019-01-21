@@ -16,10 +16,14 @@ limitations under the License.
 
 package reconciler
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/knative/serving/pkg/utils"
+)
 
 func GetK8sServiceFullname(name string, namespace string) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, utils.GetClusterDomainName())
 }
 
 func GetServingK8SServiceNameForObj(name string) string {

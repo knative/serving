@@ -83,9 +83,8 @@ func TestServiceToServiceCall(t *testing.T) {
 	clients = Setup(t)
 
 	// Set up helloworld app.
-	helloWorldImagePath := test.ImagePath("helloworld")
 	logger.Infof("Creating a Route and Configuration for helloworld test app.")
-	helloWorldNames, err := CreateRouteAndConfig(clients, logger, helloWorldImagePath, &test.Options{})
+	helloWorldNames, err := CreateRouteAndConfig(clients, logger, "helloworld", &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -96,11 +95,9 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 
 	// Set up httpproxy app.
-	httpProxyImagePath := test.ImagePath("httpproxy")
-
 	logger.Infof("Creating a Route and Configuration for httpproxy test app.")
 	envVars := createTargetHostEnvVars(helloWorldNames.Route, t)
-	httpProxyNames, err := CreateRouteAndConfig(clients, logger, httpProxyImagePath, &test.Options{
+	httpProxyNames, err := CreateRouteAndConfig(clients, logger, "httpproxy", &test.Options{
 		EnvVars: envVars,
 	})
 	if err != nil {

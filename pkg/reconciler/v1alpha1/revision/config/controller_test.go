@@ -55,7 +55,7 @@ func TestControllerConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{
@@ -74,7 +74,7 @@ func TestControllerConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{
@@ -88,7 +88,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantController: (*Controller)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{},

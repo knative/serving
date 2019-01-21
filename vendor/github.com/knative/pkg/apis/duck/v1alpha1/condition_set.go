@@ -212,11 +212,16 @@ func (r conditionsImpl) SetCondition(new Condition) {
 }
 
 func (r conditionsImpl) isTerminal(t ConditionType) bool {
-	for _, cond := range append(r.dependents, r.happy) {
+	for _, cond := range r.dependents {
 		if cond == t {
 			return true
 		}
 	}
+
+	if t == r.happy {
+		return true
+	}
+
 	return false
 }
 
@@ -319,9 +324,10 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, messageFormat string,
 // InitializeConditions updates all Conditions in the ConditionSet to Unknown
 // if not set.
 func (r conditionsImpl) InitializeConditions() {
-	for _, t := range append(r.dependents, r.happy) {
+	for _, t := range r.dependents {
 		r.InitializeCondition(t)
 	}
+	r.InitializeCondition(r.happy)
 }
 
 // InitializeCondition updates a Condition to Unknown if not set.

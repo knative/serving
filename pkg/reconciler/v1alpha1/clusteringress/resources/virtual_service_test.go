@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/system"
+	_ "github.com/knative/serving/pkg/system/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -45,7 +46,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 	}
 	expected := metav1.ObjectMeta{
 		Name:      "test-ingress",
-		Namespace: system.Namespace,
+		Namespace: system.Namespace(),
 		Labels: map[string]string{
 			networking.IngressLabelKey:     "test-ingress",
 			serving.RouteLabelKey:          "test-route",
@@ -162,6 +163,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
@@ -179,6 +181,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}}
 	routes := MakeVirtualService(ci, []string{}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
@@ -225,6 +228,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -279,6 +283,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Attempts:      v1alpha1.DefaultRetryCount,
 			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
 		},
+		WebsocketUpgrade: true,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

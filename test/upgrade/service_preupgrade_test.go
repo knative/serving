@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 )

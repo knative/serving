@@ -114,9 +114,9 @@ func TestReporter_Report(t *testing.T) {
 	if err := reporter.Report(true, float64(39), float64(3)); err != nil {
 		t.Error(err)
 	}
-	checkData(t, LameDuckN, 1, testTagKeyValueMap)
-	checkData(t, OperationsPerSecondN, 39, testTagKeyValueMap)
-	checkData(t, AverageConcurrentRequestsN, 3, testTagKeyValueMap)
+	checkData(t, lameDuckN, 1, testTagKeyValueMap)
+	checkData(t, operationsPerSecondN, 39, testTagKeyValueMap)
+	checkData(t, averageConcurrentRequestsN, 3, testTagKeyValueMap)
 	if err := reporter.UnregisterViews(); err != nil {
 		t.Errorf("Error with unregistering views, %v", err)
 	}

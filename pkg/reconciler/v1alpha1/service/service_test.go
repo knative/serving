@@ -466,6 +466,68 @@ func TestReconcile(t *testing.T) {
 			"foo/all-ready": 1,
 		},
 	}, {
+		Name: "runLatest - route ready previous version and config ready, service not ready",
+		// When both route and config are ready, but the route points to the previous revision
+		// the service should not be ready.
+		Objects: []runtime.Object{
+			svc("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-only-ready-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("config-only-ready", "foo", WithRunLatestRollout, WithGeneration(2 /*will generate revision -00002*/),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/config-only-ready",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("config-only-ready", "foo", WithRunLatestRollout,
+				WithReadyConfig("config-only-ready-00002"),
+				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-only-ready-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
+		},
+	}, {
+		Name: "runLatest - config fails, new gen, propagate failure",
+		// Gen 1: everything is fine;
+		// Gen 2: config update fails;
+		//    => service is still OK serving Gen 1.
+		Objects: []runtime.Object{
+			svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-fails-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("config-fails", "foo", WithRunLatestRollout,
+				// NB: the order matters. First we create a happy config at gen 1,
+				// then we fail gen 2.
+				WithGeneration(1), WithLatestReady, WithGeneration(2),
+				WithLatestCreated, MarkLatestCreatedFailed("blah")),
+		},
+		Key: "foo/config-fails",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-fails-00001",
+					Percent:      100,
+				}),
+				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
+				WithServiceLatestReadyRevision("config-fails-00001")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
+		},
+	}, {
 		Name: "runLatest - config fails, propagate failure",
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
@@ -477,9 +539,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/config-fails",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
-				// When the Route is Ready, and the Configuration has failed,
-				// we expect the following changes to our status conditions.
-				WithReadyRoute, WithFailedConfig(
+				WithServiceStatusRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
 		WantEvents: []string{
@@ -506,6 +566,69 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
+		},
+	}, {
+		Name:    "runLatest - not owned config exists",
+		WantErr: true,
+		Objects: []runtime.Object{
+			svc("run-latest", "foo", WithRunLatestRollout),
+			config("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
+		},
+		Key: "foo/run-latest",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions, MarkConfigurationNotOwned),
+		}},
+	}, {
+		Name:    "runLatest - not owned route exists",
+		WantErr: true,
+		Objects: []runtime.Object{
+			svc("run-latest", "foo", WithRunLatestRollout),
+			config("run-latest", "foo", WithRunLatestRollout),
+			route("run-latest", "foo", WithRunLatestRollout, WithRouteOwnersRemoved),
+		},
+		Key: "foo/run-latest",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions, MarkRouteNotOwned),
+		}},
+	}, {
+		Name: "runLatest - correct not owned by adding owner refs",
+		// If ready Route/Configuration that weren't owned have OwnerReferences attached,
+		// then a Reconcile will result in the Service becoming happy.
+		Objects: []runtime.Object{
+			svc("new-owner", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				// This service was unhappy with the prior owner situation.
+				MarkConfigurationNotOwned, MarkRouteNotOwned),
+			// The service owns these, which should result in a happy result.
+			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "new-owner-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/new-owner",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("new-owner", "foo", WithRunLatestRollout,
+				WithReadyConfig("new-owner-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "new-owner-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/new-owner": 1,
 		},
 	}}
 

@@ -288,6 +288,24 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 }
 
+func TestRouteNotOwnedStuff(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkServiceNotOwned("evan")
+	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+}
+
 func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionTrue, t)

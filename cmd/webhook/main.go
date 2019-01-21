@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -75,8 +76,12 @@ func main() {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
 	}
 
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
+	}
+
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
@@ -85,7 +90,7 @@ func main() {
 	options := webhook.ControllerOptions{
 		ServiceName:    "webhook",
 		DeploymentName: "webhook",
-		Namespace:      system.Namespace,
+		Namespace:      system.Namespace(),
 		Port:           443,
 		SecretName:     "webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",

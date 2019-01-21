@@ -36,10 +36,9 @@ type Options struct {
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
-// that uses the image specified by imagePath.
-// TODO(dangerd): Update to use names.Image instead of imagePath to match Service. Requires some refactoring test/e2e.
-func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string, options *Options) (*v1alpha1.Configuration, error) {
-	config := Configuration(ServingNamespace, names, imagePath, options)
+// that uses the image specified by names.Image.
+func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options) (*v1alpha1.Configuration, error) {
+	config := Configuration(ServingNamespace, names, options)
 	LogResourceObject(logger, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }
