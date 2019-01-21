@@ -171,20 +171,10 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 		},
 	}
 
-<<<<<<< HEAD
-// LatestServiceWithResources returns a RunLatest Service object in namespace with the name names.Service
-// that uses the image specified by imagePath, and small constant resources.
-func LatestServiceWithResources(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
-
-	svc := LatestService(namespace, names, imagePath, &Options{})
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = SmallResourceRequirments
-
-=======
 	// Apply any mutations we have been provided.
 	for _, opt := range fopt {
 		opt(svc)
 	}
->>>>>>> upstream/master
 	return svc
 }
 
