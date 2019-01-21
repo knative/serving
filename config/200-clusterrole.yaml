@@ -45,5 +45,5 @@ rules:
     resources: ["pipelines", "tasks", "pipelineresources", "pipelineruns", "taskruns"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices"]
+    resources: ["virtualservices", "gateways"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

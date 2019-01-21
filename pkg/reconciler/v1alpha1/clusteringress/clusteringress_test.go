@@ -37,6 +37,8 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -46,8 +48,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	"github.com/knative/pkg/system"
-	_ "github.com/knative/pkg/system/testing"
 )
 
 const (
@@ -91,6 +91,44 @@ var (
 			},
 		},
 	}}
+
+	ingressTLS = []v1alpha1.ClusterIngressTLS{{
+		Hosts:             []string{"host-tls.example.com"},
+		SecretName:        "secret0",
+		SecretNamespace:   "istio-system",
+		ServerCertificate: "tls.crt",
+		PrivateKey:        "tls.key",
+	}}
+
+	// The gateway server according to ingressTLS.
+	ingressTLSServer = v1alpha3.Server{
+		Hosts: []string{"host-tls.example.com"},
+		Port: v1alpha3.Port{
+			Name:     "new-created-clusteringress:0",
+			Number:   443,
+			Protocol: v1alpha3.ProtocolHTTPS,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			Mode:              v1alpha3.TLSModeSimple,
+			ServerCertificate: "tls.crt",
+			PrivateKey:        "tls.key",
+		},
+	}
+
+	// The gateway server irrelevant to ingressTLS.
+	irrelevanteServer = v1alpha3.Server{
+		Hosts: []string{"test.example.com"},
+		Port: v1alpha3.Port{
+			Name:     "test:0",
+			Number:   443,
+			Protocol: v1alpha3.ProtocolHTTPS,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			Mode:              v1alpha3.TLSModeSimple,
+			ServerCertificate: "tls.crt",
+			PrivateKey:        "tls.key",
+		},
+	}
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -204,14 +242,70 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(opt, controllerAgentName),
-			virtualServiceLister: listers.GetVirtualServiceLister(),
-			clusterIngressLister: listers.GetClusterIngressLister(),
+			Base:                     reconciler.NewBase(opt, controllerAgentName),
+			virtualServiceLister:     listers.GetVirtualServiceLister(),
+			clusterIngressLister:     listers.GetClusterIngressLister(),
+			gatewayLister:            listers.GetGatewayLister(),
+			enableReconcilingGateway: false,
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
 		}
 	}))
+}
+
+func TestReconcile_Gateway(t *testing.T) {
+	table := TableTest{{
+		Name:                    "update Gateway to match newly created ClusterIngress",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithTLS("new-created-clusteringress", 1234, ingressTLS),
+			// No Gateway servers match the given TLS of ClusterIngress.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+			gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
+				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// ingressTLSServer needs to be added into Gateway.
+			Object: gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+		}, {
+			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-shared-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+		},
+		Key: "new-created-clusteringress",
+	}}
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			virtualServiceLister: listers.GetVirtualServiceLister(),
+			clusterIngressLister: listers.GetClusterIngressLister(),
+			gatewayLister:        listers.GetGatewayLister(),
+			// Enable reconciling gateway.
+			enableReconcilingGateway: true,
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
+			},
+		}
+	}))
+}
+
+func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gateway {
+	return &v1alpha3.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha3.GatewaySpec{
+			Servers: servers,
+		},
+	}
 }
 
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
@@ -272,6 +366,16 @@ func ingress(name string, generation int64) *v1alpha1.ClusterIngress {
 	return ingressWithStatus(name, generation, v1alpha1.IngressStatus{})
 }
 
+func ingressWithTLS(name string, generation int64, tls []v1alpha1.ClusterIngressTLS) *v1alpha1.ClusterIngress {
+	return ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
+}
+
+func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.ClusterIngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
+	ci := ingressWithStatus(name, generation, status)
+	ci.Spec.TLS = tls
+	return ci
+}
+
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	sharedClient *fakesharedclientset.Clientset,
@@ -317,6 +421,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
 		sharedInformer.Networking().V1alpha3().VirtualServices(),
+		sharedInformer.Networking().V1alpha3().Gateways(),
 	)
 
 	rclr = controller.Reconciler.(*Reconciler)
