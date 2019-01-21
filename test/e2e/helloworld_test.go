@@ -29,10 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
-)
-
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 

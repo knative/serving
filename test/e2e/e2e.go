@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	configName = "prod"
-	routeName  = "noodleburg"
+	configName               = "prod"
+	routeName                = "noodleburg"
+	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 
 // Setup creates the client objects needed in the e2e tests.
