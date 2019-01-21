@@ -144,6 +144,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
 
 	} else if _, uErr := c.updateStatus(service); uErr != nil {
 		logger.Warn("Failed to update service status", zap.Error(uErr))
