@@ -140,7 +140,7 @@ func TestRouteCreation(t *testing.T) {
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
 	prober := test.RunRouteProber(logger, clients, domain)
-	defer test.CheckProberDefault(t, prober)
+	defer test.AssertProberDefault(t, prober)
 
 	logger.Infof("Updating the Configuration to use a different image")
 	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, test.ImagePath(pizzaPlanet2))

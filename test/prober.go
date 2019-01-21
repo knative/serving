@@ -132,15 +132,15 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 
 // ProberManager is the interface for spawning probers, and checking their results.
 type ProberManager interface {
+	// The ProberManager should expose a way to collectively reason about spawned
+	// probes as a sort of aggregating Prober.
+	Prober
+
 	// Spawn creates a new Prober
 	Spawn(domain string) Prober
 
-	// StopAll terminates all probers, returning any observed errors.
-	StopAll() error
-
-	// Check compares each of the prober SLIs against the localSLO and
-	// then the aggregate of the SLIs against the globalSLO
-	Check(t *testing.T, localSLO, globalSLO float64)
+	// Foreach iterates over the probers spawned by this ProberManager.
+	Foreach(func(domain string, p Prober))
 }
 
 type manager struct {
@@ -198,8 +198,8 @@ func (m *manager) Spawn(domain string) Prober {
 	return p
 }
 
-// StopAll implements ProberManager
-func (m *manager) StopAll() error {
+// Stop implements ProberManager
+func (m *manager) Stop() error {
 	m.m.Lock()
 	defer m.m.Unlock()
 
@@ -212,31 +212,25 @@ func (m *manager) StopAll() error {
 	return errgrp.Wait()
 }
 
-// Check implements ProberManager
-func (m *manager) Check(t *testing.T, localSLO, globalSLO float64) {
-	t.Helper()
+// SLI implements Prober
+func (m *manager) SLI() (total int64, failures int64) {
+	m.m.Lock()
+	defer m.m.Unlock()
+	for _, prober := range m.probes {
+		pt, pf := prober.SLI()
+		total += pt
+		failures += pf
+	}
+	return
+}
+
+// Foreach implements ProberManager
+func (m *manager) Foreach(f func(domain string, p Prober)) {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	m.logger.Infof("Checking local (%f) and global (%v) SLOs", localSLO, globalSLO)
-
-	var globalTotal, globalFailures int64
 	for domain, prober := range m.probes {
-		total, failures := prober.SLI()
-
-		successRate := float64(total-failures) / float64(total)
-		m.logger.Infof("%q SLI is %f (total: %d, failures: %d)", domain, successRate, total, failures)
-		if successRate < localSLO {
-			t.Errorf("SLI for %q = %f, wanted >= %f", domain, successRate, localSLO)
-		}
-		globalTotal += total
-		globalFailures += failures
-	}
-
-	globalSuccessRate := float64(globalTotal-globalFailures) / float64(globalTotal)
-	m.logger.Infof("global SLI is %f (total: %d, failures: %d)", globalSuccessRate, globalTotal, globalFailures)
-	if globalSuccessRate < globalSLO {
-		t.Errorf("SLI for %q = %f, wanted >= %f", "all", globalSuccessRate, globalSLO)
+		f(domain, prober)
 	}
 }
 
@@ -249,18 +243,35 @@ func NewProberManager(logger *logging.BaseLogger, clients *Clients, minProbes in
 	}
 }
 
-func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string) ProberManager {
+// RunRouteProber starts a single Prober of the given domain.
+func RunRouteProber(logger *logging.BaseLogger, clients *Clients, domain string) Prober {
 	// Default to 10 probes
 	pm := NewProberManager(logger, clients, 10)
 	pm.Spawn(domain)
 	return pm
 }
 
-func CheckProberDefault(t *testing.T, pm ProberManager) {
+// AssertProberDefault is a helper for stopping the Prober and checking its SLI
+// against the default SLO, which requires perfect responses.
+// This takes `testing.T` so that it may be used in `defer`.
+func AssertProberDefault(t *testing.T, p Prober) {
 	t.Helper()
-	if err := pm.StopAll(); err != nil {
-		t.Errorf("StopAll() = %v", err)
+	if err := p.Stop(); err != nil {
+		t.Errorf("Stop() = %v", err)
 	}
-	// Default to 100% correct (typically used in conjunctions with the low probe count above)
-	pm.Check(t, 1.0, 1.0)
+	// Default to 100% correct (typically used in conjunction with the low probe count above)
+	if err := CheckSLO(1.0, t.Name(), p); err != nil {
+		t.Errorf("CheckSLO() = %v", err)
+	}
+}
+
+// CheckSLO compares the SLI of the given prober against the SLO, erroring if too low.
+func CheckSLO(slo float64, name string, p Prober) error {
+	total, failures := p.SLI()
+
+	successRate := float64(total-failures) / float64(total)
+	if successRate < slo {
+		return fmt.Errorf("SLI for %q = %f, wanted >= %f", name, successRate, slo)
+	}
+	return nil
 }

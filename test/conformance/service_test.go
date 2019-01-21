@@ -181,7 +181,7 @@ func TestRunLatestService(t *testing.T) {
 
 	// We start a background prober to test if Route is always healthy even during Route update.
 	prober := test.RunRouteProber(logger, clients, names.Domain)
-	defer test.CheckProberDefault(t, prober)
+	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
 	logger.Info("Updating the Service to use a different image.")

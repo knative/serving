@@ -169,16 +169,25 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 
 		case <-doneCh:
 			// This ProberManager implementation waits for minProbes before actually stopping.
-			if err := pm.StopAll(); err != nil {
-				t.Fatalf("StopAll() = %v", err)
+			if err := pm.Stop(); err != nil {
+				t.Fatalf("Stop() = %v", err)
 			}
-			pm.Check(t, localSLO, globalSLO)
+			// Check each of the local SLOs
+			pm.Foreach(func(domain string, p test.Prober) {
+				if err := test.CheckSLO(localSLO, domain, p); err != nil {
+					t.Errorf("CheckSLO() = %v", err)
+				}
+			})
+			// Check the global SLO
+			if err := test.CheckSLO(globalSLO, "aggregate", pm); err != nil {
+				t.Errorf("CheckSLO() = %v", err)
+			}
 			return
 
 		case <-timeoutCh:
 			// If we don't do this first, then we'll see tons of 503s from the ongoing probes
 			// as we tear down the things they are probing.
-			defer pm.StopAll()
+			defer pm.Stop()
 			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
@@ -191,14 +200,14 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 
 func TestScaleTo10(t *testing.T) {
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestScaleTo10")
 
 	testScaleToWithin(t, logger, 10, 60*time.Second)
 }
 
 func TestScaleTo50(t *testing.T) {
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestScaleTo50")
 
 	testScaleToWithin(t, logger, 50, 5*time.Minute)
@@ -207,7 +216,7 @@ func TestScaleTo50(t *testing.T) {
 // A version to customize for more extreme scale testing.
 // This should only be checked in commented out.
 // func TestScaleToN(t *testing.T) {
-// 	//add test case specific name to its own logger
+// 	// Add test case specific name to its own logger.
 // 	logger := logging.GetContextLogger("TestScaleToN")
 //
 // 	testScaleToWithin(t, logger, 200, 4*time.Minute)
