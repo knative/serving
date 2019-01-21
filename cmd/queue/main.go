@@ -164,25 +164,6 @@ func isProbe(r *http.Request) bool {
 	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
 }
 
-func timeoutHandler(h http.Handler, d time.Duration) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		done := make(chan struct{})
-
-		go func() {
-			defer close(done)
-
-			h.ServeHTTP(w, r)
-		}()
-
-		select {
-		case <-done:
-			return
-		case <-time.After(d):
-			panic(http.ErrAbortHandler)
-		}
-	})
-}
-
 func handler(w http.ResponseWriter, r *http.Request) {
 	proxy := proxyForRequest(r)
 
