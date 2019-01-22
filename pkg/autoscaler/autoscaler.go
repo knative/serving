@@ -35,6 +35,9 @@ const (
 	// assume the pod is still active. Otherwise, the active status of a pod is
 	// unknown.
 	activeThreshold time.Duration = time.Second
+
+	// Activator pod weight is always 1
+	activatorPodWeight float64 = 1
 )
 
 // Stat defines a single measurement at a point in time
@@ -170,7 +173,7 @@ func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
 // pod became out of service.
 func (agg *perPodAggregation) podWeight(now time.Time) float64 {
 	if agg.isActivator {
-		return 1.0 // Activator pod weight is always 1
+		return activatorPodWeight
 	}
 
 	gapToNow := now.Sub(*agg.latestStatTime)
