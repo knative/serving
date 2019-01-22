@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/system"
+	_ "github.com/knative/serving/pkg/system/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -45,7 +46,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 	}
 	expected := metav1.ObjectMeta{
 		Name:      "test-ingress",
-		Namespace: system.Namespace,
+		Namespace: system.Namespace(),
 		Labels: map[string]string{
 			networking.IngressLabelKey:     "test-ingress",
 			serving.RouteLabelKey:          "test-route",

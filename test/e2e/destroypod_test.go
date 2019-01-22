@@ -46,10 +46,8 @@ func TestDestroyPodInflight(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestDestroyPodInflight")
 
-	var imagePath = test.ImagePath("timeout")
-
 	logger.Info("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
+	names, err := CreateRouteAndConfig(clients, logger, "timeout", &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

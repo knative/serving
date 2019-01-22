@@ -724,6 +724,69 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
 		},
+	}, {
+		Name:    "runLatest - not owned config exists",
+		WantErr: true,
+		Objects: []runtime.Object{
+			svc("run-latest", "foo", WithRunLatestRollout),
+			config("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
+		},
+		Key: "foo/run-latest",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions, MarkConfigurationNotOwned),
+		}},
+	}, {
+		Name:    "runLatest - not owned route exists",
+		WantErr: true,
+		Objects: []runtime.Object{
+			svc("run-latest", "foo", WithRunLatestRollout),
+			config("run-latest", "foo", WithRunLatestRollout),
+			route("run-latest", "foo", WithRunLatestRollout, WithRouteOwnersRemoved),
+		},
+		Key: "foo/run-latest",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions, MarkRouteNotOwned),
+		}},
+	}, {
+		Name: "runLatest - correct not owned by adding owner refs",
+		// If ready Route/Configuration that weren't owned have OwnerReferences attached,
+		// then a Reconcile will result in the Service becoming happy.
+		Objects: []runtime.Object{
+			svc("new-owner", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				// This service was unhappy with the prior owner situation.
+				MarkConfigurationNotOwned, MarkRouteNotOwned),
+			// The service owns these, which should result in a happy result.
+			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "new-owner-00001",
+					Percent:      100,
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/new-owner",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("new-owner", "foo", WithRunLatestRollout,
+				WithReadyConfig("new-owner-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "new-owner-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/new-owner": 1,
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {

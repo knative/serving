@@ -39,10 +39,8 @@ func TestHelloWorld(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorld")
 
-	var imagePath = test.ImagePath("helloworld")
-
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
+	names, err := CreateRouteAndConfig(clients, logger, "helloworld", &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

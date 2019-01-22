@@ -38,6 +38,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
@@ -113,7 +114,11 @@ func main() {
 		logger.Fatalw("Error building caching clientset", zap.Error(err))
 	}
 
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
+	}
+
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,

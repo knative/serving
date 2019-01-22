@@ -27,6 +27,8 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch
@@ -127,19 +129,11 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
-func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options) (*v1alpha1.Service, error) {
-	service := LatestService(ServingNamespace, names, ImagePath(names.Image), options)
+func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options, fopt ...testing.ServiceOption) (*v1alpha1.Service, error) {
+	service := LatestService(ServingNamespace, names, options, fopt...)
 	LogResourceObject(logger, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
-}
-
-// CreateLatestServiceWithResources creates a service in namespace with the name names.Service
-// that uses the image specified by imagePath
-func CreateLatestServiceWithResources(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
-	service := LatestServiceWithResources(ServingNamespace, names, imagePath)
-	LogResourceObject(logger, ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
 }
 
 // PatchReleaseService patches an existing service in namespace with the name names.Service

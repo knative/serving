@@ -347,11 +347,11 @@ data:
       
       containers:
       - name: istio-proxy
-        # PATCH #2: Graceful shutdown of the istio-proxy.
+        # PATCH #2: Graceful shutdown of the istio-proxy. See https://github.com/istio/istio/issues/7136.
         lifecycle:
           preStop:
             exec:
-              command: ["sh", "-c", 'sleep 20; until curl -s localhost:15000/clusters | grep "inbound|80|" | grep "rq_active" | grep "rq_active::0"; do sleep 1; done;']
+              command: ["sh", "-c", 'sleep 20; while [ $(netstat -plunt | grep tcp | grep -v envoy | wc -l | xargs) -ne 0 ]; do sleep 1; done']
         # PATCH #2 ends.
         image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
         "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"

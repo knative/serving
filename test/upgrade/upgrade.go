@@ -28,6 +28,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 )
 

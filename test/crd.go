@@ -24,11 +24,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // ResourceNames holds names of various resources.
@@ -59,13 +60,11 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 			Name:      names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{
-				{
-					Name:              names.TrafficTarget,
-					ConfigurationName: names.Config,
-					Percent:           100,
-				},
-			},
+			Traffic: []v1alpha1.TrafficTarget{{
+				Name:              names.TrafficTarget,
+				ConfigurationName: names.Config,
+				Percent:           100,
+			}},
 		},
 	}
 }
@@ -120,14 +119,14 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 }
 
 // Configuration returns a Configuration object in namespace with the name names.Config
-// that uses the image specified by imagePath.
-func Configuration(namespace string, names ResourceNames, imagePath string, options *Options) *v1alpha1.Configuration {
+// that uses the image specified by names.Image
+func Configuration(namespace string, names ResourceNames, options *Options) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Config,
 		},
-		Spec: *ConfigurationSpec(imagePath, options),
+		Spec: *ConfigurationSpec(ImagePath(names.Image), options),
 	}
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
@@ -135,10 +134,10 @@ func Configuration(namespace string, names ResourceNames, imagePath string, opti
 	return config
 }
 
-// ConfigurationWithBuild returns a Configurtion object in the `namespace`
+// ConfigurationWithBuild returns a Configuration object in the `namespace`
 // with the name `names.Config` that uses the provided Build spec `build`
-// and image specified by `imagePath`.
-func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension, imagePath string) *v1alpha1.Configuration {
+// and image specified by `names.Image`.
+func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -149,7 +148,7 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
-						Image: imagePath,
+						Image: ImagePath(names.Image),
 					},
 				},
 			},
@@ -158,40 +157,29 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 }
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
-// that uses the image specified by imagePath.
-func LatestService(namespace string, names ResourceNames, imagePath string, options *Options) *v1alpha1.Service {
-	return &v1alpha1.Service{
+// that uses the image specified by names.Image.
+func LatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+	svc := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Service,
 		},
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: *ConfigurationSpec(imagePath, options),
+				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
 			},
 		},
 	}
-}
 
-// LatestServiceWithResources returns a RunLatest Service object in namespace with the name names.Service
-// that uses the image specified by imagePath, and small constant resources.
-func LatestServiceWithResources(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
-	svc := LatestService(namespace, names, imagePath, &Options{})
-	svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("50Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("20Mi"),
-		},
+	// Apply any mutations we have been provided.
+	for _, opt := range fopt {
+		opt(svc)
 	}
 	return svc
 }
 
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses
-// the image specifeid by imagePath. It also takes a list of 1-2 revisons and a rolloutPercent to be
+// the image specified by names.Image. It also takes a list of 1-2 revisons and a rolloutPercent to be
 // used to configure routing
 func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent int) *v1alpha1.Service {
 	var config v1alpha1.ConfigurationSpec
