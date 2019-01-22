@@ -24,11 +24,15 @@ spec:
   selector:
     app: activator
   ports:
-  - name: http2
+  - name: http
     protocol: TCP
     port: 80
     targetPort: 8080
     nodePort: # empty removing existing value to avoid upgrade error # TODO delete after v0.4
+  - name: http2
+    protocol: TCP
+    port: 81
+    targetPort: 8081
   - name: metrics
     protocol: TCP
     port: 9090

@@ -41,8 +41,10 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/activator
         ports:
-        - name: activator-port
+        - name: http1-port
           containerPort: 8080
+        - name: h2c-port
+          containerPort: 8081
         - name: metrics-port
           containerPort: 9090
         args:
