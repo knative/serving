@@ -24,21 +24,41 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/prometheus"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (
-	tCreateServiceN    = "TestCreateService"
-	tCreate20ServicesN = "TestCreate20Services"
+	tCreateNServicesName = "TestCreate%dServices"
 )
 
 func testCreateServices(t *testing.T, tName string, noServices int) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger(tName)
+
+	fopt := []ServiceOption{
+		// We set a small resource alloc so that we can pack more pods into the cluster.
+		func(svc *v1alpha1.Service) {
+			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		},
+	}
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -48,7 +68,7 @@ func testCreateServices(t *testing.T, tName string, noServices int) {
 
 	deployGrp, _ := errgroup.WithContext(context.Background())
 
-	logger.Infof("Creating %v services", noServices)
+	logger.Infof("Creating %d services", noServices)
 	basename := test.AppendRandomString(fmt.Sprintf("perf-services-%03d-", noServices), logger)
 	for i := 0; i < noServices; i++ {
 		names := test.ResourceNames{
@@ -59,7 +79,7 @@ func testCreateServices(t *testing.T, tName string, noServices int) {
 		defer TearDown(perfClients, logger, names)
 
 		deployGrp.Go(func() error {
-			_, err := test.CreateLatestServiceWithResources(logger, clients, names)
+			_, err := test.CreateLatestService(logger, clients, names, &test.Options{}, fopt...)
 			if err != nil {
 				t.Fatalf("Failed to create Service: %v", err)
 			}
@@ -72,7 +92,7 @@ func testCreateServices(t *testing.T, tName string, noServices int) {
 	}
 
 	if err := deployGrp.Wait(); err != nil {
-		t.Fatalf("Error waiting for services to become ready")
+		t.Fatal("Error waiting for services to become ready")
 	}
 
 	// Wait for prometheus to scrape the data.
@@ -80,27 +100,36 @@ func testCreateServices(t *testing.T, tName string, noServices int) {
 
 	promAPI, err := prometheus.PromAPI()
 	if err != nil {
-		logger.Error("Cannot setup prometheus API")
+		t.Fatal("Couldn't setup prometheus API")
 	}
 
-	query := fmt.Sprintf("sum(controller_%s{key=~\"%s/%s-.*\"})", reconciler.ServiceReadyLatencyN, test.ServingNamespace, basename)
-	logger.Infof("Query: %v", query)
-	val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)
-	if err != nil {
-		logger.Errorf("Error querying metric %s: %v", query, err)
-	} else {
-		tc := CreatePerfTestCase(float32(val)/float32(noServices), reconciler.ServiceReadyLatencyN, tName)
-
-		if err = testgrid.CreateTestgridXML([]testgrid.TestCase{tc}, tName); err != nil {
-			t.Fatalf("Cannot create ouput XML: %v", err)
+	var testCases []testgrid.TestCase
+	for _, op := range []string{"avg", "max", "95q"} {
+		metricName := fmt.Sprintf("%s_%s", op, reconciler.ServiceReadyLatencyN)
+		var query string
+		if op == "95q" {
+			query = fmt.Sprintf("quantile(0.95, controller_%s{key=~\"%s/%s-.*\"})", reconciler.ServiceReadyLatencyN, test.ServingNamespace, basename)
+		} else {
+			query = fmt.Sprintf("%s(controller_%s{key=~\"%s/%s-.*\"})", op, reconciler.ServiceReadyLatencyN, test.ServingNamespace, basename)
 		}
+		val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)
+		if err != nil {
+			t.Fatalf("Failed prometheus query %q: %v", query, err)
+		}
+		tc := CreatePerfTestCase(float32(val), metricName, tName)
+		testCases = append(testCases, tc)
+	}
+
+	if err = testgrid.CreateTestgridXML(testCases, tName); err != nil {
+		t.Fatalf("Cannot create ouput XML: %v", err)
 	}
 }
 
-func TestCreateService(t *testing.T) {
-	testCreateServices(t, tCreateServiceN, 1)
-}
-
-func TestCreate20Services(t *testing.T) {
-	testCreateServices(t, tCreate20ServicesN, 20)
+func TestCreateServices(t *testing.T) {
+	for _, s := range []int{1, 10} {
+		n := fmt.Sprintf(tCreateNServicesName, s)
+		t.Run(n, func(t *testing.T) {
+			testCreateServices(t, n, s)
+		})
+	}
 }
