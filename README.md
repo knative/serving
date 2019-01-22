@@ -14,9 +14,13 @@ The Knative Serving project provides middleware primitives that enable:
 - Routing and network programming for Istio components
 - Point-in-time snapshots of deployed code and configurations
 
-For complete Knative Serving documentation, see
-[Knative Serving](https://github.com/knative/docs/tree/master/serving) or
-[Knative docs](https://github.com/knative/docs) to learn about Knative.
+For documentation on using Knative Serving, see the
+[serving](https://github.com/knative/docs/tree/master/serving) folder of the
+[Knative Docs](https://github.com/knative/docs) repository.
+
+For documentation on the Knative Serving specification, see the
+[docs](https://github.com/knative/serving/tree/master/docs) folder of this
+repository.
 
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 and [DEVELOPMENT.md](./DEVELOPMENT.md).
