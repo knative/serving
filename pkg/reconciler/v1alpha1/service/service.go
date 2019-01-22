@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
@@ -223,15 +222,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	if service.Spec.RunLatest != nil || service.Spec.Release != nil {
 		if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-			want := route.DeepCopy().Spec.Traffic
+			want, got := route.DeepCopy().Spec.Traffic, route.Status.Traffic
 			for idx := range want {
 				if want[idx].ConfigurationName == config.Name {
 					want[idx].RevisionName = config.Status.LatestReadyRevisionName
 					want[idx].ConfigurationName = ""
 				}
 			}
-			c.Logger.Errorf("###\n\n%#v\n\n%#v\nDIFF: %s", want, route.Status.Traffic, cmp.Diff(want, route.Status.Traffic))
-			if got := route.Status.Traffic; !cmp.Equal(got, want) {
+			if diff, err := kmp.SafeEqual(got, want); !diff || err != nil {
 				service.Status.MarkRouteNotYetReady()
 			}
 		}
