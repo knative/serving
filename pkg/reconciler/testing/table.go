@@ -129,7 +129,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 
 		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected create (-want +got): %s", diff)
+			t.Errorf("Unexpected create (-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
@@ -163,7 +163,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected update (-want +got): %s", diff)
+			t.Errorf("Unexpected update (-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(updates), len(r.WantUpdates); got > want {
@@ -194,7 +194,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected status update (-want +got): %s", diff)
+			t.Errorf("Unexpected status update (-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
@@ -248,7 +248,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
-			t.Errorf("Unexpected patch(-want +got): %s", diff)
+			t.Errorf("Unexpected patch(-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
@@ -265,7 +265,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 
 		if diff := cmp.Diff(want, gotEvents[i]); diff != "" {
-			t.Errorf("unexpected event(-want +got): %s", diff)
+			t.Errorf("unexpected event(-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(gotEvents), len(r.WantEvents); got > want {
@@ -276,7 +276,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 	gotStats := statsReporter.GetServiceReadyStats()
 	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
-		t.Errorf("Unexpected service ready stats (-want +got): %s", diff)
+		t.Errorf("Unexpected service ready stats (-want, +got): %s", diff)
 	}
 }
 
@@ -307,7 +307,7 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 		})
 		// Validate cached objects do not get soiled after controller loops
 		if diff := cmp.Diff(originObjects, test.Objects, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected objects in test %s (-want +got): %v", test.Name, diff)
+			t.Errorf("Unexpected objects in test %s (-want, +got): %v", test.Name, diff)
 		}
 	}
 }

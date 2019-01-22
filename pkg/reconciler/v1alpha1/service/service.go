@@ -212,69 +212,24 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	ss := &service.Status
 	ss.PropagateRouteStatus(&route.Status)
 
-	// Apply additional logic, once the generic data has been propagated.
-	switch {
-	case service.Spec.RunLatest != nil:
-		c.runLatestCheckTrafficMigrated(service, &route.Status, &config.Status)
-	case service.Spec.Release != nil:
-		c.releaseCheckTrafficMigrated(service, &route.Status, &config.Status)
+	if service.Spec.RunLatest != nil || service.Spec.Release != nil {
+		if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+			want := route.DeepCopy().Spec.Traffic
+			for idx := range want {
+				if want[idx].ConfigurationName == config.Name {
+					want[idx].RevisionName = config.Status.LatestReadyRevisionName
+					want[idx].ConfigurationName = ""
+				}
+			}
+			c.Logger.Errorf("###\n\n%#v\n\n%#v\nDIFF: %s", want, route.Status.Traffic, cmp.Diff(want, route.Status.Traffic))
+			if got := route.Status.Traffic; !cmp.Equal(got, want) {
+				service.Status.MarkRouteNotYetReady()
+			}
+		}
 	}
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
-}
-
-func (c *Reconciler) releaseCheckTrafficMigrated(s *v1alpha1.Service, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
-	// If the service's RouteReady condition is in a happy state.
-	if rc := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-		// Case 1. Either all the traffic is going to the `current` or there is no `candidate` at all.
-		// Note as implemented, if we have 2 revisions in the Spec, but route is ready to serve
-		// only `current`, but `rolloutPercent` is 0, then we'll presume that the service is ready,
-		// since it is _ready_ to serve the desired configuration.
-		rp := s.Spec.Release.RolloutPercent
-		revs := s.Spec.Release.Revisions
-		if rp == 0 || len(revs) == 1 {
-			if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != revs[0] {
-				c.Logger.Debugf("%s: traffic not yet migrated to %s", s.Name, revs[0])
-				s.Status.MarkRouteNotYetReady()
-			}
-		} else {
-			// Case 2. We have two candidates and traffic is in 0-99 range.
-			if len(rs.Traffic) < 2 {
-				c.Logger.Debugf("%s: traffic does not have enough entries yet", s.Name)
-				s.Status.MarkRouteNotYetReady()
-				return
-			}
-			want := map[string]int{
-				revs[0]: 100 - rp,
-				revs[1]: rp,
-			}
-			// See `MakeRoute`: `current` is the first one, `candidate` the second.
-			got := map[string]int{
-				rs.Traffic[0].RevisionName: rs.Traffic[0].Percent,
-				rs.Traffic[1].RevisionName: rs.Traffic[1].Percent,
-			}
-
-			// Not happy with `cmp` here, but it seems the best way for now.
-			if !cmp.Equal(got, want) {
-				c.Logger.Debugf("%s: desired vs actual route config: diff(+service, -traffic): %+s",
-					s.Name, cmp.Diff(got, want))
-				s.Status.MarkRouteNotYetReady()
-			}
-		}
-	}
-}
-
-func (c *Reconciler) runLatestCheckTrafficMigrated(s *v1alpha1.Service, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
-	// If the service's RouteReady is in favorable condition.
-	if rc := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-		// In case of RunLatest, verify that traffic has already migrated
-		// to the latest revision.
-		if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != cs.LatestReadyRevisionName {
-			c.Logger.Debugf("%s: traffic is %#v, want to point at: %s", s.Name, rs.Traffic, cs.LatestReadyRevisionName)
-			s.Status.MarkRouteNotYetReady()
-		}
-	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
