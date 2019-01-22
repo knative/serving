@@ -21,7 +21,6 @@ package e2e
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"testing"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/knative/serving/pkg/pool"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -77,11 +77,12 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	timeoutCh := time.After(duration)
 
 	logger.Info("Creating new Services")
-	wg := &sync.WaitGroup{}
+	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
 	for i := 0; i < scale; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+		// https://golang.org/doc/faq#closures_and_goroutines
+		i := i
+
+		wg.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
 				Image:   "helloworld",
@@ -103,7 +104,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			svc, err := test.CreateLatestService(logger, clients, names, options, fopt...)
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
-				return
+				return nil
 			}
 			names.Route = serviceresourcenames.Route(svc)
 			names.Config = serviceresourcenames.Configuration(svc)
@@ -114,7 +115,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			logger.Infof("Wait for %s to become ready.", names.Service)
 			if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 				t.Errorf("WaitForServiceState(IsReady) = %v", err)
-				return
+				return nil
 			}
 
 			var domain string
@@ -127,7 +128,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return
+				return nil
 			}
 
 			_, err = pkgTest.WaitForEndpointState(
@@ -139,13 +140,14 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return
+				return nil
 			}
 			// Start probing the domain until the test is complete.
 			pm.Spawn(domain)
 
 			logger.Infof("%s is ready.", names.Service)
-		}(i)
+			return nil
+		})
 	}
 
 	// Wait for all of the service creations to complete (possibly in failure),
@@ -153,7 +155,9 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		wg.Wait()
+		if err := wg.Wait(); err != nil {
+			t.Fatalf("hmm, this go routine never returns errors: %v", err)
+		}
 	}()
 
 	for {
@@ -196,7 +200,7 @@ func testScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, dura
 // While redundant, we run two versions of this by default:
 // 1. TestScaleTo10: a developer smoke test that's useful when changing this to assess whether
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
-// 2. TestScaleTo100: a more proper execution of the test, which verifies a slightly more
+// 2. TestScaleTo50: a more proper execution of the test, which verifies a slightly more
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 
 func TestScaleTo10(t *testing.T) {
