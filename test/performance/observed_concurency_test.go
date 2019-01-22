@@ -155,7 +155,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	url := fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.IngressAddress, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

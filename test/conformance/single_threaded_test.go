@@ -94,7 +94,7 @@ func TestSingleConcurrency(t *testing.T) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.IngressAddress, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

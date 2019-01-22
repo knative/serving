@@ -74,9 +74,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, want, err)
 	}
 
-	sendPostRequest := func(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
+	sendPostRequest := func(resolvableDomain bool, domain, ingress, query string) (*spoof.Response, error) {
 		logger.Infof("The domain of request is %s and its query is %s", domain, query)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", resolvableDomain)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, ingress, resolvableDomain)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	pokeCowForMB := func(mb int) error {
-		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, fmt.Sprintf("memory_in_mb=%d", mb))
+		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, test.ServingFlags.IngressAddress, fmt.Sprintf("memory_in_mb=%d", mb))
 		if err != nil {
 			return err
 		}

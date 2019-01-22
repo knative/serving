@@ -58,9 +58,9 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 	}}
 }
 
-func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
+func sendRequest(resolvableDomain bool, domain, ingress string) (*spoof.Response, error) {
 	logger.Infof("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", resolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, ingress, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	logger.Info("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
+	response, err := sendRequest(test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain, test.ServingFlags.IngressAddress)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}

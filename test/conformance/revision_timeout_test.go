@@ -64,12 +64,11 @@ func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, re
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
 func sendRequest(logger *logging.BaseLogger, clients *test.Clients, domain string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, "", test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.IngressAddress, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		logger.Infof("Spoofing client failed: %v", err)
 		return err
 	}
-
 	initialSleepMs := initialSleepSeconds * 1000
 	sleepMs := sleepSeconds * 1000
 
