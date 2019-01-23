@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: scaling-config
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 data:
   scaling-dashboard.json: |+
       {  

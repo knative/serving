@@ -329,10 +329,6 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 	return false
 }
 
-func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsActivationRequired()
-}
-
 func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
 }

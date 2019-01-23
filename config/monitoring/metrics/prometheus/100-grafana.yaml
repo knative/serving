@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: grafana-datasources
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 data:
   prometheus.yaml: |+
     datasources:
@@ -33,6 +35,8 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboards
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 data:
   dashboards.yaml: |+
     - name: 'knative'
@@ -139,6 +143,7 @@ metadata:
   namespace: knative-monitoring
   labels:
     app: grafana
+    serving.knative.dev/release: devel
 spec:
   type: NodePort
   ports:
@@ -153,6 +158,8 @@ kind: Deployment
 metadata:
   name: grafana
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
   selector:
@@ -162,6 +169,7 @@ spec:
     metadata:
       labels:
         app: grafana
+        serving.knative.dev/release: devel
     spec:
       securityContext:
         runAsNonRoot: true

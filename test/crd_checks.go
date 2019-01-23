@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8styped "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -205,4 +206,11 @@ func CheckServiceState(client *ServingClients, name string, inState func(s *v1al
 // GetConfigMap gets the knative serving config map.
 func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 	return client.Kube.CoreV1().ConfigMaps("knative-serving")
+}
+
+// Returns a func that evaluates if a deployment has scaled to 0 pods
+func DeploymentScaledToZeroFunc() func(d *apiv1beta1.Deployment) (bool, error) {
+	return func(d *apiv1beta1.Deployment) (bool, error) {
+		return d.Status.ReadyReplicas == 0, nil
+	}
 }

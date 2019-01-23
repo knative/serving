@@ -18,3 +18,4 @@ metadata:
   name: knative-serving
   labels:
     istio-injection: enabled
+    serving.knative.dev/release: devel

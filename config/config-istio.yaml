@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: config-istio
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
 

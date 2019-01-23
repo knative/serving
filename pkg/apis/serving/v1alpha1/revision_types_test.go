@@ -122,65 +122,6 @@ func TestIsActivationRequired(t *testing.T) {
 	}
 }
 
-func TestIsRoutable(t *testing.T) {
-	cases := []struct {
-		name       string
-		status     RevisionStatus
-		isRoutable bool
-	}{{
-		name:       "empty status should not be routable",
-		status:     RevisionStatus{},
-		isRoutable: false,
-	}, {
-		name: "Ready status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Inactive status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionActive,
-				Status: corev1.ConditionFalse,
-			}, {
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isRoutable: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("%s: IsRoutable() = %v want: %v", tc.name, got, want)
-			}
-		})
-	}
-}
-
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
