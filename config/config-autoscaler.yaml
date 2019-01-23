@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: config-autoscaler
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 data:
   # Static parameters:
 

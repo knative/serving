@@ -17,6 +17,8 @@ kind: Image
 metadata:
   name: queue-proxy
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -27,6 +29,8 @@ kind: Image
 metadata:
   name: fluentd-sidecar
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   # Cache the fluentd sidecar image
   image: k8s.gcr.io/fluentd-elasticsearch:v2.0.4

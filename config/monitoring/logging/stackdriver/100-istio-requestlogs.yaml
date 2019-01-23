@@ -17,6 +17,8 @@ kind: logentry
 metadata:
   name: requestlog
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -46,6 +48,8 @@ kind: fluentd
 metadata:
   name: requestloghandler
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   address: "fluentd-ds.knative-monitoring:24224"
 ---
@@ -54,6 +58,8 @@ kind: rule
 metadata:
   name: requestlogtofluentd
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:

@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-knative-efficiency
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 data:
   knative-control-plane-efficiency-dashboard.json: |+
     {

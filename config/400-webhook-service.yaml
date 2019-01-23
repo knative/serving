@@ -17,6 +17,7 @@ kind: Service
 metadata:
   labels:
     role: webhook
+    serving.knative.dev/release: devel
   name: webhook
   namespace: knative-serving
 spec:
