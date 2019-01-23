@@ -220,18 +220,17 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	ss := &service.Status
 	ss.PropagateRouteStatus(&route.Status)
 
-	if service.Spec.RunLatest != nil || service.Spec.Release != nil {
-		if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-			want, got := route.DeepCopy().Spec.Traffic, route.Status.Traffic
-			for idx := range want {
-				if want[idx].ConfigurationName == config.Name {
-					want[idx].RevisionName = config.Status.LatestReadyRevisionName
-					want[idx].ConfigurationName = ""
-				}
+	// `manual` is not reconciled.
+	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
+		for idx := range want {
+			if want[idx].ConfigurationName == config.Name {
+				want[idx].RevisionName = config.Status.LatestReadyRevisionName
+				want[idx].ConfigurationName = ""
 			}
-			if diff, err := kmp.SafeEqual(got, want); !diff || err != nil {
-				service.Status.MarkRouteNotYetReady()
-			}
+		}
+		if diff, err := kmp.SafeEqual(got, want); !diff || err != nil {
+			service.Status.MarkRouteNotYetReady()
 		}
 	}
 	service.Status.ObservedGeneration = service.Generation
