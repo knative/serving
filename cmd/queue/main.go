@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -28,8 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
@@ -43,7 +43,6 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -299,39 +298,39 @@ func main() {
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
 		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
-	// An `ErrServerClosed` should not trigger an early exit of
-	// the errgroup below.
-	catchServerError := func(runner func() error) func() error {
-		return func() error {
-			err := runner()
-			if err != http.ErrServerClosed {
-				return err
-			}
-			return nil
+	errChan := make(chan error, 2)
+	// Runs a server created by creator and sends fatal errors to the errChan.
+	// Does not act on the ErrServerClosed error since that indicates we're
+	// already shutting everything down.
+	catchServerError := func(creator func() error) {
+		if err := creator(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
 		}
 	}
 
-	var g errgroup.Group
-	g.Go(catchServerError(server.ListenAndServe))
-	g.Go(catchServerError(adminServer.ListenAndServe))
-	g.Go(func() error {
-		<-signals.SetupSignalHandler()
-		return errors.New("Received SIGTERM")
-	})
+	go catchServerError(server.ListenAndServe)
+	go catchServerError(adminServer.ListenAndServe)
 
-	if err := g.Wait(); err != nil {
-		logger.Errorw("Shutting down", zap.Error(err))
-	}
+	// Blocks until we actually receive a TERM signal or one of the servers
+	// exit unexpectedly. We fold both signals together because we only want
+	// to act on the first of those to reach here.
+	select {
+	case err := <-errChan:
+		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		os.Exit(1)
+	case <-signals.SetupSignalHandler():
+		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 
-	// Calling server.Shutdown() allows pending requests to
-	// complete, while no new work is accepted.
-	if err := adminServer.Shutdown(context.Background()); err != nil {
-		logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
-	}
+		// Calling server.Shutdown() allows pending requests to
+		// complete, while no new work is accepted.
+		if err := adminServer.Shutdown(context.Background()); err != nil {
+			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
+		}
 
-	if statSink != nil {
-		if err := statSink.Close(); err != nil {
-			logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
+		if statSink != nil {
+			if err := statSink.Close(); err != nil {
+				logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
+			}
 		}
 	}
 }
