@@ -63,6 +63,9 @@ func (m metrics) Max() float32 {
 }
 
 func (m metrics) Avg() float32 {
+	if m.num == 0 {
+		return -1.0
+	}
 	return float32(m.totalDuration.Seconds()) / float32(m.num)
 }
 
