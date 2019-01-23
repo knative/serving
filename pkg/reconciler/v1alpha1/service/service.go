@@ -229,7 +229,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 					want[idx].ConfigurationName = ""
 				}
 			}
-			if diff, err := kmp.SafeEqual(got, want); !diff || err != nil {
+			if eq, err := kmp.SafeEqual(got, want); !eq || err != nil {
 				service.Status.MarkRouteNotYetReady()
 			}
 		}
