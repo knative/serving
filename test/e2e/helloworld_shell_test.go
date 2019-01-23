@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -51,6 +52,15 @@ func noStderrShell(name string, arg ...string) string {
 func cleanup(yamlFilename string, logger *logging.BaseLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
+}
+
+func serviceHostname() string {
+	return noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+}
+
+func ingressAddress(gateway string, addressType string) string {
+	return noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
+		"-o", fmt.Sprintf("jsonpath={.status.loadBalancer.ingress[*]['%s']}", addressType))
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
@@ -99,25 +109,24 @@ func TestHelloWorldFromShell(t *testing.T) {
 	gateways := []string{"istio-ingressgateway", "knative-ingressgateway"}
 	for _, gateway := range gateways {
 		// Wait for ingress to come up
-		serviceIP := ""
+		ingressAddr := ""
 		serviceHost := ""
 		timeout := ingressTimeout
-		for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
+		for (ingressAddr == "" || serviceHost == "") && timeout >= 0 {
 			if serviceHost == "" {
-				serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+				serviceHost = serviceHostname()
 			}
-			if serviceIP == "" {
-				serviceIP = noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
-					"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+			if ingressAddr = ingressAddress(gateway, "ip"); ingressAddr == "" {
+				ingressAddr = ingressAddress(gateway, "hostname")
 			}
 			timeout -= checkInterval
 			time.Sleep(checkInterval)
 		}
-		if serviceIP == "" || serviceHost == "" {
-			// serviceHost or serviceIP might contain a useful error, dump them.
-			t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
+		if ingressAddr == "" || serviceHost == "" {
+			// serviceHost or ingressAddr might contain a useful error, dump them.
+			t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
 		}
-		logger.Infof("Curling %s/%s", serviceIP, serviceHost)
+		logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
 
 		outputString := ""
 		timeout = servingTimeout
@@ -126,7 +135,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 			if test.ServingFlags.ResolvableDomain {
 				cmd = exec.Command("curl", serviceHost)
 			} else {
-				cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP)
+				cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+ingressAddr)
 			}
 			output, err := cmd.Output()
 			errorString := "none"
