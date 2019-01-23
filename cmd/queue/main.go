@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -51,13 +52,19 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
+
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+
 	// Duration the /quitquitquit handler should wait before returning.
 	// This is to give Istio a little bit more time to remove the pod
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
+
+	// Only report errors about a non-existent websocket connection after
+	// having been up and running for this long.
+	startupConnectionGrace = 10 * time.Second
 )
 
 var (
@@ -85,6 +92,8 @@ var (
 	server      *http.Server
 	healthState = &health.State{}
 	reporter    *queue.Reporter // Prometheus stats reporter.
+
+	startupTime = time.Now()
 )
 
 func initEnv() {
@@ -113,7 +122,10 @@ func statReporter() {
 	for {
 		s := <-statChan
 		if err := sendStat(s); err != nil {
-			logger.Errorw("Error while sending stat", zap.Error(err))
+			// Hide "not-established" errors until the startupConnectionGrace has passed.
+			if err != websocket.ErrConnectionNotEstablished || time.Since(startupTime) > startupConnectionGrace {
+				logger.Errorw("Error while sending stat", zap.Error(err))
+			}
 		}
 	}
 }
@@ -121,7 +133,7 @@ func statReporter() {
 // sendStat sends a single StatMessage to the autoscaler.
 func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
-		return fmt.Errorf("stat sink not (yet) connected")
+		return errors.New("stat sink not (yet) connected")
 	}
 	if healthState.IsShuttingDown() {
 		s.LameDuck = true
