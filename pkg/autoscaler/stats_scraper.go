@@ -29,6 +29,8 @@ import (
 
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
+	// Scrape scrapes the Revision queue metric endpoint then sends it as a
+	// StatMessage to the given channel.
 	Scrape(statsCh chan<- *StatMessage)
 }
 
@@ -42,7 +44,8 @@ var cacheDisabledClient = &http.Client{
 	Timeout: 3 * time.Second,
 }
 
-// ServiceScraper scrapes Revision metrics via a K8S service by sampling.
+// ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
+// pod to be picked up to serve the request is decided by K8S.
 type ServiceScraper struct {
 	httpClient *http.Client
 	url        string
