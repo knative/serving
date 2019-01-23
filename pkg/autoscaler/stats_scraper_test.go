@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -31,16 +32,17 @@ import (
 const (
 	testRevision  = "test-revision"
 	testNamespace = "test-namespace"
+	testPodName   = "test-revision-1234"
 	testKPAKey    = "test-namespace/test-revision"
 	testURL       = "http://test-revision-service.test-namespace:9090/metrics"
 
 	testAverageConcurrenyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
 # TYPE queue_average_concurrent_requests gauge
-queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision"} 2.0
+queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
 `
 	testQPSContext = `# HELP queue_operations_per_second Number of requests received since last Stat
 # TYPE queue_operations_per_second gauge
-queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision"} 1
+queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 1
 `
 )
 
@@ -91,24 +93,82 @@ func TestScrapeViaURL_HappyCase(t *testing.T) {
 	if stat.RequestCount != 1 {
 		t.Errorf("stat.RequestCount=%v, want 1", stat.RequestCount)
 	}
+	if stat.PodName != testPodName {
+		t.Errorf("stat.PodName=%v, want %v", stat.RequestCount, testPodName)
+	}
 }
 
 func TestScrapeViaURL_ErrorCases(t *testing.T) {
+	testCases := []struct {
+		name            string
+		responseCode    int
+		responseErr     error
+		responseContext string
+		expectedErr     string
+	}{{
+		name:         "Non 200 return code",
+		responseCode: 403,
+		expectedErr:  "GET request for URL \"http://test-revision-service.test-namespace:9090/metrics\" returned HTTP status 403",
+	}, {
+		name:         "Error got when sending request",
+		responseCode: 200,
+		responseErr:  errors.New("upstream closed"),
+		expectedErr:  "Get http://test-revision-service.test-namespace:9090/metrics: upstream closed",
+	}, {
+		name:            "Bad response context format",
+		responseCode:    200,
+		responseContext: "bad context",
+		expectedErr:     "Reading text format failed: text format parsing error in line 1: unexpected end of input stream",
+	}, {
+		name:            "Missing average concurrency",
+		responseCode:    200,
+		responseContext: testQPSContext,
+		expectedErr:     "queue_average_concurrent_requests key not found in response",
+	}, {
+		name:            "Missing average concurrency",
+		responseCode:    200,
+		responseContext: testAverageConcurrenyContext,
+		expectedErr:     "queue_operations_per_second key not found in response",
+	}}
+
+	metric := getTestMetric()
+	for _, test := range testCases {
+		client := newTestClient(getHTTPResponse(test.responseCode, test.responseContext), test.responseErr)
+		scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client)
+		if err != nil {
+			t.Errorf("createServiceScraperWithClient=%v, want no error", err)
+		}
+		if _, err := scraper.scrapeViaURL(); err != nil {
+			if err.Error() != test.expectedErr {
+				t.Errorf("Got error message: %v. Want: %v", err.Error(), test.expectedErr)
+			}
+		} else {
+			t.Errorf("Expected error from createServiceScraperWithClient, got nil")
+		}
+	}
+}
+
+func TestSendStatMessage(t *testing.T) {
 	metric := getTestMetric()
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client)
 	if err != nil {
 		t.Errorf("createServiceScraperWithClient=%v, want no error", err)
 	}
-	stat, err := scraper.scrapeViaURL()
-	if err != nil {
-		t.Errorf("scrapeViaURL=%v, want no error", err)
+
+	wantConcurrency := 2.1
+	stat := Stat{AverageConcurrentRequests: wantConcurrency}
+	statsCh := make(chan *StatMessage, 1)
+	defer close(statsCh)
+	scraper.sendStatMessage(stat, statsCh)
+
+	got := <-statsCh
+	if got.Key != testKPAKey {
+		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
-	if stat.AverageConcurrentRequests != 2.0 {
-		t.Errorf("stat.AverageConcurrentRequests=%v, want 2.0", stat.AverageConcurrentRequests)
-	}
-	if stat.RequestCount != 1 {
-		t.Errorf("stat.RequestCount=%v, want 1", stat.RequestCount)
+	if got.Stat.AverageConcurrentRequests != wantConcurrency {
+		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
+			got.Stat.AverageConcurrentRequests, wantConcurrency)
 	}
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -76,7 +77,7 @@ func createServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, h
 func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
 	stat, err := s.scrapeViaURL()
 	if err != nil {
-		s.logger.Errorf("failed to get metrics: %v", err)
+		s.logger.Errorw("Failed to get metrics", zap.Error(err))
 		return
 	}
 
@@ -87,11 +88,11 @@ func (s *ServiceScraper) scrapeViaURL() (Stat, error) {
 	req, err := http.NewRequest("GET", s.url, nil)
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return Stat{}, fmt.Errorf("failed to send GET request for URL %q: %v", s.url, err)
+		return Stat{}, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return Stat{}, fmt.Errorf("GET request for URL %q returned HTTP status %s", s.url, resp.Status)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Stat{}, fmt.Errorf("GET request for URL %q returned HTTP status %v", s.url, resp.StatusCode)
 	}
 
 	return extractData(resp)
@@ -102,7 +103,7 @@ func extractData(resp *http.Response) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(resp.Body)
 	if err != nil {
-		return stat, fmt.Errorf("reading text format failed: %v", err)
+		return stat, fmt.Errorf("Reading text format failed: %v", err)
 	}
 
 	now := time.Now()
@@ -117,13 +118,13 @@ func extractData(resp *http.Response) (Stat, error) {
 		}
 		stat.AverageConcurrentRequests = *metric.Metric[0].Gauge.Value
 	} else {
-		return stat, fmt.Errorf("required queue_average_concurrent_requests key, got: %v", metricFamilies)
+		return stat, errors.New("queue_average_concurrent_requests key not found in response")
 	}
 
 	if metric, ok := metricFamilies["queue_operations_per_second"]; ok {
 		stat.RequestCount = int32(*metric.Metric[0].Gauge.Value)
 	} else {
-		return stat, fmt.Errorf("required queue_operations_per_second key, got: %v", metricFamilies)
+		return stat, errors.New("queue_operations_per_second key not found in response")
 	}
 
 	return stat, nil
