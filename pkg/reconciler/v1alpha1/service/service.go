@@ -223,13 +223,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// `manual` is not reconciled.
 	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
 		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
+		// Replace `configuration` target with its latest ready revision.
 		for idx := range want {
 			if want[idx].ConfigurationName == config.Name {
 				want[idx].RevisionName = config.Status.LatestReadyRevisionName
 				want[idx].ConfigurationName = ""
 			}
 		}
-		if diff, err := kmp.SafeEqual(got, want); !diff || err != nil {
+		if eq, err := kmp.SafeEqual(got, want); !eq || err != nil {
 			service.Status.MarkRouteNotYetReady()
 		}
 	}
