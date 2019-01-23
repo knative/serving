@@ -36,17 +36,23 @@ function build_resource_name() {
 }
 
 # Test cluster parameters
-readonly E2E_BASE_NAME="k${REPO_NAME}"
-readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
-readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
-readonly E2E_CLUSTER_REGION=us-central1
-readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
+
+# Configurable parameters
+readonly E2E_CLUSTER_REGION=${E2E_CLUSTER_REGION:-us-central1}
+# By default we use regional clusters.
+readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_ZONE:-}
+readonly E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-4}
+
 # Each knative repository may have a different cluster size requirement here,
 # so we allow calling code to set these parameters.  If they are not set we
 # use some sane defaults.
 readonly E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-1}
 readonly E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-3}
+
+readonly E2E_BASE_NAME="k${REPO_NAME}"
+readonly E2E_CLUSTER_NAME=$(build_resource_name e2e-cls)
+readonly E2E_NETWORK_NAME=$(build_resource_name e2e-net)
+readonly TEST_RESULT_FILE=/tmp/${E2E_BASE_NAME}-e2e-result
 
 # Flag whether test is using a boskos GCP project
 IS_BOSKOS=0
@@ -76,7 +82,6 @@ function go_test_e2e() {
 # Download the k8s binaries required by kubetest.
 # Parameters: $1 - GCP project that will host the test cluster.
 function download_k8s() {
-  local version=${E2E_CLUSTER_VERSION}
   # Fetch valid versions
   local versions="$(gcloud container get-server-config \
       --project=$1 \
@@ -84,25 +89,26 @@ function download_k8s() {
       --region=${E2E_CLUSTER_REGION})"
   local gke_versions=(`echo -n ${versions//;/ /}`)
   echo "Valid GKE versions are [${versions//;/, }]"
-  if [[ "${version}" == "latest" ]]; then
+  if [[ "${E2E_CLUSTER_VERSION}" == "latest" ]]; then
     # Get first (latest) version, excluding the "-gke.#" suffix
-    version="${gke_versions[0]%-*}"
-    echo "Using latest version, ${version}"
-  elif [[ "${version}" == "default" ]]; then
+    E2E_CLUSTER_VERSION="${gke_versions[0]%-*}"
+    echo "Using latest version, ${E2E_CLUSTER_VERSION}"
+  elif [[ "${E2E_CLUSTER_VERSION}" == "default" ]]; then
     echo "ERROR: `default` GKE version is not supported yet"
     return 1
   else
-    echo "Using command-line supplied version ${version}"
+    echo "Using command-line supplied version ${E2E_CLUSTER_VERSION}"
   fi
   # Download k8s to staging dir
-  version=v${version}
+  E2E_CLUSTER_VERSION=v${E2E_CLUSTER_VERSION}
   local staging_dir=${GOPATH}/src/k8s.io/kubernetes/_output/gcs-stage
   rm -fr ${staging_dir}
-  staging_dir=${staging_dir}/${version}
+  staging_dir=${staging_dir}/${E2E_CLUSTER_VERSION}
   mkdir -p ${staging_dir}
   pushd ${staging_dir}
   export KUBERNETES_PROVIDER=gke
-  export KUBERNETES_RELEASE=${version}
+  export KUBERNETES_RELEASE=${E2E_CLUSTER_VERSION}
+  readonly E2E_CLUSTER_VERSION
   curl -fsSL https://get.k8s.io | bash
   local result=$?
   if [[ ${result} -eq 0 ]]; then
@@ -137,6 +143,21 @@ function dump_cluster_state() {
   echo "***************************************"
 }
 
+# On a Prow job, save some metadata about the test for Testgrid.
+function save_metadata() {
+  (( ! IS_PROW )) && return
+  cat << EOF > ${ARTIFACTS}/metadata.json
+{
+  "Region": "${E2E_CLUSTER_REGION}",
+  "Zone": "${E2E_CLUSTER_ZONE}",
+  "Machine": "${E2E_CLUSTER_MACHINE}",
+  "Version": "${E2E_CLUSTER_VERSION}",
+  "MinNodes": "${E2E_MIN_CLUSTER_NODES}",
+  "MaxNodes": "${E2E_MAX_CLUSTER_NODES}"
+}
+EOF
+}
+
 # Create a test cluster with kubetest and call the current script again.
 function create_test_cluster() {
   # Fail fast during setup.
@@ -148,13 +169,15 @@ function create_test_cluster() {
   echo "Cluster will have a minimum of ${E2E_MIN_CLUSTER_NODES} and a maximum of ${E2E_MAX_CLUSTER_NODES} nodes."
 
   # Smallest cluster required to run the end-to-end-tests
+  local geoflag="--gcp-region=${E2E_CLUSTER_REGION}"
+  [[ -n "${E2E_CLUSTER_ZONE}" ]] && geoflag="--gcp-zone=${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
   local CLUSTER_CREATION_ARGS=(
     --gke-create-args="--enable-autoscaling --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate"
     --gke-shape={\"default\":{\"Nodes\":${E2E_MIN_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
     --cluster="${E2E_CLUSTER_NAME}"
-    --gcp-region="${E2E_CLUSTER_REGION}"
+    ${geoflag}
     --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
@@ -220,6 +243,7 @@ function create_test_cluster() {
   fi
   local result="$(cat ${TEST_RESULT_FILE})"
   echo "Test result code is $result"
+
   exit ${result}
 }
 
@@ -237,10 +261,10 @@ function setup_test_cluster() {
   if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
     USING_EXISTING_CLUSTER=0
     export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
-    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION}
+    acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
     # Make sure we're in the default namespace. Currently kubetest switches to
     # test-pods namespace when creating the cluster.
-    kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
+    kubectl config set-context ${K8S_CLUSTER_OVERRIDE} --namespace=default
   fi
   readonly USING_EXISTING_CLUSTER
 
@@ -265,6 +289,9 @@ function setup_test_cluster() {
   readonly K8S_CLUSTER_OVERRIDE
   readonly K8S_USER_OVERRIDE
   readonly DOCKER_REPO_OVERRIDE
+
+  # Save some metadata about cluster creation for using in prow and testgrid
+  save_metadata
 
   # Handle failures ourselves, so we can dump useful info.
   set +o errexit
@@ -308,12 +335,7 @@ E2E_CLUSTER_VERSION=""
 
 # Parse flags and initialize the test cluster.
 function initialize() {
-  # Normalize calling script path; we can't use readlink because it's not available everywhere
-  E2E_SCRIPT=$0
-  [[ ${E2E_SCRIPT} =~ ^[\./].* ]] || E2E_SCRIPT="./$0"
-  E2E_SCRIPT="$(cd ${E2E_SCRIPT%/*} && echo $PWD/${E2E_SCRIPT##*/})"
-  readonly E2E_SCRIPT
-
+  E2E_SCRIPT="$(get_canonical_path $0)"
   E2E_CLUSTER_VERSION="${SERVING_GKE_VERSION}"
 
   cd ${REPO_ROOT_DIR}
@@ -369,7 +391,6 @@ function initialize() {
 
   readonly RUN_TESTS
   readonly EMIT_METRICS
-  readonly E2E_CLUSTER_VERSION
   readonly GCP_PROJECT
   readonly IS_BOSKOS
 

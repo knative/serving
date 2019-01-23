@@ -24,20 +24,6 @@ function teardown() {
   uninstall_knative_serving
 }
 
-# On a Prow job, save some metadata about the test for Testgrid.
-function save_metadata() {
-  (( ! IS_PROW )) && return
-  cat << EOF > ${ARTIFACTS}/metadata.json
-{
-  "Region": "${E2E_CLUSTER_REGION}",
-  "Zone": "${E2E_CLUSTER_ZONE}",
-  "Machine": "${E2E_CLUSTER_MACHINE}",
-  "MinNodes": "${E2E_MIN_CLUSTER_NODES}",
-  "MaxNodes": "${E2E_MAX_CLUSTER_NODES}"
-}
-EOF
-}
-
 initialize $@
 
 header "Setting up environment"
@@ -56,8 +42,5 @@ publish_test_images || fail_test "one or more test images weren't published"
 # We use a plain `go test` because `go_test_e2e()` calls bazel to generate
 # the test summary, thus overwriting our generated performance summary
 go test -v -count=1 -tags=performance -timeout=5m ./test/performance || fail_test
-
-# Save some metadata about the test cluster
-save_metadata
 
 success

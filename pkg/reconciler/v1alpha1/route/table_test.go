@@ -1185,6 +1185,68 @@ func TestReconcile(t *testing.T) {
 		Key:                     "default/switch-configs",
 		SkipNamespaceValidation: true,
 	}, {
+		Name: "update single target to traffic split with unready revision",
+		// Start from a steady state referencing "blue", and modify the route spec to point to both
+		// "blue" and "green" instead, while "green" is not ready.
+		Objects: []runtime.Object{
+			route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					},
+				)),
+			cfg("default", "blue", WithGeneration(1), WithLatestCreated, WithLatestReady),
+			cfg("default", "green", WithGeneration(1), WithLatestCreated),
+			rev("default", "blue", 1, MarkRevisionReady),
+			rev("default", "green", 1),
+			simpleReadyIngress(
+				route("default", "split", WithConfigTarget("blue"), WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "blue", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "split", WithConfigTarget("blue"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				MarkConfigurationNotReady("green"),
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					})),
+		}},
+		Key:                     "default/split",
+		SkipNamespaceValidation: true,
+	}, {
 		Name: "Update stale lastPinned",
 		Objects: []runtime.Object{
 			route("default", "stale-lastpinned", WithConfigTarget("config"),

@@ -17,6 +17,7 @@ kind: Service
 metadata:
   labels:
     app: controller
+    serving.knative.dev/release: devel
   name: controller
   namespace: knative-serving
 spec:

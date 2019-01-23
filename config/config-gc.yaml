@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: config-gc
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 data:
   # Delay after revision creation before considering it for GC
   stale-revision-create-delay: "24h"

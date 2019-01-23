@@ -17,6 +17,8 @@ kind: ConfigMap
 metadata:
   name: config-domain
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 data:
   # These are example settings of domain.
   # example.org will be used for routes having app=prod.

@@ -52,12 +52,6 @@ func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
-	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas == 0, nil
-	}
-}
-
 func tearDown(ctx *testContext) {
 	TearDown(ctx.clients, ctx.names, ctx.logger)
 }
@@ -233,7 +227,7 @@ func assertScaleDown(ctx *testContext) {
 	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
-		isDeploymentScaledToZero(),
+		test.DeploymentScaledToZeroFunc(),
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)

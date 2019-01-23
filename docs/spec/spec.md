@@ -236,7 +236,6 @@ spec:
   # Deprecated in favor of containerConcurrency
   concurrencyModel: Single | Multi
 
-  # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
@@ -304,7 +303,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -317,7 +316,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -333,7 +332,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.

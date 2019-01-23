@@ -180,7 +180,8 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	routeProberErrorChan := test.RunRouteProber(logger, clients, names.Domain)
+	prober := test.RunRouteProber(logger, clients, names.Domain)
+	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
 	logger.Info("Updating the Service to use a different image.")
@@ -255,10 +256,6 @@ func TestRunLatestService(t *testing.T) {
 	}
 	if err = validateRunLatestDataPlane(logger, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
-	}
-
-	if err := test.GetRouteProberError(routeProberErrorChan, logger); err != nil {
-		t.Fatalf("Route prober failed with error %s", err)
 	}
 
 	// Update container with user port.

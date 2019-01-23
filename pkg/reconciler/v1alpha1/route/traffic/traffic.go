@@ -184,7 +184,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	if err != nil {
 		return err
 	}
-	if !rev.Status.IsRoutable() {
+	if !rev.Status.IsReady() {
 		return errUnreadyRevision(rev)
 	}
 	target := RevisionTarget{
