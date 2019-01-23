@@ -46,7 +46,7 @@ See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 ### Use common test flags
 
 These flags are useful for running against an existing cluster, making use of
-your existing [environment setup](/DEVELOPMENT.md#environment-setup).
+your existing [environment setup](/DEVELOPMENT.md#setup-your-environment).
 
 By importing `github.com/knative/serving/test` you get access to a global
 variable called `test.Flags` which holds the values of

@@ -28,7 +28,7 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
 1. [Install required tools](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#before-you-begin)
 1. [Create a Kubernetes cluster with minikube](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#creating-a-kubernetes-cluster)
-1. [Configure your shell environment](../DEVELOPMENT.md#environment-setup) to
+1. [Configure your shell environment](../DEVELOPMENT.md#setup-your-environment) to
    use your minikube cluster:
 
    ```shell
@@ -36,13 +36,12 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
    ```
 
 1. Take note of the workarounds required for:
-
-   - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
-   - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
-   - [Loadbalancer support](#loadbalancer-support-in-minikube)
-   - [`ko`](#minikube-with-ko)
-   - [Images](#enabling-knative-to-use-images-in-minikube)
-   - [GCR](#minikube-with-gcr)
+  - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
+  - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
+  - [Loadbalancer support](#loadbalancer-support-in-minikube)
+  - [`ko`](#minikube-with-ko)
+  - [Images](#enabling-knative-to-use-images-in-minikube)
+  - [GCR](#minikube-with-gcr)
 
 ### `LoadBalancer` Support in Minikube
 

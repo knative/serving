@@ -8,7 +8,7 @@ to `Knative Serving`. Also take a look at:
 - [How to add and run tests](./test/README.md)
 - [Iterating](#iterating)
 
-## Prerequisites <a name="getting-started"></a>
+## Prerequisites
 
 Follow the instructions below to set up your development environment. Once you
 meet these requirements, you can make changes and
@@ -21,7 +21,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 Start by creating [a GitHub account](https://github.com/join), then setup
 [GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
-### Install requirements <a name="requirements"></a>
+### Install requirements
 
 You must install these tools:
 
@@ -44,21 +44,21 @@ You must install these tools:
    redeploy over them, below.
 1. [Set up a docker repository you can push to](./docs/setting-up-a-docker-registry.md)
 
-### Setup your environment <a name="environment-setup"></a>
+### Setup your environment
 
 To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
-   `export GOPATH=...`
+  `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-   work properly.
+  work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
    developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-   - **Note**: if you are using docker hub to store your images your
-     `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-   - **Note**: Currently Docker Hub doesn't let you create subdirs under your
-     username.
+  - **Note**: if you are using docker hub to store your images your
+    `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+  - **Note**: Currently Docker Hub doesn't let you create subdirs under your
+    username.
 
 `.bashrc` example:
 
@@ -114,7 +114,7 @@ described below.
 
 ## Starting Knative Serving
 
-Once you've [setup your development environment](#getting-started), stand up
+Once you've [setup your development environment](#prerequisites), stand up
 `Knative Serving`. Note that if you already installed Knative to your cluster,
 redeploying the new version should work fine, but if you run into trouble, you
 can easily [clean your cluster up](#clean-up) and try again.
