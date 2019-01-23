@@ -145,6 +145,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
+
 	} else if _, uErr := c.updateStatus(service); uErr != nil {
 		logger.Warn("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
@@ -219,25 +220,23 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	ss := &service.Status
 	ss.PropagateRouteStatus(&route.Status)
 
-	// Apply additional logic, once the generic data has been propagated.
-	switch {
-	case service.Spec.RunLatest != nil:
-		runLatestCheckTrafficMigrated(ss, &route.Status, &config.Status)
+	// `manual` is not reconciled.
+	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
+		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
+		// Replace `configuration` target with its latest ready revision.
+		for idx := range want {
+			if want[idx].ConfigurationName == config.Name {
+				want[idx].RevisionName = config.Status.LatestReadyRevisionName
+				want[idx].ConfigurationName = ""
+			}
+		}
+		if eq, err := kmp.SafeEqual(got, want); !eq || err != nil {
+			service.Status.MarkRouteNotYetReady()
+		}
 	}
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
-}
-
-func runLatestCheckTrafficMigrated(ss *v1alpha1.ServiceStatus, rs *v1alpha1.RouteStatus, cs *v1alpha1.ConfigurationStatus) {
-	// If the service's RouteReady is in favorable condition.
-	if rc := ss.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-		// In case of RunLatest, verify that traffic has already migrated
-		// to the latest revision.
-		if len(rs.Traffic) == 0 || rs.Traffic[0].RevisionName != cs.LatestReadyRevisionName {
-			ss.MarkRouteNotYetReady()
-		}
-	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {

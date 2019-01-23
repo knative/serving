@@ -446,6 +446,14 @@ func WithObservedGen(cfg *v1alpha1.Configuration) {
 	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
+// WithCreatedAndReady sets the latest{Created,Ready}RevisionName on the Configuration.
+func WithCreatedAndReady(created, ready string) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Status.SetLatestCreatedRevisionName(created)
+		cfg.Status.SetLatestReadyRevisionName(ready)
+	}
+}
+
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestCreated(cfg *v1alpha1.Configuration) {
