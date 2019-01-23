@@ -61,6 +61,10 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	// We poll, so set our limits high.
+	cfg.QPS = 100
+	cfg.Burst = 200
+
 	clients.KubeClient, err = test.NewKubeClient(configPath, clusterName)
 	if err != nil {
 		return nil, err
