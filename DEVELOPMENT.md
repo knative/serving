@@ -157,11 +157,12 @@ set up static IP for Ingresses in the cluster.
 This step includes building Knative Serving, creating and pushing developer
 images and deploying them to your Kubernetes cluster.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file.
-If this file is edited and deployed after Knative Serving installation, the changes in it will be
-effective only for newly created revisions.
-Alternatively, if you are developing on GKE, you can skip the editing and use the patching tool
-in `hack/dev-patch-config-gke.sh` after deploying knative.
+First, edit [config-network.yaml](config/config-network.yaml) as instructed
+within the file. If this file is edited and deployed after Knative Serving
+installation, the changes in it will be effective only for newly created
+revisions. Alternatively, if you are developing on GKE, you can skip the editing
+and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
+knative.
 
 Next, run:
 
