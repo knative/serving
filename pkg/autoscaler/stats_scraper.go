@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -47,7 +48,9 @@ var cacheDisabledClient = &http.Client{
 }
 
 // ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
-// pod to be picked up to serve the request is decided by K8S.
+// pod to be picked up to serve the request is decided by K8S. Please see
+// https://kubernetes.io/docs/concepts/services-networking/network-policies/
+// for details.
 type ServiceScraper struct {
 	httpClient *http.Client
 	url        string
@@ -90,6 +93,9 @@ func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
 	req, err := http.NewRequest("GET", s.url, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -99,19 +105,20 @@ func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
 		return nil, fmt.Errorf("GET request for URL %q returned HTTP status %v", s.url, resp.StatusCode)
 	}
 
-	return extractData(resp)
+	return extractData(resp.Body)
 }
 
-func extractData(resp *http.Response) (*Stat, error) {
-	stat := Stat{}
+func extractData(body io.Reader) (*Stat, error) {
 	var parser expfmt.TextParser
-	metricFamilies, err := parser.TextToMetricFamilies(resp.Body)
+	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {
 		return nil, fmt.Errorf("Reading text format failed: %v", err)
 	}
 
 	now := time.Now()
-	stat.Time = &now
+	stat := Stat{
+		Time: &now,
+	}
 
 	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
 		// The autoscaler should decide what to do with a Stat with empty pod name
