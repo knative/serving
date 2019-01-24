@@ -108,7 +108,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   123,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -136,7 +136,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -173,7 +173,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusBadGateway,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -202,7 +202,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -278,7 +278,7 @@ type reporterCall struct {
 	Revision   string
 	StatusCode int
 	Attempts   int
-	Value      float64
+	Value      int64
 	Duration   time.Duration
 }
 
@@ -286,7 +286,7 @@ type fakeReporter struct {
 	calls []reporterCall
 }
 
-func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v float64) error {
+func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
 	f.calls = append(f.calls, reporterCall{
 		Op:         "ReportRequestCount",
 		Namespace:  ns,

@@ -495,7 +495,35 @@ type linearSeries struct {
 
 type mockReporter struct{}
 
-func (r *mockReporter) Report(m Measurement, v float64) error {
+func (r *mockReporter) ReportDesiredPodCount(v int64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportRequestedPodCount(v int64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportActualPodCount(v int64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportObservedPodCount(v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportStableRequestConcurrency(v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportPanicRequestConcurrency(v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportTargetRequestConcurrency(v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportPanic(v int64) error {
 	return nil
 }
 
