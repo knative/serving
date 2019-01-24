@@ -44,6 +44,6 @@ func TestRewinder(t *testing.T) {
 	}
 
 	if !rc.Closed {
-		t.Errorf("Expected ReadCloser to be closed")
+		t.Error("Expected ReadCloser to be closed")
 	}
 }

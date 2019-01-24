@@ -40,13 +40,9 @@ const (
 	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
-var defaultRevisionLabels map[string]string
-
-func init() {
-	defaultRevisionLabels = map[string]string{
-		serving.ServiceLabelKey:       "test-service",
-		serving.ConfigurationLabelKey: "test-config",
-	}
+var defaultRevisionLabels = map[string]string{
+	serving.ServiceLabelKey:       "test-service",
+	serving.ConfigurationLabelKey: "test-config",
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
@@ -63,11 +59,11 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
-	default:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(100 * time.Microsecond):
+		break
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
@@ -76,7 +72,6 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	rev.Status.MarkResourcesAvailable()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
-	time.Sleep(3 * time.Second)
 	select {
 	case ar := <-ch:
 		want := Endpoint{testServiceFQDN, 8080}
@@ -95,8 +90,8 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		if ar.Error != nil {
 			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
 		}
-	default:
-		t.Errorf("Expected result after revision ready.")
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready.")
 	}
 }
 
@@ -118,7 +113,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
+		t.Error("Unexpected result before revision is ready.")
 	default:
 	}
 
@@ -126,30 +121,29 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	select {
 	case ar := <-ch:
 		if got, want := ar.Endpoint, (Endpoint{}); got != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
+			t.Errorf("Unexpected endpoint = %+v, want: %+v.", got, want)
 		}
 		if got, want := ar.Status, http.StatusInternalServerError; got != want {
-			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
+			t.Errorf("Unexpected error state = %v, want: %v.", got, want)
 		}
 		if ar.ServiceName != "" {
-			t.Errorf("Unexpected service name. Want empty. Got %v.", ar.ServiceName)
+			t.Errorf("Unexpected non-empty service, got: %s.", ar.ServiceName)
 		}
 		if ar.ConfigurationName != "" {
-			t.Errorf("Unexpected configuration name. Want empty. Got %v.", ar.ConfigurationName)
+			t.Errorf("Unexpected non-empty configuration name; got: %s.", ar.ConfigurationName)
 		}
 		if ar.Error == nil {
-			t.Errorf("Expected error. Want error. Got nil.")
+			t.Error("Expected error.")
 		}
 	default:
-		t.Errorf("Expected result after timeout.")
+		t.Error("Expected result after timeout.")
 	}
 }
 
 func fakeClients() (kubernetes.Interface, clientset.Interface) {
 	nsObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testNamespace,
-			Namespace: "",
+			Name: testNamespace,
 		},
 	}
 	return fakeK8s.NewSimpleClientset(nsObj), fakeKna.NewSimpleClientset()

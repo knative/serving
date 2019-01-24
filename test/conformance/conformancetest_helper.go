@@ -69,7 +69,7 @@ func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath str
 		return nil, nil, errors.New(fmt.Sprintf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err))
 	}
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err))
 	}

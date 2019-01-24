@@ -429,14 +429,14 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			// Setup.
 			path, err := writeCertFile(tmpDir, tc.certBundle, tc.certBundleContents)
 			if err != nil {
-				t.Fatalf("failed to write cert bundle file: %v", err)
+				t.Fatalf("Failed to write cert bundle file: %v", err)
 			}
 
 			// The actual test.
 			if tr, err := newResolverTransport(path); err != nil && !tc.wantErr {
-				t.Errorf("got unexpected err: %v", err)
+				t.Errorf("Got unexpected err: %v", err)
 			} else if tc.wantErr && err == nil {
-				t.Errorf("didn't get an error when we wanted it")
+				t.Error("Didn't get an error when we wanted it")
 			} else if err == nil {
 				// If we didn't get an error, make sure everything we wanted to happen happened.
 				subjects := tr.TLSClientConfig.RootCAs.Subjects()

@@ -80,7 +80,7 @@ func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("Failed to watch the revision")
+			return nil, errors.New("Failed to watch the revision")
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()

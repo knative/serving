@@ -312,7 +312,7 @@ func TestNonKpaClass(t *testing.T) {
 
 	// Verify no KPAMetrics were created
 	if fakeMetrics.createCallCount.Load() != 0 {
-		t.Errorf("Unexpected KPAMetrics created")
+		t.Error("Unexpected KPAMetrics created")
 	}
 }
 
