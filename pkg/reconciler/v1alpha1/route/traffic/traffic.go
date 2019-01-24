@@ -65,7 +65,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
