@@ -118,6 +118,17 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
+// RevisionProtocolType is an enumeration of the supported application-layer protocols
+// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
+type RevisionProtocolType string
+
+const (
+	// HTTP/1.1
+	RevisionProtocolHTTP1 RevisionProtocolType = "http1"
+	// HTTP/2 with Prior Knowledge
+	RevisionProtocolH2C RevisionProtocolType = "h2c"
+)
+
 const (
 	// UserPortName is the name that will be used for the Port on the
 	// Deployment and Pod created by a Revision. This name will be set regardless of if
@@ -314,6 +325,15 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 	}
 
 	return nil
+}
+
+func (r *Revision) GetProtocol() RevisionProtocolType {
+	ports := r.Spec.Container.Ports
+	if len(ports) > 0 && ports[0].Name == "h2c" {
+		return RevisionProtocolH2C
+	}
+
+	return RevisionProtocolHTTP1
 }
 
 // IsReady looks at the conditions and if the Status has a condition

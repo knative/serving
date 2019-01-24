@@ -603,6 +603,57 @@ func TestRevisionBuildRefNil(t *testing.T) {
 	}
 }
 
+func TestRevisionGetProtocol(t *testing.T) {
+	containerWithPortName := func(name string) corev1.Container {
+		return corev1.Container{Ports: []corev1.ContainerPort{{Name: name}}}
+	}
+
+	tests := []struct {
+		name      string
+		container corev1.Container
+		protocol  RevisionProtocolType
+	}{
+		{
+			name:      "undefined",
+			container: corev1.Container{},
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "http1",
+			container: containerWithPortName("http1"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "h2c",
+			container: containerWithPortName("h2c"),
+			protocol:  RevisionProtocolH2C,
+		},
+		{
+			name:      "unknown",
+			container: containerWithPortName("whatever"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "empty",
+			container: containerWithPortName(""),
+			protocol:  RevisionProtocolHTTP1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Revision{Spec: RevisionSpec{Container: tt.container}}
+
+			got := r.GetProtocol()
+			want := tt.protocol
+
+			if got != want {
+				t.Errorf("got: %#v, want: %#v", got, want)
+			}
+		})
+	}
+}
+
 func TestRevisionGetLastPinned(t *testing.T) {
 	cases := []struct {
 		name              string
