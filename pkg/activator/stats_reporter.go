@@ -69,7 +69,6 @@ type Reporter struct {
 
 // NewStatsReporter creates a reporter that collects and reports activator metrics
 func NewStatsReporter() (*Reporter, error) {
-
 	var r = &Reporter{}
 
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -144,7 +143,7 @@ func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseC
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, getResponseCodeClass(responseCode)),
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
 		tag.Insert(r.numTriesKey, strconv.Itoa(numTries)))
 	if err != nil {
 		return err
@@ -167,7 +166,7 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, getResponseCodeClass(responseCode)))
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
 	if err != nil {
 		return err
 	}
@@ -177,9 +176,9 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 	return nil
 }
 
-// getResponseCodeClass converts response code to a string of response code class.
+// responseCodeClass converts response code to a string of response code class.
 // e.g. The response code class is "5xx" for response code 503.
-func getResponseCodeClass(responseCode int) string {
-	// Get the hundred digit of the response code and concatenate "xx"
-	return strconv.Itoa((responseCode/100)%10) + "xx"
+func responseCodeClass(responseCode int) string {
+	// Get the hundred digit of the response code and concatenate "xx".
+	return strconv.Itoa(responseCode/100) + "xx"
 }
