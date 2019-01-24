@@ -123,12 +123,12 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		name:            "Missing average concurrency",
 		responseCode:    200,
 		responseContext: testQPSContext,
-		expectedErr:     "queue_average_concurrent_requests key not found in response",
+		expectedErr:     "Could not find value for queue_average_concurrent_requests in response",
 	}, {
-		name:            "Missing average concurrency",
+		name:            "Missing QPS",
 		responseCode:    200,
 		responseContext: testAverageConcurrenyContext,
-		expectedErr:     "queue_operations_per_second key not found in response",
+		expectedErr:     "Could not find value for queue_operations_per_second in response",
 	}}
 
 	metric := getTestMetric()

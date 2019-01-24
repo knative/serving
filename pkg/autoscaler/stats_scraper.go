@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/reconciler"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 )
@@ -112,25 +113,40 @@ func extractData(resp *http.Response) (*Stat, error) {
 	now := time.Now()
 	stat.Time = &now
 
-	if metric, ok := metricFamilies["queue_average_concurrent_requests"]; ok {
-		for _, label := range metric.Metric[0].Label {
+	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
+		// The autoscaler should decide what to do with a Stat with empty pod name
+		for _, label := range pMetric.Label {
 			if *label.Name == "destination_pod" {
 				stat.PodName = *label.Value
 				break
 			}
 		}
-		stat.AverageConcurrentRequests = *metric.Metric[0].Gauge.Value
+		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
 	} else {
-		return nil, errors.New("queue_average_concurrent_requests key not found in response")
+		return nil, errors.New("Could not find value for queue_average_concurrent_requests in response")
 	}
 
-	if metric, ok := metricFamilies["queue_operations_per_second"]; ok {
-		stat.RequestCount = int32(*metric.Metric[0].Gauge.Value)
+	if pMetric := getPrometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
+		stat.RequestCount = int32(*pMetric.Gauge.Value)
 	} else {
-		return nil, errors.New("queue_operations_per_second key not found in response")
+		return nil, errors.New("Could not find value for queue_operations_per_second in response")
 	}
 
 	return &stat, nil
+}
+
+// getPrometheusMetric returns the point of the first Metric of the MetricFamily
+// with the given key from the given map. If there is no such MetricFamily or it
+// has no Metrics, then returns nil.
+func getPrometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
+	if metric, ok := metricFamilies[key]; ok && metric != nil {
+		if len(metric.Metric) == 0 {
+			return nil
+		}
+		return metric.Metric[0]
+	}
+
+	return nil
 }
 
 func (s *ServiceScraper) sendStatMessage(stat Stat, statsCh chan<- *StatMessage) {
