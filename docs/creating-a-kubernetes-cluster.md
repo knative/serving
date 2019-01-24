@@ -28,7 +28,7 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
 
 1. [Install required tools](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#before-you-begin)
 1. [Create a Kubernetes cluster with minikube](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#creating-a-kubernetes-cluster)
-1. [Configure your shell environment](../DEVELOPMENT.md#environment-setup) to
+1. [Configure your shell environment](../DEVELOPMENT.md#setup-your-environment) to
    use your minikube cluster:
 
    ```shell
@@ -36,13 +36,12 @@ gcloud container clusters get-credentials --zone us-east1-d knative-demo
    ```
 
 1. Take note of the workarounds required for:
-
-   - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
-   - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
-   - [Loadbalancer support](#loadbalancer-support-in-minikube)
-   - [`ko`](#minikube-with-ko)
-   - [Images](#enabling-knative-to-use-images-in-minikube)
-   - [GCR](#minikube-with-gcr)
+  - [Installing Istio](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-istio)
+  - [Installing Serving](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#installing-knative-serving)
+  - [Loadbalancer support](#loadbalancer-support-in-minikube)
+  - [`ko`](#minikube-with-ko)
+  - [Images](#enabling-knative-to-use-images-in-minikube)
+  - [GCR](#minikube-with-gcr)
 
 ### `LoadBalancer` Support in Minikube
 
@@ -97,7 +96,7 @@ docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer
 
 You can use Google Container Registry as the registry for a Minikube cluster.
 
-1. [Set up a GCR repo](docs/setting-up-a-docker-registry.md). Export the
+1. [Set up a GCR repo](setting-up-a-docker-registry.md). Export the
    environment variable `PROJECT_ID` as the name of your project. Also export
    `GCR_DOMAIN` as the domain name of your GCR repo. This will be either
    `gcr.io` or a region-specific variant like `us.gcr.io`.
@@ -186,4 +185,4 @@ Use the same procedure to add imagePullSecrets to service accounts in any
 namespace. Use the `default` service account for pods that do not specify a
 service account.
 
-See also the [private-repo sample README](/sample/private-repos/README.md).
+See also the [private-repo sample README](https://github.com/knative/docs/blob/master/serving/samples/build-private-repo-go/README.md).
