@@ -23,7 +23,7 @@ For eg.
 opts := loadgenerator.GeneratorOptions{Duration: 1*time.Minute, NumThreads: 1}
 resp, err := opts.RunLoadTest(false /* resolvableDomain */)
 if err != nil {
-	t.Fatalf("Generating traffic via fortio failed: %v", err)
+  t.Fatalf("Generating traffic via fortio failed: %v", err)
 }
 ```
 
