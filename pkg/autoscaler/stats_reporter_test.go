@@ -108,23 +108,23 @@ func checkData(t *testing.T, name string, wantTags map[string]string, wantValue 
 		t.Errorf("Got unexpected error from view.RetrieveData error: %v", err)
 	} else {
 		if len(d) != 1 {
-			t.Errorf("want 1 data row but got %d", len(d))
+			t.Errorf("Want 1 data row but got %d from view.RetrieveData", len(d))
 		}
 		for _, got := range d[0].Tags {
 			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("got an extra tag %v: %v", got.Key.Name(), got.Value)
+				t.Errorf("Got an extra tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
 			} else {
 				if got.Value != want {
-					t.Errorf("expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
+					t.Errorf("Expected a different tag value from view.RetrieveData for key:%v. Got=%v, want=%v", got.Key.Name(), got.Value, want)
 				}
 			}
 		}
 
 		if s, ok := d[0].Data.(*view.LastValueData); !ok {
-			t.Error("expected a LastValueData type")
+			t.Error("Expected a LastValueData type from view.RetrieveData")
 		} else {
 			if s.Value != wantValue {
-				t.Errorf("expected value=%v, got=%v for metric %v", wantValue, s.Value, name)
+				t.Errorf("Expected value=%v for metric %v from view.RetrieveData, but got=%v", wantValue, name, s.Value)
 			}
 		}
 	}

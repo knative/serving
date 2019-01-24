@@ -31,35 +31,35 @@ var (
 	desiredPodCountM = stats.Int64(
 		"desired_pods",
 		"Number of pods autoscaler wants to allocate",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	requestedPodCountM = stats.Int64(
 		"requested_pods",
 		"Number of pods autoscaler requested from Kubernetes",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	actualPodCountM = stats.Int64(
 		"actual_pods",
 		"Number of pods that are allocated currently",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	observedPodCountM = stats.Float64(
 		"observed_pods",
 		"Number of pods that are observed currently",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
 		"Average of requests count per observed pod in each stable window (default 60 seconds)",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	panicRequestConcurrencyM = stats.Float64(
 		"panic_request_concurrency",
 		"Average of requests count per observed pod in each panic window (default 6 seconds)",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	targetRequestConcurrencyM = stats.Float64(
 		"target_concurrency_per_pod",
 		"The desired number of concurrent requests for each pod",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	panicM = stats.Int64(
 		"panic_mode",
 		"1 if autoscaler is in panic mode, 0 otherwise",
-		stats.UnitNone)
+		stats.UnitDimensionless)
 	namespaceTagKey tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
