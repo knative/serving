@@ -24,6 +24,9 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
+// DefaultTarget is the unnamed default target for the traffic.
+const DefaultTarget = ""
+
 // A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1alpha1.TrafficTarget
@@ -34,7 +37,7 @@ type RevisionTarget struct {
 // route beyond its ObjectMeta to make routing changes.
 type Config struct {
 	// Group of traffic splits.  Un-named targets are grouped together
-	// under the key "", and named target are under the respective
+	// under the key `DefaultTarget`, and named target are under the respective
 	// name.  This is used to configure network configuration to
 	// realize a route's setting.
 	Targets map[string][]RevisionTarget
@@ -65,7 +68,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
@@ -205,7 +208,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Name
 	t.revisionTargets = append(t.revisionTargets, target)
-	t.targets[""] = append(t.targets[""], target)
+	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
 	if name != "" {
 		t.targets[name] = append(t.targets[name], target)
 	}
