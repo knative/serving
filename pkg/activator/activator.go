@@ -16,6 +16,8 @@ limitations under the License.
 
 package activator
 
+import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
 const (
 	// K8sServiceName is the name of the activator service
 	K8sServiceName = "activator-service"
@@ -25,6 +27,11 @@ const (
 	RevisionHeaderName string = "knative-serving-revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace
 	RevisionHeaderNamespace string = "knative-serving-namespace"
+
+	// ServicePortHTTP1 is the port number for activating HTTP1 revisions
+	ServicePortHTTP1 int32 = 80
+	// ServicePortHTTP1 is the port number for activating H2C revisions
+	ServicePortH2C int32 = 81
 )
 
 // Activator provides an active endpoint for a revision or an error and
@@ -52,4 +59,14 @@ type ActivationResult struct {
 	ServiceName       string
 	ConfigurationName string
 	Error             error
+}
+
+// ServicePort returns the activator service port for the given Revision protocol.
+// Default is `ServicePortHTTP1`.
+func ServicePort(protocol v1alpha1.RevisionProtocolType) int32 {
+	if protocol == v1alpha1.RevisionProtocolH2C {
+		return ServicePortH2C
+	}
+
+	return ServicePortHTTP1
 }
