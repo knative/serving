@@ -17,11 +17,11 @@ You can find out more about it from their website:
 
 ## Components
 
-There are four primary components to the Knative Serving system. The first is a
-controller which is responsible for updating the state of the cluster based on
-user input. The second is the webhook component which handles validation of the
-objects and actions performed. The third is an activator component which brings
-back scaled-to-zero pods and forwards requests. The fourth is the autoscaler
+There are four primary components to the Knative Serving system. The first is
+the _Controller_ which is responsible for updating the state of the cluster based on
+user input. The second is the _Webhook_ component which handles validation of the
+objects and actions performed. The third is an _Activator_ component which brings
+back scaled-to-zero pods and forwards requests. The fourth is the _Autoscaler_
 which scales pods are requests come in.
 
 The controller processes a series of state changes in order to move the system
@@ -49,16 +49,16 @@ The various Kubernetes resource configurations are organized as follows:
 
 ```plain
 # Knative Serving resources
-config/*.yaml
+`config/*.yaml`
 
 # Istio release configuration
-third_party/istio-*/install/kubernetes/...
+`third_party/istio-*/install/kubernetes/...`
 
 # Knative Serving Monitoring configs (Optional)
-config/monitoring/...
+`config/monitoring/...`
 
 # Knative Build resources (Optional)
-third_party/config/build/release.yaml
+`third_party/config/build/release.yaml`
 
 ```
 
