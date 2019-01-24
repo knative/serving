@@ -5,8 +5,8 @@ This directory contains tests and testing docs for `Knative Serving`:
 - [Unit tests](#running-unit-tests) currently reside in the codebase alongside
   the code they test
 - [End-to-end tests](#running-end-to-end-tests), of which there are two types:
-  - Conformance tests in [`/test/conformance`](conformance)
-  - Other end-to-end tests in [`/test/e2e`](e2e)
+  - Conformance tests in [`/test/conformance`](./conformance)
+  - Other end-to-end tests in [`/test/e2e`](./e2e)
 - [Performance tests](#running-performance-tests) reside in
   [`/test/performance`](./performance)
 
@@ -19,7 +19,7 @@ If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 ## Presubmit tests
 
 [`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the
-[end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
+[end-to-end tests](./e2e) and the [conformance tests](./conformance)
 
 This script, and consequently, the e2e and conformance tests will be run before
 every code submission. You can run these tests manually with:
@@ -111,7 +111,7 @@ These tests require:
 
 You can [use test flags](#flags) to control the environment your tests run
 against, i.e. override
-[your environment variables](/DEVELOPMENT.md#setup-your-environment):
+[your environment variables](../DEVELOPMENT.md#setup-your-environment):
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
@@ -138,7 +138,7 @@ The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. It
 requires:
 
-- [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#setup-your-environment) to be set
+- [`DOCKER_REPO_OVERRIDE`](../DEVELOPMENT.md#setup-your-environment) to be set
 - You to be
   [authenticated with your `DOCKER_REPO_OVERRIDE`](../docs/setting-up-a-docker-registry.md)
 - [`docker`](https://docs.docker.com/install/) to be installed
@@ -164,7 +164,7 @@ New test images should be placed in `./test/test_images`.
 ## Flags
 
 These flags are useful for running against an existing cluster, making use of
-your existing [environment setup](/DEVELOPMENT.md#setup-your-environment).
+your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
 Tests importing [`github.com/knative/serving/test`](#test-library) recognize
 these flags:
@@ -178,7 +178,7 @@ these flags:
 
 The `--dockerrepo` argument lets you specify the docker repo from which images
 used by your tests should be pulled. This will default to the value of your
-[`DOCKER_REPO_OVERRIDE` environment variable](/DEVELOPMENT.md#setup-your-environment)
+[`DOCKER_REPO_OVERRIDE` environment variable](../DEVELOPMENT.md#setup-your-environment)
 if not specified.
 
 ```bash
@@ -204,7 +204,7 @@ Of course, this implies that you tagged the images when you
 ### Using a resolvable domain
 
 If you set up your cluster using
-[the getting started docs](/DEVELOPMENT.md#prerequisites), Routes created in
+[the getting started docs](../DEVELOPMENT.md#prerequisites), Routes created in
 the test will use the domain `example.com`, unless the route has label
 `app=prod` in which case they will use the domain `prod-domain.com`. Since these
 domains will not be resolvable to deployments in your test cluster, in order to
