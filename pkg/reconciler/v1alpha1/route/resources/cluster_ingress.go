@@ -87,7 +87,7 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traff
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-	if targetName == "" {
+	if targetName == traffic.DefaultTarget {
 		// Nameless traffic targets correspond to many domains: the
 		// Route.Status.Domain, and also various names of the Route's
 		// headless Service.

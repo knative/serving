@@ -66,7 +66,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	targets := map[string][]traffic.RevisionTarget{
-		"": {{
+		traffic.DefaultTarget: {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
@@ -340,7 +340,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
