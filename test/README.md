@@ -5,8 +5,8 @@ This directory contains tests and testing docs for `Knative Serving`:
 - [Unit tests](#running-unit-tests) currently reside in the codebase alongside
   the code they test
 - [End-to-end tests](#running-end-to-end-tests), of which there are two types:
-  - Conformance tests in [`/test/conformance`](./conformance)
-  - Other end-to-end tests in [`/test/e2e`](./e2e)
+  - Conformance tests in [`/test/conformance`](conformance)
+  - Other end-to-end tests in [`/test/e2e`](e2e)
 - [Performance tests](#running-performance-tests) reside in
   [`/test/performance`](./performance)
 
@@ -82,7 +82,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 
 These tests require:
 
-1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#prerequisites)
+1. [A running `Knative Serving` cluster.](../DEVELOPMENT.md#prerequisites)
 1. The `knative-testing` resources:
 
    ```bash
@@ -101,7 +101,7 @@ These tests require:
 
 - By default the e2e tests against the current cluster in `~/.kube/config` using
   the environment specified in
-  [your environment variables](/DEVELOPMENT.md#setup-your-environment).
+  [your environment variables](../DEVELOPMENT.md#setup-your-environment).
 - Since these tests are fairly slow, running them with logging enabled is
   recommended (`-v`).
 - Using [`--logverbose`](#output-verbose-log) to see the verbose log output from
@@ -140,7 +140,7 @@ requires:
 
 - [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#setup-your-environment) to be set
 - You to be
-  [authenticated with your `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
+  [authenticated with your `DOCKER_REPO_OVERRIDE`](../docs/setting-up-a-docker-registry.md)
 - [`docker`](https://docs.docker.com/install/) to be installed
 
 To run the script for all end to end test images:
