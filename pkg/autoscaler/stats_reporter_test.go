@@ -105,10 +105,10 @@ func expectSuccess(t *testing.T, funcName string, f func() error) {
 
 func checkData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
 	if d, err := view.RetrieveData(name); err != nil {
-		t.Errorf("Got unexpected errro from view.RetrieveData error: %v", err)
+		t.Errorf("Got unexpected error from view.RetrieveData error: %v", err)
 	} else {
 		if len(d) != 1 {
-			t.Errorf("want 1 data row but got %v", len(d))
+			t.Errorf("want 1 data row but got %d", len(d))
 		}
 		for _, got := range d[0].Tags {
 			if want, ok := wantTags[got.Key.Name()]; !ok {
@@ -123,8 +123,8 @@ func checkData(t *testing.T, name string, wantTags map[string]string, wantValue 
 		if s, ok := d[0].Data.(*view.LastValueData); !ok {
 			t.Error("expected a LastValueData type")
 		} else {
-			if s.Value != (float64)(wantValue) {
-				t.Errorf("expected value=%v, got=%v for metric %v", (float64)(wantValue), s.Value, name)
+			if s.Value != wantValue {
+				t.Errorf("expected value=%v, got=%v for metric %v", wantValue, s.Value, name)
 			}
 		}
 	}
