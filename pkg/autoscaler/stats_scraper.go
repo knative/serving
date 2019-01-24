@@ -30,6 +30,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	httpClientTimeout = 3 * time.Second
+)
+
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint then sends it as a
@@ -44,7 +48,7 @@ var cacheDisabledClient = &http.Client{
 		// Do not use the cached connection
 		DisableKeepAlives: true,
 	},
-	Timeout: 3 * time.Second,
+	Timeout: httpClientTimeout,
 }
 
 // ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
