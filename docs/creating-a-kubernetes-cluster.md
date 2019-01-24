@@ -186,4 +186,4 @@ Use the same procedure to add imagePullSecrets to service accounts in any
 namespace. Use the `default` service account for pods that do not specify a
 service account.
 
-See also the [private-repo sample README](/sample/private-repos/README.md).
+See also the [private-repo sample README](https://github.com/knative/docs/tree/master/serving/samples/build-private-repo-go).
