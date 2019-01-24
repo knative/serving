@@ -149,7 +149,8 @@ done
 kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
+Follow the
+[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md) if you need to
 set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
@@ -168,13 +169,18 @@ Next, run:
 ko apply -f config/
 ```
 
+The above step is equivalent to applying the `serving.yaml` for released versions of
+Knative Serving.
+
 You can see things running with:
 
 ```shell
 kubectl -n knative-serving get pods
-NAME                                READY     STATUS    RESTARTS   AGE
-controller-77897cc687-vp27q   1/1       Running   0          16s
-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
+NAME                          READY     STATUS    RESTARTS   AGE
+activator-c8495dc9-z7xpz      2/2       Running   0          6d
+autoscaler-66897845df-t5cwg   2/2       Running   0          6d
+controller-699fb46bb5-xhlkg   1/1       Running   0          6d
+webhook-76b87b8459-tzj6r      1/1       Running   0          6d
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -249,4 +255,11 @@ ko delete --ignore-not-found=true \
 
 ## Telemetry
 
-See [telemetry documentation](./docs/telemetry.md).
+To access Telemetry see:
+
+- [Accessing
+Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
+- [Accessing
+Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
+- [Accessing
+Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)
