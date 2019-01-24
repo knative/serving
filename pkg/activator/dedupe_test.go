@@ -16,7 +16,7 @@ limitations under the License.
 package activator
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"reflect"
 	"sync"
@@ -129,7 +129,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).withRevisionName("rev2").build())
 	ep1 := Endpoint{"ip1", 8080}
 	status2 := http.StatusInternalServerError
-	error2 := fmt.Errorf("test error")
+	error2 := errors.New("test error")
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, "rev1"}: {
@@ -160,8 +160,8 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
 	}
-	if len(f.record) != 2 {
-		t.Errorf("Unexpected number of activation requests. Want 2. Got %v.", len(f.record))
+	if got, want := len(f.record), 2; got != want {
+		t.Errorf("Unexpected number of activation requests = %d, want %d", got, want)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).build())
 	failEp := Endpoint{}
 	failStatus := http.StatusServiceUnavailable
-	failErr := fmt.Errorf("test error")
+	failErr := errors.New("test error")
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
 			{testNamespace, testRevision}: {
@@ -209,7 +209,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	ar = d.ActiveEndpoint(testNamespace, testRevision)
 
 	if ar.Error != nil {
-		t.Errorf("Unexpected error. Want %v. Got %v.", nil, ar.Error)
+		t.Errorf("Unexpected error: %v.", ar.Error)
 	}
 	if ar.Endpoint != successEp {
 		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", successEp, ar.Endpoint)
@@ -251,7 +251,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 		t.Errorf("Unexpected error stats. Want %v. Got %v.", http.StatusInternalServerError, ar.Status)
 	}
 	if ar.Error == nil {
-		t.Errorf("Expected error. Want error. Got nil.")
+		t.Error("Expected error.")
 	}
 }
 

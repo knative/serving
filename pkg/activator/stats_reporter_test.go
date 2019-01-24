@@ -31,7 +31,7 @@ func TestActivatorReporter(t *testing.T) {
 
 	var err error
 	if r, err = NewStatsReporter(); err != nil {
-		t.Error("Failed to create a new reporter.")
+		t.Errorf("Failed to create a new reporter: %v", err)
 	}
 
 	// test ReportRequestCount
@@ -67,8 +67,9 @@ func TestActivatorReporter(t *testing.T) {
 }
 
 func expectSuccess(t *testing.T, f func() error) {
+	t.Helper()
 	if err := f(); err != nil {
-		t.Errorf("Reporter expected success but got error %v", err)
+		t.Errorf("Reporter expected success but got error: %v", err)
 	}
 }
 

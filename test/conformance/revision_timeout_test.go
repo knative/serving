@@ -138,7 +138,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
 
-	logger.Infof("Updating the Configuration to use a different revision timeout")
+	logger.Info("Updating the Configuration to use a different revision timeout")
 	err = updateConfigWithTimeout(clients, names, 5)
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new timeout 5s failed: %v", names.Config, err)
@@ -147,7 +147,7 @@ func TestRevisionTimeout(t *testing.T) {
 	// getNextRevisionName waits for names.Revision to change, so we set it to the rev2s revision and wait for the (new) rev5s revision.
 	names.Revision = rev2s.Revision
 
-	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	rev5s.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision with timeout 5s: %v", names.Config, err)
@@ -166,12 +166,12 @@ func TestRevisionTimeout(t *testing.T) {
 	rev2s.TrafficTarget = "rev2s"
 	rev5s.TrafficTarget = "rev5s"
 
-	logger.Infof("Updating Route")
+	logger.Info("Updating Route")
 	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, rev2s, rev5s); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("Wait for the route domains to be ready")
+	logger.Info("Wait for the route domains to be ready")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
