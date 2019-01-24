@@ -42,7 +42,7 @@ promAPI, err := prometheus.PromAPI()
 if err != nil {
   logger.Error("Cannot setup prometheus API")
 }
-query := fmt.Sprintf("%s{namespace_name=\"%s\", configuration_name=\"%s\", revision_name=\"%s\"},metric, test.ServingNamespace, names.Config, names.Revision)
+query := fmt.Sprintf("%s{namespace_name=%q, configuration_name=%q, revision_name=%q},metric, test.ServingNamespace, names.Config, names.Revision)
 val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)
 if err != nil {
   logger.Infof("Error querying metric %s: %v", metric, err)
