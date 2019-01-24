@@ -48,7 +48,7 @@ func TestActivatorReporter(t *testing.T) {
 	if r, err = NewStatsReporter(); err != nil {
 		t.Errorf("Failed to create a new reporter: %v", err)
 	}
-	// Without this go test <> -count=X, where X > 1, fails, since
+	// Without this `go test ... -count=X`, where X > 1, fails, since
 	// we get an error about view already being registered.
 	defer unregister()
 
@@ -100,10 +100,11 @@ func checkSumData(t *testing.T, name string, wantTags map[string]string, wantVal
 			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
 			} else if got.Value != want {
-				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", got.Key.Name(), got.Value, want)
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 
@@ -124,10 +125,11 @@ func checkDistributionData(t *testing.T, name string, wantTags map[string]string
 			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
 			} else if got.Value != want {
-				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", got.Key.Name(), got.Value, want)
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 
