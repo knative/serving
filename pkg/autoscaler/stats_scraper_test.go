@@ -46,11 +46,11 @@ queue_operations_per_second{destination_namespace="test-namespace",destination_r
 `
 )
 
-func TestCreateServiceScraperWithClient_HappyCase(t *testing.T) {
+func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	metric := getTestMetric()
 	client := newTestClient(nil, nil)
-	if scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
-		t.Errorf("createServiceScraperWithClient=%v, want no error", err)
+	if scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
+		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	} else {
 		if scraper.url != testURL {
 			t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
@@ -61,11 +61,11 @@ func TestCreateServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
-func TestCreateServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *testing.T) {
+func TestNewServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *testing.T) {
 	metric := getTestMetric()
 	metric.Labels = map[string]string{}
 	client := newTestClient(nil, nil)
-	if _, err := createServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
+	if _, err := newServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
 		got := err.Error()
 		want := fmt.Sprintf("no Revision label found for Metric %s", testRevision)
 		if got != want {
@@ -79,9 +79,9 @@ func TestCreateServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *t
 func TestScrapeViaURL_HappyCase(t *testing.T) {
 	metric := getTestMetric()
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
-	scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client)
+	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
 	if err != nil {
-		t.Errorf("createServiceScraperWithClient=%v, want no error", err)
+		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	}
 	stat, err := scraper.scrapeViaURL()
 	if err != nil {
@@ -134,16 +134,16 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 	metric := getTestMetric()
 	for _, test := range testCases {
 		client := newTestClient(getHTTPResponse(test.responseCode, test.responseContext), test.responseErr)
-		scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client)
+		scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
 		if err != nil {
-			t.Errorf("createServiceScraperWithClient=%v, want no error", err)
+			t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 		}
 		if _, err := scraper.scrapeViaURL(); err != nil {
 			if err.Error() != test.expectedErr {
 				t.Errorf("Got error message: %v. Want: %v", err.Error(), test.expectedErr)
 			}
 		} else {
-			t.Errorf("Expected error from createServiceScraperWithClient, got nil")
+			t.Errorf("Expected error from newServiceScraperWithClient, got nil")
 		}
 	}
 }
@@ -151,9 +151,9 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 func TestSendStatMessage(t *testing.T) {
 	metric := getTestMetric()
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
-	scraper, err := createServiceScraperWithClient(&metric, TestLogger(t), client)
+	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
 	if err != nil {
-		t.Errorf("createServiceScraperWithClient=%v, want no error", err)
+		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	}
 
 	wantConcurrency := 2.1

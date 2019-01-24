@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 )
@@ -49,27 +50,26 @@ var cacheDisabledClient = &http.Client{
 type ServiceScraper struct {
 	httpClient *http.Client
 	url        string
-	metric     *Metric
 	metricKey  string
 	logger     *zap.SugaredLogger
 }
 
-// CreateNewServiceScraper creates a new StatsScraper for the Revision which
+// NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func CreateNewServiceScraper(metric *Metric, logger *zap.SugaredLogger) (ServiceScraper, error) {
-	return createServiceScraperWithClient(metric, logger, cacheDisabledClient)
+func NewServiceScraper(metric *Metric, logger *zap.SugaredLogger) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(metric, logger, cacheDisabledClient)
 }
 
-func createServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, httpClient *http.Client) (ServiceScraper, error) {
+func newServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, httpClient *http.Client) (*ServiceScraper, error) {
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
-		return ServiceScraper{}, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
+		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
-	return ServiceScraper{
+	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
+	return &ServiceScraper{
 		httpClient: httpClient,
-		url:        fmt.Sprintf("http://%s-service.%s:9090/metrics", revName, metric.Namespace),
-		metric:     metric,
+		url:        fmt.Sprintf("http://%s.%s:9090/metrics", serviceName, metric.Namespace),
 		metricKey:  NewMetricKey(metric.Namespace, metric.Name),
 		logger:     logger,
 	}, nil
@@ -84,29 +84,29 @@ func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
 		return
 	}
 
-	s.sendStatMessage(stat, statsCh)
+	s.sendStatMessage(*stat, statsCh)
 }
 
-func (s *ServiceScraper) scrapeViaURL() (Stat, error) {
+func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
 	req, err := http.NewRequest("GET", s.url, nil)
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return Stat{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Stat{}, fmt.Errorf("GET request for URL %q returned HTTP status %v", s.url, resp.StatusCode)
+		return nil, fmt.Errorf("GET request for URL %q returned HTTP status %v", s.url, resp.StatusCode)
 	}
 
 	return extractData(resp)
 }
 
-func extractData(resp *http.Response) (Stat, error) {
+func extractData(resp *http.Response) (*Stat, error) {
 	stat := Stat{}
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(resp.Body)
 	if err != nil {
-		return stat, fmt.Errorf("Reading text format failed: %v", err)
+		return nil, fmt.Errorf("Reading text format failed: %v", err)
 	}
 
 	now := time.Now()
@@ -121,16 +121,16 @@ func extractData(resp *http.Response) (Stat, error) {
 		}
 		stat.AverageConcurrentRequests = *metric.Metric[0].Gauge.Value
 	} else {
-		return stat, errors.New("queue_average_concurrent_requests key not found in response")
+		return nil, errors.New("queue_average_concurrent_requests key not found in response")
 	}
 
 	if metric, ok := metricFamilies["queue_operations_per_second"]; ok {
 		stat.RequestCount = int32(*metric.Metric[0].Gauge.Value)
 	} else {
-		return stat, errors.New("queue_operations_per_second key not found in response")
+		return nil, errors.New("queue_operations_per_second key not found in response")
 	}
 
-	return stat, nil
+	return &stat, nil
 }
 
 func (s *ServiceScraper) sendStatMessage(stat Stat, statsCh chan<- *StatMessage) {
