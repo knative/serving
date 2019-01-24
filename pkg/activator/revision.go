@@ -123,7 +123,7 @@ func (r *revisionActivator) revisionEndpoint(revision *v1alpha1.Revision) (end E
 	// Search for the correct port in all the service ports.
 	port := int32(-1)
 	for _, p := range svc.Spec.Ports {
-		if p.Name == revisionresources.ServicePortName {
+		if p.Name == revisionresources.ServicePortName(revision) {
 			port = p.Port
 			break
 		}
