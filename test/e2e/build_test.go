@@ -47,8 +47,8 @@ func TestBuildSpecAndServe(t *testing.T) {
 
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildSpecAndServe")
+	logger.Info("Creating a new Route and Configuration with build")
 
-	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
@@ -74,7 +74,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -91,7 +91,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Infof("Revision is ready and serving, checking Build status.")
+	logger.Info("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -101,8 +101,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest ready Revision is %q; its build is: %q", rev.Name, buildName)
 	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
 		Group:    buildv1alpha1.SchemeGroupVersion.Group,
 		Version:  buildv1alpha1.SchemeGroupVersion.Version,
@@ -151,8 +150,8 @@ func TestBuildAndServe(t *testing.T) {
 
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildAndServe")
+	logger.Info("Creating a new Route and Configuration with build")
 
-	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
@@ -178,7 +177,7 @@ func TestBuildAndServe(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -195,7 +194,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Infof("Revision is ready and serving, checking Build status.")
+	logger.Info("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -206,8 +205,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	names.Revision = rev.Name
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest ready Revision is %q, its build is: ", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
@@ -272,7 +270,7 @@ func TestBuildFailure(t *testing.T) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger("TestBuildFailure")
 
-	logger.Infof("Creating a new Configuration with failing build")
+	logger.Info("Creating a new Configuration with failing build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Image:  "helloworld",
@@ -321,8 +319,7 @@ func TestBuildFailure(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest created Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest created Revision is %q; it's build is: %q", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)

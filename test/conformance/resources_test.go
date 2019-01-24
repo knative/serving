@@ -38,7 +38,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestCustomResourcesLimits")
 
-	logger.Infof("Creating a new Route and Configuration")
+	logger.Info("Creating a new Route and Configuration")
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("350Mi"),

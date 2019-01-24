@@ -23,7 +23,7 @@ For eg.
 opts := loadgenerator.GeneratorOptions{Duration: 1*time.Minute, NumThreads: 1}
 resp, err := opts.RunLoadTest(false /* resolvableDomain */)
 if err != nil {
-	t.Fatalf("Generating traffic via fortio failed: %v", err)
+  t.Fatalf("Generating traffic via fortio failed: %v", err)
 }
 ```
 
@@ -40,12 +40,12 @@ For eg.
 ```go
 promAPI, err := prometheus.PromAPI()
 if err != nil {
-	logger.Errorf("Cannot setup prometheus API")
+  logger.Error("Cannot setup prometheus API")
 }
-query := fmt.Sprintf("%s{namespace_name=\"%s\", configuration_name=\"%s\", revision_name=\"%s\"},metric, test.ServingNamespace, names.Config, names.Revision)
+query := fmt.Sprintf("%s{namespace_name=%q, configuration_name=%q, revision_name=%q},metric, test.ServingNamespace, names.Config, names.Revision)
 val, err := prometheus.RunQuery(context.Background(), logger, promAPI, query)
 if err != nil {
-	logger.Infof("Error querying metric %s: %v", metric, err)
+  logger.Infof("Error querying metric %s: %v", metric, err)
 }
 ```
 
@@ -63,7 +63,7 @@ For eg.
 testName := "TestPerformanceLatency"
 var tc []testgrid.TestCase
 for name, val := range metrics {
-	tc = append(tc, CreatePerfTestCase(val, name), testName))
+  tc = append(tc, CreatePerfTestCase(val, name), testName))
 }
 ```
 
@@ -80,7 +80,7 @@ For eg.
 
 ```go
 if err = testgrid.CreateTestgridXML(tc, testName); err != nil {
-	t.Fatalf("Cannot create output xml: %v", err)
+  t.Fatalf("Cannot create output xml: %v", err)
 }
 ```
 

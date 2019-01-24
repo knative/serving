@@ -111,7 +111,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -153,7 +153,7 @@ func TestReconcile(t *testing.T) {
 					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -192,7 +192,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -237,7 +237,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "create-svc-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -288,7 +288,7 @@ func TestReconcile(t *testing.T) {
 					WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -336,7 +336,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "steady-state", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -371,7 +371,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -421,7 +421,7 @@ func TestReconcile(t *testing.T) {
 					WithAnotherDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -457,7 +457,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "new-latest-created", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -494,7 +494,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -513,7 +513,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -563,7 +563,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -581,7 +581,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -624,7 +624,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -667,7 +667,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -708,7 +708,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "cluster-ip", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -747,7 +747,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "external-name", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -785,7 +785,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -803,7 +803,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -842,7 +842,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "change-configs", WithConfigTarget("oldconfig"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "oldconfig", 1).Name,
@@ -861,7 +861,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "change-configs", WithConfigTarget("newconfig"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "newconfig", 1).Name,
@@ -933,7 +933,7 @@ func TestReconcile(t *testing.T) {
 					WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -988,7 +988,7 @@ func TestReconcile(t *testing.T) {
 					})),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "blue", 1).Name,
@@ -1062,7 +1062,7 @@ func TestReconcile(t *testing.T) {
 					})),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "gray", 1).Name,
@@ -1143,7 +1143,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "switch-configs", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "blue", 1).Name,
@@ -1161,7 +1161,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "switch-configs", WithConfigTarget("green"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "green", 1).Name,
@@ -1213,7 +1213,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "split", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "blue", 1).Name,
@@ -1267,7 +1267,7 @@ func TestReconcile(t *testing.T) {
 				route("default", "stale-lastpinned", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,

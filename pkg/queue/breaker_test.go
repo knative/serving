@@ -212,7 +212,7 @@ func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
+			t.Error("The code did not panic")
 		}
 	}()
 	_ = NewSemaphore(1, 2)

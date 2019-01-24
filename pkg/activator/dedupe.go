@@ -17,7 +17,7 @@ limitations under the License.
 package activator
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"sync"
 )
@@ -25,7 +25,7 @@ import (
 var shuttingDownError = ActivationResult{
 	Endpoint: Endpoint{},
 	Status:   http.StatusInternalServerError,
-	Error:    fmt.Errorf("activator shutting down"),
+	Error:    errors.New("activator shutting down"),
 }
 
 var _ Activator = (*dedupingActivator)(nil)

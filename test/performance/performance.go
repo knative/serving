@@ -56,7 +56,7 @@ func Setup(ctx context.Context, logger *logging.BaseLogger, promReqd bool) (*Per
 
 	var p *prometheus.PromProxy
 	if promReqd {
-		logger.Infof("Creating prometheus proxy client")
+		logger.Info("Creating prometheus proxy client")
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
 		p.Setup(ctx, logger)
 	}
