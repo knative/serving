@@ -69,6 +69,10 @@ func (m metrics) Avg() float32 {
 	return float32(m.totalDuration.Seconds()) / float32(m.num)
 }
 
+func (m metrics) Num() int64 {
+	return m.num
+}
+
 type latencies struct {
 	// Guards access to latencies.
 	m       sync.RWMutex
@@ -104,6 +108,12 @@ func (l *latencies) Avg(name string) float32 {
 	return l.metrics[name].Avg()
 }
 
+func (l *latencies) Num(name string) int64 {
+	l.m.RLock()
+	defer l.m.RUnlock()
+	return l.metrics[name].Num()
+}
+
 func (l *latencies) Results(t *testing.T) []testgrid.TestCase {
 	l.m.RLock()
 	defer l.m.RUnlock()
@@ -120,7 +130,8 @@ func (l *latencies) Results(t *testing.T) []testgrid.TestCase {
 		tc = append(tc,
 			CreatePerfTestCase(l.Min(key), fmt.Sprintf("%s.min", key), t.Name()),
 			CreatePerfTestCase(l.Max(key), fmt.Sprintf("%s.max", key), t.Name()),
-			CreatePerfTestCase(l.Avg(key), fmt.Sprintf("%s.avg", key), t.Name()))
+			CreatePerfTestCase(l.Avg(key), fmt.Sprintf("%s.avg", key), t.Name()),
+			CreatePerfTestCase(float32(l.Num(key)), fmt.Sprintf("%s.num", key), t.Name()))
 	}
 	return tc
 }
@@ -145,7 +156,7 @@ func TestScaleToN(t *testing.T) {
 				results = append(results, l.Results(t)...)
 			}()
 
-			e2e.ScaleToWithin(t, logger, size, 20*time.Minute, l)
+			e2e.ScaleToWithin(t, logger, size, 30*time.Minute, l)
 		})
 	}
 
