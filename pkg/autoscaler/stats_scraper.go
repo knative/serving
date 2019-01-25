@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -77,7 +78,7 @@ func newServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, http
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
 	return &ServiceScraper{
 		httpClient: httpClient,
-		url:        fmt.Sprintf("http://%s.%s:9090/metrics", serviceName, metric.Namespace),
+		url:        fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:  NewMetricKey(metric.Namespace, metric.Name),
 		logger:     logger,
 	}, nil
@@ -150,10 +151,7 @@ func extractData(body io.Reader) (*Stat, error) {
 // with the given key from the given map. If there is no such MetricFamily or it
 // has no Metrics, then returns nil.
 func getPrometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
-	if metric, ok := metricFamilies[key]; ok && metric != nil {
-		if len(metric.Metric) == 0 {
-			return nil
-		}
+	if metric, ok := metricFamilies[key]; ok && metric != nil && len(metric.Metric) != 0 {
 		return metric.Metric[0]
 	}
 
