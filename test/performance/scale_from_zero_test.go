@@ -91,7 +91,7 @@ func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Durati
 	for i := 0; i < count; i++ {
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i), logger),
-			// The crd.com helpers will convert to the actual image path.
+			// The crd.go helpers will convert to the actual image path.
 			Image:   helloWorldImage,
 		}
 	}
