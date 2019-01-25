@@ -166,6 +166,21 @@ spec:
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as.
 
+      # +optional. Influence scheduling by requiring nodes with certain attributes
+      # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+      nodeSelector:
+        key: value
+        ...
+
+      # +optional. Influence scheduling by tolerating specific node "smells"
+      # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ 
+      tolerations:
+      - key: ...
+        operator: Equals | Exists
+        value: ...
+        effect: NoSchedule | PreferNoSchedule | NoExecute
+      - ...
+
 status:
   # the latest created and ready to serve. Watched by Route
   latestReadyRevisionName: abc
@@ -239,6 +254,21 @@ spec:
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
+  # +optional. Influence scheduling by requiring nodes with certain attributes
+  # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  nodeSelector:
+    key: value
+    ...
+
+  # +optional. Influence scheduling by tolerating specific node "smells"
+  # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations:
+  - key: ...
+    operator: Equals | Exists
+    value: ...
+    effect: NoSchedule | PreferNoSchedule | NoExecute
+  - ...
+
 status:
   # This is a copy of metadata from the container image or grafeas,
   # indicating the provenance of the revision. This is based on the
@@ -305,6 +335,19 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
+          # +optional. Influence scheduling by requiring nodes with certain attributes
+          # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+          nodeSelector:
+            key: value
+            ...
+          # +optional. Influence scheduling by tolerating specific node "smells"
+          # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+          tolerations:
+          - key: ...
+            operator: Equals | Exists
+            value: ...
+            effect: NoSchedule | PreferNoSchedule | NoExecute
+          - ...
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   pinned:
@@ -318,6 +361,19 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
+          # +optional. Influence scheduling by requiring nodes with certain attributes
+          # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+          nodeSelector:
+            key: value
+            ...
+          # +optional. Influence scheduling by tolerating specific node "smells"
+          # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+          tolerations:
+          - key: ...
+            operator: Equals | Exists
+            value: ...
+            effect: NoSchedule | PreferNoSchedule | NoExecute
+          - ...
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
@@ -334,6 +390,19 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
+          # +optional. Influence scheduling by requiring nodes with certain attributes
+          # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+          nodeSelector:
+            key: value
+            ...
+          # +optional. Influence scheduling by tolerating specific node "smells"
+          # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+          tolerations:
+          - key: ...
+            operator: Equals | Exists
+            value: ...
+            effect: NoSchedule | PreferNoSchedule | NoExecute
+          - ...
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   # Manual has no fields. It enables direct access to modify a previously created
