@@ -55,7 +55,6 @@ func TestReporter_ReportDuration(t *testing.T) {
 	}
 	countWas := int64(0)
 	if m := getMetric(t, ServiceReadyCountN); m != nil {
-
 		countWas = m.Data.(*view.CountData).Value
 	}
 

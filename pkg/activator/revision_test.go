@@ -63,7 +63,6 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	case <-ch:
 		t.Error("Unexpected result before revision is ready.")
 	case <-time.After(100 * time.Microsecond):
-		break
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
