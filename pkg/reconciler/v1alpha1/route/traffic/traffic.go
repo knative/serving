@@ -37,11 +37,15 @@ type RevisionTarget struct {
 type RevisionTargets []RevisionTarget
 
 // GroupTargets partitions the targets by active and inactive sets.
+// GroupTargets ignores the targets with 0 percent.
 func (rt RevisionTargets) GroupTargets() (active RevisionTargets, passive RevisionTargets) {
 	// Presume all are active, optimistically
 	active = make(RevisionTargets, 0, len(rt))
 	passive = make(RevisionTargets, 0)
 	for _, t := range rt {
+		if t.Percent == 0 {
+			continue
+		}
 		if t.Active {
 			active = append(active, t)
 		} else {
@@ -134,6 +138,7 @@ func (t *configBuilder) applySpecTraffic(traffic []v1alpha1.TrafficTarget) error
 			return err
 		}
 	}
+	return nil
 }
 
 func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {

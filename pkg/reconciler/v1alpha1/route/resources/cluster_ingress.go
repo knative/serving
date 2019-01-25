@@ -108,10 +108,6 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 	// Optimistically allocate |active| elements.
 	splits := make([]v1alpha1.ClusterIngressBackendSplit, 0, len(active))
 	for _, t := range active {
-		if t.Percent == 0 {
-			// Don't include 0% routes.
-			continue
-		}
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: ns,

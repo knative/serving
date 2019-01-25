@@ -184,12 +184,12 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				newRev := rev.DeepCopy()
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
-					// Missing is an expected error case for a not yet pinned revision
+					// Missing is an expected error case for a not yet pinned revision.
 					if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
 						return err
 					}
 				} else {
-					// Enforce a delay before performing an update on lastPinned to avoid excess churn
+					// Enforce a delay before performing an update on lastPinned to avoid excess churn.
 					if lastPin.Add(lpDebounce).After(c.clock.Now()) {
 						return nil
 					}
