@@ -430,7 +430,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:f142393519821f42e957c353a38b5f8ed2ee49311c7f3e2573e329f07c4fd95c"
+  digest = "1:ba30ca58f6253ffaef70943016292d251f8842a82a8091df67eb77ac6a2cb73d"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -477,7 +477,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "076ebf4e56758e76cd87fa402e9478da25ed942e"
+  revision = "994b801b03ef8d71737219345f1861ad74291196"
 
 [[projects]]
   branch = "master"
@@ -1299,6 +1299,8 @@
     "github.com/knative/test-infra/tools/dep-collector",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_model/go",
+    "github.com/prometheus/common/expfmt",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",

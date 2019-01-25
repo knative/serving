@@ -105,52 +105,49 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 
 	logger.Info("Waiting for ingress to come up")
+	gateway := "istio-ingressgateway"
+	// Wait for ingress to come up
+	ingressAddr := ""
+	serviceHost := ""
+	timeout := ingressTimeout
+	for (ingressAddr == "" || serviceHost == "") && timeout >= 0 {
+		if serviceHost == "" {
+			serviceHost = serviceHostname()
+		}
+		if ingressAddr = ingressAddress(gateway, "ip"); ingressAddr == "" {
+			ingressAddr = ingressAddress(gateway, "hostname")
+		}
+		timeout -= checkInterval
+		time.Sleep(checkInterval)
+	}
+	if ingressAddr == "" || serviceHost == "" {
+		// serviceHost or ingressAddr might contain a useful error, dump them.
+		t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
+	}
+	logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
 
-	gateways := []string{"istio-ingressgateway", "knative-ingressgateway"}
-	for _, gateway := range gateways {
-		// Wait for ingress to come up
-		ingressAddr := ""
-		serviceHost := ""
-		timeout := ingressTimeout
-		for (ingressAddr == "" || serviceHost == "") && timeout >= 0 {
-			if serviceHost == "" {
-				serviceHost = serviceHostname()
-			}
-			if ingressAddr = ingressAddress(gateway, "ip"); ingressAddr == "" {
-				ingressAddr = ingressAddress(gateway, "hostname")
-			}
-			timeout -= checkInterval
-			time.Sleep(checkInterval)
+	outputString := ""
+	timeout = servingTimeout
+	for outputString != helloWorldExpectedOutput && timeout >= 0 {
+		var cmd *exec.Cmd
+		if test.ServingFlags.ResolvableDomain {
+			cmd = exec.Command("curl", serviceHost)
+		} else {
+			cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+ingressAddr)
 		}
-		if ingressAddr == "" || serviceHost == "" {
-			// serviceHost or ingressAddr might contain a useful error, dump them.
-			t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
+		output, err := cmd.Output()
+		errorString := "none"
+		if err != nil {
+			errorString = err.Error()
 		}
-		logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
+		outputString = strings.TrimSpace(string(output))
+		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+		timeout -= checkInterval
+		time.Sleep(checkInterval)
+	}
 
-		outputString := ""
-		timeout = servingTimeout
-		for outputString != helloWorldExpectedOutput && timeout >= 0 {
-			var cmd *exec.Cmd
-			if test.ServingFlags.ResolvableDomain {
-				cmd = exec.Command("curl", serviceHost)
-			} else {
-				cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+ingressAddr)
-			}
-			output, err := cmd.Output()
-			errorString := "none"
-			if err != nil {
-				errorString = err.Error()
-			}
-			outputString = strings.TrimSpace(string(output))
-			logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
-			timeout -= checkInterval
-			time.Sleep(checkInterval)
-		}
-
-		if outputString != helloWorldExpectedOutput {
-			t.Fatal("Timeout waiting for app to start serving")
-		}
+	if outputString != helloWorldExpectedOutput {
+		t.Fatal("Timeout waiting for app to start serving")
 	}
 	logger.Info("App is serving")
 }

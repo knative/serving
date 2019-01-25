@@ -85,14 +85,6 @@ function install_knative_serving() {
   kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
 
   echo ">> Bringing up Serving"
-  # Delete existing knative-ingressgateway deployments and services if they are not included in this version.
-  # This is so that the upgrade tests can pass between versions that have knative-ingressgateway and versions
-  # that don't.
-  # TODO(nghia): Remove this when knative-ingressgateway is removed.
-  if ! kubectl create -f "${INSTALL_RELEASE_YAML}" --dry-run -lknative=ingressgateway; then
-    kubectl delete svc -n istio-system knative-ingressgateway --ignore-not-found
-    kubectl delete deploy -n istio-system knative-ingressgateway --ignore-not-found
-  fi
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   echo ">> Adding more activator pods."
@@ -113,7 +105,7 @@ function install_knative_serving() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway; do
+  for gateway in istio-ingressgateway cluster-local-gateway; do
     if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
       kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
       kubectl set resources deploy -n istio-system ${gateway} \
@@ -140,9 +132,6 @@ function install_knative_serving() {
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
-  if kubectl get svc -n istio-system knative-ingressgateway > /dev/null 2>&1 ; then
-    wait_until_service_has_external_ip istio-system knative-ingressgateway
-  fi
   wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
