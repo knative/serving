@@ -495,34 +495,42 @@ type linearSeries struct {
 
 type mockReporter struct{}
 
+// ReportDesiredPodCount of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportDesiredPodCount(v int64) error {
 	return nil
 }
 
+// ReportRequestedPodCount of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportRequestedPodCount(v int64) error {
 	return nil
 }
 
+// ReportActualPodCount of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportActualPodCount(v int64) error {
 	return nil
 }
 
+// ReportObservedPodCount of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportObservedPodCount(v float64) error {
 	return nil
 }
 
+// ReportStableRequestConcurrency of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportStableRequestConcurrency(v float64) error {
 	return nil
 }
 
+// ReportPanicRequestConcurrency of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportPanicRequestConcurrency(v float64) error {
 	return nil
 }
 
+// ReportTargetRequestConcurrency of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportTargetRequestConcurrency(v float64) error {
 	return nil
 }
 
+// ReportPanic of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportPanic(v int64) error {
 	return nil
 }
