@@ -50,13 +50,13 @@ var (
 	// KnativeRevisionLabels stores the set of resource labels for resource type knative_revision.
 	// LabelRouteName is added as extra label since it is optional, not in this map.
 	KnativeRevisionLabels = map[string]struct{}{
-		LabelProject:           struct{}{},
-		LabelLocation:          struct{}{},
-		LabelClusterName:       struct{}{},
-		LabelNamespaceName:     struct{}{},
-		LabelServiceName:       struct{}{},
-		LabelConfigurationName: struct{}{},
-		LabelRevisionName:      struct{}{},
+		LabelProject:           {},
+		LabelLocation:          {},
+		LabelClusterName:       {},
+		LabelNamespaceName:     {},
+		LabelServiceName:       {},
+		LabelConfigurationName: {},
+		LabelRevisionName:      {},
 	}
 
 	// ResourceTypeToLabelsMap maps resource type to the set of resource labels
@@ -66,7 +66,7 @@ var (
 
 	// KnativeRevisionMetricsPrefixes stores a set of metrics prefixes that belong to resource type knative_revision
 	KnativeRevisionMetricsPrefixes = map[string]struct{}{
-		"knative.dev/serving/autoscaler": struct{}{},
-		"knative.dev/serving/activator":  struct{}{},
+		"knative.dev/serving/autoscaler": {},
+		"knative.dev/serving/activator":  {},
 	}
 )
