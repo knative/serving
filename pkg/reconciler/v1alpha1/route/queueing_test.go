@@ -21,22 +21,23 @@ import (
 	"time"
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
-	. "github.com/knative/pkg/logging/testing"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 /* TODO tests:
@@ -58,30 +59,30 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		}},
 	)
 
-	// TODO(grantr): inserting the route at client creation is necessary
-	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
-	// upgrade to 1.10 we can remove the config argument here and instead use the
-	// Create() method.
-
 	// Create fake clients
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
 	})
 	sharedClient := fakesharedclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset(rev, route)
+	servingClient := fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	sharedInformer := sharedinformers.NewSharedInformerFactory(sharedClient, 0)
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller := NewController(
@@ -96,31 +97,47 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
-		sharedInformer.Networking().V1alpha3().VirtualServices(),
+		servingInformer.Networking().V1alpha1().ClusterIngresses(),
 	)
 
 	h := NewHooks()
 
-	// Check for service created as a signal that syncHandler ran
-	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) HookResult {
-		service := obj.(*corev1.Service)
-		t.Logf("service created: %q", service.Name)
+	// Check for ClusterIngress created as a signal that syncHandler ran
+	h.OnCreate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
+		ci := obj.(*netv1alpha1.ClusterIngress)
+		t.Logf("ingress created: %q", ci.Name)
 
 		return HookComplete
 	})
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	configMapWatcher.Start(stopCh)
 
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
+
 	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
+
+	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Errorf("Unexpected error creating revision: %v", err)
+	}
+
+	if _, err := servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route); err != nil {
+		t.Errorf("Unexpected error creating route: %v", err)
+	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

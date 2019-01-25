@@ -17,29 +17,22 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/system"
-	yaml "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 var noSidecarImage = ""
 
 func TestControllerConfigurationFromFile(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ControllerConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
-	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	if _, err := NewControllerConfigFromConfigMap(&cm); err != nil {
+	cm := ConfigMapFromTestFile(t, ControllerConfigName)
+
+	if _, err := NewControllerConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
 	}
 }
@@ -62,7 +55,7 @@ func TestControllerConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{
@@ -81,7 +74,7 @@ func TestControllerConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{
@@ -90,30 +83,12 @@ func TestControllerConfiguration(t *testing.T) {
 			},
 		},
 	}, {
-		name:    "controller with autoscaler images",
-		wantErr: false,
-		wantController: &Controller{
-			QueueSidecarImage:              noSidecarImage,
-			AutoscalerImage:                "autoscale-image",
-			RegistriesSkippingTagResolving: map[string]struct{}{},
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
-				Name:      ControllerConfigName,
-			},
-			Data: map[string]string{
-				queueSidecarImageKey: noSidecarImage,
-				autoscalerImageKey:   "autoscale-image",
-			},
-		},
-	}, {
 		name:           "controller with no side car image",
 		wantErr:        true,
 		wantController: (*Controller)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ControllerConfigName,
 			},
 			Data: map[string]string{},

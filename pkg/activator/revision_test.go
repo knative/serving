@@ -20,10 +20,13 @@ import (
 	"testing"
 	"time"
 
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	. "github.com/knative/pkg/logging/testing"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -31,195 +34,116 @@ import (
 )
 
 const (
-	testNamespace     = "test-namespace"
-	testConfiguration = "test-configuration"
-	testRevision      = "test-rev"
-	testService       = testRevision + "-service"
-	testServiceFQDN   = testService + "." + testNamespace + ".svc.cluster.local"
+	testNamespace   = "test-namespace"
+	testRevision    = "test-rev"
+	testService     = testRevision + "-service"
+	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
-type mockReporter struct{}
-
-func (r *mockReporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
-	return nil
-}
-
-func (r *mockReporter) ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error {
-	return nil
-}
-
-func (r *mockReporter) ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error {
-	return nil
-}
-
-func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
-	k8s, kna := fakeClients()
-	kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
-	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
-
-	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
-
-	want := Endpoint{testServiceFQDN, 8080}
-	if got != want {
-		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
-	}
-	if status != Status(0) {
-		t.Errorf("Unexpected error status. Want 0. Got %v.", status)
-	}
-	if err != nil {
-		t.Errorf("Unexpected error. Want nil. Got %v.", err)
-	}
-}
-
-func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
-	k8s, kna := fakeClients()
-	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateReserve).
-			build())
-	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
-
-	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
-
-	want := Endpoint{testServiceFQDN, 8080}
-	if got != want {
-		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
-	}
-	if status != Status(0) {
-		t.Errorf("Unexpected error status. Want 0. Got %v.", status)
-	}
-	if err != nil {
-		t.Errorf("Unexpected error. Want nil. Got %v.", err)
-	}
-
-	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
-	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		t.Errorf("Unexpected serving state. Want Active. Got %v.", rev.Spec.ServingState)
-	}
-}
-
-func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
-	k8s, kna := fakeClients()
-	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateRetired).
-			build())
-	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
-
-	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
-
-	want := Endpoint{}
-	if got != want {
-		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
-	}
-	if status != Status(http.StatusInternalServerError) {
-		t.Errorf("Unexpected error status. Want %v. Got %v.", http.StatusInternalServerError, status)
-	}
-	if err == nil {
-		t.Errorf("Expected error. Want error. Got nil.")
-	}
-
-	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
-	if rev.Spec.ServingState != v1alpha1.RevisionServingStateRetired {
-		t.Errorf("Unexpected serving state. Want Retired. Got %v.", rev.Spec.ServingState)
-	}
+var defaultRevisionLabels = map[string]string{
+	serving.ServiceLabelKey:       "test-service",
+	serving.ConfigurationLabelKey: "test-config",
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateReserve).
+		newRevisionBuilder(defaultRevisionLabels).
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
-	ch := make(chan activationResult)
+	ch := make(chan ActivationResult)
 	go func() {
-		endpoint, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
-		ch <- activationResult{endpoint, status, err}
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
-	default:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(100 * time.Microsecond):
+		break
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkActive()
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
-	time.Sleep(3 * time.Second)
 	select {
-	case result := <-ch:
+	case ar := <-ch:
 		want := Endpoint{testServiceFQDN, 8080}
-		if result.endpoint != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
+		if ar.Endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
-		if result.status != Status(0) {
-			t.Errorf("Unexpected error state. Want 0. Got %v.", result.status)
+		if ar.Status != http.StatusOK {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
 		}
-		if result.err != nil {
-			t.Errorf("Unexpected error. Want nil. Got %v.", result.err)
+		if ar.ServiceName != "test-service" {
+			t.Errorf("Unexpected service name. Want test-service. Got %v.", ar.ServiceName)
 		}
-	default:
-		t.Errorf("Expected result after revision ready.")
+		if ar.ConfigurationName != "test-config" {
+			t.Errorf("Unexpected configuration name. Want test-config. Got %v.", ar.ConfigurationName)
+		}
+		if ar.Error != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready.")
 	}
 }
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateReserve).
+		newRevisionBuilder(defaultRevisionLabels).
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
-	ch := make(chan activationResult)
+	ch := make(chan ActivationResult)
 	go func() {
-		endpoint, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
-		ch <- activationResult{endpoint, status, err}
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
 	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
+		t.Error("Unexpected result before revision is ready.")
 	default:
 	}
 
 	time.Sleep(3 * time.Second)
 	select {
-	case result := <-ch:
-		if got, want := result.endpoint, (Endpoint{}); got != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
+	case ar := <-ch:
+		if got, want := ar.Endpoint, (Endpoint{}); got != want {
+			t.Errorf("Unexpected endpoint = %+v, want: %+v.", got, want)
 		}
-		if got, want := result.status, Status(http.StatusInternalServerError); got != want {
-			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
+		if got, want := ar.Status, http.StatusInternalServerError; got != want {
+			t.Errorf("Unexpected error state = %v, want: %v.", got, want)
 		}
-		if result.err == nil {
-			t.Errorf("Expected error. Want error. Got nil.")
+		if ar.ServiceName != "" {
+			t.Errorf("Unexpected non-empty service, got: %s.", ar.ServiceName)
+		}
+		if ar.ConfigurationName != "" {
+			t.Errorf("Unexpected non-empty configuration name; got: %s.", ar.ConfigurationName)
+		}
+		if ar.Error == nil {
+			t.Error("Expected error.")
 		}
 	default:
-		t.Errorf("Expected result after timeout.")
+		t.Error("Expected result after timeout.")
 	}
 }
 
 func fakeClients() (kubernetes.Interface, clientset.Interface) {
 	nsObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testNamespace,
-			Namespace: "",
+			Name: testNamespace,
 		},
 	}
 	return fakeK8s.NewSimpleClientset(nsObj), fakeKna.NewSimpleClientset()
@@ -229,26 +153,24 @@ type revisionBuilder struct {
 	revision *v1alpha1.Revision
 }
 
-func newRevisionBuilder() *revisionBuilder {
+func newRevisionBuilder(labels map[string]string) *revisionBuilder {
 	return &revisionBuilder{
 		revision: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testRevision,
 				Namespace: testNamespace,
+				Labels:    labels,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
 					Image: "gcr.io/repo/image",
 				},
-				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{
-					v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
 			},
 		},
 	}
@@ -263,17 +185,13 @@ func (b *revisionBuilder) withRevisionName(name string) *revisionBuilder {
 	return b
 }
 
-func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServingStateType) *revisionBuilder {
-	b.revision.Spec.ServingState = servingState
-	return b
-}
-
 func (b *revisionBuilder) withReady(ready bool) *revisionBuilder {
 	if ready {
 		b.revision.Status.MarkContainerHealthy()
 		b.revision.Status.MarkResourcesAvailable()
+		b.revision.Status.MarkActive()
 	} else {
-		b.revision.Status.MarkContainerMissing("reasonz")
+		b.revision.Status.MarkInactive("reasonz", "detailz")
 	}
 	return b
 }
@@ -291,12 +209,13 @@ func newServiceBuilder() *serviceBuilder {
 				Namespace: testNamespace,
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: "http",
-						Port: 8080,
-					},
-				},
+				Ports: []corev1.ServicePort{{
+					Name: revisionresources.ServicePortName,
+					Port: 8080,
+				}, {
+					Name: "anotherport",
+					Port: 9090,
+				}},
 			},
 		},
 	}

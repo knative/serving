@@ -20,21 +20,23 @@ import (
 	"testing"
 	"time"
 
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
-	hooks "github.com/knative/serving/pkg/reconciler/testing"
-
+	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 /* TODO tests:
@@ -58,7 +60,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			// TODO(grantr): This is a workaround for generation initialization
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
@@ -95,6 +97,14 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory) {
+	// Create config
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	})
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -114,7 +124,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
-			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
+			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -132,26 +142,30 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// Create() method.
 	_, _, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
 
-	h := hooks.NewHooks()
+	h := NewHooks()
 
 	// Check for revision created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
 		rev := obj.(*v1alpha1.Revision)
 		t.Logf("revision created: %q", rev.Name)
 
-		return hooks.HookComplete
+		return HookComplete
 	})
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
-	kubeInformer.Start(stopCh)
-	servingInformer.Start(stopCh)
-
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
 	}()
+	kubeInformer.Start(stopCh)
+	servingInformer.Start(stopCh)
+
+	eg.Go(func() error {
+		return controller.Run(2, stopCh)
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

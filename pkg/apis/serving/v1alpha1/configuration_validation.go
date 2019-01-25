@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,22 +18,35 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 )
 
+// Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate() *apis.FieldError {
-	return c.Spec.Validate().ViaField("spec")
+	return ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
+		Also(c.Spec.Validate().ViaField("spec"))
 }
 
+// Validate makes sure that ConfigurationSpec is properly configured.
 func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	// In the context of Configuration, serving state may not be specified at all.
+	var errs *apis.FieldError
 	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
-	if cs.RevisionTemplate.Spec.ServingState != "" {
-		return apis.ErrDisallowedFields("revisionTemplate.spec.servingState")
+
+	if cs.Build == nil {
+		// No build was specified.
+	} else if err := cs.Build.As(&buildv1alpha1.BuildSpec{}); err == nil {
+		// It is a BuildSpec, this is the legacy path.
+	} else if err = cs.Build.As(&unstructured.Unstructured{}); err == nil {
+		// It is an unstructured.Unstructured.
+	} else {
+		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "build"))
 	}
-	return cs.RevisionTemplate.Validate().ViaField("revisionTemplate")
+
+	return errs.Also(cs.RevisionTemplate.Validate().ViaField("revisionTemplate"))
 }

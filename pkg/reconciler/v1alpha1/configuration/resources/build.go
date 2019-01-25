@@ -17,24 +17,89 @@ limitations under the License.
 package resources
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
-func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
+// MakeBuild creates an Unstructured Build object from the passed in Configuration and fills
+// in metadata and references based on the Configuration.
+func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	if config.Spec.Build == nil {
 		return nil
 	}
-	return &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       config.Namespace,
-			Name:            names.Build(config),
-			OwnerReferences: []metav1.OwnerReference{*reconciler.NewControllerRef(config)},
-		},
-		Spec: *config.Spec.Build,
+
+	u := GetBuild(&config.Spec)
+
+	// Compute the hash of the current build's spec.
+	sum := sha256.Sum256(config.Spec.Build.Raw)
+	h := hex.EncodeToString(sum[:])
+
+	// Put it into a label for later lookups.
+	l := u.GetLabels()
+	if l == nil {
+		l = make(map[string]string)
 	}
+	l[serving.BuildHashLabelKey] = h[:63] // Labels can only be 63 characters.
+	u.SetLabels(l)
+
+	u.SetNamespace(config.Namespace)
+	u.SetName(names.DeprecatedBuild(config))
+	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
+	return u
+}
+
+// GetBuild extracts an Unstructured Build object from the passed in ConfigurationSpec.
+func GetBuild(configSpec *v1alpha1.ConfigurationSpec) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	if err := configSpec.Build.As(u); err != nil {
+		b := &buildv1alpha1.Build{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+			},
+		}
+		if err := configSpec.Build.As(&b.Spec); err != nil {
+			// This is validated by the webhook.
+			panic(err.Error())
+		}
+
+		u = MustToUnstructured(b)
+	}
+	// After calling `As()` we can be sure that `.Raw` is populated.
+
+	return u
+}
+
+func MustToUnstructured(build *buildv1alpha1.Build) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+
+	b, err := json.Marshal(build)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	if err := json.Unmarshal(b, u); err != nil {
+		panic(err.Error())
+	}
+
+	return u
+}
+
+func UnstructuredWithContent(content map[string]interface{}) *unstructured.Unstructured {
+	if content == nil {
+		return nil
+	}
+	u := &unstructured.Unstructured{}
+	u.SetUnstructuredContent(content)
+	return u.DeepCopy()
 }

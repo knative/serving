@@ -110,7 +110,43 @@ func TestMakeFluentdConfigMap(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := MakeFluentdConfigMap(test.rev, test.oc)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+				t.Errorf("MakeFluentdConfigMap (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakeFluentdConfigMapVolume(t *testing.T) {
+	tests := []struct {
+		name string
+		rev  *v1alpha1.Revision
+		want *corev1.Volume
+	}{{
+		name: "happy path",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+		},
+		want: &corev1.Volume{
+			Name: fluentdConfigMapVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "bar-fluentd",
+					},
+				},
+			},
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := makeFluentdConfigMapVolume(test.rev)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("makeFluentdConfigMapVolume (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -134,7 +170,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		oc: &config.Observability{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "",
 			// These changed based on the Revision and configs passed in.
@@ -178,7 +214,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		oc: &config.Observability{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "",
 			// These changed based on the Revision and configs passed in.
@@ -217,7 +253,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      fluentdContainerName,
+			Name:      FluentdContainerName,
 			Resources: fluentdResources,
 			Image:     "some-test-image",
 			// These changed based on the Revision and configs passed in.

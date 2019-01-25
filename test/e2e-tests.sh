@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -25,77 +25,16 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/e2e-tests.sh
-[ -f /workspace/e2e-tests.sh ] \
-  && source /workspace/e2e-tests.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat e2e-tests.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
-
-# Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml
+source $(dirname $0)/cluster.sh
 
 # Helper functions.
-
-function create_istio() {
-  echo ">> Bringing up Istio"
-  kubectl apply -f ${ISTIO_YAML}
-}
-
-function create_monitoring() {
-  echo ">> Bringing up monitoring"
-  kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-}
-
-function create_everything() {
-  create_istio
-  echo ">> Bringing up Serving"
-  kubectl apply -f third_party/config/build/release.yaml
-  ko apply -f config/
-  # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
-  #
-  # However, since network configurations may reach different ingress pods at slightly
-  # different time, even ignoring failures for initial requests won't ensure subsequent
-  # requests will succeed all the time.  We are disabling ingress pod autoscaling here
-  # to avoid having too much flakes in the tests.  That would allow us to be stricter
-  # when checking non-probe requests to discover other routing issues.
-  #
-  # We should revisit this when Istio API exposes a Status that we can rely on.
-  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/822 is fixed.
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
-  create_monitoring
-}
-
-function delete_istio() {
-  echo ">> Bringing down Istio"
-  kubectl delete -f ${ISTIO_YAML}
-  kubectl delete clusterrolebinding cluster-admin-binding
-}
-
-function delete_monitoring() {
-  echo ">> Bringing down monitoring"
-  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common
-}
-
-function delete_everything() {
-  delete_monitoring
-  echo ">> Bringing down Serving"
-  ko delete --ignore-not-found=true -f config/
-  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
-  delete_istio
-}
-
-function teardown() {
-  header "Tearing down test environment"
-  delete_everything
+function dump_app_logs() {
+  echo ">>> Knative Serving $1 logs:"
+  for pod in $(get_app_pods "$1" knative-serving)
+  do
+    echo ">>> Pod: $pod"
+    kubectl -n knative-serving logs "$pod" -c "$1"
+  done
 }
 
 function dump_extra_cluster_state() {
@@ -105,40 +44,42 @@ function dump_extra_cluster_state() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-  echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_app_pod controller knative-serving)
+
+  dump_app_logs controller
+  dump_app_logs webhook
+  dump_app_logs autoscaler
+  dump_app_logs activator
+}
+
+# Deletes everything created on the cluster including all knative and istio components.
+function teardown() {
+  uninstall_knative_serving
 }
 
 # Script entry point.
 
 initialize $@
 
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
+header "Setting up environment"
 
-header "Building and starting Knative Serving"
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-create_everything
-
-# Handle test failures ourselves, so we can dump useful info.
+# Handle failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
-wait_until_pods_running istio-system || fail_test "Istio system is not up"
-wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+install_knative_serving || fail_test "Knative Serving installation failed"
+publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
-
 header "Running tests"
-kubectl create namespace serving-tests
-options=""
-(( EMIT_METRICS )) && options="-emitmetrics"
-report_go_test \
-  -v -tags=e2e -count=1 -timeout=20m \
-  ./test/conformance ./test/e2e \
-  ${options} \
-  -dockerrepo gcr.io/knative-tests/test-images/knative-serving || fail_test
+
+failed=0
+# Run conformance tests, but don't exit if it fails.
+go_test_e2e -timeout=10m ./test/conformance || failed=1
+
+# So that we can also identify failing E2E tests.
+go_test_e2e -timeout=15m ./test/e2e || failed=1
+
+# Require that both set of tests succeeded.
+(( failed )) && fail_test
 
 success

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -14,13 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
-
 set -o errexit
+
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 : ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
@@ -51,17 +47,23 @@ fi
 
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
+  --enable-basic-auth \
+  --no-issue-client-certificate \
+  --no-enable-autoupgrade \
   --cluster-version=${SERVING_GKE_VERSION} \
   --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
-  --enable-autoscaling --min-nodes=1 --max-nodes=${K8S_CLUSTER_NODES} \
+  --enable-autoscaling \
+  --min-nodes=1 \
+  --max-nodes=${K8S_CLUSTER_NODES} \
   ${K8S_CLUSTER_NAME}
 
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 
+kubectl config set-context $(kubectl config current-context) --namespace=default
 start_latest_knative_serving
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"

@@ -20,6 +20,9 @@ const (
 	// ControllerType is the key used for controller type in structured logs
 	ControllerType = "knative.dev/controller"
 
+	// Key is the key (namespace/name) being reconciled.
+	Key = "knative.dev/key"
+
 	// Namespace is the key used for namespace in structured logs
 	Namespace = "knative.dev/namespace"
 
@@ -52,4 +55,8 @@ const (
 
 	// KubernetesService is the key used to represent a Kubernetes service name in logs
 	KubernetesService = "knative.dev/k8sservice"
+
+	// GitHubCommitID is the key used to represent the GitHub Commit ID where the
+	// Knative component was built from in logs
+	GitHubCommitID = "commit"
 )

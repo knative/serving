@@ -21,7 +21,6 @@ import (
 	"encoding/gob"
 	"net/url"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -30,27 +29,26 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	stats "github.com/knative/serving/pkg/autoscaler/statserver"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const testAddress = "127.0.0.1:0"
 
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.New(testAddress, statsCh, zap.NewNop().Sugar())
+	server := stats.NewTestServer(statsCh)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := server.ListenAndServe()
-		if err != nil {
-			t.Fatal("ListenAndServe failed.", err)
-		}
-	}()
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		return server.ListenAndServe()
+	})
 
+	server.ListenAddr()
 	server.Shutdown(time.Second)
 
-	wg.Wait()
+	if err := eg.Wait(); err != nil {
+		t.Fatal("ListenAndServe failed.", err)
+	}
 }
 
 func TestStatsReceived(t *testing.T) {
@@ -146,10 +144,10 @@ func newStatMessage(revKey string, podName string, averageConcurrentRequests flo
 	return &autoscaler.StatMessage{
 		revKey,
 		autoscaler.Stat{
-			&now,
-			podName,
-			averageConcurrentRequests,
-			requestCount,
+			Time:                      &now,
+			PodName:                   podName,
+			AverageConcurrentRequests: averageConcurrentRequests,
+			RequestCount:              requestCount,
 		},
 	}
 }

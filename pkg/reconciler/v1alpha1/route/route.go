@@ -19,35 +19,43 @@ package route
 import (
 	"context"
 	"fmt"
-	"sync"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (
 	controllerAgentName = "route-controller"
 )
+
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
@@ -58,12 +66,11 @@ type Reconciler struct {
 	configurationLister  listers.ConfigurationLister
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
-	virtualServiceLister istiolisters.VirtualServiceLister
+	clusterIngressLister networkinglisters.ClusterIngressLister
+	configStore          configStore
+	tracker              tracker.Interface
 
-	// Domain configuration could change over time and access to domainConfig
-	// must go through domainConfigMutex
-	domainConfig      *config.Domain
-	domainConfigMutex sync.Mutex
+	clock system.Clock
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -80,7 +87,20 @@ func NewController(
 	configInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
-	virtualServiceInformer istioinformers.VirtualServiceInformer,
+	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+) *controller.Impl {
+	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
+		serviceInformer, clusterIngressInformer, system.RealClock{})
+}
+
+func NewControllerWithClock(
+	opt reconciler.Options,
+	routeInformer servinginformers.RouteInformer,
+	configInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
+	serviceInformer corev1informers.ServiceInformer,
+	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	clock system.Clock,
 ) *controller.Impl {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
@@ -91,9 +111,10 @@ func NewController(
 		configurationLister:  configInformer.Lister(),
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		virtualServiceLister: virtualServiceInformer.Lister(),
+		clusterIngressLister: clusterIngressInformer.Lister(),
+		clock:                clock,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Routes")
+	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -102,23 +123,44 @@ func NewController(
 		DeleteFunc: impl.Enqueue,
 	})
 
+	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			DeleteFunc: impl.EnqueueControllerOf,
+		},
+	})
+
+	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
+			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
+			DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
+		},
+	})
+
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.EnqueueReferringRoute(impl),
-		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute(impl)),
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
-
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-	})
-
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+	gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	opt.ConfigMapWatcher.Watch(config.DomainConfigName, c.receiveDomainConfig)
+	resyncRoutesOnConfigDomainChange := configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+		impl.GlobalResync(routeInformer.Informer())
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncRoutesOnConfigDomainChange)
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
 
@@ -136,11 +178,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
+	logger := logging.FromContext(ctx)
 
-	logger := loggerWithRouteInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
+	ctx = c.configStore.ToContext(ctx)
 
-	// Get the Route resource with this namespace/name
+	// Get the Route resource with this namespace/name.
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
@@ -149,7 +191,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
-	// Don't modify the informers copy
+	// Don't modify the informers copy.
 	route := original.DeepCopy()
 
 	// Reconcile this copy of the route and then write back any status
@@ -160,30 +202,60 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(ctx, route); err != nil {
+	} else if _, err := c.updateStatus(route); err != nil {
 		logger.Warn("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for route %q: %v", route.Name, err)
+			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
 	return err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-	route.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route :%v", route)
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	r.SetDefaults()
+
+	r.Status.InitializeConditions()
+
+	logger.Infof("Reconciling route: %v", r)
+	// Configure traffic based on the RouteSpec.
+	traffic, err := c.configureTraffic(ctx, r)
+	if traffic == nil || err != nil {
+		// Traffic targets aren't ready, no need to configure child resources.
+		return err
+	}
+
+	logger.Info("Updating targeted revisions.")
+	// In all cases we will add annotations to the referred targets.  This is so that when they become
+	// routable we can know (through a listener) and attempt traffic configuration again.
+	if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
+		return err
+	}
+
+	// Update the information that makes us Addressable.
+	r.Status.Domain = routeDomain(ctx, r)
+	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
+	r.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: resourcenames.K8sServiceFullname(r),
+	}
+
+	logger.Info("Creating ClusterIngress.")
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, traffic))
+	if err != nil {
+		return err
+	}
+	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+
 	logger.Info("Creating/Updating placeholder k8s services")
-	if err := c.reconcilePlaceholderService(ctx, route); err != nil {
+	if err := c.reconcilePlaceholderService(ctx, r, clusterIngress); err != nil {
 		return err
 	}
 
-	// Call configureTrafficAndUpdateRouteStatus, which also updates the Route.Status
-	// to contain the domain we will use for Gateway creation.
-	if _, err := c.configureTraffic(ctx, route); err != nil {
-		return err
-	}
 	logger.Info("Route successfully synced")
 	return nil
 }
@@ -194,97 +266,77 @@ func (c *Reconciler) reconcile(ctx context.Context, route *v1alpha1.Route) error
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-//
-// In all cases we will add annotations to the referred targets.  This is so that when they become
-// routable we can know (through a listener) and attempt traffic configuration again.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
-	r.Status.Domain = c.routeDomain(r)
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.Config, error) {
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+
+	if t != nil {
+		// Tell our trackers to reconcile Route whenever the things referred to by our
+		// Traffic stanza change.
+		gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
+		for _, configuration := range t.Configurations {
+			if err := c.tracker.Track(objectRef(configuration, gvk), r); err != nil {
+				return nil, err
+			}
+		}
+		gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
+		for _, revision := range t.Revisions {
+			if revision.Status.IsActivationRequired() {
+				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
+			}
+			if err := c.tracker.Track(objectRef(revision, gvk), r); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	badTarget, isTargetError := err.(traffic.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
 		r.Status.MarkUnknownTrafficError(err.Error())
-		return r, err
-	}
-	// If the only errors are missing traffic target, we need to
-	// update the labels first, so that when these targets recover we
-	// receive an update.
-	if err := c.syncLabels(ctx, r, t); err != nil {
-		return r, err
+		return nil, err
 	}
 	if badTarget != nil && isTargetError {
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
-		return r, nil
+		return nil, nil
 	}
-	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
-	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
-		return r, err
-	}
-	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
-	r.Status.Traffic = t.GetTrafficTargets()
-	r.Status.MarkTrafficAssigned()
-	return r, nil
-}
 
-func (c *Reconciler) EnqueueReferringRoute(impl *controller.Impl) func(obj interface{}) {
-	return func(obj interface{}) {
-		config, ok := obj.(*v1alpha1.Configuration)
-		if !ok {
-			c.Logger.Infof("Ignoring non-Configuration objects %v", obj)
-			return
-		}
-		if config.Status.LatestReadyRevisionName == "" {
-			c.Logger.Infof("Configuration %s is not ready", config.Name)
-			return
-		}
-		// Check whether is configuration is referred by a route.
-		routeName, ok := config.Labels[serving.RouteLabelKey]
-		if !ok {
-			c.Logger.Infof("Configuration %s does not have a referring route", config.Name)
-			return
-		}
-		// Configuration is referred by a Route.  Update such Route.
-		route, err := c.routeLister.Routes(config.Namespace).Get(routeName)
-		if err != nil {
-			loggerWithRouteInfo(c.Logger, config.Namespace, routeName).Error(
-				"Error fetching route upon configuration becoming ready", zap.Error(err))
-			return
-		}
-		impl.Enqueue(route)
-	}
+	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
+	r.Status.Traffic = t.GetRevisionTrafficTargets()
+	r.Status.MarkTrafficAssigned()
+
+	return t, nil
 }
 
 /////////////////////////////////////////
 // Misc helpers.
 /////////////////////////////////////////
-// loggerWithRouteInfo enriches the logs with route name and namespace.
-func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Route, name))
+
+type accessor interface {
+	GroupVersionKind() schema.GroupVersionKind
+	GetNamespace() string
+	GetName() string
 }
 
-func (c *Reconciler) getDomainConfig() *config.Domain {
-	c.domainConfigMutex.Lock()
-	defer c.domainConfigMutex.Unlock()
-	return c.domainConfig
-}
-
-func (c *Reconciler) routeDomain(route *v1alpha1.Route) string {
-	domain := c.getDomainConfig().LookupDomainForLabels(route.ObjectMeta.Labels)
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
-}
-
-func (c *Reconciler) receiveDomainConfig(configMap *corev1.ConfigMap) {
-	newDomainConfig, err := config.NewDomainFromConfigMap(configMap)
-	if err != nil {
-		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.",
-			zap.Error(err))
-		return
+func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
+	// We can't always rely on the TypeMeta being populated.
+	// See: https://github.com/knative/serving/issues/2372
+	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
+	// gvk := a.GroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  a.GetNamespace(),
+		Name:       a.GetName(),
 	}
-	c.domainConfigMutex.Lock()
-	defer c.domainConfigMutex.Unlock()
-	c.domainConfig = newDomainConfig
+}
+
+func routeDomain(ctx context.Context, route *v1alpha1.Route) string {
+	domainConfig := config.FromContext(ctx).Domain
+	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }

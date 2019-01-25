@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: autoscaler
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
   template:
     metadata:
       annotations:
@@ -31,7 +36,16 @@ spec:
       - name: autoscaler
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/multitenant-autoscaler
+        image: github.com/knative/serving/cmd/autoscaler
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 30m
+            memory: 40Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 300m
+            memory: 400Mi
         ports:
         - name: websocket
           containerPort: 8080
@@ -42,6 +56,13 @@ spec:
           mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       volumes:
         - name: config-autoscaler
           configMap:
@@ -49,3 +70,6 @@ spec:
         - name: config-logging
           configMap:
             name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

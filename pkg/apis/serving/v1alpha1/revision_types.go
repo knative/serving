@@ -17,16 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-	"reflect"
-	"sort"
+	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"github.com/knative/pkg/apis"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -57,6 +58,12 @@ var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
+// Check that RevisionStatus may have its conditions managed.
+var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
+
+// Check that we can create OwnerReferences to a Revision.
+var _ kmeta.OwnerRefable = (*Revision)(nil)
+
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {
@@ -66,28 +73,29 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
+// DeprecatedRevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RevisionServingStateType string
+type DeprecatedRevisionServingStateType string
 
 const (
 	// The revision is ready to serve traffic. It should have Kubernetes
 	// resources, and the Istio route should be pointed to the given resources.
-	RevisionServingStateActive RevisionServingStateType = "Active"
+	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
 	// The revision is not currently serving traffic, but could be made to serve
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
 	// should be pointed to the activator.
-	RevisionServingStateReserve RevisionServingStateType = "Reserve"
+	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
 	// it would from a "Reserve" state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
-	RevisionServingStateRetired RevisionServingStateType = "Retired"
+	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
 // RevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
+// Deprecated in favor of RevisionContainerConcurrencyType.
 type RevisionRequestConcurrencyModelType string
 
 const (
@@ -101,27 +109,84 @@ const (
 	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
 )
 
+// RevisionContainerConcurrencyType is an integer expressing a number of
+// in-flight (concurrent) requests.
+type RevisionContainerConcurrencyType int64
+
+const (
+	// The maximum configurable container concurrency.
+	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
+)
+
+const (
+	// UserPortName is the name that will be used for the Port on the
+	// Deployment and Pod created by a Revision. This name will be set regardless of if
+	// a user specifies a port or the default value is chosen.
+	UserPortName = "user-port"
+
+	// DefaultUserPort is the default port value the QueueProxy will
+	// use for connecting to the user container.
+	DefaultUserPort = 8080
+
+	// RequestQueuePortName specifies the port name to use for http requests
+	// in queue-proxy container.
+	RequestQueuePortName string = "queue-port"
+
+	// RequestQueuePort specifies the port number to use for http requests
+	// in queue-proxy container.
+	RequestQueuePort = 8012
+
+	// RequestQueueAdminPortName specifies the port name for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPortName string = "queueadm-port"
+
+	// RequestQueueAdminPort specifies the port number for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPort = 8022
+
+	// RequestQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy.
+	RequestQueueMetricsPort = 9090
+
+	// RequestQueueMetricsPortName specifies the port name to use for metrics
+	// emitted by queue-proxy.
+	RequestQueueMetricsPortName = "queue-metrics"
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// ServingState holds a value describing the desired state the Kubernetes
+	// DeprecatedServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users must not specify this when creating a revision. It is expected
-	// that the system will manipulate this based on routability and load.
+	// Users must not specify this when creating a revision. These values are no longer
+	// updated by the system.
 	// +optional
-	ServingState RevisionServingStateType `json:"servingState,omitempty"`
+	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
 	// Revision. Defaults to Multi.
+	// Deprecated in favor of ContainerConcurrency.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+
+	// ContainerConcurrency specifies the maximum allowed
+	// in-flight (concurrent) requests per container of the Revision.
+	// Defaults to `0` which means unlimited concurrency.
+	// This field replaces ConcurrencyModel. A value of `1`
+	// is equivalent to `Single` and `0` is equivalent to `Multi`.
+	// +optional
+	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
@@ -135,8 +200,14 @@ type RevisionSpec struct {
 
 	// BuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
+	// DEPRECATED: Use BuildRef instead.
 	// +optional
 	BuildName string `json:"buildName,omitempty"`
+
+	// BuildRef holds the reference to the build (if there is one) responsible
+	// for producing the container image for this Revision. Otherwise, nil
+	// +optional
+	BuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
@@ -145,6 +216,10 @@ type RevisionSpec struct {
 	// https://github.com/knative/serving/issues/627
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
+
+	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
+	// +optional
+	TimeoutSeconds int64 `json:"timeoutSeconds,omitempty"`
 
 	// NodeSelector is a selector which must be true for the revision's pod(s) to
 	// fit on a node.
@@ -159,61 +234,29 @@ type RevisionSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-// RevisionConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RevisionConditionType string
-
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady RevisionConditionType = "Ready"
-	// RevisionConditionBuildComplete is set when the revision has an associated build
+	RevisionConditionReady = duckv1alpha1.ConditionReady
+	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded duckv1alpha1.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable duckv1alpha1.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy duckv1alpha1.ConditionType = "ContainerHealthy"
+	// RevisionConditionActive is set when the revision is receiving traffic.
+	RevisionConditionActive duckv1alpha1.ConditionType = "Active"
 )
 
-type RevisionConditionSlice []RevisionCondition
+var revCondSet = duckv1alpha1.NewLivingConditionSet(
+	RevisionConditionResourcesAvailable,
+	RevisionConditionContainerHealthy,
+	RevisionConditionBuildSucceeded,
+)
 
-// Len implements sort.Interface
-func (rcs RevisionConditionSlice) Len() int {
-	return len(rcs)
-}
-
-// Less implements sort.Interface
-func (rcs RevisionConditionSlice) Less(i, j int) bool {
-	return rcs[i].Type < rcs[j].Type
-}
-
-// Swap implements sort.Interface
-func (rcs RevisionConditionSlice) Swap(i, j int) {
-	rcs[i], rcs[j] = rcs[j], rcs[i]
-}
-
-var _ sort.Interface = (RevisionConditionSlice)(nil)
-
-// RevisionCondition defines a readiness condition for a Revision.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type RevisionCondition struct {
-	Type RevisionConditionType `json:"type" description:"type of Revision condition"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
+var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -228,7 +271,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions RevisionConditionSlice `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -240,6 +283,14 @@ type RevisionStatus struct {
 	// based on the revision url template specified in the controller's config.
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
+
+	// ImageDigest holds the resolved digest for the image specified
+	// within .Spec.Container.Image. The digest is resolved during the creation
+	// of Revision. This field holds the digest value regardless of whether
+	// a tag or digest was originally specified in the Container object. It
+	// may be empty if the image comes from a registry listed to skip resolution.
+	// +optional
+	ImageDigest string `json:"imageDigest,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -252,219 +303,204 @@ type RevisionList struct {
 	Items []Revision `json:"items"`
 }
 
-func (r *Revision) GetGeneration() int64 {
-	return r.Spec.Generation
+func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Revision")
 }
 
-func (r *Revision) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
+func (r *Revision) BuildRef() *corev1.ObjectReference {
+	if r.Spec.BuildRef != nil {
+		buildRef := r.Spec.BuildRef.DeepCopy()
+		if buildRef.Namespace == "" {
+			buildRef.Namespace = r.Namespace
+		}
+		return buildRef
+	}
 
-func (r *Revision) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
+	if r.Spec.BuildName != "" {
+		return &corev1.ObjectReference{
+			APIVersion: "build.knative.dev/v1alpha1",
+			Kind:       "Build",
+			Namespace:  r.Namespace,
+			Name:       r.Spec.BuildName,
+		}
+	}
+
+	return nil
 }
 
 // IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return revCondSet.Manage(rs).IsHappy()
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
-			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
+	if c := revCondSet.Manage(rs).GetCondition(RevisionConditionActive); c != nil {
+		return c.Status != corev1.ConditionTrue
 	}
 	return false
 }
 
-func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsActivationRequired()
-}
-
-func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
-	for _, cond := range rs.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
-}
-
-func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
-	if new == nil {
-		return
-	}
-
-	t := new.Type
-	var conditions RevisionConditionSlice
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Sort(conditions)
-	rs.Conditions = conditions
+func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return revCondSet.Manage(rs).GetCondition(t)
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
-	// We don't include BuildSucceeded here because it could confuse users if
-	// no `buildName` was specified.
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&RevisionCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	revCondSet.Manage(rs).InitializeConditions()
 }
 
-func (rs *RevisionStatus) InitializeBuildCondition() {
-	if rc := rs.GetCondition(RevisionConditionBuildSucceeded); rc == nil {
-		rs.setCondition(&RevisionCondition{
-			Type:   RevisionConditionBuildSucceeded,
-			Status: corev1.ConditionUnknown,
-		})
-	}
-}
-
-func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
-	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
+	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return
 	}
-	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
-	// If the underlying Build is not ready, then mark the Revision not ready.
-	if bc.Status != corev1.ConditionTrue {
-		rct = append(rct, RevisionConditionReady)
+	switch {
+	case bc.Status == corev1.ConditionUnknown:
+		revCondSet.Manage(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
+	case bc.Status == corev1.ConditionTrue:
+		revCondSet.Manage(rs).MarkTrue(RevisionConditionBuildSucceeded)
+	case bc.Status == corev1.ConditionFalse:
+		revCondSet.Manage(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
 	}
-	reason := "Building"
-	if bc.Status != corev1.ConditionUnknown {
-		reason = bc.Reason
-	}
-	for _, cond := range rct {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  bc.Status,
-			Reason:  reason,
-			Message: bc.Message,
-		})
-	}
+}
+
+// MarkResourceNotOwned changes the "ResourcesAvailable" condition to false to reflect that the
+// resource of the given kind and name has already been created, and we do not own it.
+func (rs *RevisionStatus) MarkResourceNotOwned(kind, name string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 func (rs *RevisionStatus) MarkDeploying(reason string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:   cond,
-			Status: corev1.ConditionUnknown,
-			Reason: reason,
-		})
-	}
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
-		})
-	}
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
+		"Timed out waiting for a service endpoint to become ready")
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ProgressDeadlineExceeded",
-			Message: message,
-		})
-	}
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
 }
 
 func (rs *RevisionStatus) MarkContainerHealthy() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionContainerHealthy,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
+}
+
+func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
 }
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionResourcesAvailable,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
 
-func (rs *RevisionStatus) MarkInactive(message string) {
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "Inactive",
-		Message: message,
-	})
+func (rs *RevisionStatus) MarkActive() {
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionActive)
+}
+
+func (rs *RevisionStatus) MarkActivating(reason, message string) {
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, message)
+}
+
+func (rs *RevisionStatus) MarkInactive(reason, message string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionActive, reason, message)
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ContainerMissing",
-			Message: message,
-		})
-	}
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
 }
 
-func (rs *RevisionStatus) checkAndMarkReady() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionResourcesAvailable,
-	} {
-		c := rs.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
+	return rs.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+	rs.Conditions = conditions
+}
+
+// RevisionContainerMissingMessage constructs the status message if a given image
+// cannot be pulled correctly.
+func RevisionContainerMissingMessage(image string, message string) string {
+	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+// RevisionContainerExitingMessage constructs the status message if a container
+// fails to come up.
+func RevisionContainerExitingMessage(message string) string {
+	return fmt.Sprintf("Container failed with: %s", message)
+}
+
+const (
+	AnnotationParseErrorTypeMissing = "Missing"
+	AnnotationParseErrorTypeInvalid = "Invalid"
+	LabelParserErrorTypeMissing     = "Missing"
+	LabelParserErrorTypeInvalid     = "Invalid"
+)
+
+// +k8s:deepcopy-gen=false
+type AnnotationParseError struct {
+	Type  string
+	Value string
+	Err   error
+}
+
+// +k8s:deepcopy-gen=false
+type LastPinnedParseError AnnotationParseError
+
+func (e LastPinnedParseError) Error() string {
+	return fmt.Sprintf("%v lastPinned value: %q", e.Type, e.Value)
+}
+
+// +k8s:deepcopy-gen=false
+type configurationGenerationParseError AnnotationParseError
+
+func (e configurationGenerationParseError) Error() string {
+	return fmt.Sprintf("%v configurationGeneration value: %q", e.Type, e.Value)
+}
+
+func RevisionLastPinnedString(t time.Time) string {
+	return fmt.Sprintf("%d", t.Unix())
+}
+
+func (r *Revision) SetLastPinned(t time.Time) {
+	if r.ObjectMeta.Annotations == nil {
+		r.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
+}
+
+func (r *Revision) GetLastPinned() (time.Time, error) {
+	if r.Annotations == nil {
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
 		}
 	}
-	rs.markReady()
-}
 
-func (rs *RevisionStatus) markReady() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	if !ok {
+		// If a revision is past the create delay without an annotation it is stale
+		return time.Time{}, LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		}
+	}
+
+	secs, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return time.Time{}, LastPinnedParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: str,
+			Err:   err,
+		}
+	}
+
+	return time.Unix(secs, 0), nil
 }

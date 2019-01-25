@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -18,8 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+if [ -z "${GOPATH:-}" ]; then
+  export GOPATH=$(go env GOPATH)
+fi
+
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
+
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -27,14 +33,26 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-g
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
-  "serving:v1alpha1" \
-  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
+  "serving:v1alpha1 autoscaling:v1alpha1 networking:v1alpha1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# Generate the same for our test resources.
+${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+  github.com/knative/serving/test/client github.com/knative/serving/test/apis \
+  "testing:v1alpha1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
-${GOPATH}/bin/deepcopy-gen --input-dirs \
-  github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config,github.com/knative/serving/pkg/autoscaler,github.com/knative/serving/pkg/logging \
+${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
-  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config \
+  -i github.com/knative/serving/pkg/reconciler/v1alpha1/route/config \
+  -i github.com/knative/serving/pkg/autoscaler \
+  -i github.com/knative/serving/pkg/gc \
+  -i github.com/knative/serving/pkg/logging
 
 # Make sure our dependencies are up-to-date
-${SERVING_ROOT}/hack/update-deps.sh
+${REPO_ROOT_DIR}/hack/update-deps.sh

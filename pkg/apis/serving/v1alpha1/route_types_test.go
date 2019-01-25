@@ -18,18 +18,39 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func TestRouteGeneration(t *testing.T) {
-	r := Route{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty route generation should be 0 was: %d", a)
-	}
+func TestRouteDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}, {
+		name: "legacy targetable",
+		t:    &duckv1alpha1.LegacyTargetable{},
+	}, {
+		name: "addressable",
+		t:    &duckv1alpha1.Addressable{},
+	}}
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Route{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Route, %T) = %v", test.t, err)
+			}
+		})
 	}
 }
 
@@ -45,7 +66,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}},
@@ -54,7 +75,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -63,7 +84,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -72,7 +93,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type: RouteConditionReady,
 			}},
 		},
@@ -80,7 +101,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -89,7 +110,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -101,7 +122,7 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Conditions: []RouteCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RouteConditionAllTrafficAssigned,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -121,59 +142,32 @@ func TestRouteIsReady(t *testing.T) {
 	}
 }
 
-func TestRouteConditions(t *testing.T) {
-	svc := &Route{}
-	foo := &RouteCondition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &RouteCondition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	svc.Status.setCondition(foo)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	svc.Status.setCondition(bar)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	svc.Status.setCondition(nil)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-}
-
 func TestTypicalRouteFlow(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.MarkTrafficAssigned()
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 
 	// Verify that this doesn't reset our conditions.
 	r.Status.InitializeConditions()
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 }
 
@@ -243,22 +237,91 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
-func checkConditionSucceededRoute(rs RouteStatus, rct RouteConditionType, t *testing.T) {
+func TestClusterIngressFailureRecovery(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	// Empty IngressStatus keeps things as-is.
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkTrafficAssigned()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionFalse,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestRouteNotOwnedStuff(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkServiceNotOwned("evan")
+	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+}
+
+func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRoute(rs RouteStatus, rct RouteConditionType, t *testing.T) {
+func checkConditionFailedRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRoute(rs RouteStatus, rct RouteConditionType, t *testing.T) {
+func checkConditionOngoingRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRoute(rs RouteStatus, rct RouteConditionType, cs corev1.ConditionStatus, t *testing.T) {
+func checkConditionRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
@@ -266,5 +329,17 @@ func checkConditionRoute(rs RouteStatus, rct RouteConditionType, cs corev1.Condi
 	}
 	if r.Status != cs {
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
+	}
+}
+
+func TestRouteGetGroupVersionKind(t *testing.T) {
+	r := &Route{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Route",
+	}
+	if got := r.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

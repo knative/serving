@@ -40,23 +40,23 @@ func TestNamer(t *testing.T) {
 		f:    Deployment,
 		want: "foo-deployment",
 	}, {
-		name: "Autoscaler",
+		name: "ImageCache",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "bar",
+				Name: "foo",
 			},
 		},
-		f:    Autoscaler,
-		want: "bar-autoscaler",
+		f:    ImageCache,
+		want: "foo-cache",
 	}, {
-		name: "VPA",
+		name: "KPA",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "baz",
 			},
 		},
-		f:    VPA,
-		want: "baz-vpa",
+		f:    KPA,
+		want: "baz",
 	}, {
 		name: "K8sService",
 		rev: &v1alpha1.Revision{

@@ -18,219 +18,22 @@ package testing
 
 import (
 	"context"
-	"fmt"
+	"path"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/system"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
+	_ "github.com/knative/serving/pkg/system/testing" // Setup system.Namespace()
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
-	"github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 )
-
-// Listers holds the universe of objects that are available at the start
-// of a reconciliation.
-type Listers struct {
-	Service       *ServiceLister
-	Route         *RouteLister
-	Configuration *ConfigurationLister
-	Revision      *RevisionLister
-
-	VirtualService *VirtualServiceLister
-
-	Build *BuildLister
-
-	Deployment *DeploymentLister
-	K8sService *K8sServiceLister
-	Endpoints  *EndpointsLister
-	ConfigMap  *ConfigMapLister
-}
-
-func (f *Listers) GetServiceLister() *ServiceLister {
-	if f.Service == nil {
-		return &ServiceLister{}
-	}
-	return f.Service
-}
-
-func (f *Listers) GetVirtualServiceLister() *VirtualServiceLister {
-	if f.VirtualService == nil {
-		return &VirtualServiceLister{}
-	}
-	return f.VirtualService
-}
-
-func (f *Listers) GetRouteLister() *RouteLister {
-	if f.Route == nil {
-		return &RouteLister{}
-	}
-	return f.Route
-}
-
-func (f *Listers) GetConfigurationLister() *ConfigurationLister {
-	if f.Configuration == nil {
-		return &ConfigurationLister{}
-	}
-	return f.Configuration
-}
-
-func (f *Listers) GetRevisionLister() *RevisionLister {
-	if f.Revision == nil {
-		return &RevisionLister{}
-	}
-	return f.Revision
-}
-
-func (f *Listers) GetBuildLister() *BuildLister {
-	if f.Build == nil {
-		return &BuildLister{}
-	}
-	return f.Build
-}
-
-func (f *Listers) GetDeploymentLister() *DeploymentLister {
-	if f.Deployment == nil {
-		return &DeploymentLister{}
-	}
-	return f.Deployment
-}
-
-func (f *Listers) GetK8sServiceLister() *K8sServiceLister {
-	if f.K8sService == nil {
-		return &K8sServiceLister{}
-	}
-	return f.K8sService
-}
-
-func (f *Listers) GetEndpointsLister() *EndpointsLister {
-	if f.Endpoints == nil {
-		return &EndpointsLister{}
-	}
-	return f.Endpoints
-}
-
-func (f *Listers) GetConfigMapLister() *ConfigMapLister {
-	if f.ConfigMap == nil {
-		return &ConfigMapLister{}
-	}
-	return f.ConfigMap
-}
-
-func (f *Listers) GetKubeObjects() []runtime.Object {
-	var kubeObjs []runtime.Object
-	for _, r := range f.GetDeploymentLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetK8sServiceLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetEndpointsLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetConfigMapLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	return kubeObjs
-}
-
-func (f *Listers) GetBuildObjects() []runtime.Object {
-	var buildObjs []runtime.Object
-	for _, r := range f.GetBuildLister().Items {
-		buildObjs = append(buildObjs, r)
-	}
-	return buildObjs
-}
-
-func (f *Listers) GetServingObjects() []runtime.Object {
-	var objs []runtime.Object
-	for _, r := range f.GetServiceLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetRouteLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetConfigurationLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetRevisionLister().Items {
-		objs = append(objs, r)
-	}
-	return objs
-}
-
-func (f *Listers) GetSharedObjects() []runtime.Object {
-	var objs []runtime.Object
-	for _, r := range f.GetVirtualServiceLister().Items {
-		objs = append(objs, r)
-	}
-	return objs
-}
-
-func NewListers(objs []runtime.Object) Listers {
-	ls := Listers{
-		Service:       &ServiceLister{},
-		Route:         &RouteLister{},
-		Configuration: &ConfigurationLister{},
-		Revision:      &RevisionLister{},
-
-		VirtualService: &VirtualServiceLister{},
-
-		Build: &BuildLister{},
-
-		Deployment: &DeploymentLister{},
-		K8sService: &K8sServiceLister{},
-		Endpoints:  &EndpointsLister{},
-		ConfigMap:  &ConfigMapLister{},
-	}
-	for _, obj := range objs {
-		switch o := obj.(type) {
-		case *v1alpha1.Service:
-			ls.Service.Items = append(ls.Service.Items, o)
-		case *v1alpha1.Route:
-			ls.Route.Items = append(ls.Route.Items, o)
-		case *v1alpha1.Configuration:
-			ls.Configuration.Items = append(ls.Configuration.Items, o)
-		case *v1alpha1.Revision:
-			ls.Revision.Items = append(ls.Revision.Items, o)
-
-		case *istiov1alpha3.VirtualService:
-			ls.VirtualService.Items = append(ls.VirtualService.Items, o)
-
-		case *buildv1alpha1.Build:
-			ls.Build.Items = append(ls.Build.Items, o)
-
-		case *appsv1.Deployment:
-			ls.Deployment.Items = append(ls.Deployment.Items, o)
-		case *corev1.Service:
-			ls.K8sService.Items = append(ls.K8sService.Items, o)
-		case *corev1.Endpoints:
-			ls.Endpoints.Items = append(ls.Endpoints.Items, o)
-		case *corev1.ConfigMap:
-			ls.ConfigMap.Items = append(ls.ConfigMap.Items, o)
-
-		default:
-			panic(fmt.Sprintf("Unsupported type in TableTest %T", obj))
-		}
-	}
-	return ls
-}
 
 // TableRow holds a single row of our table test.
 type TableRow struct {
@@ -253,180 +56,267 @@ type TableRow struct {
 	// WantUpdates holds the set of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
+	// WantStatusUpdates holds the set of Update calls, with `status` subresource set,
+	// that we expect during reconciliation.
+	WantStatusUpdates []clientgotesting.UpdateActionImpl
+
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
-	// WantPatches holds the set of Patch calls we expect during reconcilliation
+	// WantPatches holds the set of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
+
+	// WantEvents holds the set of events we expect during reconciliation.
+	WantEvents []string
+
+	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.
+	WantServiceReadyStats map[string]int
 
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
 	WithReactors []clientgotesting.ReactionFunc
+
+	// For cluster-scoped resources like ClusterIngress, it does not have to be
+	// in the same namespace with its child resources.
+	SkipNamespaceValidation bool
 }
 
-type Ctor func(*Listers, reconciler.Options) controller.Reconciler
+func objKey(o runtime.Object) string {
+	on := o.(kmeta.Accessor)
+	// namespace + name is not unique, and the tests don't populate k8s kind
+	// information, so use GoLang's type name as part of the key.
+	return path.Join(reflect.TypeOf(o).String(), on.GetNamespace(), on.GetName())
+}
 
-func (r *TableRow) Test(t *testing.T, ctor Ctor) {
-	ls := NewListers(r.Objects)
+// Factory returns a Reconciler.Interface to perform reconciliation in table test,
+// ActionRecorderList/EventList to capture k8s actions/events produced during reconciliation
+// and FakeStatsReporter to capture stats.
+type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter)
 
-	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
-	sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
-	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
-	// Set up our Controller from the fakes.
-	c := ctor(&ls, reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		BuildClientSet:   buildClient,
-		ServingClientSet: client,
-		Logger:           TestLogger(t),
-	})
-
-	for _, reactor := range r.WithReactors {
-		kubeClient.PrependReactor("*", "*", reactor)
-		sharedClient.PrependReactor("*", "*", reactor)
-		client.PrependReactor("*", "*", reactor)
-		buildClient.PrependReactor("*", "*", reactor)
-	}
-
-	// Validate all Create operations through the serving client.
-	client.PrependReactor("create", "*", ValidateCreates)
-	client.PrependReactor("update", "*", ValidateUpdates)
+// Test executes the single table test.
+func (r *TableRow) Test(t *testing.T, factory Factory) {
+	c, recorderList, eventList, statsReporter := factory(t, r)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
-	// Now check that the Reconcile had the desired effects.
+
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
-	createActions, updateActions, deleteActions, patchActions := extractActions(t, sharedClient, buildClient, client, kubeClient)
+	actions, err := recorderList.ActionsByVerb()
+
+	if err != nil {
+		t.Errorf("Error capturing actions by verb: %q", err)
+	}
+
+	// Previous state is used to diff resource expected state for update requests that were missed.
+	objPrevState := map[string]runtime.Object{}
+	for _, o := range r.Objects {
+		objPrevState[objKey(o)] = o
+	}
 
 	for i, want := range r.WantCreates {
-		if i >= len(createActions) {
-			t.Errorf("Missing create: %v", want)
+		if i >= len(actions.Creates) {
+			t.Errorf("Missing create: %#v", want)
 			continue
 		}
-		got := createActions[i]
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
-			t.Errorf("unexpected action[%d]: %#v", i, got)
-		}
+		got := actions.Creates[i]
 		obj := got.GetObject()
+		objPrevState[objKey(obj)] = obj
+
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected action[%d]: %#v", i, got)
+		}
+
 		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("unexpected create (-want +got): %s", diff)
+			t.Errorf("Unexpected create (-want, +got): %s", diff)
 		}
 	}
-	if got, want := len(createActions), len(r.WantCreates); got > want {
-		for _, extra := range createActions[want:] {
-			t.Errorf("Extra create: %v", extra)
+	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
+		for _, extra := range actions.Creates[want:] {
+			t.Errorf("Extra create: %#v", extra)
 		}
 	}
 
+	updates := filterUpdatesWithSubresource("", actions.Updates)
 	for i, want := range r.WantUpdates {
-		if i >= len(updateActions) {
-			t.Errorf("Missing update: %v", want.GetObject())
+		if i >= len(updates) {
+			wo := want.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Missing update for %s (-want, +prevState): %s", key,
+				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
-		got := updateActions[i]
-		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("unexpected update (-want +got): %s", diff)
+
+		if want.GetSubresource() != "" {
+			t.Errorf("Expectation was invalid - it should not include a subresource: %#v", want)
+		}
+
+		got := updates[i].GetObject()
+
+		// Update the object state.
+		objPrevState[objKey(got)] = got
+
+		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected update (-want, +got): %s", diff)
 		}
 	}
-	if got, want := len(updateActions), len(r.WantUpdates); got > want {
-		for _, extra := range updateActions[want:] {
-			t.Errorf("Extra update: %v", extra)
+	if got, want := len(updates), len(r.WantUpdates); got > want {
+		for _, extra := range updates[want:] {
+			t.Errorf("Extra update: %#v", extra)
 		}
+	}
+
+	// TODO(#2843): refactor.
+	statusUpdates := filterUpdatesWithSubresource("status", actions.Updates)
+	for i, want := range r.WantStatusUpdates {
+		if i >= len(statusUpdates) {
+			wo := want.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Missing status update for %s (-want, +prevState): %s", key,
+				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+			continue
+		}
+
+		got := statusUpdates[i].GetObject()
+
+		// Update the object state.
+		objPrevState[objKey(got)] = got
+
+		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected status update (-want, +got): %s", diff)
+		}
+	}
+	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
+		for _, extra := range statusUpdates[want:] {
+			t.Errorf("Extra status update: %#v", extra)
+		}
+	}
+
+	if len(statusUpdates)+len(updates) != len(actions.Updates) {
+		var unexpected []clientgotesting.UpdateAction
+
+		for _, update := range actions.Updates {
+			if update.GetSubresource() != "status" && update.GetSubresource() != "" {
+				unexpected = append(unexpected, update)
+			}
+		}
+
+		t.Errorf("Unexpected subresource updates occurred %#v", unexpected)
 	}
 
 	for i, want := range r.WantDeletes {
-		if i >= len(deleteActions) {
-			t.Errorf("Missing delete: %v", want)
+		if i >= len(actions.Deletes) {
+			t.Errorf("Missing delete: %#v", want)
 			continue
 		}
-		got := deleteActions[i]
-		if got.GetName() != want.Name {
-			t.Errorf("unexpected delete[%d]: %#v", i, got)
+		got := actions.Deletes[i]
+		if got.GetName() != want.GetName() {
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
-			t.Errorf("unexpected delete[%d]: %#v", i, got)
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
 		}
 	}
-	if got, want := len(deleteActions), len(r.WantDeletes); got > want {
-		for _, extra := range deleteActions[want:] {
-			t.Errorf("Extra delete: %v", extra)
+	if got, want := len(actions.Deletes), len(r.WantDeletes); got > want {
+		for _, extra := range actions.Deletes[want:] {
+			t.Errorf("Extra delete: %#v", extra)
 		}
 	}
 
 	for i, want := range r.WantPatches {
-		if i >= len(patchActions) {
-			t.Errorf("Missing patch: %v", want)
+		if i >= len(actions.Patches) {
+			t.Errorf("Missing patch: %#v", want)
 			continue
 		}
 
-		got := patchActions[i]
-		if got.GetName() != want.Name {
-			t.Errorf("unexpected patch[%d]: %#v", i, got)
+		got := actions.Patches[i]
+		if got.GetName() != want.GetName() {
+			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
-			t.Errorf("unexpected patch[%d]: %#v", i, got)
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
-			t.Errorf("unexpected patch(-want +got): %s", diff)
+			t.Errorf("Unexpected patch(-want, +got): %s", diff)
 		}
 	}
-	if got, want := len(patchActions), len(r.WantPatches); got > want {
-		for _, extra := range patchActions[want:] {
-			t.Errorf("Extra patch: %v", extra)
+	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
+		for _, extra := range actions.Patches[want:] {
+			t.Errorf("Extra patch: %#v", extra)
 		}
+	}
+
+	gotEvents := eventList.Events()
+	for i, want := range r.WantEvents {
+		if i >= len(gotEvents) {
+			t.Errorf("Missing event: %s", want)
+			continue
+		}
+
+		if diff := cmp.Diff(want, gotEvents[i]); diff != "" {
+			t.Errorf("unexpected event(-want, +got): %s", diff)
+		}
+	}
+	if got, want := len(gotEvents), len(r.WantEvents); got > want {
+		for _, extra := range gotEvents[want:] {
+			t.Errorf("Extra event: %s", extra)
+		}
+	}
+
+	gotStats := statsReporter.GetServiceReadyStats()
+	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
+		t.Errorf("Unexpected service ready stats (-want, +got): %s", diff)
 	}
 }
 
-type hasActions interface {
-	Actions() []clientgotesting.Action
-}
-
-func extractActions(t *testing.T, clients ...hasActions) (
-	createActions []clientgotesting.CreateAction,
-	updateActions []clientgotesting.UpdateAction,
-	deleteActions []clientgotesting.DeleteAction,
-	patchActions []clientgotesting.PatchAction,
-) {
-
-	for _, c := range clients {
-		for _, action := range c.Actions() {
-			switch action.GetVerb() {
-			case "create":
-				createActions = append(createActions,
-					action.(clientgotesting.CreateAction))
-			case "update":
-				updateActions = append(updateActions,
-					action.(clientgotesting.UpdateAction))
-			case "delete":
-				deleteActions = append(deleteActions,
-					action.(clientgotesting.DeleteAction))
-			case "patch":
-				patchActions = append(patchActions,
-					action.(clientgotesting.PatchAction))
-			default:
-				t.Errorf("Unexpected verb %v: %+v", action.GetVerb(), action)
-			}
+func filterUpdatesWithSubresource(
+	subresource string,
+	actions []clientgotesting.UpdateAction) (result []clientgotesting.UpdateAction) {
+	for _, action := range actions {
+		if action.GetSubresource() == subresource {
+			result = append(result, action)
 		}
 	}
 	return
 }
 
+// TableTest represents a list of TableRow tests instances.
 type TableTest []TableRow
 
-func (tt TableTest) Test(t *testing.T, ctor Ctor) {
+// Test executes the whole suite of the table tests.
+func (tt TableTest) Test(t *testing.T, factory Factory) {
 	for _, test := range tt {
+		// Record the original objects in table.
+		originObjects := []runtime.Object{}
+		for _, obj := range test.Objects {
+			originObjects = append(originObjects, obj.DeepCopyObject())
+		}
 		t.Run(test.Name, func(t *testing.T) {
-			test.Test(t, ctor)
+			test.Test(t, factory)
 		})
+		// Validate cached objects do not get soiled after controller loops
+		if diff := cmp.Diff(originObjects, test.Objects, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected objects in test %s (-want, +got): %v", test.Name, diff)
+		}
 	}
 }
 
-var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
-}, cmp.Ignore())
+var (
+	ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
+		return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
+	}, cmp.Ignore())
 
-var safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
+	safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
+)

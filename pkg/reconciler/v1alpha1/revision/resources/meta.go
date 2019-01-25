@@ -44,7 +44,11 @@ func makeLabels(revision *v1alpha1.Revision) map[string]string {
 
 // makeSelector constructs the Selector we will apply to K8s resources.
 func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: makeLabels(revision)}
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			serving.RevisionUID: string(revision.UID),
+		},
+	}
 }
 
 // makeAnnotations creates the annotations we will apply to
@@ -52,6 +56,11 @@ func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
 func makeAnnotations(revision *v1alpha1.Revision) map[string]string {
 	annotations := make(map[string]string, len(revision.ObjectMeta.Annotations))
 	for k, v := range revision.ObjectMeta.Annotations {
+		// Don't propagate known-volatile annotations on the Revision
+		// (e.g. our lastPinned heartbeat) to the Deployment or Pods.
+		if k == serving.RevisionLastPinnedAnnotationKey {
+			continue
+		}
 		annotations[k] = v
 	}
 	return annotations

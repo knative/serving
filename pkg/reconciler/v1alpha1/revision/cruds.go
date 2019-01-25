@@ -20,85 +20,94 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
-	commonlogging "github.com/knative/pkg/logging"
+	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	"github.com/knative/pkg/kmp"
+	"github.com/knative/pkg/logging"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-
-	"go.uber.org/zap"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	logger := logging.FromContext(ctx)
+	cfgs := config.FromContext(ctx)
 
-	var replicaCount int32 = 1
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
-	}
-	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
-		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig(), replicaCount)
-
-	// Resolve tag image references to digests.
-	if err := c.getResolver().Resolve(deployment); err != nil {
-		logger.Error("Error resolving deployment", zap.Error(err))
-		rev.Status.MarkContainerMissing(err.Error())
-		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
-	}
+	deployment := resources.MakeDeployment(
+		rev,
+		cfgs.Logging,
+		cfgs.Network,
+		cfgs.Observability,
+		cfgs.Autoscaler,
+		cfgs.Controller,
+	)
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
-func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
+func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
 	logger := logging.FromContext(ctx)
+	cfgs := config.FromContext(ctx)
 
-	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// resources.MakeDeployment() would produce.
-	desiredDeployment := deployment.DeepCopy()
-	if desiredDeployment.Spec.Replicas == nil {
-		var one int32 = 1
-		desiredDeployment.Spec.Replicas = &one
-	}
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
-		*desiredDeployment.Spec.Replicas = 1
-	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *desiredDeployment.Spec.Replicas != 0 {
-		*desiredDeployment.Spec.Replicas = 0
+	deployment := resources.MakeDeployment(
+		rev,
+		cfgs.Logging,
+		cfgs.Network,
+		cfgs.Observability,
+		cfgs.Autoscaler,
+		cfgs.Controller,
+	)
+
+	// Preserve the current scale of the Deployment.
+	deployment.Spec.Replicas = have.Spec.Replicas
+
+	// Preserve the label selector since it's immutable
+	// TODO(dprotaso) Determine other immutable properties
+	deployment.Spec.Selector = have.Spec.Selector
+
+	// If the spec we want is the spec we have, then we're good.
+	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
+		return have, Unchanged, nil
 	}
 
-	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-		return deployment, Unchanged, nil
+	// Otherwise attempt an update (with ONLY the spec changes).
+	desiredDeployment := have.DeepCopy()
+	desiredDeployment.Spec = deployment.Spec
+	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(desiredDeployment)
+	if err != nil {
+		return nil, Unchanged, err
 	}
-	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
-		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
-	deployment.Spec = desiredDeployment.Spec
-	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	return d, WasChanged, err
+
+	// If what comes back from the update (with defaults applied by the API server) is the same
+	// as what we have then nothing changed.
+	if equality.Semantic.DeepEqual(have.Spec, d.Spec) {
+		return d, Unchanged, nil
+	}
+	diff, err := kmp.SafeDiff(have.Spec, d.Spec)
+	if err != nil {
+		return nil, Unchanged, err
+	}
+
+	// If what comes back has a different spec, then signal the change.
+	logger.Infof("Reconciled deployment diff (-desired, +observed): %v", diff)
+	return d, WasChanged, nil
 }
 
-// This is a generic function used both for deployment of user code & autoscaler
-func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
-	logger := logging.FromContext(ctx)
-
-	err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Delete(deployment.Name, fgDeleteOptions)
-	if apierrs.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		logger.Errorf("deployments.Delete for %q failed: %s", deployment.Name, err)
-		return err
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
+	image, err := resources.MakeImageCache(rev, deploy)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
+}
+
+func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpav1alpha1.PodAutoscaler, error) {
+	kpa := resources.MakeKPA(rev)
+
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
 }
 
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
@@ -113,98 +122,21 @@ func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, 
 func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
 	logger := logging.FromContext(ctx)
 
-	desiredService := sf(rev)
-
-	// Preserve the ClusterIP field in the Service's Spec, if it has been set.
-	desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+	// Note: only reconcile the spec we set.
+	rawDesiredService := sf(rev)
+	desiredService := service.DeepCopy()
+	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
+	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
 
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
 		return service, Unchanged, nil
 	}
-	logger.Infof("Reconciling service diff (-desired, +observed): %v",
-		cmp.Diff(desiredService.Spec, service.Spec))
-	service.Spec = desiredService.Spec
+	diff, err := kmp.SafeDiff(desiredService.Spec, service.Spec)
+	if err != nil {
+		return nil, Unchanged, fmt.Errorf("failed to diff Service: %v", err)
+	}
+	logger.Infof("Reconciling service diff (-desired, +observed): %v", diff)
 
-	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(service)
+	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(desiredService)
 	return d, WasChanged, err
-}
-
-func (c *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
-	logger := logging.FromContext(ctx)
-
-	err := c.KubeClientSet.CoreV1().Services(svc.Namespace).Delete(svc.Name, fgDeleteOptions)
-	if apierrs.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		logger.Errorf("service.Delete for %q failed: %s", svc.Name, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Reconciler) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	var replicaCount int32 = 1
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
-	}
-	deployment := resources.MakeAutoscalerDeployment(rev, c.getControllerConfig().AutoscalerImage, replicaCount)
-	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
-}
-
-func (c *Reconciler) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
-	vpa := resources.MakeVPA(rev)
-
-	return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
-}
-
-func (c *Reconciler) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPodAutoscaler) error {
-	logger := logging.FromContext(ctx)
-	if !c.getAutoscalerConfig().EnableVPA {
-		return nil
-	}
-
-	err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Delete(vpa.Name, fgDeleteOptions)
-	if apierrs.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		logger.Errorf("vpa.Delete for %q failed: %v", vpa.Name, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Reconciler) getNetworkConfig() *config.Network {
-	c.networkConfigMutex.Lock()
-	defer c.networkConfigMutex.Unlock()
-	return c.networkConfig.DeepCopy()
-}
-
-func (c *Reconciler) getResolver() resolver {
-	c.resolverMutex.Lock()
-	defer c.resolverMutex.Unlock()
-	return c.resolver
-}
-
-func (c *Reconciler) getControllerConfig() *config.Controller {
-	c.controllerConfigMutex.Lock()
-	defer c.controllerConfigMutex.Unlock()
-	return c.controllerConfig.DeepCopy()
-}
-
-func (c *Reconciler) getLoggingConfig() *commonlogging.Config {
-	c.loggingConfigMutex.Lock()
-	defer c.loggingConfigMutex.Unlock()
-	return c.loggingConfig.DeepCopy()
-}
-
-func (c *Reconciler) getObservabilityConfig() *config.Observability {
-	c.observabilityConfigMutex.Lock()
-	defer c.observabilityConfigMutex.Unlock()
-	return c.observabilityConfig.DeepCopy()
-}
-
-func (c *Reconciler) getAutoscalerConfig() *autoscaler.Config {
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	return c.autoscalerConfig.DeepCopy()
 }

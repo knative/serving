@@ -18,26 +18,22 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/stream"
+	"golang.org/x/sync/errgroup"
 )
 
-// WriteOptions are used to expose optional information to guide or
-// control the image write.
-type WriteOptions struct {
-	// TODO(mattmoor): Expose "threads" to limit parallelism?
-}
-
 // Write pushes the provided img to the specified image reference.
-func Write(ref name.Reference, img v1.Image, auth authn.Authenticator, t http.RoundTripper,
-	wo WriteOptions) error {
-
+func Write(ref name.Reference, img v1.Image, auth authn.Authenticator, t http.RoundTripper) error {
 	ls, err := img.Layers()
 	if err != nil {
 		return err
@@ -49,37 +45,48 @@ func Write(ref name.Reference, img v1.Image, auth authn.Authenticator, t http.Ro
 		return err
 	}
 	w := writer{
-		ref:     ref,
-		client:  &http.Client{Transport: tr},
-		img:     img,
-		options: wo,
+		ref:    ref,
+		client: &http.Client{Transport: tr},
+		img:    img,
 	}
 
-	bs, err := img.BlobSet()
-	if err != nil {
-		return err
+	// Upload individual layers in goroutines and collect any errors.
+	var g errgroup.Group
+	for _, l := range ls {
+		l := l
+		g.Go(func() error {
+			return w.uploadOne(l)
+		})
 	}
 
-	// Spin up go routines to publish each of the members of BlobSet(),
-	// and use an error channel to collect their results.
-	errCh := make(chan error)
-	defer close(errCh)
-	for h := range bs {
-		go func(h v1.Hash) {
-			errCh <- w.uploadOne(h)
-		}(h)
-	}
-
-	// Now wait for all of the blob uploads to complete.
-	var errors []error
-	for _ = range bs {
-		if err := <-errCh; err != nil {
-			errors = append(errors, err)
+	if l, err := partial.ConfigLayer(img); err == stream.ErrNotComputed {
+		// We can't read the ConfigLayer, because of streaming layers, since the
+		// config hasn't been calculated yet.
+		if err := g.Wait(); err != nil {
+			return err
 		}
-	}
-	if len(errors) > 0 {
-		// Return the first error we encountered.
-		return errors[0]
+
+		// Now that all the layers are uploaded, upload the config file blob.
+		l, err := partial.ConfigLayer(img)
+		if err != nil {
+			return err
+		}
+		if err := w.uploadOne(l); err != nil {
+			return err
+		}
+	} else if err != nil {
+		// This is an actual error, not a streaming error, just return it.
+		return err
+	} else {
+		// We *can* read the ConfigLayer, so upload it concurrently with the layers.
+		g.Go(func() error {
+			return w.uploadOne(l)
+		})
+
+		// Wait for the layers + config.
+		if err := g.Wait(); err != nil {
+			return err
+		}
 	}
 
 	// With all of the constituent elements uploaded, upload the manifest
@@ -89,10 +96,9 @@ func Write(ref name.Reference, img v1.Image, auth authn.Authenticator, t http.Ro
 
 // writer writes the elements of an image to a remote image reference.
 type writer struct {
-	ref     name.Reference
-	client  *http.Client
-	img     v1.Image
-	options WriteOptions
+	ref    name.Reference
+	client *http.Client
+	img    v1.Image
 }
 
 // url returns a url.Url for the specified path in the context of this remote image reference.
@@ -120,29 +126,40 @@ func (w *writer) nextLocation(resp *http.Response) (string, error) {
 	return resp.Request.URL.ResolveReference(u).String(), nil
 }
 
+// checkExisting checks if a blob exists already in the repository by making a
+// HEAD request to the blob store API.  GCR performs an existence check on the
+// initiation if "mount" is specified, even if no "from" sources are specified.
+// However, this is not broadly applicable to all registries, e.g. ECR.
+func (w *writer) checkExisting(h v1.Hash) (bool, error) {
+	u := w.url(fmt.Sprintf("/v2/%s/blobs/%s", w.ref.Context().RepositoryStr(), h.String()))
+
+	resp, err := w.client.Head(u.String())
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if err := transport.CheckError(resp, http.StatusOK, http.StatusNotFound); err != nil {
+		return false, err
+	}
+
+	return resp.StatusCode == http.StatusOK, nil
+}
+
 // initiateUpload initiates the blob upload, which starts with a POST that can
 // optionally include the hash of the layer and a list of repositories from
 // which that layer might be read. On failure, an error is returned.
 // On success, the layer was either mounted (nothing more to do) or a blob
 // upload was initiated and the body of that blob should be sent to the returned
 // location.
-func (w *writer) initiateUpload(h v1.Hash) (location string, mounted bool, err error) {
+func (w *writer) initiateUpload(from, mount string) (location string, mounted bool, err error) {
 	u := w.url(fmt.Sprintf("/v2/%s/blobs/uploads/", w.ref.Context().RepositoryStr()))
-	uv := url.Values{
-		"mount": []string{h.String()},
+	uv := url.Values{}
+	if mount != "" {
+		uv["mount"] = []string{mount}
 	}
-	l, err := w.img.LayerByDigest(h)
-	if err != nil {
-		return "", false, err
-	}
-	// We currently avoid HEAD because it's semi-redundant with the mount that is part
-	// of initiating the blob upload.  GCR will perform an existence check on the initiation
-	// if "mount" is specified, even if no "from" sources are specified.  If this turns out
-	// to not be broadly applicable then we should replace mounts without "from"s with a HEAD.
-	if ml, ok := l.(*MountableLayer); ok {
-		if w.ref.Context().RegistryStr() == ml.Reference.Context().RegistryStr() {
-			uv["from"] = []string{ml.Reference.Context().RepositoryStr()}
-		}
+	if from != "" {
+		uv["from"] = []string{from}
 	}
 	u.RawQuery = uv.Encode()
 
@@ -153,7 +170,7 @@ func (w *writer) initiateUpload(h v1.Hash) (location string, mounted bool, err e
 	}
 	defer resp.Body.Close()
 
-	if err := CheckError(resp, http.StatusCreated, http.StatusAccepted); err != nil {
+	if err := transport.CheckError(resp, http.StatusCreated, http.StatusAccepted); err != nil {
 		return "", false, err
 	}
 
@@ -174,15 +191,7 @@ func (w *writer) initiateUpload(h v1.Hash) (location string, mounted bool, err e
 // streamBlob streams the contents of the blob to the specified location.
 // On failure, this will return an error.  On success, this will return the location
 // header indicating how to commit the streamed blob.
-func (w *writer) streamBlob(h v1.Hash, streamLocation string) (commitLocation string, err error) {
-	l, err := w.img.LayerByDigest(h)
-	if err != nil {
-		return "", err
-	}
-	blob, err := l.Compressed()
-	if err != nil {
-		return "", err
-	}
+func (w *writer) streamBlob(blob io.ReadCloser, streamLocation string) (commitLocation string, err error) {
 	defer blob.Close()
 
 	req, err := http.NewRequest(http.MethodPatch, streamLocation, blob)
@@ -196,7 +205,7 @@ func (w *writer) streamBlob(h v1.Hash, streamLocation string) (commitLocation st
 	}
 	defer resp.Body.Close()
 
-	if err := CheckError(resp, http.StatusNoContent, http.StatusAccepted, http.StatusCreated); err != nil {
+	if err := transport.CheckError(resp, http.StatusNoContent, http.StatusAccepted, http.StatusCreated); err != nil {
 		return "", err
 	}
 
@@ -205,14 +214,15 @@ func (w *writer) streamBlob(h v1.Hash, streamLocation string) (commitLocation st
 	return w.nextLocation(resp)
 }
 
-// commitBlob commits this blob by sending a PUT to the location returned from streaming the blob.
-func (w *writer) commitBlob(h v1.Hash, location string) (err error) {
+// commitBlob commits this blob by sending a PUT to the location returned from
+// streaming the blob.
+func (w *writer) commitBlob(location, digest string) error {
 	u, err := url.Parse(location)
 	if err != nil {
 		return err
 	}
 	v := u.Query()
-	v.Set("digest", h.String())
+	v.Set("digest", digest)
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest(http.MethodPut, u.String(), nil)
@@ -226,28 +236,72 @@ func (w *writer) commitBlob(h v1.Hash, location string) (err error) {
 	}
 	defer resp.Body.Close()
 
-	return CheckError(resp, http.StatusCreated)
+	return transport.CheckError(resp, http.StatusCreated)
 }
 
 // uploadOne performs a complete upload of a single layer.
-func (w *writer) uploadOne(h v1.Hash) error {
-	location, mounted, err := w.initiateUpload(h)
+func (w *writer) uploadOne(l v1.Layer) error {
+	var from, mount, digest string
+	if _, ok := l.(*stream.Layer); !ok {
+		// Layer isn't streamable, we should take advantage of that to
+		// skip uploading if possible.
+		// By sending ?digest= in the request, we'll also check that
+		// our computed digest matches the one computed by the
+		// registry.
+		h, err := l.Digest()
+		if err != nil {
+			return err
+		}
+		digest = h.String()
+
+		existing, err := w.checkExisting(h)
+		if err != nil {
+			return err
+		}
+		if existing {
+			log.Printf("existing blob: %v", h)
+			return nil
+		}
+
+		mount = h.String()
+	}
+	if ml, ok := l.(*MountableLayer); ok {
+		if w.ref.Context().RegistryStr() == ml.Reference.Context().RegistryStr() {
+			from = ml.Reference.Context().RepositoryStr()
+		}
+	}
+
+	location, mounted, err := w.initiateUpload(from, mount)
 	if err != nil {
 		return err
 	} else if mounted {
-		log.Printf("mounted blob: %v", h)
+		h, err := l.Digest()
+		if err != nil {
+			return err
+		}
+		log.Printf("mounted blob: %s", h.String())
 		return nil
 	}
 
-	location, err = w.streamBlob(h, location)
+	blob, err := l.Compressed()
+	if err != nil {
+		return err
+	}
+	location, err = w.streamBlob(blob, location)
 	if err != nil {
 		return err
 	}
 
-	if err := w.commitBlob(h, location); err != nil {
+	h, err := l.Digest()
+	if err != nil {
 		return err
 	}
-	log.Printf("pushed blob %v", h)
+	digest = h.String()
+
+	if err := w.commitBlob(location, digest); err != nil {
+		return err
+	}
+	log.Printf("pushed blob: %s", digest)
 	return nil
 }
 
@@ -277,7 +331,7 @@ func (w *writer) commitImage() error {
 	}
 	defer resp.Body.Close()
 
-	if err := CheckError(resp, http.StatusOK, http.StatusCreated, http.StatusAccepted); err != nil {
+	if err := transport.CheckError(resp, http.StatusOK, http.StatusCreated, http.StatusAccepted); err != nil {
 		return err
 	}
 
@@ -308,7 +362,7 @@ func scopesForUploadingImage(ref name.Reference, layers []v1.Layer) []string {
 	// Push scope should be the first element because a few registries just look at the first scope to determine access.
 	scopes = append(scopes, ref.Scope(transport.PushScope))
 
-	for scope, _ := range scopeSet {
+	for scope := range scopeSet {
 		scopes = append(scopes, scope)
 	}
 

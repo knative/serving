@@ -1,5 +1,6 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,22 +19,40 @@ limitations under the License.
 package test
 
 import (
-	"go.uber.org/zap"
+	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
-	route := Route(Flags.Namespace, names)
+func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) (*v1alpha1.Route, error) {
+	route := Route(ServingNamespace, names)
 	LogResourceObject(logger, ResourceObjects{Route: route})
-	_, err := clients.Routes.Create(route)
-	return err
+	return clients.ServingClient.Routes.Create(route)
 }
 
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
-func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
-	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
+func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
+	route := BlueGreenRoute(ServingNamespace, names, blue, green)
 	LogResourceObject(logger, ResourceObjects{Route: route})
-	_, err := clients.Routes.Create(route)
+	_, err := clients.ServingClient.Routes.Create(route)
 	return err
+}
+
+// UpdateRoute updates a route in the given namespace using the route name in names
+func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
+	newRoute.ObjectMeta = route.ObjectMeta
+	LogResourceObject(logger, ResourceObjects{Route: newRoute})
+	patchBytes, err := createPatch(route, newRoute)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
 }

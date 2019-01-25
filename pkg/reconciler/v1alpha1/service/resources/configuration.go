@@ -21,8 +21,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 )
 
@@ -33,7 +33,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			Name:      names.Configuration(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*reconciler.NewControllerRef(service),
+				*kmeta.NewControllerRef(service),
 			},
 			Labels: makeLabels(service),
 		},
@@ -43,8 +43,11 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 		c.Spec = service.Spec.RunLatest.Configuration
 	} else if service.Spec.Pinned != nil {
 		c.Spec = service.Spec.Pinned.Configuration
+	} else if service.Spec.Release != nil {
+		c.Spec = service.Spec.Release.Configuration
 	} else {
-		return nil, errors.New("malformed Service: one of runLatest or pinned must be present.")
+		// Manual does not have a configuration and should not reach this path.
+		return nil, errors.New("malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present")
 	}
 	return c, nil
 }

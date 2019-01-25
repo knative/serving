@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: webhook
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      role: webhook
   template:
     metadata:
       annotations:
@@ -33,9 +39,23 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/webhook
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 200m
+            memory: 200Mi
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       volumes:
         - name: config-logging
           configMap:

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,8 +30,21 @@ func TestServiceDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Service{},
-		// If neither RunLatest or Pinned is provided, then we do nothing.
+		// Do nothing when no type is provided
 		want: &Service{},
+	}, {
+		name: "manual",
+		in: &Service{
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
+			},
+		},
+		// Manual does not take a configuration so do nothing
+		want: &Service{
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
+			},
+		},
 	}, {
 		name: "run latest",
 		in: &Service{
@@ -45,7 +58,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Multi",
+								TimeoutSeconds: defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -60,7 +73,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -73,7 +87,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -93,7 +108,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Multi",
+								TimeoutSeconds: defaultTimeoutSeconds,
 							},
 						},
 					},
@@ -108,7 +123,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       99,
 							},
 						},
 					},
@@ -121,7 +137,58 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ConcurrencyModel: "Single",
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       99,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "release",
+		in: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								TimeoutSeconds: defaultTimeoutSeconds,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "release - no overwrite",
+		in: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       99,
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								ContainerConcurrency: 1,
+								TimeoutSeconds:       99,
 							},
 						},
 					},

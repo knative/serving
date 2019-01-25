@@ -17,73 +17,33 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"testing"
-	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
-
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
-	loggingConfig := &logging.Config{}
-	observabilityConfig := &config.Observability{
-		LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
-	}
-	autoscalerConfig := &autoscaler.Config{}
-	controllerConfig := getTestControllerConfig()
-
-	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
-	rev := func(namespace, name, servingState, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	svc := func(namespace, name, servingState, image string) *corev1.Service {
-		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	endpoints := func(namespace, name, servingState, image string) *corev1.Endpoints {
-		return getEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	deployAS := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getASDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	svcAS := func(namespace, name, servingState, image string) *corev1.Service {
-		return getASService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	endpointsAS := func(namespace, name, servingState, image string) *corev1.Endpoints {
-		return getASEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -98,36 +58,19 @@ func TestReconcile(t *testing.T) {
 		// We feed in a well formed Revision where none of its sub-resources exist,
 		// and we exect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
-			rev("foo", "first-reconcile", "Active", "busybox"),
+			rev("foo", "first-reconcile"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "first-reconcile", "Active", "busybox"),
-			svc("foo", "first-reconcile", "Active", "busybox"),
-			deployAS("foo", "first-reconcile", "Active", "busybox"),
-			svcAS("foo", "first-reconcile", "Active", "busybox"),
+			kpa("foo", "first-reconcile"),
+			deploy("foo", "first-reconcile"),
+			svc("foo", "first-reconcile"),
+			image("foo", "first-reconcile"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "first-reconcile", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "first-reconcile", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "first-reconcile",
+				// The first reconciliation Populates the following status properties.
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
 		Key: "foo/first-reconcile",
 	}, {
@@ -139,38 +82,50 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "revisions"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "update-status-failure", "Active", "busybox"),
+			rev("foo", "update-status-failure"),
+			kpa("foo", "update-status-failure"),
 		},
 		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "update-status-failure", "Active", "busybox"),
-			svc("foo", "update-status-failure", "Active", "busybox"),
-			deployAS("foo", "update-status-failure", "Active", "busybox"),
-			svcAS("foo", "update-status-failure", "Active", "busybox"),
+			// We still see the following creates before the failure is induced.
+			deploy("foo", "update-status-failure"),
+			svc("foo", "update-status-failure"),
+			image("foo", "update-status-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "update-status-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-status-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "update-status-failure",
+				// Despite failure, the following status properties are set.
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Revision %q: %v",
+				"update-status-failure", "inducing failure for update revisions"),
+		},
 		Key: "foo/update-status-failure",
+	}, {
+		Name: "failure creating kpa",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the kpa.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "podautoscalers"),
+		},
+		Objects: []runtime.Object{
+			rev("foo", "create-kpa-failure"),
+		},
+		WantCreates: []metav1.Object{
+			// We still see the following creates before the failure is induced.
+			kpa("foo", "create-kpa-failure"),
+			deploy("foo", "create-kpa-failure"),
+			svc("foo", "create-kpa-failure"),
+			image("foo", "create-kpa-failure"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "create-kpa-failure",
+				// Despite failure, the following status properties are set.
+				WithK8sServiceName, WithLogURL, WithInitRevConditions,
+				WithNoBuild, MarkDeploying("Deploying")),
+		}},
+		Key: "foo/create-kpa-failure",
 	}, {
 		Name: "failure creating user deployment",
 		// This starts from the first reconciliation case above and induces a failure
@@ -180,33 +135,18 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "deployments"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-user-deploy-failure", "Active", "busybox"),
+			rev("foo", "create-user-deploy-failure"),
+			kpa("foo", "create-user-deploy-failure"),
 		},
 		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "create-user-deploy-failure", "Active", "busybox"),
-			// The user service and autoscaler resources are not created.
+			// We still see the following creates before the failure is induced.
+			deploy("foo", "create-user-deploy-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-user-deploy-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "create-user-deploy-failure",
+				// Despite failure, the following status properties are set.
+				WithLogURL, WithInitRevConditions,
+				WithNoBuild, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/create-user-deploy-failure",
 	}, {
@@ -218,118 +158,22 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-user-service-failure", "Active", "busybox"),
+			rev("foo", "create-user-service-failure"),
+			kpa("foo", "create-user-service-failure"),
 		},
 		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "create-user-service-failure", "Active", "busybox"),
-			svc("foo", "create-user-service-failure", "Active", "busybox"),
-			// No autoscaler resources created.
+			// We still see the following creates before the failure is induced.
+			deploy("foo", "create-user-service-failure"),
+			svc("foo", "create-user-service-failure"),
+			image("foo", "create-user-service-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-user-service-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "create-user-service-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "create-user-service-failure",
+				// Despite failure, the following status properties are set.
+				WithK8sServiceName, WithLogURL, WithInitRevConditions,
+				WithNoBuild, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/create-user-service-failure",
-	}, {
-		Name: "failure creating autoscaler deployment",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the autoscaler's deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "deployments"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "create-as-deploy-failure", "Active", "busybox"),
-			deploy("foo", "create-as-deploy-failure", "Active", "busybox"),
-			svc("foo", "create-as-deploy-failure", "Active", "busybox"),
-		},
-		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			deployAS("foo", "create-as-deploy-failure", "Active", "busybox"),
-			// The user service and autoscaler resources are not created.
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-as-deploy-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					LogURL:      "http://logger.io/test-uid",
-					ServiceName: svc("foo", "create-as-deploy-failure", "Active", "busybox").Name,
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		Key: "foo/create-as-deploy-failure",
-	}, {
-		Name: "failure creating autoscaler service",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the autoscaler's service
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "services"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "create-as-svc-failure", "Active", "busybox"),
-			deploy("foo", "create-as-svc-failure", "Active", "busybox"),
-			deployAS("foo", "create-as-svc-failure", "Active", "busybox"),
-			svc("foo", "create-as-svc-failure", "Active", "busybox"),
-		},
-		WantCreates: []metav1.Object{
-			svcAS("foo", "create-as-svc-failure", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-as-svc-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					LogURL:      "http://logger.io/test-uid",
-					ServiceName: svc("foo", "create-as-svc-failure", "Active", "busybox").Name,
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		Key: "foo/create-as-svc-failure",
 	}, {
 		Name: "stable revision reconciliation",
 		// Test a simple stable reconciliation of an Active Revision.
@@ -337,605 +181,71 @@ func TestReconcile(t *testing.T) {
 		// state (immediately post-creation), and verify that no changes
 		// are necessary.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "stable-reconcile", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "stable-reconcile", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			deploy("foo", "stable-reconcile", "Active", "busybox"),
-			deployAS("foo", "stable-reconcile", "Active", "busybox"),
-			svc("foo", "stable-reconcile", "Active", "busybox"),
-			svcAS("foo", "stable-reconcile", "Active", "busybox"),
+			rev("foo", "stable-reconcile",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "stable-reconcile"),
+			deploy("foo", "stable-reconcile"),
+			svc("foo", "stable-reconcile"),
+			image("foo", "stable-reconcile"),
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
 	}, {
-		Name: "deactivate a revision",
-		// Test the transition that's made when Reserve is set.
-		// We initialize the world to a stable Active state, but make the
-		// Revision's ServingState Reserve.  We then looks for the expected
-		// mutations, which should include reducing the Deployments to 0 replicas
-		// and deleting the Kubernetes Service resources.
+		Name: "update deployment containers",
+		// Test that we update a deployment with new containers when they disagree
+		// with our desired spec.
 		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
-				rev("foo", "deactivate", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "deactivate", "Active", "busybox"),
-			deployAS("foo", "deactivate", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "deactivate", "Active", "busybox"),
-			svcAS("foo", "deactivate", "Active", "busybox"),
+			rev("foo", "fix-containers",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-containers"),
+			changeContainers(deploy("foo", "fix-containers")),
+			svc("foo", "fix-containers"),
+			image("foo", "fix-containers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "deactivate", "Reserve", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Deactivated.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "deactivate" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}},
-				}),
-		}, {
-			Object: deploy("foo", "deactivate", "Reserve", "busybox"),
-		}, {
-			Object: deployAS("foo", "deactivate", "Reserve", "busybox"),
+			Object: deploy("foo", "fix-containers"),
 		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "deactivate", "Reserve", "busybox").Name,
-		}, {
-			Name: svcAS("foo", "deactivate", "Reserve", "busybox").Name,
-		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/deactivate",
+		Key: "foo/fix-containers",
 	}, {
-		Name: "failure updating user deployment",
-		// Induce a failure updating the user deployment
+		Name: "failure updating deployment",
+		// Test that we handle an error updating the deployment properly.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "deployments"),
 		},
 		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
-				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
-			deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "update-user-deploy-failure", "Active", "busybox"),
-			svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+			rev("foo", "failure-update-deploy",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "failure-update-deploy"),
+			changeContainers(deploy("foo", "failure-update-deploy")),
+			svc("foo", "failure-update-deploy"),
+			image("foo", "failure-update-deploy"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			// We don't get to updating the autoscaler deployment or deleting services.
+			Object: deploy("foo", "failure-update-deploy"),
 		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/update-user-deploy-failure",
-	}, {
-		Name: "failure updating autoscaler deployment",
-		// Induce a failure updating the autoscaler deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Deactivated, but all of the objects
-				// reflect being Active.
-				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-			deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "update-user-deploy-failure", "Active", "busybox"),
-			svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Deactivated.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-deploy-failure", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "update-user-deploy-failure" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}, {
-			Object: deployAS("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "update-user-deploy-failure", "Reserve", "busybox").Name,
-			// We don't reach deleting the autoscaler service.
-		}},
-		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		Key: "foo/update-user-deploy-failure",
+		Key: "foo/failure-update-deploy",
 	}, {
 		Name: "deactivated revision is stable",
-		// Test a simple stable reconciliation of a Reserve Revision.
+		// Test a simple stable reconciliation of an inactive Revision.
 		// We feed in a Revision and the resources it controls in a steady
 		// state (port-Reserve), and verify that no changes are necessary.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "stable-deactivation", "Reserve", "busybox"),
-				// The Revision status matches that of a properly deactivated Revision.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "stable-deactivation", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "stable-deactivation" is Inactive.`,
-					}},
-				}),
-			// The Deployments match what we'd expect of an Reserve revision.
-			deploy("foo", "stable-deactivation", "Reserve", "busybox"),
-			deployAS("foo", "stable-deactivation", "Reserve", "busybox"),
+			rev("foo", "stable-deactivation",
+				WithK8sServiceName, WithLogURL, MarkRevisionReady,
+				MarkInactive("NoTraffic", "This thing is inactive.")),
+			kpa("foo", "stable-deactivation",
+				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+			deploy("foo", "stable-deactivation"),
+			endpoints("foo", "stable-deactivation", WithSubsets),
+			svc("foo", "stable-deactivation"),
+			image("foo", "stable-deactivation"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"stable-deactivation-service"),
 		},
 		Key: "foo/stable-deactivation",
-	}, {
-		Name: "retire a revision",
-		// Test the transition that's made when Retired is set.
-		// We initialize the world to a stable Active state, but make the
-		// Revision's ServingState Retired.  We then looks for the expected
-		// mutations, which should include the deletion of all Kubernetes
-		// resources.
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "retire", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "retire", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "retire", "Active", "busybox"),
-			deployAS("foo", "retire", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "retire", "Active", "busybox"),
-			svcAS("foo", "retire", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "retire", "Retired", "busybox"),
-				// After reconciliation, the status will change to reflect that this is being Retired.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "retire", "Retired", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "retire" is Inactive.`,
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deploy("foo", "retire", "Retired", "busybox").Name,
-		}, {
-			Name: svc("foo", "retire", "Retired", "busybox").Name,
-		}, {
-			Name: deployAS("foo", "retire", "Retired", "busybox").Name,
-		}, {
-			Name: svcAS("foo", "retire", "Retired", "busybox").Name,
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/retire",
-	}, {
-		Name: "failure deleting user deployment",
-		// Induce a failure deleting the user's deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
-			deployAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "delete-user-deploy-failure", "Active", "busybox"),
-			svcAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deploy("foo", "delete-user-deploy-failure", "Retired", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-user-deploy-failure",
-	}, {
-		Name: "failure deleting user service",
-		// Induce a failure deleting the user's service
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "services"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-user-svc-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deployAS("foo", "delete-user-svc-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svc("foo", "delete-user-svc-failure", "Active", "busybox"),
-			svcAS("foo", "delete-user-svc-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-user-svc-failure",
-	}, {
-		Name: "failure deleting autoscaler deployment",
-		// Induce a failure deleting the autoscaler deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "deployments"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-as-deploy-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Deployments match what we'd expect of an Active revision.
-			deployAS("foo", "delete-as-deploy-failure", "Active", "busybox"),
-			// The Services match what we'd expect of an Active revision.
-			svcAS("foo", "delete-as-deploy-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deployAS("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-as-deploy-failure",
-	}, {
-		Name: "failure deleting autoscaler service",
-		// Induce a failure deleting the autoscaler service
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("delete", "services"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				// The revision has been set to Retired, but all of the objects
-				// reflect being Active.
-				rev("foo", "delete-as-svc-failure", "Retired", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "delete-as-svc-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			// The Services match what we'd expect of an Active revision.
-			svcAS("foo", "delete-as-svc-failure", "Active", "busybox"),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: deployAS("foo", "delete-as-svc-failure", "Active", "busybox").Name,
-			// We don't get to deleting anything else.
-		}},
-		// We delete a bunch of stuff when we retire.
-		Key: "foo/delete-as-svc-failure",
-	}, {
-		Name: "retired revision is stable",
-		// Test a simple stable reconciliation of a Retired Revision.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (port-Retired), and verify that no changes are necessary.
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "stable-retirement", "Retired", "busybox"),
-				// The Status properly reflects that of a Retired revision.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "stable-retirement", "Retired", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "stable-retirement" is Inactive.`,
-					}},
-				}),
-		},
-		Key: "foo/stable-retirement",
-	}, {
-		Name: "activate a reserve revision",
-		// Test the transition that's made when Active is set.
-		// We initialize the world to a stable Reserve state, but make the
-		// Revision's ServingState Active.  We then look for the expected
-		// mutations, which should include scaling up the Deployments to
-		// 1 replica each, and recreating the Kubernetes Service resources.
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "activate-revision", "Active", "busybox"),
-				// The status and state of the world reflect a Reserve Revision,
-				// but it has a ServingState of Active.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "activate-revision", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "Inactive",
-						Message: `Revision "activate-revision" is Inactive.`,
-					}},
-				}),
-			// The Deployments match what we'd expect of an Reserve revision.
-			deploy("foo", "activate-revision", "Reserve", "busybox"),
-			deployAS("foo", "activate-revision", "Reserve", "busybox"),
-		},
-		WantCreates: []metav1.Object{
-			// Activation should recreate the K8s Services
-			svc("foo", "activate-revision", "Active", "busybox"),
-			svcAS("foo", "activate-revision", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "activate-revision", "Active", "busybox"),
-				// After activating the Revision status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "activate-revision", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}, {
-			Object: deploy("foo", "activate-revision", "Active", "busybox"),
-		}, {
-			Object: deployAS("foo", "activate-revision", "Active", "busybox"),
-		}},
-		Key: "foo/activate-revision",
-	}, {
-		Name: "create resources in reserve",
-		// Test a reconcile of a Revision in the Reserve state.
-		// This tests the initial set of resources that we create for a Revision
-		// when it is in a Reserve state and none of its resources exist.  The main
-		// place we should expect this transition to happen is Retired -> Reserve.
-		Objects: []runtime.Object{
-			rev("foo", "create-in-reserve", "Reserve", "busybox"),
-		},
-		WantCreates: []metav1.Object{
-			// Only Deployments are created and they have no replicas.
-			deploy("foo", "create-in-reserve", "Reserve", "busybox"),
-			deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-in-reserve", "Reserve", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-		}},
-		Key: "foo/create-in-reserve",
 	}, {
 		Name: "endpoint is created (not ready)",
 		// Test the transition when a Revision's Endpoints are created (but not yet ready)
@@ -948,33 +258,13 @@ func TestReconcile(t *testing.T) {
 		// from thinking we've been waiting for this Endpoint since the beginning of time
 		// and declaring a timeout (this is the main difference from that test below).
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "endpoint-created-not-ready", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
-					}},
-				}),
-			deploy("foo", "endpoint-created-not-ready", "Active", "busybox"),
-			deployAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
-			svc("foo", "endpoint-created-not-ready", "Active", "busybox"),
-			svcAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
-			endpoints("foo", "endpoint-created-not-ready", "Active", "busybox"),
-			endpointsAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			rev("foo", "endpoint-created-not-ready",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "endpoint-created-not-ready"),
+			deploy("foo", "endpoint-created-not-ready"),
+			svc("foo", "endpoint-created-not-ready"),
+			endpoints("foo", "endpoint-created-not-ready"),
+			image("foo", "endpoint-created-not-ready"),
 		},
 		// No updates, since the endpoint didn't have meaningful status.
 		Key: "foo/endpoint-created-not-ready",
@@ -985,112 +275,103 @@ func TestReconcile(t *testing.T) {
 		// we've been waiting since the dawn of time because we omit LastTransitionTime from
 		// our Conditions.  We should see an update to put us into a ServiceTimeout state.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// The LTT defaults and is long enough ago that we expire waiting
-						// on the Endpoints to become ready.
-					}},
-				}),
-			deploy("foo", "endpoint-created-timeout", "Active", "busybox"),
-			deployAS("foo", "endpoint-created-timeout", "Active", "busybox"),
-			svc("foo", "endpoint-created-timeout", "Active", "busybox"),
-			svcAS("foo", "endpoint-created-timeout", "Active", "busybox"),
-			endpoints("foo", "endpoint-created-timeout", "Active", "busybox"),
-			endpointsAS("foo", "endpoint-created-timeout", "Active", "busybox"),
+			rev("foo", "endpoint-created-timeout",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+				MarkActive, WithEmptyLTTs),
+			kpa("foo", "endpoint-created-timeout", WithTraffic),
+			deploy("foo", "endpoint-created-timeout"),
+			svc("foo", "endpoint-created-timeout"),
+			endpoints("foo", "endpoint-created-timeout"),
+			image("foo", "endpoint-created-timeout"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "ServiceTimeout",
-						Message: "Timed out waiting for a service endpoint to become ready",
-					}, {
-						Type:    "ResourcesAvailable",
-						Status:  "False",
-						Reason:  "ServiceTimeout",
-						Message: "Timed out waiting for a service endpoint to become ready",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "endpoint-created-timeout",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				// When the LTT is cleared, a reconcile will result in the
+				// following mutation.
+				MarkServiceTimeout),
 		}},
-		// We update the Revision to timeout waiting on Endpoints.
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q",
+				"endpoint-created-timeout-service"),
+		},
 		Key: "foo/endpoint-created-timeout",
 	}, {
-		Name: "endpoint is ready",
+		Name: "endpoint and kpa are ready",
 		// Test the transition that Reconcile makes when Endpoints become ready.
 		// This puts the world into the stable post-reconcile state for an Active
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "endpoint-ready", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			deploy("foo", "endpoint-ready", "Active", "busybox"),
-			deployAS("foo", "endpoint-ready", "Active", "busybox"),
-			svc("foo", "endpoint-ready", "Active", "busybox"),
-			svcAS("foo", "endpoint-ready", "Active", "busybox"),
-			addEndpoint(endpoints("foo", "endpoint-ready", "Active", "busybox")),
-			addEndpoint(endpointsAS("foo", "endpoint-ready", "Active", "busybox")),
+			rev("foo", "endpoint-ready",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "endpoint-ready", WithTraffic),
+			deploy("foo", "endpoint-ready"),
+			svc("foo", "endpoint-ready"),
+			endpoints("foo", "endpoint-ready", WithSubsets),
+			image("foo", "endpoint-ready"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "endpoint-ready", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "True",
-					}, {
-						Type:   "Ready",
-						Status: "True",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "True",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "endpoint-ready", WithK8sServiceName, WithLogURL,
+				// When the endpoint and KPA are ready, then we will see the
+				// Revision become ready.
+				MarkRevisionReady),
 		}},
-		// We update the Revision to timeout waiting on Endpoints.
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"endpoint-ready-service"),
+		},
 		Key: "foo/endpoint-ready",
+	}, {
+		Name: "kpa not ready",
+		// Test propagating the KPA status to the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "kpa-not-ready",
+				WithK8sServiceName, WithLogURL, MarkRevisionReady),
+			kpa("foo", "kpa-not-ready",
+				WithBufferedTraffic("Something", "This is something longer")),
+			deploy("foo", "kpa-not-ready"),
+			svc("foo", "kpa-not-ready"),
+			endpoints("foo", "kpa-not-ready", WithSubsets),
+			image("foo", "kpa-not-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "kpa-not-ready",
+				WithK8sServiceName, WithLogURL, MarkRevisionReady,
+				// When we reconcile a ready state and our KPA is in an activating
+				// state, we should see the following mutation.
+				MarkActivating("Something", "This is something longer")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-not-ready-service"),
+		},
+		Key: "foo/kpa-not-ready",
+	}, {
+		Name: "kpa inactive",
+		// Test propagating the inactivity signal from the KPA to the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "kpa-inactive",
+				WithK8sServiceName, WithLogURL, MarkRevisionReady),
+			kpa("foo", "kpa-inactive",
+				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+			deploy("foo", "kpa-inactive"),
+			svc("foo", "kpa-inactive"),
+			endpoints("foo", "kpa-inactive", WithSubsets),
+			image("foo", "kpa-inactive"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "kpa-inactive",
+				WithK8sServiceName, WithLogURL, MarkRevisionReady,
+				// When we reconcile an "all ready" revision when the KPA
+				// is inactive, we should see the following change.
+				MarkInactive("NoTraffic", "This thing is inactive.")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"kpa-inactive-service"),
+		},
+		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
 		// Test that we correct mutations to our K8s Service resources.
@@ -1099,59 +380,23 @@ func TestReconcile(t *testing.T) {
 		// verify that Reconcile posts the appropriate updates to correct the
 		// services back to our desired specification.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "fix-mutated-service", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
-					}},
-				}),
-			deploy("foo", "fix-mutated-service", "Active", "busybox"),
-			deployAS("foo", "fix-mutated-service", "Active", "busybox"),
-			changeService(svc("foo", "fix-mutated-service", "Active", "busybox")),
-			changeService(svcAS("foo", "fix-mutated-service", "Active", "busybox")),
-			endpoints("foo", "fix-mutated-service", "Active", "busybox"),
-			endpointsAS("foo", "fix-mutated-service", "Active", "busybox"),
+			rev("foo", "fix-mutated-service",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-mutated-service"),
+			deploy("foo", "fix-mutated-service"),
+			svc("foo", "fix-mutated-service", MutateK8sService),
+			endpoints("foo", "fix-mutated-service"),
+			image("foo", "fix-mutated-service"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "fix-mutated-service",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+				// When our reconciliation has to change the service
+				// we should see the following mutations to status.
+				MarkDeploying("Updating"), MarkActivating("Deploying", "")),
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// Reason changes from Deploying to Updating.
-			Object: makeStatus(
-				rev("foo", "fix-mutated-service", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Updating",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Updating",
-					}},
-				}),
-		}, {
-			Object: svc("foo", "fix-mutated-service", "Active", "busybox"),
-		}, {
-			Object: svcAS("foo", "fix-mutated-service", "Active", "busybox"),
+			Object: svc("foo", "fix-mutated-service"),
 		}},
 		Key: "foo/fix-mutated-service",
 	}, {
@@ -1162,78 +407,18 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-user-svc-failure", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
-					}},
-				}),
-			deploy("foo", "update-user-svc-failure", "Active", "busybox"),
-			deployAS("foo", "update-user-svc-failure", "Active", "busybox"),
-			changeService(svc("foo", "update-user-svc-failure", "Active", "busybox")),
-			svcAS("foo", "update-user-svc-failure", "Active", "busybox"),
-			endpoints("foo", "update-user-svc-failure", "Active", "busybox"),
-			endpointsAS("foo", "update-user-svc-failure", "Active", "busybox"),
+			rev("foo", "update-user-svc-failure",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "update-user-svc-failure"),
+			deploy("foo", "update-user-svc-failure"),
+			svc("foo", "update-user-svc-failure", MutateK8sService),
+			endpoints("foo", "update-user-svc-failure"),
+			image("foo", "update-user-svc-failure"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("foo", "update-user-svc-failure", "Active", "busybox"),
+			Object: svc("foo", "update-user-svc-failure"),
 		}},
 		Key: "foo/update-user-svc-failure",
-	}, {
-		Name: "failure updating autoscaler service",
-		// Induce a failure updating the autoscaler service.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "services"),
-		},
-		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-as-svc-failure", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
-					}},
-				}),
-			deploy("foo", "update-as-svc-failure", "Active", "busybox"),
-			deployAS("foo", "update-as-svc-failure", "Active", "busybox"),
-			svc("foo", "update-as-svc-failure", "Active", "busybox"),
-			changeService(svcAS("foo", "update-as-svc-failure", "Active", "busybox")),
-			endpoints("foo", "update-as-svc-failure", "Active", "busybox"),
-			endpointsAS("foo", "update-as-svc-failure", "Active", "busybox"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcAS("foo", "update-as-svc-failure", "Active", "busybox"),
-		}},
-		Key: "foo/update-as-svc-failure",
 	}, {
 		Name: "surface deployment timeout",
 		// Test the propagation of ProgressDeadlineExceeded from Deployment.
@@ -1242,58 +427,48 @@ func TestReconcile(t *testing.T) {
 		// condition.  It then verifies that Reconcile propagates this into the
 		// status of the Revision.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "deploy-timeout", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
-					}},
-				}),
-			timeoutDeploy(deploy("foo", "deploy-timeout", "Active", "busybox")),
-			deployAS("foo", "deploy-timeout", "Active", "busybox"),
-			svc("foo", "deploy-timeout", "Active", "busybox"),
-			svcAS("foo", "deploy-timeout", "Active", "busybox"),
-			endpoints("foo", "deploy-timeout", "Active", "busybox"),
-			endpointsAS("foo", "deploy-timeout", "Active", "busybox"),
+			rev("foo", "deploy-timeout",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "deploy-timeout", WithTraffic),
+			timeoutDeploy(deploy("foo", "deploy-timeout")),
+			svc("foo", "deploy-timeout"),
+			endpoints("foo", "deploy-timeout"),
+			image("foo", "deploy-timeout"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "deploy-timeout", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "ProgressDeadlineExceeded",
-						Message: "Unable to create pods for more than 120 seconds.",
-					}, {
-						Type:    "ResourcesAvailable",
-						Status:  "False",
-						Reason:  "ProgressDeadlineExceeded",
-						Message: "Unable to create pods for more than 120 seconds.",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "deploy-timeout",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				// When the revision is reconciled after a Deployment has
+				// timed out, we should see it marked with the PDE state.
+				MarkProgressDeadlineExceeded),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout",
+				"deploy-timeout"),
+		},
 		Key: "foo/deploy-timeout",
+	}, {
+		Name: "surface pod errors",
+		// Test the propagation of the termination state of a Pod into the revision.
+		// This initializes the world to the stable state after its first reconcile,
+		// but changes the user deployment to have a failing pod. It then verifies
+		// that Reconcile propagates this into the status of the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "pod-error",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "pod-error", WithTraffic),
+			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
+			deploy("foo", "pod-error"),
+			svc("foo", "pod-error"),
+			endpoints("foo", "pod-error"),
+			image("foo", "pod-error"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "pod-error",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				MarkContainerExiting(5, "I failed man!")),
+		}},
+		Key: "foo/pod-error",
 	}, {
 		Name: "build missing",
 		// Test a Reconcile of a Revision with a Build that is not found.
@@ -1302,28 +477,14 @@ func TestReconcile(t *testing.T) {
 		// the conditions of this Revision.  It is notable that unlike the tests
 		// above, this will include a BuildSucceeded condition.
 		Objects: []runtime.Object{
-			addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
+			rev("foo", "missing-build", WithBuildRef("the-build")),
 		},
 		WantErr: true,
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
+				// When we first reconcile a revision with a Build (that's missing)
+				// we should see the following status changes.
+				WithLogURL, WithInitRevConditions),
 		}},
 		Key: "foo/missing-build",
 	}, {
@@ -1334,34 +495,14 @@ func TestReconcile(t *testing.T) {
 		// the conditions of this Revision.  It is notable that unlike the tests
 		// above, this will include a BuildSucceeded condition.
 		Objects: []runtime.Object{
-			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
-			build("foo", "the-build",
-				buildv1alpha1.BuildCondition{
-					Type:   buildv1alpha1.BuildSucceeded,
-					Status: corev1.ConditionUnknown,
-				}),
+			rev("foo", "running-build", WithBuildRef("the-build")),
+			build("foo", "the-build", WithSucceededUnknown("", "")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
-						Reason: "Building",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Building",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "running-build", WithBuildRef("the-build"),
+				// When we first reconcile a revision with a Build (not done)
+				// we should see the following status changes.
+				WithLogURL, WithInitRevConditions, WithOngoingBuild),
 		}},
 		Key: "foo/running-build",
 	}, {
@@ -1372,60 +513,26 @@ func TestReconcile(t *testing.T) {
 		// Reconcile toggles the BuildSucceeded status and then acts similarly to
 		// the first reconcile of a BYO-Container Revision.
 		Objects: []runtime.Object{
-			makeStatus(
-				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}},
-				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
-				Type:   buildv1alpha1.BuildSucceeded,
-				Status: corev1.ConditionTrue,
-			}),
+			rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions),
+			build("foo", "the-build", WithSucceededTrue),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "done-build", "Active", "busybox"),
-			svc("foo", "done-build", "Active", "busybox"),
-			deployAS("foo", "done-build", "Active", "busybox"),
-			svcAS("foo", "done-build", "Active", "busybox"),
+			kpa("foo", "done-build"),
+			deploy("foo", "done-build"),
+			svc("foo", "done-build"),
+			image("foo", "done-build"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "done-build", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "True",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
+				// When we reconcile a Revision after the Build completes, we should
+				// see the following updates to its status.
+				WithK8sServiceName, WithLogURL, WithSuccessfulBuild,
+				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "BuildSucceeded", ""),
+		},
 		Key: "foo/done-build",
 	}, {
 		Name: "stable revision reconciliation (with build)",
@@ -1434,36 +541,15 @@ func TestReconcile(t *testing.T) {
 		// state (immediately post-build completion), and verify that no changes
 		// are necessary.
 		Objects: []runtime.Object{
-			makeStatus(
-				addBuild(rev("foo", "stable-reconcile-with-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "True",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
-				Type:   buildv1alpha1.BuildSucceeded,
-				Status: corev1.ConditionTrue,
-			}),
-			deploy("foo", "stable-reconcile-with-build", "Active", "busybox"),
-			deployAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
-			svc("foo", "stable-reconcile-with-build", "Active", "busybox"),
-			svcAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
+			rev("foo", "stable-reconcile-with-build",
+				WithBuildRef("the-build"), WithK8sServiceName, WithLogURL,
+				WithInitRevConditions, WithSuccessfulBuild,
+				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
+			kpa("foo", "stable-reconcile-with-build"),
+			build("foo", "the-build", WithSucceededTrue),
+			deploy("foo", "stable-reconcile-with-build"),
+			svc("foo", "stable-reconcile-with-build"),
+			image("foo", "stable-reconcile-with-build"),
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile-with-build",
@@ -1474,55 +560,20 @@ func TestReconcile(t *testing.T) {
 		// and a Build that has just failed. We then verify that a Reconcile toggles
 		// the BuildSucceeded status and stops.
 		Objects: []runtime.Object{
-			makeStatus(
-				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "BuildSucceeded",
-						Status: "Unknown",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}},
-				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
-				Type:    buildv1alpha1.BuildSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
-			}),
+			rev("foo", "failed-build", WithBuildRef("the-build"), WithLogURL, WithInitRevConditions),
+			build("foo", "the-build",
+				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:    "BuildSucceeded",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "failed-build",
+				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions,
+				// When we reconcile a Revision whose build has failed, we sill see that
+				// failure reflected in the Revision status as follows:
+				WithFailedBuild("SomeReason", "This is why the build failed.")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "BuildFailed", "This is why the build failed."),
+		},
 		Key: "foo/failed-build",
 	}, {
 		Name: "build failed stable",
@@ -1531,95 +582,120 @@ func TestReconcile(t *testing.T) {
 		// has failed, which has been previously reconcile. We then verify that a
 		// Reconcile has nothing to change.
 		Objects: []runtime.Object{
-			makeStatus(
-				addBuild(rev("foo", "failed-build-stable", "Active", "busybox"), "the-build"),
-				v1alpha1.RevisionStatus{
-					LogURL: "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-					}, {
-						Type:    "BuildSucceeded",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
-					}, {
-						Type:    "Ready",
-						Status:  "False",
-						Reason:  "SomeReason",
-						Message: "This is why the build failed.",
-					}},
-				}),
-			build("foo", "the-build", buildv1alpha1.BuildCondition{
-				Type:    buildv1alpha1.BuildSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  "SomeReason",
-				Message: "This is why the build failed.",
-			}),
+			rev("foo", "failed-build-stable", WithBuildRef("the-build"), WithInitRevConditions,
+				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed.")),
+			build("foo", "the-build",
+				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
 		Key: "foo/failed-build-stable",
+	}, {
+		Name: "ready steady state",
+		// Test the transition that Reconcile makes when Endpoints become ready.
+		// This puts the world into the stable post-reconcile state for an Active
+		// Revision.  It then creates an Endpoints resource with active subsets.
+		// This signal should make our Reconcile mark the Revision as Ready.
+		Objects: []runtime.Object{
+			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
+				// When the endpoint and KPA are ready, then we will see the
+				// Revision become ready.
+				MarkRevisionReady),
+			kpa("foo", "steady-ready", WithTraffic),
+			deploy("foo", "steady-ready"),
+			svc("foo", "steady-ready"),
+			endpoints("foo", "steady-ready", WithSubsets),
+			image("foo", "steady-ready"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"steady-ready-service"),
+		},
+		Key: "foo/steady-ready",
+	}, {
+		Name:    "lost service owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners", WithK8sSvcOwnersRemoved),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Service we see this update.
+				MarkResourceNotOwned("Service", "missing-owners-service")),
+		}},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost kpa owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for PodAutoscaler we see this update.
+				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
+		}},
+		// TODO(#2900): This should not fire, we're not ready!
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
+				"missing-owners-service"),
+		},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost deployment owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			noOwner(deploy("foo", "missing-owners")),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Deployment we see this update.
+				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
+		}},
+		Key: "foo/missing-owners",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		t := &rtesting.NullTracker{}
+		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
-			buildLister:         listers.GetBuildLister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
+			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
-			controllerConfig:    controllerConfig,
-			networkConfig:       networkConfig,
-			loggingConfig:       loggingConfig,
-			observabilityConfig: observabilityConfig,
-			autoscalerConfig:    autoscalerConfig,
 			resolver:            &nopResolver{},
-			buildtracker:        &buildTracker{builds: map[key]set{}},
+			tracker:             t,
+			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
+
+			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
-	})
+	}))
 }
 
 func TestReconcileWithVarLogEnabled(t *testing.T) {
-	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
-	loggingConfig := &logging.Config{}
-	observabilityConfig := &config.Observability{
-		LoggingURLTemplate:     "http://logger.io/${REVISION_UID}",
-		EnableVarLogCollection: true,
-	}
-	autoscalerConfig := &autoscaler.Config{}
-	controllerConfig := getTestControllerConfig()
-
-	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
-	rev := func(namespace, name, servingState, image string) *v1alpha1.Revision {
-		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	svc := func(namespace, name, servingState, image string) *corev1.Service {
-		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	deployAS := func(namespace, name, servingState, image string) *appsv1.Deployment {
-		return getASDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-	svcAS := func(namespace, name, servingState, image string) *corev1.Service {
-		return getASService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-			loggingConfig, networkConfig, observabilityConfig,
-			autoscalerConfig, controllerConfig)
-	}
-
 	table := TableTest{{
 		Name: "first revision reconciliation (with /var/log enabled)",
 		// Test a successful reconciliation flow with /var/log enabled.
@@ -1627,37 +703,20 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		// and we exect it to create them and initialize the Revision's status.
 		// This is similar to "first-reconcile", but should also create a fluentd configmap.
 		Objects: []runtime.Object{
-			rev("foo", "first-reconcile-var-log", "Active", "busybox"),
+			rev("foo", "first-reconcile-var-log"),
 		},
 		WantCreates: []metav1.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "first-reconcile-var-log", "Active", "busybox"),
-			svc("foo", "first-reconcile-var-log", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "Active", "busybox"), observabilityConfig),
-			deployAS("foo", "first-reconcile-var-log", "Active", "busybox"),
-			svcAS("foo", "first-reconcile-var-log", "Active", "busybox"),
+			kpa("foo", "first-reconcile-var-log"),
+			deploy("foo", "first-reconcile-var-log", EnableVarLog),
+			svc("foo", "first-reconcile-var-log"),
+			fluentdConfigMap("foo", "first-reconcile-var-log", EnableVarLog),
+			image("foo", "first-reconcile-var-log", EnableVarLog),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "first-reconcile-var-log", "Active", "busybox"),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "first-reconcile-var-log",
 				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 		}},
 		Key: "foo/first-reconcile-var-log",
 	}, {
@@ -1668,112 +727,58 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			InduceFailure("create", "configmaps"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-configmap-failure", "Active", "busybox"),
+			rev("foo", "create-configmap-failure"),
 		},
 		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			deploy("foo", "create-configmap-failure", "Active", "busybox"),
-			svc("foo", "create-configmap-failure", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "create-configmap-failure", "Active", "busybox"), observabilityConfig),
-			// We don't create the autoscaler resources if we fail to create the fluentd configmap
+			deploy("foo", "create-configmap-failure", EnableVarLog),
+			svc("foo", "create-configmap-failure"),
+			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
+			image("foo", "create-configmap-failure", EnableVarLog),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: makeStatus(
-				rev("foo", "create-configmap-failure", "Active", "busybox"),
-				// After the first reconciliation of a Revision the status looks like this.
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "create-configmap-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "create-configmap-failure",
+				// When our first reconciliation is interrupted by a failure creating
+				// the fluentd configmap, we should still see the following reflected
+				// in our status.
+				WithK8sServiceName, WithLogURL, WithInitRevConditions,
+				WithNoBuild, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/create-configmap-failure",
 	}, {
 		Name: "steady state after initial creation",
 		// Verify that after creating the things from an initial reconcile that we're stable.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "steady-state", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "steady-state", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			deploy("foo", "steady-state", "Active", "busybox"),
-			deployAS("foo", "steady-state", "Active", "busybox"),
-			svc("foo", "steady-state", "Active", "busybox"),
-			svcAS("foo", "steady-state", "Active", "busybox"),
-			resources.MakeFluentdConfigMap(rev("foo", "steady-state", "Active", "busybox"), observabilityConfig),
+			rev("foo", "steady-state",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "steady-state"),
+			deploy("foo", "steady-state", EnableVarLog),
+			svc("foo", "steady-state"),
+			fluentdConfigMap("foo", "steady-state", EnableVarLog),
+			image("foo", "steady-state", EnableVarLog),
 		},
 		Key: "foo/steady-state",
 	}, {
 		Name: "update a bad fluentd configmap",
 		// Verify that after creating the things from an initial reconcile that we're stable.
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-fluentd-config", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-fluentd-config", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			deploy("foo", "update-fluentd-config", "Active", "busybox"),
-			deployAS("foo", "update-fluentd-config", "Active", "busybox"),
-			svc("foo", "update-fluentd-config", "Active", "busybox"),
-			svcAS("foo", "update-fluentd-config", "Active", "busybox"),
+			rev("foo", "update-fluentd-config",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "update-fluentd-config"),
+			deploy("foo", "update-fluentd-config", EnableVarLog),
+			svc("foo", "update-fluentd-config"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: resources.MakeFluentdConfigMap(
-					rev("foo", "update-fluentd-config", "Active", "busybox"),
-					observabilityConfig,
-				).ObjectMeta,
+				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config",
+					EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
+			image("foo", "update-fluentd-config", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: resources.MakeFluentdConfigMap(
-				rev("foo", "update-fluentd-config", "Active", "busybox"),
-				observabilityConfig,
-			),
+			Object: fluentdConfigMap("foo", "update-fluentd-config", EnableVarLog),
 		}},
 		Key: "foo/update-fluentd-config",
 	}, {
@@ -1784,97 +789,45 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			InduceFailure("update", "configmaps"),
 		},
 		Objects: []runtime.Object{
-			makeStatus(
-				rev("foo", "update-configmap-failure", "Active", "busybox"),
-				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "update-configmap-failure", "Active", "busybox").Name,
-					LogURL:      "http://logger.io/test-uid",
-					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
-					}},
-				}),
-			deploy("foo", "update-configmap-failure", "Active", "busybox"),
-			deployAS("foo", "update-configmap-failure", "Active", "busybox"),
-			svc("foo", "update-configmap-failure", "Active", "busybox"),
-			svcAS("foo", "update-configmap-failure", "Active", "busybox"),
+			rev("foo", "update-configmap-failure",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			deploy("foo", "update-configmap-failure", EnableVarLog),
+			svc("foo", "update-configmap-failure"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig).ObjectMeta,
+				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure",
+					EnableVarLog).ObjectMeta,
 				Data: map[string]string{
 					"bad key": "bad value",
 				},
 			},
+			image("foo", "update-configmap-failure", EnableVarLog),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should see a single update to the configmap we expect.
-			Object: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig),
+			Object: fluentdConfigMap("foo", "update-configmap-failure", EnableVarLog),
 		}},
 		Key: "foo/update-configmap-failure",
 	}}
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	config := ReconcilerTestConfig()
+	EnableVarLog(config)
+
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
-			buildLister:         listers.GetBuildLister(),
+			podAutoscalerLister: listers.GetPodAutoscalerLister(),
+			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
-			controllerConfig:    controllerConfig,
-			networkConfig:       networkConfig,
-			loggingConfig:       loggingConfig,
-			observabilityConfig: observabilityConfig,
-			autoscalerConfig:    autoscalerConfig,
 			resolver:            &nopResolver{},
-			buildtracker:        &buildTracker{builds: map[key]set{}},
+			tracker:             &rtesting.NullTracker{},
+			configStore:         &testConfigStore{config: config},
 		}
-	})
-}
-
-var (
-	boolTrue = true
-)
-
-func om(namespace, name string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:      name,
-		Namespace: namespace,
-		UID:       "test-uid",
-	}
-}
-
-func makeStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha1.Revision {
-	rev.Status = status
-	return rev
-}
-
-func addBuild(rev *v1alpha1.Revision, name string) *v1alpha1.Revision {
-	rev.Spec.BuildName = name
-	return rev
-}
-
-func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
-	ep.Subsets = []corev1.EndpointSubset{{
-		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
-	}}
-	return ep
-}
-
-func changeService(svc *corev1.Service) *corev1.Service {
-	// An effective hammer ;-P
-	svc.Spec = corev1.ServiceSpec{}
-	return svc
+	}))
 }
 
 func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
@@ -1886,99 +839,192 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
+func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
+	deploy.OwnerReferences = nil
+	return deploy
+}
+
+func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
+	podSpec := deploy.Spec.Template.Spec
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Image = "asdf"
+	}
+	return deploy
+}
+
 // Build is a special case of resource creation because it isn't owned by
 // the Revision, just tracked.
-func build(namespace, name string, conds ...buildv1alpha1.BuildCondition) *buildv1alpha1.Build {
-	return &buildv1alpha1.Build{
-		ObjectMeta: om(namespace, name),
-		Status: buildv1alpha1.BuildStatus{
-			Conditions: conds,
-		},
+func build(namespace, name string, bo ...BuildOption) *unstructured.Unstructured {
+	b := &unstructured.Unstructured{}
+	b.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "testing.build.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Build",
+	})
+	b.SetName(name)
+	b.SetNamespace(namespace)
+	u := &unstructured.Unstructured{}
+	duck.FromUnstructured(b, u) // prevent panic in b.DeepCopy()
+
+	for _, opt := range bo {
+		opt(u)
 	}
+	return u
 }
 
-// The input signatures of these functions should be kept in sync for readability.
-func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: om(namespace, name),
+func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
+	r := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       "test-uid",
+		},
 		Spec: v1alpha1.RevisionSpec{
-			Container:    corev1.Container{Image: image},
-			ServingState: servingState,
+			Container: corev1.Container{Image: "busybox"},
 		},
 	}
-}
 
-func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
-
-	var replicaCount int32 = 1
-	if servingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
+	for _, opt := range ro {
+		opt(r)
 	}
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig, replicaCount)
+	return r
 }
 
-func getService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Service {
-
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return resources.MakeK8sService(rev)
+func WithK8sServiceName(r *v1alpha1.Revision) {
+	r.Status.ServiceName = svc(r.Namespace, r.Name).Name
 }
 
-func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Endpoints {
+// TODO(mattmoor): Come up with a better name for this.
+func AllUnknownConditions(r *v1alpha1.Revision) {
+	WithInitRevConditions(r)
+	WithNoBuild(r)
+	MarkDeploying("Deploying")(r)
+	MarkActivating("Deploying", "")(r)
+}
 
-	service := getService(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return &corev1.Endpoints{
+type configOption func(*config.Config)
+
+func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+
+	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
+	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
+		config.Autoscaler, config.Controller)
+}
+
+func image(namespace, name string, co ...configOption) *caching.Image {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+
+	rev := rev(namespace, name)
+	// Do this here instead of in `rev` itself to ensure that we populate defaults
+	// before calling MakeDeployment within Reconcile.
+	rev.SetDefaults()
+	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
+		config.Autoscaler, config.Controller)
+	img, err := resources.MakeImageCache(rev, deploy)
+	if err != nil {
+		panic(err.Error())
+	}
+	return img
+}
+
+func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
+	config := ReconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+
+	rev := rev(namespace, name)
+	return resources.MakeFluentdConfigMap(rev, config.Observability)
+}
+
+func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+	rev := rev(namespace, name)
+	k := resources.MakeKPA(rev)
+
+	for _, opt := range ko {
+		opt(k)
+	}
+	return k
+}
+
+func svc(namespace, name string, so ...K8sServiceOption) *corev1.Service {
+	rev := rev(namespace, name)
+	s := resources.MakeK8sService(rev)
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
+}
+
+func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
+	service := svc(namespace, name)
+	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: service.Namespace,
 			Name:      service.Name,
 		},
 	}
-}
-
-func getASDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
-
-	var replicaCount int32 = 1
-	if servingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
+	for _, opt := range eo {
+		opt(ep)
 	}
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return resources.MakeAutoscalerDeployment(rev, controllerConfig.AutoscalerImage, replicaCount)
+	return ep
 }
 
-func getASService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Service {
+func pod(namespace, name string, po ...PodOption) *corev1.Pod {
+	deploy := deploy(namespace, name)
 
-	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return resources.MakeAutoscalerService(rev)
-}
-
-func getASEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Endpoints {
-
-	service := getASService(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
-		autoscalerConfig, controllerConfig)
-	return &corev1.Endpoints{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: service.Namespace,
-			Name:      service.Name,
+			Namespace: namespace,
+			Name:      name,
+			Labels:    deploy.Labels,
 		},
 	}
+
+	for _, opt := range po {
+		opt(pod)
+	}
+	return pod
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) Load() *config.Config {
+	return t.config
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		Controller: getTestControllerConfig(),
+		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Observability: &config.Observability{
+			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
+		},
+		Logging:    &logging.Config{},
+		Autoscaler: &autoscaler.Config{},
+	}
+}
+
+func EnableVarLog(cfg *config.Config) {
+	cfg.Observability.EnableVarLogCollection = true
 }

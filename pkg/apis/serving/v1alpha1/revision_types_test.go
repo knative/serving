@@ -16,25 +16,40 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func TestGeneration(t *testing.T) {
-	r := Revision{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty revision generation should be 0 was: %d", a)
-	}
+func TestRevisionDuckTypes(t *testing.T) {
+	var emptyGen duckv1alpha1.Generation
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "generation",
+		t:    &emptyGen,
+	}, {
+		name: "conditions",
+		t:    &duckv1alpha1.Conditions{},
+	}}
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Revision{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Revision, %T) = %v", test.t, err)
+			}
+		})
 	}
-
 }
 
 func TestIsActivationRequired(t *testing.T) {
@@ -49,7 +64,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -58,18 +73,21 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   RevisionConditionActive,
 				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
 			}},
 		},
 		isActivationRequired: true,
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Updating",
+			}, {
+				Type:   RevisionConditionActive,
 				Status: corev1.ConditionUnknown,
 				Reason: "Updating",
 			}},
@@ -78,7 +96,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -87,7 +105,7 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -96,74 +114,9 @@ func TestIsActivationRequired(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
-	}
-}
-
-func TestIsRoutable(t *testing.T) {
-	cases := []struct {
-		name       string
-		status     RevisionStatus
-		isRoutable bool
-	}{{
-		name:       "empty status should not be routable",
-		status:     RevisionStatus{},
-		isRoutable: false,
-	}, {
-		name: "Ready status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Inactive status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Updating status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isRoutable: false,
-	}}
-
-	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("IsRoutable() = %v want: %v", got, want)
+			if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
 	}
@@ -181,7 +134,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}},
@@ -190,7 +143,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -199,7 +152,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -208,7 +161,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type: RevisionConditionReady,
 			}},
 		},
@@ -216,7 +169,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -225,7 +178,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -237,7 +190,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -249,9 +202,11 @@ func TestIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -261,79 +216,45 @@ func TestGetSetCondition(t *testing.T) {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 
-	rc := &RevisionCondition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
+	rc := &duckv1alpha1.Condition{
+		Type:     RevisionConditionBuildSucceeded,
+		Status:   corev1.ConditionTrue,
+		Severity: duckv1alpha1.ConditionSeverityError,
 	}
-	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !reflect.DeepEqual(e, a) {
-		t.Errorf("GetCondition expected %v got: %v", e, a)
+
+	rs.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(duckv1alpha1.Condition{}, "LastTransitionTime")); diff != "" {
+		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
 	}
 }
 
-func TestRevisionConditions(t *testing.T) {
-	rev := &Revision{}
-	foo := &RevisionCondition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &RevisionCondition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-}
-
 func TestTypicalFlowWithBuild(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	// Empty BuildStatus keeps things as-is.
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{})
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{})
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:   buildv1alpha1.BuildSucceeded,
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
 	})
@@ -347,9 +268,9 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
 	}
 
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:   buildv1alpha1.BuildSucceeded,
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 		}},
 	})
@@ -372,8 +293,20 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
 
+	r.Status.MarkActive()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	if r.Status.IsReady() {
+		t.Error("IsReady() = true, want false")
+	}
+
 	r.Status.MarkContainerHealthy()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
@@ -384,6 +317,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 
 	r.Status.MarkResourcesAvailable()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
@@ -395,13 +329,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	// Verify that this doesn't reset our conditions.
 	r.Status.InitializeConditions()
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
-
-	// Or this.
-	r.Status.InitializeBuildCondition()
-	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
@@ -410,15 +338,14 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:   buildv1alpha1.BuildSucceeded,
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
 	})
@@ -428,9 +355,9 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	wantReason, wantMessage := "this is the reason", "and this the message"
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildSucceeded,
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionFalse,
 			Reason:  wantReason,
 			Message: wantMessage,
@@ -515,58 +442,83 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	// Enter a Ready state.
+	r.Status.MarkActive()
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
+	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:   duckv1alpha1.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+			Reason: "NoBuild",
+		}},
+	})
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From a Ready state, make the revision inactive to simulate scale to zero.
-	r.Status.MarkInactive("Reserve")
+	want := "Deactivated"
+	r.Status.MarkInactive(want, "Reserve")
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {
-		t.Errorf("MarkInactive = %v, want Inactive", got)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
+		t.Errorf("MarkInactive = %v, want %v", got, want)
 	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From an Inactive state, start to activate the revision.
-	want := "Updating"
-	r.Status.MarkDeploying(want)
-	r.Status.MarkDeploying(want)
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
-	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
-	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
-	}
-
-	// From the activating state, simulate the transition back to readiness.
-	r.Status.MarkContainerHealthy()
-	r.Status.MarkResourcesAvailable()
+	want = "Activating"
+	r.Status.MarkActivating(want, "blah blah blah")
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
+		t.Errorf("MarkInactive = %v, want %v", got, want)
+	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+
+	// From the activating state, simulate the transition back to readiness.
+	r.Status.MarkActive()
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
-func checkConditionSucceededRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func TestRevisionNotOwnedStuff(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "NotOwned"
+	r.Status.MarkResourceNotOwned("Resource", "mark")
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
+func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func checkConditionFailedRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+func checkConditionOngoingRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRevision(rs RevisionStatus, rct RevisionConditionType, cs corev1.ConditionStatus, t *testing.T) *RevisionCondition {
+func checkConditionRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
@@ -576,4 +528,148 @@ func checkConditionRevision(rs RevisionStatus, rct RevisionConditionType, cs cor
 		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
 	}
 	return r
+}
+
+func TestRevisionGetGroupVersionKind(t *testing.T) {
+	r := &Revision{}
+	want := schema.GroupVersionKind{
+		Group:   "serving.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Revision",
+	}
+	if got := r.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestRevisionBuildRefFromName(t *testing.T) {
+	r := &Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+		Spec: RevisionSpec{
+			BuildName: "bar-build",
+		},
+	}
+	got := *r.BuildRef()
+	want := corev1.ObjectReference{
+		APIVersion: "build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Namespace:  "foo-space",
+		Name:       "bar-build",
+	}
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionBuildRef(t *testing.T) {
+	buildRef := corev1.ObjectReference{
+		APIVersion: "testing.build.knative.dev/v1alpha1",
+		Kind:       "Build",
+		Namespace:  "foo-space",
+		Name:       "foo-build",
+	}
+	r := &Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+		Spec: RevisionSpec{
+			BuildName: "bar",
+			BuildRef:  &buildRef,
+		},
+	}
+	got := *r.BuildRef()
+	want := buildRef
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionBuildRefNil(t *testing.T) {
+	r := &Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo-space",
+			Name:      "foo",
+		},
+	}
+	got := r.BuildRef()
+
+	var want *corev1.ObjectReference
+	if got != want {
+		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionGetLastPinned(t *testing.T) {
+	cases := []struct {
+		name              string
+		annotations       map[string]string
+		expectTime        time.Time
+		setLastPinnedTime time.Time
+		expectErr         error
+	}{{
+		name:        "Nil annotations",
+		annotations: nil,
+		expectErr: LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:        "Empty map annotations",
+		annotations: map[string]string{},
+		expectErr: LastPinnedParseError{
+			Type: AnnotationParseErrorTypeMissing,
+		},
+	}, {
+		name:              "Empty map annotations - with set time",
+		annotations:       map[string]string{},
+		setLastPinnedTime: time.Unix(1000, 0),
+		expectTime:        time.Unix(1000, 0),
+	}, {
+		name:        "Invalid time",
+		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "abcd"},
+		expectErr: LastPinnedParseError{
+			Type:  AnnotationParseErrorTypeInvalid,
+			Value: "abcd",
+		},
+	}, {
+		name:        "Valid time",
+		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "10000"},
+		expectTime:  time.Unix(10000, 0),
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rev := Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations,
+				},
+			}
+
+			if tc.setLastPinnedTime != (time.Time{}) {
+				rev.SetLastPinned(tc.setLastPinnedTime)
+			}
+
+			pt, err := rev.GetLastPinned()
+			failErr := func() {
+				t.Fatalf("Expected error %v got %v", tc.expectErr, err)
+			}
+
+			if tc.expectErr == nil {
+				if err != nil {
+					failErr()
+				}
+			} else {
+				if tc.expectErr.Error() != err.Error() {
+					failErr()
+				}
+			}
+
+			if tc.expectTime != pt {
+				t.Fatalf("Expected pin time %v got %v", tc.expectTime, pt)
+			}
+		})
+	}
 }

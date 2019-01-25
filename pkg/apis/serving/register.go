@@ -23,13 +23,19 @@ const (
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"
 
-	// ConfigurationGenerationAnnotationKey is the annotation key attached to a Revision indicating the
-	// generation of the Configuration that created this revision
-	ConfigurationGenerationAnnotationKey = GroupName + "/configurationGeneration"
+	// RevisionLastPinnedAnnotationKey is the annotation key used for determining when a route has
+	// pinned a revision
+	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"
 
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
+	// The key can also be attached to ClusterIngress resources to indicate
+	// which Route triggered their creation.
 	RouteLabelKey = GroupName + "/route"
+
+	// RouteNamespaceLabelKey is the label key attached to a ClusterIngress
+	// by a Route to indicate which namespace the Route was created in.
+	RouteNamespaceLabelKey = GroupName + "/routeNamespace"
 
 	// RevisionLabelKey is the label key attached to k8s resources to indicate
 	// which Revision triggered their creation.
@@ -46,4 +52,16 @@ const (
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
+
+	// DeprecatedConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
+	// generation of the Configuration that created this revision
+	DeprecatedConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
+
+	// ConfigurationMetadataGenerationLabelKey is the label key attached to a Revision indicating the
+	// metadata generation of the Configuration that created this revision
+	ConfigurationMetadataGenerationLabelKey = GroupName + "/configurationMetadataGeneration"
+
+	// BuildHashLabelKey is the label key attached to a Build indicating the
+	// hash of the spec from which they were created.
+	BuildHashLabelKey = GroupName + "/buildHash"
 )

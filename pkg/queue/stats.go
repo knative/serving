@@ -17,15 +17,24 @@ limitations under the License.
 package queue
 
 import (
-	"github.com/knative/serving/pkg/autoscaler"
 	"time"
+
+	"github.com/knative/serving/pkg/autoscaler"
 )
 
-// Tokens to record ReqIn (request in) and ReqOut (request out) events respectively
-type ReqEvent int
+// ReqEvent represents either an incoming or closed request.
+type ReqEvent struct {
+	Time      time.Time
+	EventType ReqEventType
+}
+
+// ReqEventType denotes the type (incoming/closed) of a ReqEvent.
+type ReqEventType int
 
 const (
-	ReqIn ReqEvent = iota
+	// ReqIn represents an incoming request
+	ReqIn ReqEventType = iota
+	// ReqOut represents a finished request
 	ReqOut
 )
 
@@ -34,8 +43,6 @@ const (
 type Channels struct {
 	// Ticks with every request arrived/completed respectively
 	ReqChan chan ReqEvent
-	// Ticks at every quantization interval
-	QuantizationChan <-chan time.Time
 	// Ticks with every stat report request
 	ReportChan <-chan time.Time
 	// Stat reporting channel
@@ -49,7 +56,7 @@ type Stats struct {
 }
 
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels) *Stats {
+func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	s := &Stats{
 		podName: podName,
 		ch:      channels,
@@ -57,57 +64,65 @@ func NewStats(podName string, channels Channels) *Stats {
 
 	go func() {
 		var requestCount int32
-		var bucketedRequestCount int32
-
 		var concurrency int32
-		var maximumConcurrency int32
-		buckets := make([]int32, 0)
+
+		lastChange := startedAt
+		timeOnConcurrency := make(map[int32]time.Duration)
+
+		// Updates the lastChanged/timeOnConcurrency state
+		// Note: Due to nature of the channels used below, the ReportChan
+		// can race the ReqChan, thus an event can arrive that has a lower
+		// timestamp than `lastChange`. This is ignored, since it only makes
+		// for very slight differences.
+		updateState := func(time time.Time) {
+			if time.After(lastChange) {
+				durationSinceChange := time.Sub(lastChange)
+				timeOnConcurrency[concurrency] += durationSinceChange
+				lastChange = time
+			}
+		}
+
 		for {
 			select {
 			case event := <-s.ch.ReqChan:
-				switch event {
+				updateState(event.Time)
+
+				switch event.EventType {
 				case ReqIn:
 					requestCount = requestCount + 1
 					concurrency = concurrency + 1
-					if concurrency > maximumConcurrency {
-						maximumConcurrency = concurrency
-					}
 				case ReqOut:
 					concurrency = concurrency - 1
 				}
-			case <-s.ch.QuantizationChan:
-				// Calculate average concurrency for the current
-				// quantum of time (bucket).
-				buckets = append(buckets, maximumConcurrency)
-				// Count the number of requests during bucketed period
-				bucketedRequestCount = bucketedRequestCount + requestCount
-				requestCount = 0
-				maximumConcurrency = concurrency
 			case now := <-s.ch.ReportChan:
-				// Report the average bucket level. Does not
-				// include the current bucket.
-				var total float64
-				var count float64
-				for _, val := range buckets {
-					total = total + float64(val)
-					count = count + 1
+				updateState(now)
+
+				var totalTimeUsed time.Duration
+				for _, val := range timeOnConcurrency {
+					totalTimeUsed += val
 				}
+
 				var avg float64
-				if count != 0 {
-					avg = total / count
+				if totalTimeUsed > 0 {
+					for c, val := range timeOnConcurrency {
+						ratio := float64(val) / float64(totalTimeUsed)
+						avg += float64(c) * ratio
+					}
 				}
+
 				stat := &autoscaler.Stat{
 					Time:                      &now,
 					PodName:                   s.podName,
 					AverageConcurrentRequests: avg,
-					RequestCount:              bucketedRequestCount,
+					RequestCount:              requestCount,
 				}
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat
+
 				// Reset the stat counts which have been reported.
-				bucketedRequestCount = 0
-				buckets = make([]int32, 0)
+				timeOnConcurrency = make(map[int32]time.Duration)
+				requestCount = 0
 			}
 		}
 	}()

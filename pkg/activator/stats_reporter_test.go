@@ -17,66 +17,59 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/metrics/metricskey"
+
 	"go.opencensus.io/stats/view"
 )
 
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 1); err == nil {
-		t.Error("Reporter expected an error for Report call before init. Got success.")
-	}
-	if err := r.ReportResponseCount("testns", "testconfig", "testrev", 200, 1, 1); err == nil {
+	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 1, 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
 	var err error
 	if r, err = NewStatsReporter(); err != nil {
-		t.Error("Failed to create a new reporter.")
+		t.Errorf("Failed to create a new reporter: %v", err)
 	}
 
-	// test ReportRequest
-	wantTags1 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"serving_state":             "Reserved",
-	}
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 1) })
-	expectSuccess(t, func() error { return r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 2.0) })
-	checkSumData(t, "revision_request_count", wantTags1, 3)
-
-	// test ReportResponseCount
+	// test ReportRequestCount
 	wantTags2 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"response_code":             "200",
-		"num_tries":                 "6",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
+		"num_tries":                       "6",
 	}
-	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testconfig", "testrev", 200, 6, 1) })
-	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testconfig", "testrev", 200, 6, 3) })
-	checkSumData(t, "revision_response_count", wantTags2, 4)
+	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
+	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
+	checkSumData(t, "request_count", wantTags2, 4)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
-		"destination_namespace":     "testns",
-		"destination_configuration": "testconfig",
-		"destination_revision":      "testrev",
-		"response_code":             "200",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testconfig", "testrev", 200, 1100*time.Millisecond)
+		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 1100*time.Millisecond)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testconfig", "testrev", 200, 9100*time.Millisecond)
+		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 9100*time.Millisecond)
 	})
-	checkDistributionData(t, "response_time_msec", wantTags3, 2, 1100, 9100)
+	checkDistributionData(t, "request_latencies", wantTags3, 2, 1100, 9100)
 }
 
 func expectSuccess(t *testing.T, f func() error) {
+	t.Helper()
 	if err := f(); err != nil {
-		t.Errorf("Reporter expected success but got error %v", err)
+		t.Errorf("Reporter expected success but got error: %v", err)
 	}
 }
 

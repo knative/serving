@@ -24,6 +24,7 @@ import (
 	time "time"
 
 	versioned "github.com/knative/pkg/client/clientset/versioned"
+	authentication "github.com/knative/pkg/client/informers/externalversions/authentication"
 	internalinterfaces "github.com/knative/pkg/client/informers/externalversions/internalinterfaces"
 	istio "github.com/knative/pkg/client/informers/externalversions/istio"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,7 +173,12 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
+	Authentication() authentication.Interface
 	Networking() istio.Interface
+}
+
+func (f *sharedInformerFactory) Authentication() authentication.Interface {
+	return authentication.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Networking() istio.Interface {

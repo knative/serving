@@ -52,7 +52,7 @@ type Observability struct {
 func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability, error) {
 	oc := &Observability{}
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
-		oc.EnableVarLogCollection = (strings.ToLower(evlc) == "true")
+		oc.EnableVarLogCollection = strings.ToLower(evlc) == "true"
 	}
 	if fsi, ok := configMap.Data["logging.fluentd-sidecar-image"]; ok {
 		oc.FluentdSidecarImage = fsi

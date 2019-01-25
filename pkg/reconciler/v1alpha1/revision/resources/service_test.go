@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -46,6 +47,7 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar-service",
 				Labels: map[string]string{
+					autoscaling.KPALabelKey:  "bar",
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "bar",
@@ -62,7 +64,6 @@ func TestMakeK8sService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: servicePorts,
-				Type:  "NodePort",
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
 				},
@@ -82,6 +83,7 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "blah",
 				Name:      "baz-service",
 				Labels: map[string]string{
+					autoscaling.KPALabelKey:  "baz",
 					serving.RevisionLabelKey: "baz",
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "baz",
@@ -98,7 +100,6 @@ func TestMakeK8sService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: servicePorts,
-				Type:  "NodePort",
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
 				},

@@ -17,23 +17,29 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
-	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
-
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
+
+var fakeCurTime = time.Unix(1e9, 0)
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -48,69 +54,28 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "configuration not yet ready",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "first-reconcile", "not-ready", nil),
-			simpleNotReadyConfig("default", "not-ready"),
-			simpleNotReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleNotReadyConfig("default", "not-ready").Status.LatestCreatedRevisionName,
-			),
+			route("default", "first-reconcile", WithConfigTarget("not-ready")),
+			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
+			rev("default", "not-ready", 1, WithInitRevConditions),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
+				// The first reconciliation initializes the conditions and reflects
+				// that the referenced configuration is not yet ready.
+				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		Key: "default/first-reconcile",
 	}, {
 		Name: "configuration permanently failed",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "first-reconcile", "permanently-failed", nil),
-			simpleFailedConfig("default", "permanently-failed"),
-			simpleFailedRevision("default",
-				// Use the Revision name from the config.
-				simpleFailedConfig("default", "permanently-failed").Status.LatestCreatedRevisionName,
-			),
+			route("default", "first-reconcile", WithConfigTarget("permanently-failed")),
+			cfg("default", "permanently-failed",
+				WithGeneration(1), WithLatestCreated, MarkLatestCreatedFailed("blah")),
+			rev("default", "permanently-failed", 1, WithInitRevConditions, MarkContainerMissing),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "permanently-failed", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "permanently-failed" does not have any ready Revision.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "permanently-failed" does not have any ready Revision.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
+				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
 		Key: "default/first-reconcile",
 	}, {
@@ -120,56 +85,36 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "first-reconcile", "not-ready", nil),
-			simpleNotReadyConfig("default", "not-ready"),
-			simpleNotReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleNotReadyConfig("default", "not-ready").Status.LatestCreatedRevisionName,
-			),
+			route("default", "first-reconcile", WithConfigTarget("not-ready")),
+			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
+			rev("default", "not-ready", 1, WithInitRevConditions),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
-				Domain:         "first-reconcile.default.example.com",
-				DomainInternal: "first-reconcile.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionUnknown,
-					Reason:  "RevisionMissing",
-					Message: `Configuration "not-ready" is waiting for a Revision to become ready.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
+				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Route %q: %v",
+				"first-reconcile", "inducing failure for update routes"),
+		},
 		Key: "default/first-reconcile",
 	}, {
-		Name: "simple route becomes ready",
+		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "becomes-ready", "config", nil),
-			simpleReadyConfig("default", "config"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
+			route("default", "becomes-ready", WithConfigTarget("config")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "becomes-ready", "config", nil), "becomes-ready.default.example.com"),
-				&traffic.TrafficConfig{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -177,65 +122,105 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
 		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
-				Domain:         "becomes-ready.default.example.com",
-				DomainInternal: "becomes-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
 		}},
-		Key: "default/becomes-ready",
-	}, {
-		Name: "failure labeling configuration",
-		// Start from the test case where the route becomes ready and introduce a failure updating the configuration.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("patch", "configurations"),
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
 		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "label-config-failure", "config", nil),
-			simpleReadyConfig("default", "config"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithLocalDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "simple route becomes ready",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
 			),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "label-config-failure", "config", nil)),
+			simpleK8sService(route("default", "becomes-ready", WithConfigTarget("config"))),
 		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "label-config-failure", "config", &v1alpha1.RouteStatus{
-				Domain:         "label-config-failure.default.example.com",
-				DomainInternal: "label-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when the route becomes ready.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
 		}},
-		Key: "default/label-config-failure",
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created service %q", "becomes-ready"),
+		},
+		Key: "default/becomes-ready",
 	}, {
 		Name: "failure creating k8s placeholder service",
 		// We induce a failure creating the placeholder service
@@ -244,53 +229,18 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "create-svc-failure", "config", nil),
-			simpleReadyConfig("default", "config"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "create-svc-failure", "config", nil)),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "create-svc-failure", "config", &v1alpha1.RouteStatus{
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			}),
-		}},
-		Key: "default/create-svc-failure",
-	}, {
-		Name: "failure creating virtual service",
-		Objects: []runtime.Object{
-			simpleRunLatest("default", "vs-create-failure", "config", nil),
-			simpleReadyConfig("default", "config"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-		},
-		// We induce a failure creating the VirtualService.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "virtualservices"),
-		},
-		WantCreates: []metav1.Object{
-			// This is the Create we see for the virtual service, but we induce a failure.
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "vs-create-failure", "config", nil), "vs-create-failure.default.example.com"),
-				&traffic.TrafficConfig{
+			route("default", "create-svc-failure", WithConfigTarget("config")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "create-svc-failure", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -298,61 +248,98 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure"),
+		WantCreates: []metav1.Object{
+			simpleK8sService(route("default", "create-svc-failure", WithConfigTarget("config"))),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "vs-create-failure", "config", &v1alpha1.RouteStatus{
-				Domain:         "vs-create-failure.default.example.com",
-				DomainInternal: "vs-create-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "create-svc-failure", WithConfigTarget("config"),
+				// Populated by reconciliation when we've failed to create
+				// the K8s service.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
 		}},
-		Key: "default/vs-create-failure",
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v",
+				"create-svc-failure", "inducing failure for create services"),
+		},
+		Key: "default/create-svc-failure",
+	}, {
+		Name: "failure creating cluster ingress",
+		Objects: []runtime.Object{
+			route("default", "ingress-create-failure", WithConfigTarget("config")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		// We induce a failure creating the ClusterIngress.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "clusteringresses"),
+		},
+		WantCreates: []metav1.Object{
+			// This is the Create we see for the cluter ingress, but we induce a failure.
+			resources.MakeClusterIngress(
+				route("default", "ingress-create-failure", WithConfigTarget("config"),
+					WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "ingress-create-failure", WithConfigTarget("config"),
+				// Populated by reconciliation when we fail to create
+				// the cluster ingress.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create ClusterIngress for route %s/%s: %v",
+				"default", "ingress-create-failure", "inducing failure for create clusteringresses"),
+		},
+		Key:                     "default/ingress-create-failure",
+		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "steady-state", "config", &v1alpha1.RouteStatus{
-				Domain:         "steady-state.default.example.com",
-				DomainInternal: "steady-state.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "steady-state", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "steady-state",
+				WithConfigLabel("serving.knative.dev/route", "steady-state"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "steady-state", "config", nil), "steady-state.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "steady-state", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -360,48 +347,34 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "steady-state", "config", nil)),
+			simpleK8sService(route("default", "steady-state", WithConfigTarget("config"))),
 		},
 		Key: "default/steady-state",
 	}, {
-		Name: "different labels, different domain",
+		Name:    "unhappy about ownership of placeholder service",
+		WantErr: true,
 		Objects: []runtime.Object{
-			addRouteLabel(
-				simpleRunLatest("default", "different-domain", "config", &v1alpha1.RouteStatus{
-					Domain:         "different-domain.default.another-example.com",
-					DomainInternal: "different-domain.default.svc.cluster.local",
-					Conditions: []v1alpha1.RouteCondition{{
-						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-						Status: corev1.ConditionTrue,
-					}, {
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionTrue,
-					}},
-					Traffic: []v1alpha1.TrafficTarget{{
-						ConfigurationName: "config",
-						RevisionName:      "config-00001",
-						Percent:           100,
-					}},
-				}),
-				"app", "prod",
-			),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "different-domain",
+				WithConfigLabel("serving.knative.dev/route", "unhappy-owner"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "different-domain", "config", nil), "different-domain.default.another-example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -409,50 +382,85 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "different-domain", "config", nil)),
+			simpleK8sService(route("default", "unhappy-owner", WithConfigTarget("config")),
+				WithK8sSvcOwnersRemoved),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					}),
+				// The owner is not us, so we are unhappy.
+				MarkServiceNotOwned),
+		}},
+		Key: "default/unhappy-owner",
+	}, {
+		// This tests that when the Route is labelled differently, it is configured with a
+		// different domain from config-domain.yaml.  This is otherwise a copy of the steady
+		// state test above.
+		Name: "different labels, different domain - steady state",
+		Objects: []runtime.Object{
+			route("default", "different-domain", WithConfigTarget("config"),
+				WithAnotherDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				}), WithRouteLabel("app", "prod")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "different-domain"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "different-domain", WithConfigTarget("config"),
+					WithAnotherDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "different-domain", WithConfigTarget("config"))),
 		},
 		Key: "default/different-domain",
 	}, {
 		Name: "new latest created revision",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "new-latest-created", "config", &v1alpha1.RouteStatus{
-				Domain:         "new-latest-created.default.example.com",
-				DomainInternal: "new-latest-created.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			setLatestCreatedRevision(
-				addConfigLabel(
-					simpleReadyConfig("default", "config"),
-					// The Route controller attaches our label to this Configuration.
-					"serving.knative.dev/route", "new-latest-created",
-				),
-				"config-00002",
+			route("default", "new-latest-created", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(2), WithLatestCreated,
+				WithConfigLabel("serving.knative.dev/route", "new-latest-created"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
+			rev("default", "config", 1, MarkRevisionReady),
 			// This is the name of the new revision we're referencing above.
-			simpleNotReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "new-latest-created", "config", nil), "new-latest-created.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 2, WithInitRevConditions),
+			simpleReadyIngress(
+				route("default", "new-latest-created", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -460,51 +468,36 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "new-latest-created", "config", nil)),
+			simpleK8sService(route("default", "new-latest-created", WithConfigTarget("config"))),
 		},
 		// A new LatestCreatedRevisionName on the Configuration alone should result in no changes to the Route.
 		Key: "default/new-latest-created",
 	}, {
 		Name: "new latest ready revision",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
-				Domain:         "new-latest-ready.default.example.com",
-				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			setLatestReadyRevision(setLatestCreatedRevision(
-				addConfigLabel(
-					simpleReadyConfig("default", "config"),
-					// The Route controller attaches our label to this Configuration.
-					"serving.knative.dev/route", "new-latest-ready",
-				),
-				"config-00002",
-			)),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			route("default", "new-latest-ready", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(2), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
 			),
+			rev("default", "config", 1, MarkRevisionReady),
 			// This is the name of the new revision we're referencing above.
-			simpleReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "new-latest-ready", "config", nil), "new-latest-ready.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 2, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -512,15 +505,15 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "new-latest-ready", "config", nil)),
+			simpleK8sService(route("default", "new-latest-ready", WithConfigTarget("config"))),
 		},
 		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "new-latest-ready", "config", nil), "new-latest-ready.default.example.com"),
-				&traffic.TrafficConfig{
+			Object: simpleReadyIngress(
+				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -531,71 +524,49 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
-			Object: simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
-				Domain:         "new-latest-ready.default.example.com",
-				DomainInternal: "new-latest-ready.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00002",
-					Percent:           100,
-				}},
-			}),
 		}},
-		Key: "default/new-latest-ready",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "new-latest-ready", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00002",
+						Percent:      100,
+					})),
+		}},
+		Key:                     "default/new-latest-ready",
+		SkipNamespaceValidation: true,
 	}, {
-		Name: "failure updating virtual service",
-		// Starting from the new latest ready, induce a failure updating the virtual service.
+		Name: "failure updating cluster ingress",
+		// Starting from the new latest ready, induce a failure updating the cluster ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "virtualservices"),
+			InduceFailure("update", "clusteringresses"),
 		},
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "update-vs-failure", "config", &v1alpha1.RouteStatus{
-				Domain:         "update-vs-failure.default.example.com",
-				DomainInternal: "update-vs-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			setLatestReadyRevision(setLatestCreatedRevision(
-				addConfigLabel(
-					simpleReadyConfig("default", "config"),
-					// The Route controller attaches our label to this Configuration.
-					"serving.knative.dev/route", "update-vs-failure",
-				),
-				"config-00002",
-			)),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+			route("default", "update-ci-failure", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(2), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "update-ci-failure"),
 			),
+			rev("default", "config", 1, MarkRevisionReady),
 			// This is the name of the new revision we're referencing above.
-			simpleReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "update-vs-failure", "config", nil), "update-vs-failure.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 2, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -603,15 +574,14 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "update-vs-failure", "config", nil)),
+			simpleK8sService(route("default", "update-ci-failure", WithConfigTarget("config"))),
 		},
-		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "update-vs-failure", "config", nil), "update-vs-failure.default.example.com"),
-				&traffic.TrafficConfig{
+			Object: simpleReadyIngress(
+				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -623,43 +593,41 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key: "default/update-vs-failure",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "update-ci-failure", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00002",
+						Percent:      100,
+					})),
+		}},
+		Key:                     "default/update-ci-failure",
+		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
-				Domain:         "svc-mutation.default.example.com",
-				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "svc-mutation", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "svc-mutation",
+				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "svc-mutation", "config", nil), "svc-mutation.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -667,10 +635,11 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			mutateService(resources.MakeK8sService(simpleRunLatest("default", "svc-mutation", "config", nil))),
+			simpleK8sService(route("default", "svc-mutation",
+				WithConfigTarget("config")), MutateK8sService),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeK8sService(simpleRunLatest("default", "svc-mutation", "config", nil)),
+			Object: simpleK8sService(route("default", "svc-mutation", WithConfigTarget("config"))),
 		}},
 		Key: "default/svc-mutation",
 	}, {
@@ -681,39 +650,27 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "svc-mutation", "config", &v1alpha1.RouteStatus{
-				Domain:         "svc-mutation.default.example.com",
-				DomainInternal: "svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "svc-mutation", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "svc-mutation",
+				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "svc-mutation", "config", nil), "svc-mutation.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -721,48 +678,40 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			mutateService(resources.MakeK8sService(simpleRunLatest("default", "svc-mutation", "config", nil))),
+			simpleK8sService(route("default", "svc-mutation",
+				WithConfigTarget("config")), MutateK8sService),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeK8sService(simpleRunLatest("default", "svc-mutation", "config", nil)),
+			Object: simpleK8sService(route("default", "svc-mutation", WithConfigTarget("config"))),
 		}},
 		Key: "default/svc-mutation",
 	}, {
-		Name: "allow cluster ip",
+		// In #1789 we switched this to an ExternalName Service. Services created in
+		// 0.1 will still have ClusterIP set, which is Forbidden for ExternalName
+		// Services. Ensure that we drop the ClusterIP if it is set in the spec.
+		Name: "drop cluster ip",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "cluster-ip", "config", &v1alpha1.RouteStatus{
-				Domain:         "cluster-ip.default.example.com",
-				DomainInternal: "cluster-ip.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "cluster-ip", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "cluster-ip",
+				WithConfigLabel("serving.knative.dev/route", "cluster-ip"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "cluster-ip", "config", nil), "cluster-ip.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "cluster-ip", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -770,45 +719,76 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			setClusterIP(resources.MakeK8sService(simpleRunLatest("default", "cluster-ip", "config", nil)), "127.0.0.1"),
+			simpleK8sService(route("default", "cluster-ip",
+				WithConfigTarget("config")), WithClusterIP("127.0.0.1")),
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(route("default", "cluster-ip", WithConfigTarget("config"))),
+		}},
 		Key: "default/cluster-ip",
 	}, {
-		Name: "reconcile virtual service mutation",
+		// Make sure we fix the external name if something messes with it.
+		Name: "fix external name",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "virt-svc-mutation", "config", &v1alpha1.RouteStatus{
-				Domain:         "virt-svc-mutation.default.example.com",
-				DomainInternal: "virt-svc-mutation.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
+			route("default", "external-name", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "virt-svc-mutation",
+				WithConfigLabel("serving.knative.dev/route", "external-name"),
 			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			mutateVirtualService(resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "virt-svc-mutation", "config", nil), "virt-svc-mutation.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "external-name", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "external-name",
+				WithConfigTarget("config")), WithExternalName("this-is-the-wrong-name")),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleK8sService(route("default", "external-name", WithConfigTarget("config"))),
+		}},
+		Key: "default/external-name",
+	}, {
+		Name: "reconcile cluster ingress mutation",
+		Objects: []runtime.Object{
+			route("default", "ingress-mutation", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			mutateIngress(simpleReadyIngress(
+				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -816,17 +796,17 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			)),
-			resources.MakeK8sService(simpleRunLatest("default", "virt-svc-mutation", "config", nil)),
+			simpleK8sService(route("default", "ingress-mutation", WithConfigTarget("config"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "virt-svc-mutation", "config", nil), "virt-svc-mutation.default.example.com"),
-				&traffic.TrafficConfig{
+			Object: simpleReadyIngress(
+				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -835,97 +815,37 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key: "default/virt-svc-mutation",
-	}, {
-		Name: "config labelled by another route",
-		Objects: []runtime.Object{
-			simpleRunLatest("default", "licked-cookie", "config", &v1alpha1.RouteStatus{
-				Domain:         "licked-cookie.default.example.com",
-				DomainInternal: "licked-cookie.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "config",
-					RevisionName:      "config-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "config"),
-				// This configuration is being referenced by another Route.
-				"serving.knative.dev/route", "this-cookie-has-been-licked",
-			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "licked-cookie", "config", nil), "licked-cookie.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-			resources.MakeK8sService(simpleRunLatest("default", "licked-cookie", "config", nil)),
-		},
-		WantErr: true,
-		Key:     "default/licked-cookie",
+		Key:                     "default/ingress-mutation",
+		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
 		Objects: []runtime.Object{
 			// The status reflects "oldconfig", but the spec "newconfig".
-			simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
-				Domain:         "change-configs.default.example.com",
-				DomainInternal: "change-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "oldconfig",
-					RevisionName:      "oldconfig-00001",
-					Percent:           100,
-				}},
-			}),
+			route("default", "change-configs", WithConfigTarget("newconfig"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "oldconfig-00001",
+						Percent:      100,
+					})),
 			// Both configs exist, but only "oldconfig" is labelled.
-			addConfigLabel(
-				simpleReadyConfig("default", "oldconfig"),
+			cfg("default", "oldconfig",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "change-configs",
+				WithConfigLabel("serving.knative.dev/route", "change-configs"),
 			),
-			simpleReadyConfig("default", "newconfig"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "oldconfig").Status.LatestReadyRevisionName,
-			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "newconfig").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "change-configs", "oldconfig", nil), "change-configs.default.example.com"),
-				&traffic.TrafficConfig{
+			cfg("default", "newconfig",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "oldconfig", 1, MarkRevisionReady),
+			rev("default", "newconfig", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "change-configs", WithConfigTarget("oldconfig"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "oldconfig").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "oldconfig", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -933,22 +853,18 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "change-configs", "oldconfig", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route"),
-			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs"),
+			simpleK8sService(route("default", "change-configs", WithConfigTarget("oldconfig"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// Updated to point to "newconfig" things.
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "change-configs", "newconfig", nil), "change-configs.default.example.com"),
-				&traffic.TrafficConfig{
+			Object: simpleReadyIngress(
+				route("default", "change-configs", WithConfigTarget("newconfig"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "newconfig").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "newconfig", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -956,133 +872,71 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// Status updated to "newconfig"
-			Object: simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
-				Domain:         "change-configs.default.example.com",
-				DomainInternal: "change-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "newconfig",
-					RevisionName:      "newconfig-00001",
-					Percent:           100,
-				}},
-			}),
+			Object: route("default", "change-configs", WithConfigTarget("newconfig"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "newconfig-00001",
+						Percent:      100,
+					})),
 		}},
 		Key: "default/change-configs",
 	}, {
 		Name: "configuration missing",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "config-missing", "not-found", nil),
+			route("default", "config-missing", WithConfigTarget("not-found")),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "config-missing", "not-found", nil)),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "config-missing", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "config-missing.default.example.com",
-				DomainInternal: "config-missing.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Configuration "not-found" referenced in traffic not found.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Configuration "not-found" referenced in traffic not found.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "config-missing", WithConfigTarget("not-found"),
+				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
 		Key: "default/config-missing",
 	}, {
 		Name: "revision missing (direct)",
 		Objects: []runtime.Object{
-			simplePinned("default", "missing-revision-direct", "not-found", nil),
-			simpleReadyConfig("default", "config"),
+			route("default", "missing-revision-direct", WithRevTarget("not-found")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-direct", "config", nil)),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-direct.default.example.com",
-				DomainInternal: "missing-revision-direct.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "not-found" referenced in traffic not found.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "not-found" referenced in traffic not found.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "missing-revision-direct", WithRevTarget("not-found"),
+				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
 		Key: "default/missing-revision-direct",
 	}, {
 		Name: "revision missing (indirect)",
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "missing-revision-indirect", "config", nil),
-			simpleReadyConfig("default", "config"),
+			route("default", "missing-revision-indirect", WithConfigTarget("config")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
 		},
-		WantCreates: []metav1.Object{
-			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-indirect", "config", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
-				Domain:         "missing-revision-indirect.default.example.com",
-				DomainInternal: "missing-revision-indirect.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "config-00001" referenced in traffic not found.`,
-				}, {
-					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  "RevisionMissing",
-					Message: `Revision "config-00001" referenced in traffic not found.`,
-				}},
-			}),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "missing-revision-indirect", WithConfigTarget("config"),
+				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
 		Key: "default/missing-revision-indirect",
 	}, {
 		Name: "pinned route becomes ready",
 		Objects: []runtime.Object{
-			simplePinned("default", "pinned-becomes-ready",
+			route("default", "pinned-becomes-ready", WithRevTarget(
 				// Use the Revision name from the config
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, nil),
-			simpleReadyConfig("default", "config"),
-			addOwnerRef(
-				simpleReadyRevision("default",
-					// Use the Revision name from the config.
-					simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
-				),
-				or("Configuration", "config"),
-			),
-		},
-		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "pinned-becomes-ready", "config", nil), "pinned-becomes-ready.default.example.com"),
-				&traffic.TrafficConfig{
+				rev("default", "config", 1).Name)),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleK8sService(route("default", "pinned-becomes-ready", WithConfigTarget("config"))),
+			simpleReadyIngress(
+				route("default", "pinned-becomes-ready", WithConfigTarget("config"),
+					WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -1090,94 +944,24 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			// TODO(#1495): The parent configuration isn't labeled because it's established through
-			// labels instead of owner references.
-			//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simplePinned("default", "pinned-becomes-ready",
-				// Use the config's revision name.
-				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, &v1alpha1.RouteStatus{
-					Domain:         "pinned-becomes-ready.default.example.com",
-					DomainInternal: "pinned-becomes-ready.default.svc.cluster.local",
-					Conditions: []v1alpha1.RouteCondition{{
-						Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-						Status: corev1.ConditionTrue,
-					}, {
-						Type:   v1alpha1.RouteConditionReady,
-						Status: corev1.ConditionTrue,
-					}},
-					Traffic: []v1alpha1.TrafficTarget{{
-						// TODO(#1495): This is established thru labels instead of OwnerReferences.
-						// ConfigurationName: "config",
-						RevisionName: "config-00001",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "pinned-becomes-ready",
+				// Use the Revision name from the config
+				WithRevTarget(rev("default", "config", 1).Name),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: rev("default", "config", 1).Name,
 						Percent:      100,
-					}},
-				}),
+					})),
 		}},
-		Key: "default/pinned-becomes-ready",
+		Key:                     "default/pinned-becomes-ready",
+		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
 		Objects: []runtime.Object{
-			routeWithTraffic("default", "named-traffic-split", nil,
-				v1alpha1.TrafficTarget{
-					ConfigurationName: "blue",
-					Percent:           50,
-				}, v1alpha1.TrafficTarget{
-					ConfigurationName: "green",
-					Percent:           50,
-				}),
-			simpleReadyConfig("default", "blue"),
-			simpleReadyConfig("default", "green"),
-			addOwnerRef(
-				simpleReadyRevision("default",
-					// Use the Revision name from the config.
-					simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-				),
-				or("Configuration", "blue"),
-			),
-			addOwnerRef(
-				simpleReadyRevision("default",
-					// Use the Revision name from the config.
-					simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-				),
-				or("Configuration", "green"),
-			),
-		},
-		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
-				setDomain(routeWithTraffic("default", "named-traffic-split", nil,
-					v1alpha1.TrafficTarget{
-						ConfigurationName: "blue",
-						Percent:           50,
-					}, v1alpha1.TrafficTarget{
-						ConfigurationName: "green",
-						Percent:           50,
-					}), "named-traffic-split.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-								Percent:      50,
-							},
-							Active: true,
-						}, {
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-								Percent:      50,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-			resources.MakeK8sService(routeWithTraffic("default", "named-traffic-split", nil,
+			route("default", "named-traffic-split", WithSpecTraffic(
 				v1alpha1.TrafficTarget{
 					ConfigurationName: "blue",
 					Percent:           50,
@@ -1185,82 +969,184 @@ func TestReconcile(t *testing.T) {
 					ConfigurationName: "green",
 					Percent:           50,
 				})),
+			cfg("default", "blue",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			cfg("default", "green",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "blue", 1, MarkRevisionReady),
+			rev("default", "green", 1, MarkRevisionReady),
 		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split"),
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "named-traffic-split", WithDomain, WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					})),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "blue", 1).Name,
+								Percent:      50,
+							},
+							Active: true,
+						}, {
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "green", 1).Name,
+								Percent:      50,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: routeWithTraffic("default", "named-traffic-split", &v1alpha1.RouteStatus{
-				Domain:         "named-traffic-split.default.example.com",
-				DomainInternal: "named-traffic-split.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "named-traffic-split",
+				WithSpecTraffic(v1alpha1.TrafficTarget{
 					ConfigurationName: "blue",
-					RevisionName:      "blue-00001",
 					Percent:           50,
-				}, {
+				}, v1alpha1.TrafficTarget{
 					ConfigurationName: "green",
-					RevisionName:      "green-00001",
 					Percent:           50,
-				}},
-			}, v1alpha1.TrafficTarget{
-				ConfigurationName: "blue",
-				Percent:           50,
-			}, v1alpha1.TrafficTarget{
-				ConfigurationName: "green",
-				Percent:           50,
-			}),
+				}),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "blue-00001",
+						Percent:      50,
+					}, v1alpha1.TrafficTarget{
+						RevisionName: "green-00001",
+						Percent:      50,
+					})),
 		}},
-		Key: "default/named-traffic-split",
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
+		Key:                     "default/named-traffic-split",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "same revision targets",
+		Objects: []runtime.Object{
+			route("default", "same-revision-targets", WithSpecTraffic(
+				v1alpha1.TrafficTarget{
+					Name:              "gray",
+					ConfigurationName: "gray",
+					Percent:           50,
+				}, v1alpha1.TrafficTarget{
+					Name:         "also-gray",
+					RevisionName: "gray-00001",
+					Percent:      50,
+				})),
+			cfg("default", "gray",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "gray", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "same-revision-targets", WithDomain, WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						Name:              "gray",
+						ConfigurationName: "gray",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						Name:         "also-gray",
+						RevisionName: "gray-00001",
+						Percent:      50,
+					})),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "gray", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+						"gray": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "gray", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+						"also-gray": {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "gray", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "same-revision-targets",
+				WithSpecTraffic(v1alpha1.TrafficTarget{
+					Name:              "gray",
+					ConfigurationName: "gray",
+					Percent:           50,
+				}, v1alpha1.TrafficTarget{
+					Name:         "also-gray",
+					RevisionName: "gray-00001",
+					Percent:      50,
+				}),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						Name:         "gray",
+						RevisionName: "gray-00001",
+						Percent:      50,
+					}, v1alpha1.TrafficTarget{
+						Name:         "also-gray",
+						RevisionName: "gray-00001",
+						Percent:      50,
+					})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+		},
+		Key:                     "default/same-revision-targets",
+		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
 		// Start from a steady state referencing "blue", and modify the route spec to point to "green" instead.
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
-				Domain:         "switch-configs.default.example.com",
-				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "blue",
-					RevisionName:      "blue-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "blue"),
+			route("default", "switch-configs", WithConfigTarget("green"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						Name:         "blue",
+						RevisionName: "blue-00001",
+						Percent:      100,
+					})),
+			cfg("default", "blue",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "switch-configs",
+				WithConfigLabel("serving.knative.dev/route", "switch-configs"),
 			),
-			simpleReadyConfig("default", "green"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "switch-configs", "blue", nil), "switch-configs.default.example.com"),
-				&traffic.TrafficConfig{
+			cfg("default", "green",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "blue", 1, MarkRevisionReady),
+			rev("default", "green", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "switch-configs", WithConfigTarget("blue"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "blue", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -1268,21 +1154,17 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "switch-configs", "blue", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
-			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs"),
+			simpleK8sService(route("default", "switch-configs", WithConfigTarget("blue"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "switch-configs", "green", nil), "switch-configs.default.example.com"),
-				&traffic.TrafficConfig{
+			Object: simpleReadyIngress(
+				route("default", "switch-configs", WithConfigTarget("green"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "green", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -1290,72 +1172,105 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
-			Object: simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
-				Domain:         "switch-configs.default.example.com",
-				DomainInternal: "switch-configs.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "green",
-					RevisionName:      "green-00001",
-					Percent:           100,
-				}},
-			}),
 		}},
-		Key: "default/switch-configs",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "switch-configs", WithConfigTarget("green"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "green-00001",
+						Percent:      100,
+					})),
+		}},
+		Key:                     "default/switch-configs",
+		SkipNamespaceValidation: true,
 	}, {
-		Name: "failure unlabeling old configuration",
-		// Start from our test that switches configs and induce a failure when we go to unlabel
-		// the "blue" configuration.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("patch", "configurations"),
-		},
+		Name: "update single target to traffic split with unready revision",
+		// Start from a steady state referencing "blue", and modify the route spec to point to both
+		// "blue" and "green" instead, while "green" is not ready.
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "rmlabel-config-failure", "green", &v1alpha1.RouteStatus{
-				Domain:         "rmlabel-config-failure.default.example.com",
-				DomainInternal: "rmlabel-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "blue",
-					RevisionName:      "blue-00001",
-					Percent:           100,
-				}},
-			}),
-			addConfigLabel(
-				simpleReadyConfig("default", "blue"),
+			route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					},
+				)),
+			cfg("default", "blue", WithGeneration(1), WithLatestCreated, WithLatestReady),
+			cfg("default", "green", WithGeneration(1), WithLatestCreated),
+			rev("default", "blue", 1, MarkRevisionReady),
+			rev("default", "green", 1),
+			simpleReadyIngress(
+				route("default", "split", WithConfigTarget("blue"), WithDomain),
+				&traffic.Config{
+					Targets: map[string][]traffic.RevisionTarget{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "blue", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "split", WithConfigTarget("blue"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				MarkConfigurationNotReady("green"),
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					})),
+		}},
+		Key:                     "default/split",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "Update stale lastPinned",
+		Objects: []runtime.Object{
+			route("default", "stale-lastpinned", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "rmlabel-config-failure",
+				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
 			),
-			simpleReadyConfig("default", "green"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil), "rmlabel-config-failure.default.example.com"),
-				&traffic.TrafficConfig{
+			rev("default", "config", 1, MarkRevisionReady,
+				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+			simpleReadyIngress(
+				route("default", "stale-lastpinned", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
 					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
+								RevisionName: rev("default", "config", 1).Name,
 								Percent:      100,
 							},
 							Active: true,
@@ -1363,154 +1278,57 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil)),
+			simpleK8sService(route("default", "stale-lastpinned", WithConfigTarget("config"))),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
+			patchLastPinned("default", "config-00001"),
 		},
-		Key: "default/rmlabel-config-failure",
-	}, {
-		Name: "failure labeling configuration",
-		// Start from our test that switches configs, unlabel "blue" (avoids induced failure),
-		// and induce a failure when we go to label the "green" configuration.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("patch", "configurations"),
-		},
-		Objects: []runtime.Object{
-			simpleRunLatest("default", "addlabel-config-failure", "green", &v1alpha1.RouteStatus{
-				Domain:         "addlabel-config-failure.default.example.com",
-				DomainInternal: "addlabel-config-failure.default.svc.cluster.local",
-				Conditions: []v1alpha1.RouteCondition{{
-					Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-					Status: corev1.ConditionTrue,
-				}, {
-					Type:   v1alpha1.RouteConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-				Traffic: []v1alpha1.TrafficTarget{{
-					ConfigurationName: "blue",
-					RevisionName:      "blue-00001",
-					Percent:           100,
-				}},
-			}),
-			simpleReadyConfig("default", "blue"),
-			simpleReadyConfig("default", "green"),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-			),
-			simpleReadyRevision("default",
-				// Use the Revision name from the config.
-				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-			),
-			resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "addlabel-config-failure", "blue", nil), "addlabel-config-failure.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "blue").Status.LatestReadyRevisionName,
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-			resources.MakeK8sService(simpleRunLatest("default", "addlabel-config-failure", "blue", nil)),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure"),
-		},
-		Key: "default/addlabel-config-failure",
+		Key: "default/stale-lastpinned",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),
 			routeLister:          listers.GetRouteLister(),
 			configurationLister:  listers.GetConfigurationLister(),
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
-			virtualServiceLister: listers.GetVirtualServiceLister(),
-			domainConfig: &config.Domain{
-				Domains: map[string]*config.LabelSelector{
-					"example.com": {},
-					"another-example.com": {
-						Selector: map[string]string{"app": "prod"},
-					},
-				},
+			clusterIngressLister: listers.GetClusterIngressLister(),
+			tracker:              &rtesting.NullTracker{},
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
 			},
+			clock: FakeClock{Time: fakeCurTime},
 		}
-	})
+	}))
 }
 
-func mutateVirtualService(vs *istiov1alpha3.VirtualService) *istiov1alpha3.VirtualService {
-	// Thor's Hammer
-	vs.Spec = istiov1alpha3.VirtualServiceSpec{}
-	return vs
-}
-
-func mutateService(svc *corev1.Service) *corev1.Service {
-	// Thor's Hammer
-	svc.Spec = corev1.ServiceSpec{}
-	return svc
-}
-
-func setClusterIP(svc *corev1.Service, ip string) *corev1.Service {
-	svc.Spec.ClusterIP = ip
-	return svc
-}
-
-func routeWithTraffic(namespace, name string, status *v1alpha1.RouteStatus, traffic ...v1alpha1.TrafficTarget) *v1alpha1.Route {
-	route := &v1alpha1.Route{
+func route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
+	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: traffic,
-		},
 	}
-	if status != nil {
-		route.Status = *status
+	for _, opt := range ro {
+		opt(r)
 	}
-	return route
+	return r
 }
 
-func simplePinned(namespace, name, revision string, status *v1alpha1.RouteStatus) *v1alpha1.Route {
-	return routeWithTraffic(namespace, name, status, v1alpha1.TrafficTarget{
-		RevisionName: revision,
-		Percent:      100,
-	})
-}
-
-func simpleRunLatest(namespace, name, config string, status *v1alpha1.RouteStatus) *v1alpha1.Route {
-	return routeWithTraffic(namespace, name, status, v1alpha1.TrafficTarget{
-		ConfigurationName: config,
-		Percent:           100,
-	})
-}
-
-func setDomain(route *v1alpha1.Route, domain string) *v1alpha1.Route {
-	route.Status.Domain = domain
-	return route
-}
-
-func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
+func cfg(namespace, name string, co ...ConfigOption) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -1520,143 +1338,134 @@ func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 			},
 		},
 	}
-	cfg.Status.InitializeConditions()
-	cfg.Status.SetLatestCreatedRevisionName(name + "-00001")
-	return cfg
-}
-
-func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
-	cfg := &v1alpha1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Spec: v1alpha1.ConfigurationSpec{
-			Generation: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
-						Image: "busybox",
-					},
-				},
-			},
-		},
+	for _, opt := range co {
+		opt(cfg)
 	}
-	cfg.Status.InitializeConditions()
-	cfg.Status.MarkLatestCreatedFailed(name+"-00001", "should have used ko")
 	return cfg
 }
 
-func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service {
+	// omit the error here, as we are sure the loadbalancer info is porvided.
+	// return the service instance only, so that the result can be used in TableRow.
+	svc, _ := resources.MakeK8sService(r, &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
+
+	for _, opt := range so {
+		opt(svc)
+	}
+
+	return svc
+}
+
+func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config) *netv1alpha1.ClusterIngress {
+	return ingressWithStatus(r, tc, readyIngressStatus())
+}
+
+func readyIngressStatus() netv1alpha1.IngressStatus {
+	status := netv1alpha1.IngressStatus{}
+	status.InitializeConditions()
+	status.MarkNetworkConfigured()
+	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+	})
+
+	return status
+}
+
+func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
+	ci := resources.MakeClusterIngress(r, tc)
+	ci.Status = status
+
+	return ci
+}
+
+func mutateIngress(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
+	// Thor's Hammer
+	ci.Spec = netv1alpha1.IngressSpec{}
+	return ci
+}
+
+func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, key)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
-func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+func patchAddLabel(namespace, name, key, value, version string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, key, value)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
-func simpleReadyConfig(namespace, name string) *v1alpha1.Configuration {
-	return setLatestReadyRevision(simpleNotReadyConfig(namespace, name))
+func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+	lastPinStr := v1alpha1.RevisionLastPinnedString(fakeCurTime)
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/lastPinned":%q}}}`, lastPinStr)
+	action.Patch = []byte(patch)
+	return action
 }
 
-func setLatestCreatedRevision(cfg *v1alpha1.Configuration, name string) *v1alpha1.Configuration {
-	cfg.Status.SetLatestCreatedRevisionName(name)
-	return cfg
-}
-
-func setLatestReadyRevision(cfg *v1alpha1.Configuration) *v1alpha1.Configuration {
-	cfg.Status.SetLatestReadyRevisionName(cfg.Status.LatestCreatedRevisionName)
-	return cfg
-}
-
-func addRouteLabel(route *v1alpha1.Route, key, value string) *v1alpha1.Route {
-	if route.Labels == nil {
-		route.Labels = make(map[string]string)
-	}
-	route.Labels[key] = value
-	return route
-}
-
-func addConfigLabel(config *v1alpha1.Configuration, key, value string) *v1alpha1.Configuration {
-	if config.Labels == nil {
-		config.Labels = make(map[string]string)
-	}
-	config.Labels[key] = value
-	return config
-}
-
-func simpleReadyRevision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
-				Type:   v1alpha1.RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-	}
-}
-
-func simpleNotReadyRevision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
-				Type:   v1alpha1.RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-	}
-}
-
-func simpleFailedRevision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: v1alpha1.RevisionStatus{
-			Conditions: []v1alpha1.RevisionCondition{{
-				Type:   v1alpha1.RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-	}
-}
-
-func addOwnerRef(rev *v1alpha1.Revision, o []metav1.OwnerReference) *v1alpha1.Revision {
-	rev.OwnerReferences = o
-	return rev
-}
-
-// or builds OwnerReferences for a child of a Service
-func or(kind, name string) []metav1.OwnerReference {
+func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
+	c := cfg(namespace, name, WithGeneration(generation), WithLatestCreated)
 	boolTrue := true
-	return []metav1.OwnerReference{{
-		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-		Kind:               kind,
-		Name:               name,
-		Controller:         &boolTrue,
-		BlockOwnerDeletion: &boolTrue,
-	}}
+	r := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      c.Status.LatestCreatedRevisionName,
+			Annotations: map[string]string{
+				"serving.knative.dev/lastPinned": v1alpha1.RevisionLastPinnedString(
+					fakeCurTime.Add(-1 * time.Second)),
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+				Kind:               "Configuration",
+				Name:               name,
+				Controller:         &boolTrue,
+				BlockOwnerDeletion: &boolTrue,
+			}},
+		},
+	}
+	for _, opt := range ro {
+		opt(r)
+	}
+	return r
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		Domain: &config.Domain{
+			Domains: map[string]*config.LabelSelector{
+				"example.com": {},
+				"another-example.com": {
+					Selector: map[string]string{"app": "prod"},
+				},
+			},
+		},
+		GC: &gc.Config{
+			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+		},
+	}
 }

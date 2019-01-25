@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -14,18 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
-[ -f /workspace/library.sh ] \
-  && source /workspace/library.sh \
-  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-
-if [ -z "${KNATIVE_TEST_INFRA}" ]; then
-  exit 1
-fi
-
 set -o errexit
 set -o nounset
 set -o pipefail
+
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
+
+# Remove symlinks in /vendor that are broken or lead outside the repo.
+function remove_broken_symlinks() {
+  for link in $(find ./vendor -type l); do
+    # Remove broken symlinks
+    if [[ ! -e ${link} ]]; then
+      unlink ${link}
+      continue
+    fi
+    # Get canonical path to target, remove if outside the repo
+    local target="$(ls -l ${link})"
+    target="${target##* -> }"
+    [[ ${target} == /* ]] || target="./${target}"
+    target="$(cd `dirname ${link}` && cd ${target%/*} && echo $PWD/${target##*/})"
+    if [[ ${target} != *github.com/knative/* ]]; then
+      unlink ${link}
+      continue
+    fi
+  done
+}
 
 cd ${REPO_ROOT_DIR}
 
@@ -36,3 +49,12 @@ rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
+
+# Patch the Kubernetes dynamic client to fix listing. This patch is from
+# https://github.com/kubernetes/kubernetes/pull/68552/files, which is a
+# cherrypick of #66078.  Remove this once that reaches a client version
+# we have pulled in.
+git apply ${REPO_ROOT_DIR}/hack/66078.patch
+
+# Remove all invalid symlinks under ./vendor
+remove_broken_symlinks

@@ -17,36 +17,75 @@ limitations under the License.
 package resources
 
 import (
+	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 )
 
 // MakeRoute creates a Route from a Service object.
-func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
+func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Route(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*reconciler.NewControllerRef(service),
+				*kmeta.NewControllerRef(service),
 			},
 			Labels: makeLabels(service),
 		},
 	}
 
-	tt := v1alpha1.TrafficTarget{
-		Percent: 100,
-	}
-	// If there's RunLatest, use the configName, otherwise pin to a specific Revision
-	// as specified in the Pinned section of the Service spec.
-	if service.Spec.RunLatest != nil {
-		tt.ConfigurationName = names.Configuration(service)
+	if service.Spec.Release != nil {
+		rolloutPercent := service.Spec.Release.RolloutPercent
+		numRevisions := len(service.Spec.Release.Revisions)
+
+		// Configure the 'current' route.
+		currentRevisionName := service.Spec.Release.Revisions[0]
+		ttCurrent := v1alpha1.TrafficTarget{
+			Name:         "current",
+			Percent:      100 - rolloutPercent,
+			RevisionName: currentRevisionName,
+		}
+		c.Spec.Traffic = append(c.Spec.Traffic, ttCurrent)
+
+		// Configure the 'candidate' route.
+		if numRevisions == 2 {
+			candidateRevisionName := service.Spec.Release.Revisions[1]
+			ttCandidate := v1alpha1.TrafficTarget{
+				Name:         "candidate",
+				Percent:      rolloutPercent,
+				RevisionName: candidateRevisionName,
+			}
+			c.Spec.Traffic = append(c.Spec.Traffic, ttCandidate)
+		}
+
+		// Configure the 'latest' route.
+		ttLatest := v1alpha1.TrafficTarget{
+			Name:              "latest",
+			ConfigurationName: names.Configuration(service),
+			Percent:           0,
+		}
+		c.Spec.Traffic = append(c.Spec.Traffic, ttLatest)
+	} else if service.Spec.RunLatest != nil {
+		tt := v1alpha1.TrafficTarget{
+			ConfigurationName: names.Configuration(service),
+			Percent:           100,
+		}
+		c.Spec.Traffic = append(c.Spec.Traffic, tt)
+	} else if service.Spec.Pinned != nil {
+		tt := v1alpha1.TrafficTarget{
+			RevisionName: service.Spec.Pinned.RevisionName,
+			Percent:      100,
+		}
+		c.Spec.Traffic = append(c.Spec.Traffic, tt)
 	} else {
-		tt.RevisionName = service.Spec.Pinned.RevisionName
+		// Manual does not have a route and should not reach this path.
+		return nil, errors.New("malformed Service: MakeRoute requires one of runLatest, pinned, or release must be present")
 	}
-	c.Spec.Traffic = append(c.Spec.Traffic, tt)
-	return c
+
+	return c, nil
 }

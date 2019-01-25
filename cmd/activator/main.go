@@ -17,152 +17,81 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
+	"context"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/autoscaler"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
+	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
+	activatorhandler "github.com/knative/serving/pkg/activator/handler"
+	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	h2cutil "github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/third_party/h2c"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
-	maxRetry       = 60
-	retryInterval  = 1 * time.Second
-	logLevelKey    = "activator"
+	component      = "activator"
+
+	maxRetries             = 18 // the sum of all retries would add up to 1 minute
+	minRetryInterval       = 100 * time.Millisecond
+	exponentialBackoffBase = 1.3
+
+	// Add a little buffer space between request handling and stat
+	// reporting so that latency in the stat pipeline doesn't
+	// interfere with request handling.
+	statReportingQueueLength = 10
+
+	// Add enough buffer to not block request serving on stats collection
+	requestCountingQueueLength = 100
 )
 
-type activationHandler struct {
-	act      activator.Activator
-	logger   *zap.SugaredLogger
-	reporter activator.StatsReporter
-}
+var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 
-// retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
-// a small delay for k8s to include the ready IP in service.
-// https://github.com/knative/serving/issues/660#issuecomment-384062553
-type retryRoundTripper struct {
-	logger   *zap.SugaredLogger
-	reporter activator.StatsReporter
-	start    time.Time
-}
+	logger *zap.SugaredLogger
 
-func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	var err error
-	var reqBody *bytes.Reader
+	statSink *websocket.ManagedConnection
+	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+)
 
-	transport := http.DefaultTransport
-
-	if r.ProtoMajor == 2 {
-		transport = h2cutil.NewTransport()
-	}
-
-	if r.Body != nil {
-		reqBytes, err := ioutil.ReadAll(r.Body)
-
-		if err != nil {
-			rrt.logger.Errorf("Error reading request body: %s", err)
-			return nil, err
+func statReporter(stopCh <-chan struct{}) {
+	for {
+		select {
+		case sm := <-statChan:
+			if statSink == nil {
+				logger.Error("Stat sink not connected")
+				continue
+			}
+			err := statSink.Send(sm)
+			if err != nil {
+				logger.Errorw("Error while sending stat", zap.Error(err))
+			}
+		case <-stopCh:
+			return
 		}
-
-		reqBody = bytes.NewReader(reqBytes)
-		r.Body = ioutil.NopCloser(reqBody)
 	}
-
-	resp, err := transport.RoundTrip(r)
-	// TODO: Activator should retry with backoff.
-	// https://github.com/knative/serving/issues/1229
-	i := 1
-	for ; i < maxRetry; i++ {
-		if err == nil && resp != nil && resp.StatusCode != 503 {
-			break
-		}
-
-		if err != nil {
-			rrt.logger.Errorf("Error making a request: %s", err)
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-
-		time.Sleep(retryInterval)
-
-		// The request body cannot be read multiple times for retries.
-		// The workaround is to clone the request body into a byte reader
-		// so the body can be read multiple times.
-		if r.Body != nil {
-			reqBody.Seek(0, io.SeekStart)
-		}
-
-		resp, err = transport.RoundTrip(r)
-	}
-
-	if resp != nil {
-		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-		namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
-		name := r.Header.Get(reconciler.GetRevisionHeaderName())
-		config := r.Header.Get(reconciler.GetConfigurationHeader())
-		rrt.reporter.ReportResponseCount(namespace, config, name, resp.StatusCode, i, 1.0)
-		rrt.reporter.ReportResponseTime(namespace, config, name, resp.StatusCode, time.Now().Sub(rrt.start))
-	}
-	return resp, err
-}
-
-func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
-	name := r.Header.Get(reconciler.GetRevisionHeaderName())
-	config := r.Header.Get(reconciler.GetConfigurationHeader())
-	start := time.Now()
-
-	if r.ContentLength > maxUploadBytes {
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		a.reporter.ReportResponseCount(namespace, config, name, http.StatusRequestEntityTooLarge, 1, 1.0)
-		a.reporter.ReportResponseTime(namespace, config, name, http.StatusRequestEntityTooLarge, time.Now().Sub(start))
-		return
-	}
-
-	endpoint, status, err := a.act.ActiveEndpoint(namespace, config, name)
-	if err != nil {
-		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		http.Error(w, msg, int(status))
-		a.logger.Errorf(msg)
-		a.reporter.ReportResponseCount(namespace, config, name, int(status), 1, 1.0)
-		a.reporter.ReportResponseTime(namespace, config, name, int(status), time.Now().Sub(start))
-		return
-	}
-	target := &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &retryRoundTripper{
-		logger:   a.logger,
-		reporter: a.reporter,
-		start:    start,
-	}
-	proxy.ServeHTTP(w, r)
 }
 
 func main() {
@@ -175,58 +104,95 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
+	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer logger.Sync()
-	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+
 	logger.Info("Starting the knative activator")
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
+		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building new config", zap.Error(err))
+		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
+		logger.Fatalw("Error building serving clientset", zap.Error(err))
 	}
 
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "activator"})
-	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter: %v", zap.Error(err))
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
 	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(10 * time.Second)
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter: %v", zap.Error(err))
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
+	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
-	ah := &activationHandler{a, logger, reporter}
+
+	// Retry on 503's for up to 60 seconds. The reason is there is
+	// a small delay for k8s to include the ready IP in service.
+	// https://github.com/knative/serving/issues/660#issuecomment-384062553
+	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
+	backoffSettings := wait.Backoff{
+		Duration: minRetryInterval,
+		Factor:   exponentialBackoffBase,
+		Steps:    maxRetries,
+	}
+	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
-	go func() {
-		<-stopCh
-		a.Shutdown()
-	}()
 
-	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
-	if err = configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalf("failed to start configuration manager: %v", err)
+	// Open a websocket connection to the autoscaler
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace(), "8080")
+	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	go statReporter(stopCh)
+
+	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
+	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
+		ReqChan:    reqChan,
+		StatChan:   statChan,
+		ReportChan: time.NewTicker(time.Second).C,
+	})
+
+	ah := &activatorhandler.FilteringHandler{
+		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
+			&activatorhandler.EnforceMaxContentLengthHandler{
+				MaxContentLengthBytes: maxUploadBytes,
+				NextHandler: &activatorhandler.ActivationHandler{
+					Activator: a,
+					Transport: rt,
+					Logger:    logger,
+					Reporter:  reporter,
+				},
+			},
+		),
 	}
 
-	// Start the endpoint for Prometheus scraping
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", ah.handler)
-	mux.Handle("/metrics", promExporter)
-	h2c.ListenAndServe(":8080", mux)
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	// Watch the observability config map and dynamically update metrics exporter.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	if err = configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
+	}
+
+	srv := h2c.NewServer(":8080", ah)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			logger.Errorw("Error running HTTP server", zap.Error(err))
+		}
+	}()
+
+	<-stopCh
+	a.Shutdown()
+	srv.Shutdown(context.TODO())
 }

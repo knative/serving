@@ -25,44 +25,41 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
-	"github.com/knative/pkg/configmap"
-	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/system"
-
 	"github.com/google/go-cmp/cmp"
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
+	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/logging"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
-
-	corev1 "k8s.io/api/core/v1"
-
+	fakedynamic "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
@@ -90,6 +87,13 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 			}},
 		}},
 	}
+}
+
+func getTestReadyKPA(rev *v1alpha1.Revision) *kpav1alpha1.PodAutoscaler {
+	kpa := resources.MakeKPA(rev)
+	kpa.Status.InitializeConditions()
+	kpa.Status.MarkActive()
+	return kpa
 }
 
 func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
@@ -120,31 +124,65 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 
 func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controller, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
-	vpaClient *fakevpaclientset.Clientset,
+	cachingClient *fakecachingclientset.Clientset,
+	dynamicClient *fakedynamic.FakeDynamicClient,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher,
-	vpaInformer vpainformers.SharedInformerFactory) {
+	cachingInformer cachinginformers.SharedInformerFactory,
+	configMapWatcher *configmap.ManualWatcher,
+	buildInformerFactory duck.InformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
-	vpaClient = fakevpaclientset.NewSimpleClientset()
+	cachingClient = fakecachingclientset.NewSimpleClientset()
+	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
+
+	opt := rclr.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		CachingClientSet: cachingClient,
+		ConfigMapWatcher: configMapWatcher,
+		Logger:           TestLogger(t),
+		ResyncPeriod:     0,
+		StopChannel:      nil,
+	}
+
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
+	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
+	buildInformerFactory = KResourceTypedInformerFactory(opt)
+
+	controller = NewController(
+		opt,
+		servingInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		cachingInformer.Caching().V1alpha1().Images(),
+		kubeInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Services(),
+		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
+		buildInformerFactory,
+	)
+
+	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -153,7 +191,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -163,82 +201,70 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
-			"max-scale-up-rate":           "1.0",
-			"single-concurrency-target":   "1.0",
-			"multi-concurrency-target":    "1.0",
-			"stable-window":               "5m",
-			"panic-window":                "10s",
-			"scale-to-zero-threshold":     "10m",
-			"concurrency-quantum-of-time": "100ms",
-			"tick-interval":               "2s",
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "0.5",
+			"container-concurrency-target-default":    "10.0",
+			"stable-window":                           "5m",
+			"panic-window":                            "10s",
+			"tick-interval":                           "2s",
 		},
 	},
 		getTestControllerConfigMap(),
 	)
-	for _, cm := range configs {
-		cms = append(cms, cm)
+
+	cms = append(cms, configs...)
+
+	for _, configMap := range cms {
+		configMapWatcher.OnChange(configMap)
 	}
-
-	configMapWatcher = configmap.NewFixedWatcher(cms...)
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
-	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
-
-	controller = NewController(
-		rclr.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: servingClient,
-			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
-		},
-		vpaClient,
-		servingInformer.Serving().V1alpha1().Revisions(),
-		buildInformer.Build().V1alpha1().Builds(),
-		kubeInformer.Apps().V1().Deployments(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		kubeInformer.Core().V1().ConfigMaps(),
-		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-	)
-
-	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
 	return
 }
 
-func createRevision(t *testing.T,
-	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
-	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
-	controller *ctrl.Impl, rev *v1alpha1.Revision) *v1alpha1.Revision {
+func createRevision(
+	t *testing.T,
+	kubeClient *fakekubeclientset.Clientset,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	servingClient *fakeclientset.Clientset,
+	servingInformer informers.SharedInformerFactory,
+	cachingClient *fakecachingclientset.Clientset,
+	cachingInformer cachinginformers.SharedInformerFactory,
+	controller *ctrl.Impl,
+	rev *v1alpha1.Revision,
+) *v1alpha1.Revision {
 	t.Helper()
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
-		rev, _, _ = addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
+		rev, _, _ = addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 	}
 	return rev
 }
 
-func updateRevision(t *testing.T,
-	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
-	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
-	controller *ctrl.Impl, rev *v1alpha1.Revision) {
+func updateRevision(
+	t *testing.T,
+	kubeClient *fakekubeclientset.Clientset,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	servingClient *fakeclientset.Clientset,
+	servingInformer informers.SharedInformerFactory,
+	cachingClient *fakecachingclientset.Clientset,
+	cachingInformer cachinginformers.SharedInformerFactory,
+	controller *ctrl.Impl,
+	rev *v1alpha1.Revision,
+) {
+
 	t.Helper()
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
-		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
+		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 	}
 }
 
@@ -255,6 +281,7 @@ func makeBackingEndpoints(kubeClient *fakekubeclientset.Clientset,
 func addResourcesToInformers(t *testing.T,
 	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
 	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
+	cachingClient *fakecachingclientset.Clientset, cachingInformer cachinginformers.SharedInformerFactory,
 	rev *v1alpha1.Revision) (*v1alpha1.Revision, *appsv1.Deployment, *corev1.Service) {
 	t.Helper()
 
@@ -264,14 +291,33 @@ func addResourcesToInformers(t *testing.T,
 	}
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	haveBuild := rev.Spec.BuildName != ""
-	inActive := rev.Spec.ServingState != "Active"
+	haveBuild := rev.Spec.BuildRef != nil
 
 	ns := rev.Namespace
 
+	kpaName := resourcenames.KPA(rev)
+	kpa, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) && haveBuild {
+		// If we're doing a Build this won't exist yet.
+	} else if err != nil {
+		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
+	} else {
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	}
+
+	imageName := resourcenames.ImageCache(rev)
+	image, err := cachingClient.CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) && haveBuild {
+		// If we're doing a Build this won't exist yet.
+	} else if err != nil {
+		t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
+	} else {
+		cachingInformer.Caching().V1alpha1().Images().Informer().GetIndexer().Add(image)
+	}
+
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Deployments.Get(%v) = %v", deploymentName, err)
@@ -279,26 +325,14 @@ func addResourcesToInformers(t *testing.T,
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 	}
 
-	// Add autoscaler deployment if any
-	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-	if err == nil {
-		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(autoscalerDeployment)
-	}
-
 	serviceName := resourcenames.K8sService(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Services.Get(%v) = %v", serviceName, err)
 	} else {
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(service)
-	}
-
-	// Add autoscaler service if any
-	autoscalerService, err := kubeClient.CoreV1().Services(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-	if err == nil {
-		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
 	}
 
 	// Add fluentd configmap if any
@@ -314,24 +348,20 @@ type fixedResolver struct {
 	digest string
 }
 
-func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
-	pod := deploy.Spec.Template.Spec
-	for i := range pod.Containers {
-		pod.Containers[i].Image = r.digest
-	}
-	return nil
+func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return r.digest, nil
 }
 
 type errorResolver struct {
 	error string
 }
 
-func (r *errorResolver) Resolve(deploy *appsv1.Deployment) error {
-	return errors.New(r.error)
+func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+	return "", errors.New(r.error)
 }
 
 func TestResolutionFailed(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -339,9 +369,9 @@ func TestResolutionFailed(t *testing.T) {
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
-	rev.OwnerReferences = append(rev.OwnerReferences, *rclr.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -349,14 +379,15 @@ func TestResolutionFailed(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	for _, ct := range []v1alpha1.RevisionConditionType{"ContainerHealthy", "Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"ContainerHealthy", "Ready"} {
 		got := rev.Status.GetCondition(ct)
-		want := &v1alpha1.RevisionCondition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionFalse,
 			Reason:             "ContainerMissing",
-			Message:            errorMessage,
+			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -364,57 +395,13 @@ func TestResolutionFailed(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Add VPA table testing
-func TestCreateRevWithVPA(t *testing.T) {
-	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      autoscaler.ConfigName,
-		},
-		Data: map[string]string{
-			"enable-vertical-pod-autoscaling": "true",
-			"max-scale-up-rate":               "1.0",
-			"single-concurrency-target":       "1.0",
-			"multi-concurrency-target":        "1.0",
-			"stable-window":                   "5m",
-			"panic-window":                    "10s",
-			"scale-to-zero-threshold":         "10m",
-			"concurrency-quantum-of-time":     "100ms",
-			"tick-interval":                   "2s",
-		},
-	}, getTestControllerConfigMap(),
-	)
-	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
-	rev := getTestRevision()
-
-	if !controller.Reconciler.(*Reconciler).getAutoscalerConfig().EnableVPA {
-		t.Fatal("EnableVPA = false, want true")
-	}
-
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(resourcenames.VPA(rev), metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get vpa: %v", err)
-	}
-	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
-	}
-
-	// Verify label selectors match
-	if want, got := createdRev.ObjectMeta.Labels, createdVPA.Spec.Selector.MatchLabels; reflect.DeepEqual(want, got) {
-		t.Fatalf("Mismatched labels. Wanted %v. Got %v.", want, got)
-	}
-}
-
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -428,12 +415,12 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Update controllers logging URL
-	controller.Reconciler.(*Reconciler).receiveObservabilityConfig(&corev1.ConfigMap{
+	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -443,7 +430,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.revision-url-template":         "http://new-logging.test.com?filter=${REVISION_UID}",
 		},
 	})
-	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -456,93 +443,9 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Remove when we have coverage of EnqueueBuildTrackers
-func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
-
-	h := NewHooks()
-	// Look for the build complete event. Events are delivered asynchronously so
-	// we need to use hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
-		event := obj.(*corev1.Event)
-		if wanted, got := "BuildSucceeded", event.Reason; wanted != got {
-			t.Errorf("unexpected event reason: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return HookComplete
-	})
-
-	completeMessage := "a long human-readable complete message."
-
-	bld := &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      "foo",
-		},
-		Spec: buildv1alpha1.BuildSpec{
-			Steps: []corev1.Container{{
-				Name:    "nop",
-				Image:   "busybox:latest",
-				Command: []string{"/bin/sh"},
-				Args:    []string{"-c", "echo Hello"},
-			}},
-		},
-	}
-	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	rev := getTestRevision()
-	// Direct the Revision to wait for this build to complete.
-	rev.Spec.BuildName = bld.Name
-
-	rev = createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// After the initial update to the revision, we should be
-	// watching for this build to complete, so make it complete
-	// successfully.
-	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildSucceeded,
-			Status:  corev1.ConditionTrue,
-			Message: completeMessage,
-		}},
-	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	f := controller.Reconciler.(*Reconciler).EnqueueBuildTrackers(controller)
-	f(bld)
-	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
-
-	// Make sure that the changes from the Reconcile are reflected in our Informers.
-	completedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
-
-	// The next update we receive should tell us that the build completed.
-	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded"} {
-		got := completedRev.Status.GetCondition(ct)
-		want := &v1alpha1.RevisionCondition{
-			Type:               ct,
-			Status:             corev1.ConditionTrue,
-			Message:            completeMessage,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	// Wait for events to be delivered.
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Error(err)
-	}
-}
-
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -551,16 +454,17 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	expectedMessage := "Revision becomes ready upon endpoint \"test-rev-service\" becoming ready"
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
-	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// The revision is not marked ready until an endpoint is created.
-	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
 		got := deployingRev.Status.GetCondition(ct)
-		want := &v1alpha1.RevisionCondition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -569,20 +473,25 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	endpoints := getTestReadyEndpoints(rev.Name)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
-	f := controller.Reconciler.(*Reconciler).EnqueueEndpointsRevision(controller)
+	kpa := getTestReadyKPA(rev)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
-	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
+	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err != nil {
+		t.Errorf("Reconcile() = %v", err)
+	}
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
-	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
+	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 
 	// After reconciling the endpoint, the revision should be ready.
-	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
 		got := readyRev.Status.GetCondition(ct)
-		want := &v1alpha1.RevisionCondition{
+		want := &duckv1alpha1.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -595,64 +504,27 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Remove once we have table testing with the autoscaler configured so that it doesn't use single-tenant autoscaling.
-func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-	config := getTestConfiguration()
-	rev.OwnerReferences = append(
-		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
-	)
-	// Update controller config with no autoscaler image
-	controller.Reconciler.(*Reconciler).receiveControllerConfig(
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "config-controller",
-				Namespace: system.Namespace,
-			},
-			Data: map[string]string{
-				"queueSidecarImage": testQueueImage,
-			},
-		})
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-
-	// Look for the autoscaler deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
-	}
-
-	// Look for the autoscaler service.
-	_, err = kubeClient.CoreV1().Services(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
-	}
-}
-
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestController(t, nil)
+
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
+		*kmeta.NewControllerRef(config),
 	)
 	// Update controller config with no side car image
-	controller.Reconciler.(*Reconciler).receiveControllerConfig(
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "config-controller",
-				Namespace: system.Namespace,
-			},
-			Data: map[string]string{},
-		})
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "config-controller",
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	})
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Look for the revision deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace()).Get(rev.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
@@ -697,138 +569,18 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Add table testing that varies the replica counts of Deployments.
-func TestReconcileReplicaCount(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	createRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	getDeployments := func() (*appsv1.Deployment, *appsv1.Deployment) {
-		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resourcenames.Deployment(rev), metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Expected to have a deployment but found none: %v", err)
-		}
-		d2, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Expected to have an autoscaler deployment but found none: %v", err)
-		}
-		return d1, d2
-	}
-
-	d1, d2 := getDeployments()
-
-	// Update the replica count to a positive number. This should get reconciled back to 0.
-	d1.Spec.Replicas = new(int32)
-	*d1.Spec.Replicas = 10
-	d2.Spec.Replicas = new(int32)
-	*d2.Spec.Replicas = 20
-	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
-	if *d1.Spec.Replicas != 0 {
-		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 0 {
-		t.Fatalf("Expected autoscaler deployment to have 0 replicas, got: %v", *d2.Spec.Replicas)
-	}
-
-	// Activate the revision. Replicas should increase to 1
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
-	if *d1.Spec.Replicas != 1 {
-		t.Fatalf("Expected deployment to have 1 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 1 {
-		t.Fatalf("Expected autoscaler deployment to have 1 replicas, got: %v", *d2.Spec.Replicas)
-	}
-
-	// Increase the replica count - those should be kept intact
-	d1.Spec.Replicas = new(int32)
-	*d1.Spec.Replicas = 30
-	d2.Spec.Replicas = new(int32)
-	*d2.Spec.Replicas = 40
-	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
-	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
-	if *d1.Spec.Replicas != 30 {
-		t.Fatalf("Expected deployment to have 30 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 40 {
-		t.Fatalf("Expected autoscaler deployment to have 40 replicas, got: %v", *d2.Spec.Replicas)
-	}
-
-	// Deactivate the revision. Replicas should go back to 0.
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
-	d1, d2 = getDeployments()
-	if *d1.Spec.Replicas != 0 {
-		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
-	}
-	if *d2.Spec.Replicas != 0 {
-		t.Fatalf("Expected autoscaler deployment to have 0 replicas, got: %v", *d2.Spec.Replicas)
-	}
-}
-
-func TestReceiveLoggingConfig(t *testing.T) {
-	_, _, _, _, controller, _, _, _, _, _ := newTestController(t)
-	cm := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      logging.ConfigName,
-		},
-		Data: map[string]string{
-			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
-			"loglevel.controller": "info",
-		},
-	}
-
-	r := controller.Reconciler.(*Reconciler)
-	r.receiveLoggingConfig(&cm)
-	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
-	}
-	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.InfoLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.InfoLevel, r.getLoggingConfig().LoggingLevel["controller"])
-	}
-
-	cm.Data["loglevel.controller"] = "debug"
-	controller.Reconciler.(*Reconciler).receiveLoggingConfig(&cm)
-	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
-	}
-	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, r.getLoggingConfig().LoggingLevel["controller"])
-	}
-
-	cm.Data["loglevel.controller"] = "invalid"
-	controller.Reconciler.(*Reconciler).receiveLoggingConfig(&cm)
-	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
-	}
-	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, r.getLoggingConfig().LoggingLevel["controller"])
-	}
-}
-
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
 	controller.Reconciler.(*Reconciler).resolver = &fixedResolver{digest}
-	controller.Reconciler.(*Reconciler).receiveNetworkConfig(&corev1.ConfigMap{
+
+	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			config.IstioOutboundIPRangesKey: configMapValue,
@@ -842,10 +594,10 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*rclr.NewControllerRef(config),
+		*kmeta.NewControllerRef(config),
 	)
 
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
 	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
@@ -853,4 +605,179 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 		t.Fatalf("Couldn't get serving deployment: %v", err)
 	}
 	return deployment.Spec.Template.ObjectMeta.Annotations
+}
+
+func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
+
+	// Test that changes to the ConfigMap result in the desired changes on an existing
+	// deployment and revision.
+	tests := []struct {
+		name              string
+		expected          string
+		configMapToUpdate corev1.ConfigMap
+		wasUpdated        func(string, *v1alpha1.Revision, *appsv1.Deployment) (string, bool)
+	}{{
+		name:     "Update Istio Outbound IP Ranges", // Should update metadata on Deployment
+		expected: "10.0.0.1/24",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.NetworkConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"istio.sidecar.includeOutboundIPRanges": "10.0.0.1/24",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			annotations := deployment.Spec.Template.ObjectMeta.Annotations
+			got := annotations[resources.IstioOutboundIPRangeAnnotation]
+			return got, (got == expected)
+		},
+	}, {
+		name:     "Disable Fluentd", // Should remove fluentd from Deployment
+		expected: "",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection": "false",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.FluentdContainerName {
+					return c.Image, false
+				}
+			}
+			return "", true
+		},
+	}, {
+		name:     "Update LoggingURL", // Should update LogURL on revision
+		expected: "http://log-here.test.com?filter=",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         testFluentdImage,
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+				"logging.revision-url-template":         "http://log-here.test.com?filter=${REVISION_UID}",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			got := revision.Status.LogURL
+			return got, strings.HasPrefix(got, expected)
+		},
+	}, {
+		name:     "Update Fluentd Image", // Should Fluentd to Deployment
+		expected: "newFluentdImage",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         "newFluentdImage",
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			var got string
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.FluentdContainerName {
+					got = c.Image
+					if got == expected {
+						return got, true
+					}
+				}
+			}
+			return got, false
+		},
+	}, {
+		name:     "Update QueueProxy Image", // Should update queueSidecarImage
+		expected: "myAwesomeQueueImage",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ControllerConfigName,
+			},
+			Data: map[string]string{
+				"queueSidecarImage": "myAwesomeQueueImage",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			var got string
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.QueueContainerName {
+					got = c.Image
+					if got == expected {
+						return got, true
+					}
+				}
+			}
+			return got, false
+		},
+	}}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			controllerConfig := getTestControllerConfig()
+			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+
+			rev := getTestRevision()
+			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
+			deploymentsClient := kubeClient.Apps().Deployments(rev.Namespace)
+			h := NewHooks()
+
+			h.OnUpdate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
+				updatedRev := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", updatedRev.Name)
+				updatedDeployment, err := deploymentsClient.Get(resourcenames.Deployment(updatedRev), metav1.GetOptions{})
+				if err != nil {
+					t.Error(err)
+				}
+
+				got, wasUpdated := test.wasUpdated(test.expected, updatedRev, updatedDeployment)
+
+				if !wasUpdated {
+					t.Logf("No update occurred. expected: %s got: %s", test.expected, got)
+					return HookIncomplete
+				}
+
+				//Look for expected change
+				return HookComplete
+			})
+
+			servingInformer.Start(stopCh)
+			kubeInformer.Start(stopCh)
+			cachingInformer.Start(stopCh)
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+			cachingInformer.WaitForCacheSync(stopCh)
+
+			if err := watcher.Start(stopCh); err != nil {
+				t.Fatalf("Failed to start configuration manager: %v", err)
+			}
+
+			go controller.Run(1, stopCh)
+
+			revClient.Create(rev)
+
+			watcher.OnChange(&test.configMapToUpdate)
+
+			if err := h.WaitForHooks(time.Second); err != nil {
+				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+			}
+		})
+	}
 }

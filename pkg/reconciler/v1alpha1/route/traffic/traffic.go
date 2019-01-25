@@ -17,11 +17,15 @@ limitations under the License.
 package traffic
 
 import (
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 )
+
+// DefaultTarget is the unnamed default target for the traffic.
+const DefaultTarget = ""
 
 // A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
@@ -29,13 +33,20 @@ type RevisionTarget struct {
 	Active bool
 }
 
-// TrafficConfig encapsulates details of our traffic so that we don't need to make API calls, or use details of the
+// Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
-type TrafficConfig struct {
-	// The traffic targets, flattened to the Revision-level.
+type Config struct {
+	// Group of traffic splits.  Un-named targets are grouped together
+	// under the key `DefaultTarget`, and named target are under the respective
+	// name.  This is used to configure network configuration to
+	// realize a route's setting.
 	Targets map[string][]RevisionTarget
 
-	// The referred Configurations and Revisions.
+	// A list traffic targets, flattened to the Revision level.  This
+	// is used to populate the Route.Status.TrafficTarget field.
+	revisionTargets []RevisionTarget
+
+	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1alpha1.Configuration
 	Revisions      map[string]*v1alpha1.Revision
 }
@@ -46,7 +57,7 @@ type TrafficConfig struct {
 //
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	u *v1alpha1.Route) (*TrafficConfig, error) {
+	u *v1alpha1.Route) (*Config, error) {
 	builder := newBuilder(configLister, revLister, u.Namespace)
 	for _, tt := range u.Spec.Traffic {
 		if err := builder.addTrafficTarget(&tt); err != nil {
@@ -57,22 +68,26 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetTrafficTargets returns a list of TrafficTarget.
-func (t *TrafficConfig) GetTrafficTargets() []v1alpha1.TrafficTarget {
-	results := []v1alpha1.TrafficTarget{}
-	for _, tt := range t.Targets[""] {
-		results = append(results, tt.TrafficTarget)
+// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
+	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
+	for i, tt := range t.revisionTargets {
+		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 	}
 	return results
 }
 
-type trafficConfigBuilder struct {
+type configBuilder struct {
 	configLister listers.ConfigurationLister
 	revLister    listers.RevisionLister
 	namespace    string
 
 	// targets is a grouping of traffic targets serving the same origin.
 	targets map[string][]RevisionTarget
+
+	// revisionTargets is the original list of targets, at the Revision level.
+	revisionTargets []RevisionTarget
+
 	// configurations contains all the referred Configuration, keyed by their name.
 	configurations map[string]*v1alpha1.Configuration
 	// revisions contains all the referred Revision, keyed by their name.
@@ -82,8 +97,8 @@ type trafficConfigBuilder struct {
 	deferredTargetErr TargetError
 }
 
-func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *trafficConfigBuilder {
-	return &trafficConfigBuilder{
+func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *configBuilder {
+	return &configBuilder{
 		configLister: configLister,
 		revLister:    revLister,
 		namespace:    namespace,
@@ -94,7 +109,7 @@ func newBuilder(configLister listers.ConfigurationLister, revLister listers.Revi
 	}
 }
 
-func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
+func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
 	if _, ok := t.configurations[name]; !ok {
 		config, err := t.configLister.Configurations(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -107,7 +122,7 @@ func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configur
 	return t.configurations[name], nil
 }
 
-func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
+func (t *configBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
 	if _, ok := t.revisions[name]; !ok {
 		rev, err := t.revLister.Revisions(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -122,13 +137,13 @@ func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, err
 
 // deferTargetError will record a TargetError.  A TargetError with
 // IsFailure()=true will always overwrite a previous TargetError.
-func (t *trafficConfigBuilder) deferTargetError(err TargetError) {
+func (t *configBuilder) deferTargetError(err TargetError) {
 	if t.deferredTargetErr == nil || err.IsFailure() {
 		t.deferredTargetErr = err
 	}
 }
 
-func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 	var err error
 	if tt.RevisionName != "" {
 		err = t.addRevisionTarget(tt)
@@ -146,7 +161,7 @@ func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) erro
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
 // on the referred Configuration.  It adds both to the lists of directly referred targets.
-func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
 	config, err := t.getConfiguration(tt.ConfigurationName)
 	if err != nil {
 		return err
@@ -167,12 +182,12 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	return nil
 }
 
-func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	rev, err := t.getRevision(tt.RevisionName)
 	if err != nil {
 		return err
 	}
-	if !rev.Status.IsRoutable() {
+	if !rev.Status.IsReady() {
 		return errUnreadyRevision(rev)
 	}
 	target := RevisionTarget{
@@ -190,9 +205,10 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 	return nil
 }
 
-func (t *trafficConfigBuilder) addFlattenedTarget(target RevisionTarget) {
+func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Name
-	t.targets[""] = append(t.targets[""], target)
+	t.revisionTargets = append(t.revisionTargets, target)
+	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
 	if name != "" {
 		t.targets[name] = append(t.targets[name], target)
 	}
@@ -212,9 +228,9 @@ func consolidate(targets []RevisionTarget) []RevisionTarget {
 			byName[name] = cur
 		}
 	}
-	consolidated := []RevisionTarget{}
-	for _, name := range names {
-		consolidated = append(consolidated, byName[name])
+	consolidated := make([]RevisionTarget, len(names))
+	for i, name := range names {
+		consolidated[i] = byName[name]
 	}
 	if len(consolidated) == 1 {
 		consolidated[0].TrafficTarget.Percent = 100
@@ -230,13 +246,15 @@ func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTa
 	return consolidated
 }
 
-func (t *trafficConfigBuilder) build() (*TrafficConfig, error) {
+func (t *configBuilder) build() (*Config, error) {
 	if t.deferredTargetErr != nil {
 		t.targets = nil
+		t.revisionTargets = nil
 	}
-	return &TrafficConfig{
-		Targets:        consolidateAll(t.targets),
-		Configurations: t.configurations,
-		Revisions:      t.revisions,
+	return &Config{
+		Targets:         consolidateAll(t.targets),
+		revisionTargets: t.revisionTargets,
+		Configurations:  t.configurations,
+		Revisions:       t.revisions,
 	}, t.deferredTargetErr
 }

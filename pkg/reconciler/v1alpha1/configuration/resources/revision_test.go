@@ -27,20 +27,22 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestRevisions(t *testing.T) {
+func TestMakeRevisions(t *testing.T) {
 	tests := []struct {
 		name          string
 		configuration *v1alpha1.Configuration
+		buildRef      *corev1.ObjectReference
 		want          *v1alpha1.Revision
 	}{{
 		name: "no build",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "no",
-				Name:      "build",
+				Namespace:  "no",
+				Name:       "build",
+				Generation: 10,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 12,
+				DeprecatedGeneration: 12,
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -52,8 +54,9 @@ func TestRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "no",
-				Name:      "build-00012",
+				Namespace:   "no",
+				Name:        "build-00012",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -62,10 +65,10 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey: "build",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "12",
+					serving.ConfigurationLabelKey:                     "build",
+					serving.DeprecatedConfigurationGenerationLabelKey: "12",
+					serving.ConfigurationMetadataGenerationLabelKey:   "10",
+					serving.ServiceLabelKey:                           "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -78,16 +81,17 @@ func TestRevisions(t *testing.T) {
 		name: "with build",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "build",
+				Namespace:  "with",
+				Name:       "build",
+				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 99,
-				Build: &buildv1alpha1.BuildSpec{
+				DeprecatedGeneration: 99,
+				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
 					}},
-				},
+				}},
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
 						Container: corev1.Container{
@@ -97,10 +101,16 @@ func TestRevisions(t *testing.T) {
 				},
 			},
 		},
+		buildRef: &corev1.ObjectReference{
+			APIVersion: "build.knative.dev/v1alpha1",
+			Kind:       "Build",
+			Name:       "build-00099",
+		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "build-00099",
+				Namespace:   "with",
+				Name:        "build-00099",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -109,14 +119,18 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey: "build",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
+					serving.ConfigurationLabelKey:                     "build",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ConfigurationMetadataGenerationLabelKey:   "100",
+					serving.ServiceLabelKey:                           "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				BuildName: "build-00099",
+				BuildRef: &corev1.ObjectReference{
+					APIVersion: "build.knative.dev/v1alpha1",
+					Kind:       "Build",
+					Name:       "build-00099",
+				},
 				Container: corev1.Container{
 					Image: "busybox",
 				},
@@ -126,11 +140,12 @@ func TestRevisions(t *testing.T) {
 		name: "with labels",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "labels",
+				Namespace:  "with",
+				Name:       "labels",
+				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 99,
+				DeprecatedGeneration: 99,
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
@@ -148,8 +163,9 @@ func TestRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "labels-00099",
+				Namespace:   "with",
+				Name:        "labels-00099",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -158,12 +174,12 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey: "labels",
-					"foo": "bar",
-					"baz": "blah",
-				},
-				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
+					serving.ConfigurationLabelKey:                     "labels",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ConfigurationMetadataGenerationLabelKey:   "100",
+					serving.ServiceLabelKey:                           "",
+					"foo":                                             "bar",
+					"baz":                                             "blah",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -176,11 +192,12 @@ func TestRevisions(t *testing.T) {
 		name: "with annotations",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "annotations",
+				Namespace:  "with",
+				Name:       "annotations",
+				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 99,
+				DeprecatedGeneration: 99,
 				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -208,10 +225,12 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey: "annotations",
+					serving.ConfigurationLabelKey:                     "annotations",
+					serving.DeprecatedConfigurationGenerationLabelKey: "99",
+					serving.ConfigurationMetadataGenerationLabelKey:   "100",
+					serving.ServiceLabelKey:                           "",
 				},
 				Annotations: map[string]string{
-					serving.ConfigurationGenerationAnnotationKey: "99",
 					"foo": "bar",
 					"baz": "blah",
 				},
@@ -226,7 +245,7 @@ func TestRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeRevision(test.configuration)
+			got := MakeRevision(test.configuration, test.buildRef)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)
 			}

@@ -22,30 +22,36 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/knative/pkg/logging"
 )
 
 var (
-	testLogger    *zap.SugaredLogger
-	testLoggerMux sync.Mutex
+	loggers = make(map[string]*zap.SugaredLogger)
+	m       sync.Mutex
 )
 
 // TestLogger gets a logger to use in unit and end to end tests
 func TestLogger(t *testing.T) *zap.SugaredLogger {
-	testLoggerMux.Lock()
-	defer testLoggerMux.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if testLogger == nil {
-		logger, err := zap.NewDevelopment()
-		if err != nil {
-			panic(err)
-		}
+	logger, ok := loggers[t.Name()]
 
-		testLogger = logger.Sugar()
+	if ok {
+		return logger
 	}
 
-	return testLogger.Named(t.Name())
+	opts := zaptest.WrapOptions(
+		zap.AddCaller(),
+		zap.Development(),
+	)
+
+	logger = zaptest.NewLogger(t, opts).Sugar().Named(t.Name())
+	loggers[t.Name()] = logger
+
+	return logger
 }
 
 // TestContextWithLogger returns a context with a logger to be used in tests

@@ -17,27 +17,20 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestOurObservability(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ObservabilityConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
-	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	if _, err := NewObservabilityFromConfigMap(&cm); err != nil {
+	cm := ConfigMapFromTestFile(t, ObservabilityConfigName)
+
+	if _, err := NewObservabilityFromConfigMap(cm); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap() = %v", err)
 	}
 }
@@ -59,7 +52,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -78,7 +71,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 		},
@@ -88,7 +81,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		wantController: (*Observability)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      ObservabilityConfigName,
 			},
 			Data: map[string]string{

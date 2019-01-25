@@ -3,31 +3,31 @@
 Install monitoring components using
 [Monitoring, Logging and Tracing Installation](https://github.com/knative/docs/blob/master/serving/installing-logging-metrics-traces.md).
 Once finished, visit
-[Knative Serving](https://github.com/knative/docs/tree/master/serving)
-for guides on accessing logs, metrics and traces.
+[Knative Serving](https://github.com/knative/docs/tree/master/serving) for
+guides on accessing logs, metrics and traces.
 
 ## Default metrics
 
 The following metrics are collected by default:
 
-* Knative Serving controller metrics
-* Istio metrics (mixer, envoy and pilot)
-* Node and pod metrics
+- Knative Serving controller metrics
+- Istio metrics (mixer, envoy and pilot)
+- Node and pod metrics
 
-There are several other collectors that are pre-configured but not enabled.
-To see the full list, browse to config/monitoring/prometheus-exporter
-and config/monitoring/prometheus-servicemonitor folders and deploy them
-using `kubectl apply -f`.
+There are several other collectors that are pre-configured but not enabled. To
+see the full list, browse to config/monitoring/prometheus-exporter and
+config/monitoring/prometheus-servicemonitor folders and deploy them using
+`kubectl apply -f`.
 
 ## Default logs
 
 Deployment above enables collection of the following logs:
 
-* stdout & stderr from all user-container
-* stdout & stderr from build-controller
+- stdout & stderr from all user-container
+- stdout & stderr from build-controller
 
 To enable log collection from other containers and destinations, see
-[setting up a logging plugin](setting-up-a-logging-plugin.md).
+[setting up a logging plugin](https://github.com/knative/docs/blob/master/serving/setting-up-a-logging-plugin.md).
 
 ## Metrics troubleshooting
 
@@ -36,13 +36,14 @@ discovery issues for metrics. To access to the web UI, forward the Prometheus
 server to your machine:
 
 ```shell
-kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
+kubectl port-forward -n knative-monitoring $(kubectl get pods -n knative-monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
 Then browse to http://localhost:9090 to access the UI.
 
-* To see the targets that are being scraped, go to Status -> Targets
-* To see what Prometheus service discovery is picking up vs. dropping, go to Status -> Service Discovery
+- To see the targets that are being scraped, go to Status -> Targets
+- To see what Prometheus service discovery is picking up vs. dropping, go to
+  Status -> Service Discovery
 
 ## Generating metrics
 
@@ -54,7 +55,8 @@ necessary and instrument your code as described in step 3.
 In the example below, we will setup the service to host the metrics and
 instrument a sample 'Gauge' type metric using the setup.
 
-1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
+1. First, go through
+   [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
 2. Add the following to your application startup:
 
 ```go
@@ -84,7 +86,7 @@ func main() {
 	// Create a sample gauge
 	var r = &Reporter{}
 	desiredPodCountM = stats.Int64(
-		"desired_pod_count",
+		"desired_pods",
 		"Number of pods autoscaler wants to allocate",
 		stats.UnitNone)
 
@@ -163,7 +165,7 @@ config/monitoring/200-common/300-prometheus/100-scrape-config.yaml:
 
 5.Redeploy prometheus and its configuration:
 
-```sh
+```shell
 kubectl delete -f config/monitoring/200-common/300-prometheus
 kubectl apply -f config/monitoring/200-common/300-prometheus
 ```
@@ -178,16 +180,16 @@ Troubleshooting section above to enable Prometheus UI)
 
 ## Distributed tracing with Zipkin
 
-Check [Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go) 
-as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
+Check
+[Telemetry sample](https://github.com/knative/docs/tree/master/serving/samples/telemetry-go)
+as an example usage of
+[OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client
+library.
 
 ## Delete monitoring components
 
 Enter:
 
 ```shell
-ko delete --ignore-not-found=true \
-  -f config/monitoring/200-common/100-istio.yaml \
-  -f config/monitoring/200-common/100-zipkin.yaml \
-  -f config/monitoring/100-common
+ko delete --ignore-not-found=true -f config/monitoring/100-namespace.yaml
 ```

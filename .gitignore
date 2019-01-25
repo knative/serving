@@ -1,4 +1,10 @@
-bazel-*
+# Operating system temporary files
+.DS_Store
+
+# Editor/IDE specific settings
 .idea
 .vscode/
-.DS_Store
+
+# Temporary output of build tools
+bazel-*
+*.out

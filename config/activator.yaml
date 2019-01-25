@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: activator
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
-  # TODO: Increase the replicas
-  # https://github.com/knative/serving/issues/695
   replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
   template:
     metadata:
       annotations:
@@ -28,6 +32,7 @@ spec:
       labels:
         app: activator
         role: activator
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -38,15 +43,40 @@ spec:
         ports:
         - name: activator-port
           containerPort: 8080
+        - name: metrics-port
+          containerPort: 9090
         args:
           # Disable glog writing into stderr. Our code doesn't use glog
           # and seeing k8s logs in addition to ours is not useful.
         - "-logtostderr=false"
         - "-stderrthreshold=FATAL"
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 20m
+            memory: 60Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 200m
+            memory: 600Mi
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: SYSTEM_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
       volumes:
         - name: config-logging
           configMap:
             name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

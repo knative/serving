@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/knative/pkg/changeset"
 	"github.com/knative/pkg/logging/logkey"
 )
 
@@ -34,10 +35,10 @@ import (
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap.AtomicLevel) {
-	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride)
+func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
+	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride, opts)
 	if err == nil {
-		return logger.Sugar(), atomicLevel
+		return enrichLoggerWithCommitID(logger.Sugar()), atomicLevel
 	}
 
 	loggingCfg := zap.NewProductionConfig()
@@ -47,20 +48,31 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 		}
 	}
 
-	logger, err2 := loggingCfg.Build()
+	logger, err2 := loggingCfg.Build(opts...)
 	if err2 != nil {
 		panic(err2)
 	}
-	return logger.Named("fallback-logger").Sugar(), loggingCfg.Level
+	return enrichLoggerWithCommitID(logger.Named("fallback-logger").Sugar()), loggingCfg.Level
+}
+
+func enrichLoggerWithCommitID(logger *zap.SugaredLogger) *zap.SugaredLogger {
+	commmitID, err := changeset.Get()
+	if err == nil {
+		// Enrich logs with GitHub commit ID.
+		return logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+	}
+
+	logger.Warnf("Fetch GitHub commit ID from kodata failed: %v", err)
+	return logger
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
-func NewLoggerFromConfig(config *Config, name string) (*zap.SugaredLogger, zap.AtomicLevel) {
-	logger, level := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String())
+func NewLoggerFromConfig(config *Config, name string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
+	logger, level := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String(), opts...)
 	return logger.Named(name), level
 }
 
-func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, zap.AtomicLevel, error) {
+func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Option) (*zap.Logger, zap.AtomicLevel, error) {
 	if len(configJSON) == 0 {
 		return nil, zap.AtomicLevel{}, errors.New("empty logging configuration")
 	}
@@ -76,7 +88,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 		}
 	}
 
-	logger, err := loggingCfg.Build()
+	logger, err := loggingCfg.Build(opts...)
 	if err != nil {
 		return nil, zap.AtomicLevel{}, err
 	}

@@ -19,8 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/v1util"
 )
 
@@ -68,12 +69,12 @@ func (cl *configLayer) DiffID() (v1.Hash, error) {
 
 // Uncompressed implements v1.Layer
 func (cl *configLayer) Uncompressed() (io.ReadCloser, error) {
-	return v1util.NopReadCloser(bytes.NewBuffer(cl.content)), nil
+	return ioutil.NopCloser(bytes.NewBuffer(cl.content)), nil
 }
 
 // Compressed implements v1.Layer
 func (cl *configLayer) Compressed() (io.ReadCloser, error) {
-	return v1util.NopReadCloser(bytes.NewBuffer(cl.content)), nil
+	return ioutil.NopCloser(bytes.NewBuffer(cl.content)), nil
 }
 
 // Size implements v1.Layer

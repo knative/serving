@@ -90,7 +90,10 @@ func TestMakeLabels(t *testing.T) {
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}
-			wantSelector := &metav1.LabelSelector{MatchLabels: test.want}
+
+			wantSelector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{serving.RevisionUID: "1234"},
+			}
 			gotSelector := makeSelector(test.rev)
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
 				t.Errorf("makeLabels (-want, +got) = %v", diff)

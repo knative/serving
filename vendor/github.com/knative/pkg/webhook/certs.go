@@ -33,8 +33,7 @@ import (
 )
 
 const (
-	// TODO(vaikas): Add / change other parts of the cert we might care about
-	organization = "kube"
+	organization = "knative.dev"
 )
 
 // Create the common parts of the cert. These don't change between
@@ -47,7 +46,12 @@ func createCertTemplate(name, namespace string) (*x509.Certificate, error) {
 	}
 
 	serviceName := name + "." + namespace
-	serviceNames := []string{serviceName, serviceName + ".svc", serviceName + ".svc.cluster.local"}
+	serviceNames := []string{
+		name,
+		serviceName,
+		serviceName + ".svc",
+		serviceName + ".svc.cluster.local",
+	}
 
 	tmpl := x509.Certificate{
 		SerialNumber:          serialNumber,

@@ -20,25 +20,38 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
+	"time"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/reconciler"
+	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	errutil "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
 const controllerAgentName = "configuration-controller"
+
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
 
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
@@ -47,6 +60,8 @@ type Reconciler struct {
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+
+	configStore configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -64,7 +79,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Configurations")
+	impl := controller.NewImpl(c, c.Logger, "Configurations", reconciler.MustNewStatsReporter("Configurations", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -78,31 +93,31 @@ func NewController(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    impl.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
+			DeleteFunc: impl.EnqueueControllerOf,
 		},
 	})
-	return impl
-}
 
-// loggerWithConfigInfo enriches the logs with configuration name and namespace.
-func loggerWithConfigInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Configuration, name))
+	c.Logger.Info("Setting up ConfigMap receivers")
+	c.configStore = configns.NewStore(c.Logger.Named("config-store"))
+	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	return impl
 }
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	// Wrap our logger with the additional context of the configuration that we are reconciling.
-	logger := loggerWithConfigInfo(c.Logger, namespace, name)
-	ctx = logging.WithLogger(ctx, logger)
+	logger := logging.FromContext(ctx)
 
-	// Get the Configuration resource with this namespace/name
+	ctx = c.configStore.ToContext(ctx)
+
+	// Get the Configuration resource with this namespace/name.
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
@@ -125,6 +140,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(config); err != nil {
 		logger.Warn("Failed to update configuration status", zap.Error(err))
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Configuration %q: %v", config.Name, err)
 		return err
 	}
 	return err
@@ -132,13 +149,20 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	config.SetDefaults()
+
 	config.Status.InitializeConditions()
 
-	// First, fetch the revision that should exist for the current generation
-	revName := resourcenames.Revision(config)
-	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
+	// First, fetch the revision that should exist for the current generation.
+	revName := resourcenames.DeprecatedRevision(config)
+	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
-		latestCreatedRevision, err = c.createRevision(config, revName)
+		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
 			logger.Errorf("Failed to create Revision %q: %v", revName, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
@@ -156,11 +180,11 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Spec.Generation
+	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
-	rc := latestCreatedRevision.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	rc := lcr.Status.GetCondition(v1alpha1.RevisionConditionReady)
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
 		logger.Infof("Revision %q of configuration %q is not ready", revName, config.Name)
@@ -171,23 +195,23 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
 		if ready == "" {
 			// Surface an event for the first revision becoming ready.
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			c.Recorder.Event(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
 		// Update the LatestReadyRevisionName and surface an event for the transition.
-		config.Status.SetLatestReadyRevisionName(latestCreatedRevision.Name)
+		config.Status.SetLatestReadyRevisionName(lcr.Name)
 		if created != ready {
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", latestCreatedRevision.Name)
+				"LatestReadyRevisionName updated to %q", lcr.Name)
 		}
 
 	case rc.Status == corev1.ConditionFalse:
 		logger.Infof("Revision %q of configuration %q has failed", revName, config.Name)
 
 		// TODO(mattmoor): Only emit the event the first time we see this.
-		config.Status.MarkLatestCreatedFailed(latestCreatedRevision.Name, rc.Message)
+		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
-			"Latest created revision %q has failed", latestCreatedRevision.Name)
+			"Latest created revision %q has failed", lcr.Name)
 
 	default:
 		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
@@ -195,24 +219,88 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
+	if err := c.gcRevisions(ctx, config); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (c *Reconciler) createRevision(config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
-	logger := loggerWithConfigInfo(c.Logger, config.Namespace, config.Name)
+func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
+	lister := c.revisionLister.Revisions(config.Namespace)
 
+	generationKey := serving.ConfigurationMetadataGenerationLabelKey
+
+	list, err := lister.List(labels.SelectorFromSet(map[string]string{
+		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	if err == nil && len(list) > 0 {
+		return list[0], nil
+	}
+
+	// This is a legacy path for older revisions that don't have
+	// the configuration metadata generation label.
+	//
+	// We will update these revisions with the label.
+	revName := resourcenames.DeprecatedRevision(config)
+
+	rev, err := lister.Get(revName)
+	if err != nil {
+		return rev, err
+	}
+
+	rev = rev.DeepCopy()
+	resources.UpdateRevisionLabels(rev, config)
+
+	rev, err = c.ServingClientSet.Serving().Revisions(config.Namespace).Update(rev)
+	if err != nil {
+		return nil, fmt.Errorf("error migrating revision metadata generation label: %v", err)
+	}
+
+	return rev, nil
+}
+
+func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
+	logger := logging.FromContext(ctx)
+
+	var buildRef *corev1.ObjectReference
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := resources.MakeBuild(config)
-		created, err := c.BuildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
+		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())
+
+		// First, see if a build with this spec already exists.
+		buildHash := build.GetLabels()[serving.BuildHashLabelKey]
+		ul, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", serving.BuildHashLabelKey, buildHash),
+		})
 		if err != nil {
-			return nil, err
+			return nil, errutil.Wrapf(err, "Failed to list GroupVersionResource %+v", gvr)
 		}
-		logger.Infof("Created Build:\n%+v", created.Name)
-		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
+
+		var result *unstructured.Unstructured
+		if len(ul.Items) != 0 {
+			// If one exists, then have the Revision reference it.
+			result = &ul.Items[0]
+		} else {
+			// Otherwise, create a build and reference that.
+			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
+			if err != nil {
+				return nil, errutil.Wrapf(err, "Failed to create Build %v", build.GetName())
+			}
+			logger.Infof("Created Build:\n%+v", result.GetName())
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())
+		}
+		buildRef = &corev1.ObjectReference{
+			APIVersion: result.GetAPIVersion(),
+			Kind:       result.GetKind(),
+			Name:       result.GetName(),
+		}
 	}
 
-	rev := resources.MakeRevision(config)
+	rev := resources.MakeRevision(config, buildRef)
 	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err
@@ -223,16 +311,79 @@ func (c *Reconciler) createRevision(config *v1alpha1.Configuration, revName stri
 	return created, nil
 }
 
-func (c *Reconciler) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	newu, err := c.configurationLister.Configurations(u.Namespace).Get(u.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+	config, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(newu.Status, u.Status) {
-		newu.Status = u.Status
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
-		//	return configClient.UpdateStatus(newu)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(config.Status, desired.Status) {
+		return config, nil
 	}
-	return newu, nil
+	// Don't modify the informers copy
+	existing := config.DeepCopy()
+	existing.Status = desired.Status
+	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).UpdateStatus(existing)
+}
+
+func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {
+	cfg := configns.FromContext(ctx).RevisionGC
+	logger := logging.FromContext(ctx)
+
+	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
+	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
+	if err != nil {
+		return err
+	}
+
+	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
+
+	if gcSkipOffset >= int64(len(revs)) {
+		return nil
+	}
+
+	// Sort by creation timestamp descending
+	sort.Slice(revs, func(i, j int) bool {
+		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+	})
+
+	for _, rev := range revs[gcSkipOffset:] {
+		if isRevisionStale(ctx, rev, config) {
+			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				logger.Errorf("Failed to delete stale revision: %v", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+	cfg := configns.FromContext(ctx).RevisionGC
+	logger := logging.FromContext(ctx)
+
+	if config.Status.LatestReadyRevisionName == rev.Name {
+		return false
+	}
+
+	curTime := time.Now()
+	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
+		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
+		return false
+	}
+
+	lastPin, err := rev.GetLastPinned()
+	if err != nil {
+		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+			logger.Errorf("Failed to determine revision last pinned: %v", err)
+		}
+		return false
+	}
+
+	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	if ret {
+		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
+	}
+	return ret
 }

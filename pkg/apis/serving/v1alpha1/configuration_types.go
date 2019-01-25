@@ -17,18 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-	"fmt"
-	"reflect"
-	"sort"
-	"time"
-
-	build "github.com/knative/build/pkg/apis/build/v1alpha1"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -58,19 +51,29 @@ type Configuration struct {
 var _ apis.Validatable = (*Configuration)(nil)
 var _ apis.Defaultable = (*Configuration)(nil)
 
+// Check that we can create OwnerReferences to a Configuration.
+var _ kmeta.OwnerRefable = (*Configuration)(nil)
+
+// Check that ConfigurationStatus may have its conditions managed.
+var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
 	// +optional
-	Build *build.BuildSpec `json:"build,omitempty"`
+	Build *RawExtension `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the
@@ -80,53 +83,13 @@ type ConfigurationSpec struct {
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
-// ConfigurationConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type ConfigurationConditionType string
-
 const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
-	ConfigurationConditionReady ConfigurationConditionType = "Ready"
+	ConfigurationConditionReady = duckv1alpha1.ConditionReady
 )
 
-type ConfigurationConditionSlice []ConfigurationCondition
-
-// Len implements sort.Interface
-func (ccs ConfigurationConditionSlice) Len() int {
-	return len(ccs)
-}
-
-// Less implements sort.Interface
-func (ccs ConfigurationConditionSlice) Less(i, j int) bool {
-	return ccs[i].Type < ccs[j].Type
-}
-
-// Swap implements sort.Interface
-func (ccs ConfigurationConditionSlice) Swap(i, j int) {
-	ccs[i], ccs[j] = ccs[j], ccs[i]
-}
-
-var _ sort.Interface = (ConfigurationConditionSlice)(nil)
-
-// ConfigurationCondition defines a readiness condition for a Configuration.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type ConfigurationCondition struct {
-	Type ConfigurationConditionType `json:"type" description:"type of Configuration condition"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
+var confCondSet = duckv1alpha1.NewLivingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
@@ -134,7 +97,7 @@ type ConfigurationStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions ConfigurationConditionSlice `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -163,25 +126,13 @@ type ConfigurationList struct {
 	Items []Configuration `json:"items"`
 }
 
-func (r *Configuration) GetGeneration() int64 {
-	return r.Spec.Generation
+func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Configuration")
 }
 
-func (r *Configuration) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Configuration) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
-}
-
-// IsReady looks at the conditions on the ConfigurationStatus.
-// ConfigurationConditionReady returns true if ConditionStatus is True
+// IsReady looks at the conditions to see if they are happy.
 func (cs *ConfigurationStatus) IsReady() bool {
-	if c := cs.GetCondition(ConfigurationConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return confCondSet.Manage(cs).IsHappy()
 }
 
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
@@ -192,106 +143,58 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
-func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
-	for _, cond := range config.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
-}
-
-func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
-	if new == nil {
-		return
-	}
-	t := new.Type
-	var conditions ConfigurationConditionSlice
-	for _, cond := range cs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Sort(conditions)
-	cs.Conditions = conditions
+func (cs *ConfigurationStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return confCondSet.Manage(cs).GetCondition(t)
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		if rc := cs.GetCondition(cond); rc == nil {
-			cs.setCondition(&ConfigurationCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	confCondSet.Manage(cs).InitializeConditions()
 }
 
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionReady,
-			Status: corev1.ConditionUnknown,
-		})
+		confCondSet.Manage(cs).MarkUnknown(
+			ConfigurationConditionReady,
+			"",
+			"")
 	}
 }
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   cond,
-			Status: corev1.ConditionTrue,
-		})
-	}
+	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	if cs.LatestReadyRevisionName == "" {
-		cct = append(cct, ConfigurationConditionReady)
-	}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
-		})
-	}
+	confCondSet.Manage(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionFailed",
+		"Revision %q failed with message: %s.", name, message)
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
-	cs.setCondition(&ConfigurationCondition{
-		Type:    ConfigurationConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionFailed",
-		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
-	})
+	confCondSet.Manage(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionFailed",
+		"Revision creation failed with message: %s.", message)
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionDeleted",
-			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
-		})
-	}
-	cs.LatestReadyRevisionName = ""
+	confCondSet.Manage(cs).MarkFalse(
+		ConfigurationConditionReady,
+		"RevisionDeleted",
+		"Revision %q was deleted.", cs.LatestReadyRevisionName)
+}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (cs *ConfigurationStatus) GetConditions() duckv1alpha1.Conditions {
+	return cs.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (cs *ConfigurationStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+	cs.Conditions = conditions
 }

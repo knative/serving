@@ -27,7 +27,6 @@ const (
 	ControllerConfigName = "config-controller"
 
 	queueSidecarImageKey           = "queueSidecarImage"
-	autoscalerImageKey             = "autoscalerImage"
 	registriesSkippingTagResolving = "registriesSkippingTagResolving"
 )
 
@@ -40,11 +39,6 @@ func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error
 	} else {
 		nc.QueueSidecarImage = qsideCarImage
 	}
-
-	if autoScalerImage, ok := configMap[autoscalerImageKey]; ok {
-		nc.AutoscalerImage = autoScalerImage
-	}
-	// If autoscaler image is not set then Single-tenant autoscaler deployments enabled
 
 	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
 		// It is ok if registries are missing
@@ -72,9 +66,6 @@ func toStringSet(arg, delimiter string) map[string]struct{} {
 
 // Controller includes the configurations for the controller.
 type Controller struct {
-	// AutoscalerImage is the name of the image used for the autoscaler pod.
-	AutoscalerImage string
-
 	// QueueSidecarImage is the name of the image used for the queue sidecar
 	// injected into the revision pod
 	QueueSidecarImage string

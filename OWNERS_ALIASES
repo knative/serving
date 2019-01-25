@@ -1,0 +1,59 @@
+aliases:
+  serving-api-approvers:
+  - grantr
+  - mattmoor
+  - tcnghia
+  serving-api-reviewers:
+  - dgerd
+  - dprotaso
+  - jonjohnsonjr
+  - mattmoor
+  - tcnghia
+  - vagababov
+
+  autoscaling-approvers:
+  - josephburnett
+  - markusthoemmes
+  - mdemirhan
+  autoscaling-reviewers:
+  - josephburnett
+  - markusthoemmes
+  - mdemirhan
+
+  monitoring-approvers:
+  - mdemirhan
+  - yanweiguo
+  monitoring-reviewers:
+  - mdemirhan
+  - yanweiguo
+
+  productivity-approvers:
+  - adrcunha
+  - dushyanthsc
+  - ericklawitter
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+  productivity-reviewers:
+  - adrcunha
+  - dushyanthsc
+  - ericklawitter
+  - jessiezcc
+  - srinivashegde86
+  - steuhs
+
+  networking-approvers:
+  - mdemirhan
+  - tcnghia
+  networking-reviewers:
+  - lichuqiang
+  - markusthoemmes
+  - mdemirhan
+  - tcnghia
+
+  build-approvers:
+  - imjasonh
+  - mattmoor
+  build-reviewers:
+  - imjasonh
+  - mattmoor

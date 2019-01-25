@@ -21,142 +21,24 @@ package conformance
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
-	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/spoof"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 const (
-	concurrentRequests = 100
-	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
-	// This might be a bad assumption.
-	minDirectPercentage = 1
-	// We expect to see at least 25% of either response since we're routing 50/50.
-	// This might be a bad assumption.
-	minSplitPercentage = 0.25
 
-	expectedBlue  = "What a spaceport!"
-	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
+	// This test uses the two pizza planet test images for the blue and green deployment.
+	expectedBlue  = pizzaPlanetText1
+	expectedGreen = pizzaPlanetText2
 )
-
-// Probe until we get a successful response. This ensures the domain is
-// routable before we send it a bunch of traffic.
-func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
-	if err != nil {
-		return err
-	}
-	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
-	return err
-}
-
-// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
-	responses := make([]string, num)
-
-	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < num; i++ {
-		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
-		result := &responses[i]
-		g.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
-			if err != nil {
-				return err
-			}
-
-			resp, err := client.Do(req)
-			if err != nil {
-				return err
-			}
-
-			*result = string(resp.Body)
-			return nil
-		})
-	}
-
-	return responses, g.Wait()
-}
-
-// checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
-	// counts maps the expected response body to the number of matching requests we saw.
-	counts := make(map[string]int)
-	// badCounts maps the unexpected response body to the number of matching requests we saw.
-	badCounts := make(map[string]int)
-
-	// counts := eval(
-	//   SELECT body, count(*) AS total
-	//   FROM $actualResponses
-	//   WHERE body IN $expectedResponses
-	//   GROUP BY body
-	// )
-	for _, ar := range actualResponses {
-		expected := false
-		for _, er := range expectedResponses {
-			if strings.Contains(string(ar), er) {
-				counts[er]++
-				expected = true
-			}
-		}
-		if !expected {
-			badCounts[ar]++
-		}
-	}
-
-	// Verify that we saw each entry in "expectedResponses" at least "min" times.
-	// check(SELECT body FROM $counts WHERE total < $min)
-	totalMatches := 0
-	for _, er := range expectedResponses {
-		count := counts[er]
-		if count < min {
-			return fmt.Errorf("domain %s failed: want min %d, got %d for response %q", domain, min, count, er)
-		} else {
-			logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
-		}
-		totalMatches += count
-	}
-	// Verify that the total expected responses match the number of requests made.
-	for badResponse, count := range badCounts {
-		logger.Infof("saw unexpected response %q %d times", badResponse, count)
-	}
-	if totalMatches < num {
-		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
-	}
-	// If we made it here, the implementation conforms. Congratulations!
-	return nil
-}
-
-// checkDistribution sends "num" requests to "domain", then validates that
-// we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
-	if err != nil {
-		return err
-	}
-
-	logger.Infof("Performing %d concurrent requests to %s", num, domain)
-	actualResponses, err := sendRequests(client, domain, num)
-	if err != nil {
-		return err
-	}
-
-	return checkResponses(logger, num, min, domain, expectedResponses, actualResponses)
-}
 
 // TestBlueGreenRoute verifies that a route configured with a 50/50 traffic split
 // between two revisions will (approximately) route traffic evenly between them.
@@ -166,72 +48,65 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.GetContextLogger("TestBlueGreenRoute")
+	logger := logging.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
-	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
-	names.Config = test.AppendRandomString("prod", logger)
-	names.Route = test.AppendRandomString("pizzaplanet", logger)
-
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
-
-	logger.Infof("Creating a Configuration")
-	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
-	}
-
-	var err error
-
-	logger.Infof("The Configuration will be updated with the name of the Revision once it is created")
-	blue.Revision, err = getNextRevisionName(clients, names)
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
-	}
-
-	logger.Infof("Updating the Configuration to use a different image")
-	err = updateConfigWithImage(clients, names, imagePaths)
-	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
-	}
-
-	// getNextRevisionName waits for names.Revision to change, so we set it to the blue revision and wait for the (new) green revision.
-	names.Revision = blue.Revision
-
-	logger.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	green.Revision, err = getNextRevisionName(clients, names)
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)
-	}
-
-	// TODO(#882): Remove these?
-	logger.Infof("Waiting for revision %q to be ready", blue.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, blue.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", blue.Revision, err)
-	}
-	logger.Infof("Waiting for revision %q to be ready", green.Revision)
-	if err := test.WaitForRevisionState(clients.Revisions, green.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q was not marked as Ready: %v", green.Revision, err)
-	}
+	// Set Service and Image for names to create the initial service
+	names.Service = test.AppendRandomString("test-blue-green-route-", logger)
+	names.Image = pizzaPlanet1
 
 	// Set names for traffic targets to make them directly routable.
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
 
-	logger.Infof("Creating a Route")
-	if err := test.CreateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer tearDown(clients, names)
+
+	// Setup Initial Service
+	logger.Info("Creating a new Service in runLatest")
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// The first revision created is "blue"
+	blue.Revision = names.Revision
+
+	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
+	svc, err := test.PatchManualService(logger, clients, objects.Service)
+	if err != nil {
+		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
+	}
+	objects.Service = svc
+
+	logger.Info("Updating the Configuration to use a different image")
+	cfg, err := test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
+	if err != nil {
+		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
+	}
+	objects.Config = cfg
+
+	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	green.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
+	}
+
+	logger.Info("Updating Route")
+	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Infof("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	logger.Info("Wait for the route domains to be ready")
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
@@ -243,23 +118,31 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
-	// It doesn't matter which domain we probe, we just need to choose one.
-	if err := probeDomain(logger, clients, tealDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
+	// Since we are updating the route the teal domain probe will succeed before our changes
+	// take effect so we probe the green domain.
+	logger.Info("Probing domain %s", greenDomain)
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		greenDomain,
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", greenDomain, err)
 	}
 
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
-		min := int(concurrentRequests * minSplitPercentage)
+		min := int(math.Floor(concurrentRequests * minSplitPercentage))
 		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
-		min := int(concurrentRequests * minDirectPercentage)
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
 		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {

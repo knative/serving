@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/stats/view"
 )
 
@@ -31,7 +32,7 @@ func TestNewStatsReporterErrors(t *testing.T) {
 	}
 
 	for _, v := range invalidTagValues {
-		_, err := NewStatsReporter(v, v, v)
+		_, err := NewStatsReporter(v, v, v, v)
 		if err == nil {
 			t.Errorf("Expected err to not be nil for value %q, got nil", v)
 		}
@@ -45,11 +46,12 @@ func TestReporter_Report(t *testing.T) {
 		t.Error("Reporter.Report() expected an error for Report call before init. Got success.")
 	}
 
-	r, _ = NewStatsReporter("testns", "testconfig", "testrev")
+	r, _ = NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
 	wantTags := map[string]string{
-		"configuration_namespace": "testns",
-		"configuration":           "testconfig",
-		"revision":                "testrev",
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
 	}
 
 	// Send statistics only once and observe the results
@@ -58,33 +60,33 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 5) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })
 	expectSuccess(t, func() error { return r.Report(ObservedPodCountM, 1) })
-	expectSuccess(t, func() error { return r.Report(ObservedStableConcurrencyM, 2) })
-	expectSuccess(t, func() error { return r.Report(ObservedPanicConcurrencyM, 3) })
+	expectSuccess(t, func() error { return r.Report(StableRequestConcurrencyM, 2) })
+	expectSuccess(t, func() error { return r.Report(PanicRequestConcurrencyM, 3) })
 	expectSuccess(t, func() error { return r.Report(TargetConcurrencyM, 0.9) })
-	checkData(t, "desired_pod_count", wantTags, 10)
-	checkData(t, "requested_pod_count", wantTags, 7)
-	checkData(t, "actual_pod_count", wantTags, 5)
+	checkData(t, "desired_pods", wantTags, 10)
+	checkData(t, "requested_pods", wantTags, 7)
+	checkData(t, "actual_pods", wantTags, 5)
 	checkData(t, "panic_mode", wantTags, 0)
-	checkData(t, "observed_pod_count", wantTags, 1)
-	checkData(t, "observed_stable_concurrency", wantTags, 2)
-	checkData(t, "observed_panic_concurrency", wantTags, 3)
+	checkData(t, "observed_pods", wantTags, 1)
+	checkData(t, "stable_request_concurrency", wantTags, 2)
+	checkData(t, "panic_request_concurrency", wantTags, 3)
 	checkData(t, "target_concurrency_per_pod", wantTags, 0.9)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 1) })
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 2) })
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 3) })
-	checkData(t, "desired_pod_count", wantTags, 3)
+	checkData(t, "desired_pods", wantTags, 3)
 
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 4) })
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 5) })
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 6) })
-	checkData(t, "requested_pod_count", wantTags, 6)
+	checkData(t, "requested_pods", wantTags, 6)
 
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 7) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 8) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 9) })
-	checkData(t, "actual_pod_count", wantTags, 9)
+	checkData(t, "actual_pods", wantTags, 9)
 
 	expectSuccess(t, func() error { return r.Report(PanicM, 1) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })

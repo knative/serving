@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/logging/logkey"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -37,7 +37,26 @@ const (
 	scaleBufferSize = 10
 )
 
-// UniScaler records statistics for a particular revision and proposes the scale for the revision based on those statistics.
+// Metric is a resource which observes the request load of a Revision and
+// recommends a number of replicas to run.
+// +k8s:deepcopy-gen=true
+type Metric struct {
+	metav1.ObjectMeta
+	Spec   MetricSpec
+	Status MetricStatus
+}
+
+// MetricSpec is the parameters in which the Revision should scaled.
+type MetricSpec struct {
+	TargetConcurrency float64
+}
+
+// MetricStatus is the current scale recommendation.
+type MetricStatus struct {
+	DesiredScale int32
+}
+
+// UniScaler records statistics for a particular Metric and proposes the scale for the Metric's target based on those statistics.
 type UniScaler interface {
 	// Record records the given statistics.
 	Record(context.Context, Stat)
@@ -45,100 +64,173 @@ type UniScaler interface {
 	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
 	Scale(context.Context, time.Time) (int32, bool)
+
+	// Update reconfigures the UniScaler according to the MetricSpec.
+	Update(MetricSpec) error
 }
 
-// UniScalerFactory creates a UniScaler for a given revision using the given dynamic configuration.
-type UniScalerFactory func(*v1alpha1.Revision, *DynamicConfig) (UniScaler, error)
-
-// RevisionScaler knows how to scale revisions.
-type RevisionScaler interface {
-	// Scale attempts to scale the given revision to the desired scale.
-	Scale(rev *v1alpha1.Revision, desiredScale int32)
-}
+// UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
+type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
+
+	// mux guards access to metric
+	mux    sync.RWMutex
+	metric Metric
 }
 
-type revisionKey string
-
-func newRevisionKey(namespace string, name string) revisionKey {
-	return revisionKey(fmt.Sprintf("%s/%s", namespace, name))
+func (sr *scalerRunner) getLatestScale() int32 {
+	sr.mux.RLock()
+	defer sr.mux.RUnlock()
+	return sr.metric.Status.DesiredScale
 }
 
-// MultiScaler maintains a collection of UniScalers indexed by revisionKey.
+func (sr *scalerRunner) updateLatestScale(new int32) bool {
+	sr.mux.Lock()
+	defer sr.mux.Unlock()
+	if sr.metric.Status.DesiredScale != new {
+		sr.metric.Status.DesiredScale = new
+		return true
+	}
+	return false
+}
+
+// NewMetricKey identifies a UniScaler in the multiscaler. Stats send in
+// are identified and routed via this key.
+func NewMetricKey(namespace string, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+// MultiScaler maintains a collection of Uniscalers.
 type MultiScaler struct {
-	scalers       map[revisionKey]*scalerRunner
+	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
 
 	dynConfig *DynamicConfig
 
-	revisionScaler RevisionScaler
-
 	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
+
+	watcher      func(string)
+	watcherMutex sync.RWMutex
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(dynConfig *DynamicConfig, revisionScaler RevisionScaler, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
-	logger.Debugf("Creating MultiScalar with configuration %#v", dynConfig)
+func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:          make(map[revisionKey]*scalerRunner),
+		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
 		dynConfig:        dynConfig,
-		revisionScaler:   revisionScaler,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
 	}
 }
 
-// OnPresent adds, if necessary, a scaler for the given revision.
-func (m *MultiScaler) OnPresent(rev *v1alpha1.Revision, logger *zap.SugaredLogger) {
-	m.scalersMutex.Lock()
-	defer m.scalersMutex.Unlock()
-	key := newRevisionKey(rev.Namespace, rev.Name)
-	if _, exists := m.scalers[key]; !exists {
-		ctx := logging.WithLogger(context.TODO(), logger)
-		logger.Debug("Creating scaler for revision.")
-		scaler, err := m.createScaler(ctx, rev)
-		if err != nil {
-			logger.Errorf("Failed to create scaler for revision %#v: %v", rev, err)
-			return
-		}
-		logger.Info("Created scaler for revision.")
-		m.scalers[key] = scaler
+// Get return the current Metric.
+func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric, error) {
+	key := NewMetricKey(namespace, name)
+	m.scalersMutex.RLock()
+	defer m.scalersMutex.RUnlock()
+	scaler, exists := m.scalers[key]
+	if !exists {
+		// This GroupResource is a lie, but unfortunately this interface requires one.
+		return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
+	scaler.mux.RLock()
+	defer scaler.mux.RUnlock()
+	return (&scaler.metric).DeepCopy(), nil
 }
 
-// OnAbsent removes, if necessary, a scaler for the revision in the given namespace and with the given name.
-func (m *MultiScaler) OnAbsent(namespace string, name string, logger *zap.SugaredLogger) {
+// Create instantiates the desired Metric.
+func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := newRevisionKey(namespace, name)
+	key := NewMetricKey(metric.Namespace, metric.Name)
+	scaler, exists := m.scalers[key]
+	if !exists {
+		var err error
+		scaler, err = m.createScaler(ctx, metric)
+		if err != nil {
+			return nil, err
+		}
+		m.scalers[key] = scaler
+	}
+	scaler.mux.RLock()
+	defer scaler.mux.RUnlock()
+	return (&scaler.metric).DeepCopy(), nil
+}
+
+// Update applied the desired MetricSpec to a currently running Metric.
+func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, error) {
+	key := NewMetricKey(metric.Namespace, metric.Name)
+	m.scalersMutex.Lock()
+	defer m.scalersMutex.Unlock()
+	if scaler, exists := m.scalers[key]; exists {
+		scaler.mux.Lock()
+		defer scaler.mux.Unlock()
+		scaler.metric = *metric
+		scaler.scaler.Update(metric.Spec)
+		return metric, nil
+	}
+	// This GroupResource is a lie, but unfortunately this interface requires one.
+	return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
+}
+
+// Delete stops and removes a Metric.
+func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
+	key := NewMetricKey(namespace, name)
+	m.scalersMutex.Lock()
+	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
 		close(scaler.stopCh)
 		delete(m.scalers, key)
-		logger.Info("Deleted scaler for revision.")
 	}
+	return nil
 }
 
-// loggerWithRevisionInfo enriches the logs with revision name and namespace.
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
+// Watch registers a singleton function to call when MetricStatus is updated.
+func (m *MultiScaler) Watch(fn func(string)) {
+	m.watcherMutex.Lock()
+	defer m.watcherMutex.Unlock()
+
+	if m.watcher != nil {
+		m.logger.Fatal("Multiple calls to Watch() not supported")
+	}
+	m.watcher = fn
 }
 
-func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(rev, m.dynConfig)
+// Inform sends an update to the registered watcher function, if it is set.
+func (m *MultiScaler) Inform(event string) bool {
+	m.watcherMutex.RLock()
+	defer m.watcherMutex.RUnlock()
+
+	if m.watcher != nil {
+		m.watcher(event)
+		return true
+	}
+	return false
+}
+
+func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
+
+	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	stopCh := make(chan struct{})
-	runner := &scalerRunner{scaler: scaler, stopCh: stopCh}
+	runner := &scalerRunner{
+		scaler: scaler,
+		stopCh: stopCh,
+		metric: *metric,
+	}
+	runner.metric.Status.DesiredScale = -1
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
@@ -159,8 +251,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) 
 		}
 	}()
 
-	logger := logging.FromContext(ctx)
-
+	metricKey := NewMetricKey(metric.Namespace, metric.Name)
 	go func() {
 		for {
 			select {
@@ -169,24 +260,14 @@ func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) 
 			case <-stopCh:
 				return
 			case desiredScale := <-scaleChan:
-				m.revisionScaler.Scale(rev, mostRecentDesiredScale(desiredScale, scaleChan, logger))
+				if runner.updateLatestScale(desiredScale) {
+					m.Inform(metricKey)
+				}
 			}
 		}
 	}()
 
 	return runner, nil
-}
-
-func mostRecentDesiredScale(desiredScale int32, scaleChan chan int32, logger *zap.SugaredLogger) int32 {
-	for {
-		select {
-		case desiredScale = <-scaleChan:
-			logger.Info("Scaling is not keeping up with autoscaling requests")
-		default:
-			// scaleChan is empty
-			return desiredScale
-		}
-	}
 }
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleChan chan<- int32) {
@@ -210,20 +291,14 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 	}
 }
 
-// RecordStat records some statistics for the given revision. revKey should have the
-// form namespace/name.
-func (m *MultiScaler) RecordStat(revKey string, stat Stat) {
+// RecordStat records some statistics for the given Metric.
+func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 
-	scaler, exists := m.scalers[revisionKey(revKey)]
+	scaler, exists := m.scalers[key]
 	if exists {
-		namespace, name, err := cache.SplitMetaNamespaceKey(revKey)
-		if err != nil {
-			m.logger.Errorf("Invalid revision key %s", revKey)
-			return
-		}
-		logger := loggerWithRevisionInfo(m.logger, namespace, name)
+		logger := m.logger.With(zap.String(logkey.Key, key))
 		ctx := logging.WithLogger(context.TODO(), logger)
 		scaler.scaler.Record(ctx, stat)
 	}

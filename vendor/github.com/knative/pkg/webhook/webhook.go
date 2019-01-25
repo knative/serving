@@ -33,9 +33,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 
+	"github.com/markbates/inflect"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -92,6 +95,11 @@ type ControllerOptions struct {
 	// potential races where registration completes and k8s apiserver
 	// invokes the webhook before the HTTP server is started.
 	RegistrationDelay time.Duration
+
+	// ClientAuthType declares the policy the webhook server will follow for
+	// TLS Client Authentication.
+	// The default value is tls.NoClientCert.
+	ClientAuth tls.ClientAuthType
 }
 
 // ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
@@ -107,11 +115,10 @@ type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd Generic
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	Client       kubernetes.Interface
-	Options      ControllerOptions
-	GroupVersion schema.GroupVersion
-	Handlers     map[string]runtime.Object
-	Logger       *zap.SugaredLogger
+	Client   kubernetes.Interface
+	Options  ControllerOptions
+	Handlers map[schema.GroupVersionKind]GenericCRD
+	Logger   *zap.SugaredLogger
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -119,15 +126,7 @@ type AdmissionController struct {
 type GenericCRD interface {
 	apis.Defaultable
 	apis.Validatable
-
-	// GetObjectMeta return the object metadata
-	GetObjectMeta() metav1.Object
-	// GetGeneration returns the current Generation of the object
-	GetGeneration() int64
-	// SetGeneration sets the Generation of the object
-	SetGeneration(int64)
-	// GetSpecJSON returns the Spec part of the resource marshalled into JSON
-	GetSpecJSON() ([]byte, error)
+	runtime.Object
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -141,15 +140,16 @@ func getAPIServerExtensionCACert(cl kubernetes.Interface) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pem, ok := c.Data["requestheader-client-ca-file"]
+	const caFileName = "requestheader-client-ca-file"
+	pem, ok := c.Data[caFileName]
 	if !ok {
-		return nil, fmt.Errorf("cannot find ca.crt in %v: ConfigMap.Data is %#v", name, c.Data)
+		return nil, fmt.Errorf("cannot find %s in ConfigMap %s: ConfigMap.Data is %#v", caFileName, name, c.Data)
 	}
 	return []byte(pem), nil
 }
 
 // MakeTLSConfig makes a TLS configuration suitable for use with the server
-func makeTLSConfig(serverCert, serverKey, caCert []byte) (*tls.Config, error) {
+func makeTLSConfig(serverCert, serverKey, caCert []byte, clientAuthType tls.ClientAuthType) (*tls.Config, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 	cert, err := tls.X509KeyPair(serverCert, serverKey)
@@ -159,11 +159,7 @@ func makeTLSConfig(serverCert, serverKey, caCert []byte) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caCertPool,
-		ClientAuth:   tls.NoClientCert,
-		// Note on GKE there apparently is no client cert sent, so this
-		// does not work on GKE.
-		// TODO: make this into a configuration option.
-		//		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   clientAuthType,
 	}, nil
 }
 
@@ -208,12 +204,17 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 // it then delegates validation to apis.Validatable on "new".
 func Validate(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		if hifNew, ok := new.(apis.Immutable); ok && old != nil {
-			hifOld, ok := old.(apis.Immutable)
+		if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
+			// Copy the old object and set defaults so that we don't reject our own
+			// defaulting done earlier in the webhook.
+			old = old.DeepCopyObject().(GenericCRD)
+			old.SetDefaults()
+
+			immutableOld, ok := old.(apis.Immutable)
 			if !ok {
 				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
 			}
-			if err := hifNew.CheckImmutableFields(hifOld); err != nil {
+			if err := immutableNew.CheckImmutableFields(immutableOld); err != nil {
 				return err
 			}
 		}
@@ -228,38 +229,34 @@ func Validate(ctx context.Context) ResourceCallback {
 // SetDefaults simply leverages apis.Defaultable to set defaults.
 func SetDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		rawOriginal, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-		crd.SetDefaults()
+		before, after := crd.DeepCopyObject(), crd
+		after.SetDefaults()
 
-		// Marshal the before and after.
-		rawAfter, err := json.Marshal(crd)
+		patch, err := duck.CreatePatch(before, after)
 		if err != nil {
 			return err
 		}
 
-		patch, err := jsonpatch.CreatePatch(rawOriginal, rawAfter)
-		if err != nil {
-			return err
-		}
 		*patches = append(*patches, patch...)
 		return nil
 	}
 }
 
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
-	apiServerCACert, err := getAPIServerExtensionCACert(client)
+	var apiServerCACert []byte
+	if options.ClientAuth >= tls.VerifyClientCertIfGiven {
+		var err error
+		apiServerCACert, err = getAPIServerExtensionCACert(client)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(ctx, client, options)
 	if err != nil {
 		return nil, nil, err
 	}
-	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(
-		ctx, client, options)
-	if err != nil {
-		return nil, nil, err
-	}
-	tlsConfig, err := makeTLSConfig(serverCert, serverKey, apiServerCACert)
+	tlsConfig, err := makeTLSConfig(serverCert, serverKey, apiServerCACert, options.ClientAuth)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -287,6 +284,15 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
 	}
 
+	// Verify that each of the types we are given implements the Generation duck type.
+	for _, crd := range ac.Handlers {
+		cp := crd.DeepCopyObject()
+		var emptyGen duckv1alpha1.Generation
+		if err := duck.VerifyType(cp, &emptyGen); err != nil {
+			return err
+		}
+	}
+
 	select {
 	case <-time.After(ac.Options.RegistrationDelay):
 		cl := ac.Client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
@@ -294,32 +300,25 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 			logger.Error("Failed to register webhook", zap.Error(err))
 			return err
 		}
-		defer func() {
-			if err := ac.unregister(ctx, cl); err != nil {
-				logger.Error("Failed to unregister webhook", zap.Error(err))
-			}
-		}()
 		logger.Info("Successfully registered webhook")
 	case <-stop:
 		return nil
 	}
 
+	serverBootstrapErrCh := make(chan struct{})
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			logger.Error("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
+			close(serverBootstrapErrCh)
 		}
 	}()
-	<-stop
-	server.Close() // nolint: errcheck
-	return nil
-}
 
-// Unregister unregisters the external admission webhook
-func (ac *AdmissionController) unregister(
-	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface) error {
-	logger := logging.FromContext(ctx)
-	logger.Info("Exiting..")
-	return nil
+	select {
+	case <-stop:
+		return server.Close()
+	case <-serverBootstrapErrCh:
+		return errors.New("webhook server bootstrap failed")
+	}
 }
 
 // Register registers the external admission webhook for pilot
@@ -329,30 +328,42 @@ func (ac *AdmissionController) register(
 	logger := logging.FromContext(ctx)
 	failurePolicy := admissionregistrationv1beta1.Fail
 
-	resources := sort.StringSlice{}
-	for k := range ac.Handlers {
-		// Lousy pluralizer
-		resources = append(resources, strings.ToLower(k)+"s")
+	var rules []admissionregistrationv1beta1.RuleWithOperations
+	for gvk := range ac.Handlers {
+		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
+
+		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
+			Operations: []admissionregistrationv1beta1.OperationType{
+				admissionregistrationv1beta1.Create,
+				admissionregistrationv1beta1.Update,
+			},
+			Rule: admissionregistrationv1beta1.Rule{
+				APIGroups:   []string{gvk.Group},
+				APIVersions: []string{gvk.Version},
+				Resources:   []string{plural},
+			},
+		})
 	}
-	resources.Sort()
+
+	// Sort the rules by Group, Version, Kind so that things are deterministically ordered.
+	sort.Slice(rules, func(i, j int) bool {
+		lhs, rhs := rules[i], rules[j]
+		if lhs.APIGroups[0] != rhs.APIGroups[0] {
+			return lhs.APIGroups[0] < rhs.APIGroups[0]
+		}
+		if lhs.APIVersions[0] != rhs.APIVersions[0] {
+			return lhs.APIVersions[0] < rhs.APIVersions[0]
+		}
+		return lhs.Resources[0] < rhs.Resources[0]
+	})
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.Options.WebhookName,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name: ac.Options.WebhookName,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{ac.GroupVersion.Group},
-					APIVersions: []string{ac.GroupVersion.Version},
-					Resources:   resources,
-				},
-			}},
+			Name:  ac.Options.WebhookName,
+			Rules: rules,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: ac.Options.Namespace,
@@ -460,7 +471,7 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	patchBytes, err := ac.mutate(ctx, request.Kind.Kind, request.OldObject.Raw, request.Object.Raw)
+	patchBytes, err := ac.mutate(ctx, request.Kind, request.OldObject.Raw, request.Object.Raw)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
@@ -476,12 +487,19 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 	}
 }
 
-func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
+func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVersionKind, oldBytes []byte, newBytes []byte) ([]byte, error) {
+	// Why, oh why are these different types...
+	gvk := schema.GroupVersionKind{
+		Group:   kind.Group,
+		Version: kind.Version,
+		Kind:    kind.Kind,
+	}
+
 	logger := logging.FromContext(ctx)
-	handler, ok := ac.Handlers[kind]
+	handler, ok := ac.Handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind %q", kind)
-		return nil, fmt.Errorf("unhandled kind: %q", kind)
+		logger.Errorf("Unhandled kind %v", gvk)
+		return nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
 	oldObj := handler.DeepCopyObject().(GenericCRD)
@@ -489,7 +507,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 
 	if len(newBytes) != 0 {
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
-		newDecoder.DisallowUnknownFields()
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
@@ -500,7 +517,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 
 	if len(oldBytes) != 0 {
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
-		oldDecoder.DisallowUnknownFields()
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
@@ -539,24 +555,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		}
 	}
 
-	if err := validateMetadata(newObj); err != nil {
-		logger.Error("Failed to validate", zap.Error(err))
-		return nil, fmt.Errorf("Failed to validate: %s", err)
-	}
 	return json.Marshal(patches)
-}
-
-func validateMetadata(new GenericCRD) error {
-	name := new.GetObjectMeta().GetName()
-
-	if strings.Contains(name, ".") {
-		return errors.New("Invalid resource name: special character . must not be present")
-	}
-
-	if len(name) > 63 {
-		return errors.New("Invalid resource name: length must be no more than 63 characters")
-	}
-	return nil
 }
 
 // updateGeneration sets the generation by following this logic:
@@ -569,62 +568,91 @@ func validateMetadata(new GenericCRD) error {
 // ObjectMeta.Generation instead.
 func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 	logger := logging.FromContext(ctx)
-	var oldGeneration int64
-	if old == nil {
-		logger.Info("Old is nil")
-	} else {
-		oldGeneration = old.GetGeneration()
-	}
-	if oldGeneration == 0 {
-		logger.Info("Creating an object, setting generation to 1")
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		})
+
+	if chg, err := hasChanged(ctx, old, new); err != nil {
+		return err
+	} else if !chg {
+		logger.Info("No changes in the spec, not bumping generation")
 		return nil
 	}
 
-	oldSpecJSON, err := old.GetSpecJSON()
+	// Leverage Spec duck typing to bump the Generation of the resource.
+	before, err := asGenerational(ctx, new)
+	if err != nil {
+		return err
+	}
+	after := before.DeepCopyObject().(*duckv1alpha1.Generational)
+	after.Spec.Generation = after.Spec.Generation + 1
+
+	genBump, err := duck.CreatePatch(before, after)
+	if err != nil {
+		return err
+	}
+	*patches = append(*patches, genBump...)
+	return nil
+}
+
+// Not worth fully duck typing since there's no shared schema.
+type hasSpec struct {
+	Spec json.RawMessage `json:"spec"`
+}
+
+func getSpecJSON(crd GenericCRD) ([]byte, error) {
+	b, err := json.Marshal(crd)
+	if err != nil {
+		return nil, err
+	}
+	hs := hasSpec{}
+	if err := json.Unmarshal(b, &hs); err != nil {
+		return nil, err
+	}
+	return []byte(hs.Spec), nil
+}
+
+func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
+	if old == nil {
+		return true, nil
+	}
+	logger := logging.FromContext(ctx)
+
+	oldSpecJSON, err := getSpecJSON(old)
 	if err != nil {
 		logger.Error("Failed to get Spec JSON for old", zap.Error(err))
+		return false, err
 	}
-	newSpecJSON, err := new.GetSpecJSON()
+	newSpecJSON, err := getSpecJSON(new)
 	if err != nil {
 		logger.Error("Failed to get Spec JSON for new", zap.Error(err))
+		return false, err
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
 	if err != nil {
 		fmt.Printf("Error creating JSON patch:%v", err)
-		return err
+		return false, err
 	}
-	if len(specPatches) > 0 {
-		specPatchesJSON, err := json.Marshal(specPatches)
-		if err != nil {
-			logger.Error("Failed to marshal spec patches", zap.Error(err))
-			return err
-		}
-		logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+	if len(specPatches) == 0 {
+		return false, nil
+	}
+	specPatchesJSON, err := json.Marshal(specPatches)
+	if err != nil {
+		logger.Error("Failed to marshal spec patches", zap.Error(err))
+		return false, err
+	}
+	logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+	return true, nil
+}
 
-		operation := "replace"
-		if newGeneration := new.GetGeneration(); newGeneration == 0 {
-			// If new is missing Generation, we need to "add" instead of "replace".
-			// We see this for Service resources because the initial generation is
-			// added to the managed Configuration and Route, but not the Service
-			// that manages them.
-			// TODO(#642): Remove this.
-			operation = "add"
-		}
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: operation,
-			Path:      "/spec/generation",
-			Value:     oldGeneration + 1,
-		})
-		return nil
+func asGenerational(ctx context.Context, crd GenericCRD) (*duckv1alpha1.Generational, error) {
+	raw, err := json.Marshal(crd)
+	if err != nil {
+		return nil, err
 	}
-	logger.Info("No changes in the spec, not bumping generation")
-	return nil
+	kr := &duckv1alpha1.Generational{}
+	if err := json.Unmarshal(raw, kr); err != nil {
+		return nil, err
+	}
+	return kr, nil
 }
 
 func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {

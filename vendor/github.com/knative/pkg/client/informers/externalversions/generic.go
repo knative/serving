@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	v1alpha1 "github.com/knative/pkg/apis/istio/authentication/v1alpha1"
 	v1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -52,7 +53,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=networking.istio.io, Version=v1alpha3
+	// Group=authentication.istio.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("policies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Authentication().V1alpha1().Policies().Informer()}, nil
+
+		// Group=networking.istio.io, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("destinationrules"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().DestinationRules().Informer()}, nil
 	case v1alpha3.SchemeGroupVersion.WithResource("gateways"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().Gateways().Informer()}, nil
 	case v1alpha3.SchemeGroupVersion.WithResource("virtualservices"):

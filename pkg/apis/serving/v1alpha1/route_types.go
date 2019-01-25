@@ -17,16 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
 	"fmt"
-	"reflect"
-	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 // +genclient
@@ -56,6 +56,12 @@ type Route struct {
 var _ apis.Validatable = (*Route)(nil)
 var _ apis.Defaultable = (*Route)(nil)
 
+// Check that we can create OwnerReferences to a Route.
+var _ kmeta.OwnerRefable = (*Route)(nil)
+
+// Check that RouteStatus may have its conditions managed.
+var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
+
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
@@ -84,69 +90,38 @@ type TrafficTarget struct {
 
 // RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
-// RouteCondition defines a readiness condition.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type RouteCondition struct {
-	Type RouteConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
-
-// RouteConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
-type RouteConditionType string
-
 const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	RouteConditionReady RouteConditionType = "Ready"
+	RouteConditionReady = duckv1alpha1.ConditionReady
 
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
-	RouteConditionAllTrafficAssigned RouteConditionType = "AllTrafficAssigned"
+	RouteConditionAllTrafficAssigned duckv1alpha1.ConditionType = "AllTrafficAssigned"
+
+	// RouteConditionIngressReady is set to False when the
+	// ClusterIngress fails to become Ready.
+	RouteConditionIngressReady duckv1alpha1.ConditionType = "IngressReady"
 )
 
-type RouteConditionSlice []RouteCondition
-
-// Len implements sort.Interface
-func (rsc RouteConditionSlice) Len() int {
-	return len(rsc)
-}
-
-// Less implements sort.Interface
-func (rsc RouteConditionSlice) Less(i, j int) bool {
-	return rsc[i].Type < rsc[j].Type
-}
-
-// Swap implements sort.Interface
-func (rsc RouteConditionSlice) Swap(i, j int) {
-	rsc[i], rsc[j] = rsc[j], rsc[i]
-}
-
-var _ sort.Interface = (RouteConditionSlice)(nil)
+var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned, RouteConditionIngressReady)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -158,8 +133,13 @@ type RouteStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPRECATED: Use Address instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
@@ -172,7 +152,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions RouteConditionSlice `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -191,168 +171,92 @@ type RouteList struct {
 	Items []Route `json:"items"`
 }
 
-func (r *Route) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Route) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
-}
-
-func (r *Route) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(r.Spec)
+func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Route")
 }
 
 func (rs *RouteStatus) IsReady() bool {
-	if c := rs.GetCondition(RouteConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return routeCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
-	for _, cond := range rs.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
-}
-
-func (rs *RouteStatus) setCondition(new *RouteCondition) {
-	if new == nil {
-		return
-	}
-
-	t := new.Type
-	var conditions RouteConditionSlice
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Sort(conditions)
-	rs.Conditions = conditions
+func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
 func (rs *RouteStatus) InitializeConditions() {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&RouteCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	routeCondSet.Manage(rs).InitializeConditions()
+}
+
+// MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
+// there is a pre-existing placeholder service with the name we wanted to use.
+func (rs *RouteStatus) MarkServiceNotOwned(name string) {
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
+		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionAllTrafficAssigned,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
-}
-
-func (rs *RouteStatus) markTrafficTargetNotReady(reason, msg string) {
-	rs.setCondition(&RouteCondition{
-		Type:    RouteConditionAllTrafficAssigned,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: msg,
-	})
-	// TODO(tcnghia): when we start with new RouteConditionReady every revision,
-	// uncomment the short-circuiting below.
-	//
-	// // Do not downgrade Ready condition.
-	// if c := rs.GetCondition(RouteConditionReady); c != nil && c.Status == corev1.ConditionFalse {
-	// 	return
-	// }
-	//
-	// For now, the following is harmless because RouteConditionAllTrafficAssigned
-	// is the only condition RouteConditionReady depends on.
-	rs.setCondition(&RouteCondition{
-		Type:    RouteConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: msg,
-	})
-}
-
-func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
-	} {
-		rs.setCondition(&RouteCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: msg,
-		})
-	}
+	routeCondSet.Manage(rs).MarkTrue(RouteConditionAllTrafficAssigned)
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	rs.markTrafficTargetNotReady("Unknown", msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
-	rs.markTrafficTargetNotReady(reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Configuration %q is waiting for a Revision to become ready.", name)
 }
 
 func (rs *RouteStatus) MarkConfigurationFailed(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
-	rs.markTrafficTargetFailed(reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Configuration %q does not have any ready Revision.", name)
 }
 
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
-	rs.markTrafficTargetNotReady(reason, msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Revision %q is not yet ready.", name)
 }
 
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
-	rs.markTrafficTargetFailed(reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		"RevisionMissing",
+		"Revision %q failed to become ready.", name)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
-	reason := kind + "Missing"
-	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	rs.markTrafficTargetFailed(reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		kind+"Missing",
+		"%s %q referenced in traffic not found.", kind, name)
 }
 
-func (rs *RouteStatus) checkAndMarkReady() {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-	} {
-		ata := rs.GetCondition(cond)
-		if ata == nil || ata.Status != corev1.ConditionTrue {
-			return
-		}
+// PropagateClusterIngressStatus update RouteConditionIngressReady condition
+// in RouteStatus according to IngressStatus.
+func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) {
+	cc := cs.GetCondition(v1alpha1.ClusterIngressConditionReady)
+	if cc == nil {
+		return
 	}
-	rs.markReady()
+	switch {
+	case cc.Status == corev1.ConditionUnknown:
+		routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionTrue:
+		routeCondSet.Manage(rs).MarkTrue(RouteConditionIngressReady)
+	case cc.Status == corev1.ConditionFalse:
+		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
+	}
 }
 
-func (rs *RouteStatus) markReady() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
+	return rs.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+	rs.Conditions = conditions
 }

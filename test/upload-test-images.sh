@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Knative Authors
 #
@@ -16,15 +16,26 @@
 
 set -o errexit
 
-: ${1:?"Pass the directories with the test images as arguments"}
+function upload_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find $(dirname $0)/test_images -mindepth 1 -maxdepth 1 -type d)"
+  local docker_tag=$1
+
+  for image_dir in ${image_dirs}; do
+      local image_name="$(basename ${image_dir})"
+      local image="github.com/knative/serving/test/test_images/${image_name}"
+      ko publish -B ${image}
+      if [ -n "${docker_tag}" ]; then
+          image=${KO_DOCKER_REPO}/${image_name}
+          local digest=$(gcloud container images list-tags --filter="tags:latest" --format='get(digest)' ${image})
+          echo "Tagging ${image}@${digest} with ${docker_tag}"
+          gcloud -q container images add-tag ${image}@${digest} ${image}:${docker_tag}
+      fi
+  done
+}
+
 : ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
 
-DOCKER_FILES="$(find $@ -name Dockerfile)"
-: ${DOCKER_FILES:?"No subdirectories with Dockerfile files found in $@"}
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
-for docker_file in ${DOCKER_FILES}; do
-  image_dir="$(dirname ${docker_file})"
-  versioned_name="${DOCKER_REPO_OVERRIDE}/knative-serving/$(basename ${image_dir})"
-  docker build "${image_dir}" -f "${docker_file}" -t "${versioned_name}"
-  docker push "${versioned_name}"
-done
+upload_test_images $@

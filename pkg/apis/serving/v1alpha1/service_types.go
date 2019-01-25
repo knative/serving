@@ -17,15 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-	"reflect"
-	"sort"
-	"time"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 )
 
 // +genclient
@@ -57,17 +57,27 @@ type Service struct {
 var _ apis.Validatable = (*Service)(nil)
 var _ apis.Defaultable = (*Service)(nil)
 
+// Check that we can create OwnerReferences to a Service.
+var _ kmeta.OwnerRefable = (*Service)(nil)
+
+// Check that ServiceStatus may have its conditions managed.
+var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
+
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
 // track the latest ready revision of a configuration or be pinned to a specific
 // revision.
 type ServiceSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// RunLatest defines a simple Service. It will automatically
 	// configure a route that keeps the latest ready revision
@@ -77,16 +87,59 @@ type ServiceSpec struct {
 
 	// Pins this service to a specific revision name. The revision must
 	// be owned by the configuration provided.
+	// PinnedType is DEPRECATED in favor of ReleaseType
 	// +optional
 	Pinned *PinnedType `json:"pinned,omitempty"`
+
+	// Manual mode enables users to start managing the underlying Route and Configuration
+	// resources directly.  This advanced usage is intended as a path for users to graduate
+	// from the limited capabilities of Service to the full power of Route.
+	// +optional
+	Manual *ManualType `json:"manual,omitempty"`
+
+	// Release enables gradual promotion of new revisions by allowing traffic
+	// to be split between two revisions. This type replaces the deprecated Pinned type.
+	// +optional
+	Release *ReleaseType `json:"release,omitempty"`
 }
 
+// ManualType contains the options for configuring a manual service. See ServiceSpec for
+// more details.
+type ManualType struct {
+	// Manual type does not contain a configuration as this type provides the
+	// user complete control over the configuration and route.
+}
+
+// ReleaseType contains the options for slowly releasing revisions. See ServiceSpec for
+// more details.
+type ReleaseType struct {
+	// Revisions is an ordered list of 1 or 2 revisions. The first will
+	// have a TrafficTarget with a name of "current" and the second will have
+	// a name of "candidate".
+	// +optional
+	Revisions []string `json:"revisions,omitempty"`
+
+	// RolloutPercent is the percent of traffic that should be sent to the "candidate"
+	// revision. Valid values are between 0 and 99 inclusive.
+	// +optional
+	RolloutPercent int `json:"rolloutPercent,omitempty"`
+
+	// The configuration for this service. All revisions from this service must
+	// come from a single configuration.
+	// +optional
+	Configuration ConfigurationSpec `json:"configuration,omitempty"`
+}
+
+// RunLatestType contains the options for always having a route to the latest configuration. See
+// ServiceSpec for more details.
 type RunLatestType struct {
 	// The configuration for this service.
 	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
+// PinnedType is DEPRECATED. ReleaseType should be used instead. To get the behavior of PinnedType set
+// ReleaseType.Revisions to []string{PinnedType.RevisionName} and ReleaseType.RolloutPercent to 0.
 type PinnedType struct {
 	// The revision name to pin this service to until changed
 	// to a different service type.
@@ -98,59 +151,25 @@ type PinnedType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
-type ServiceCondition struct {
-	Type ServiceConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
-}
-
-// ServiceConditionType represents an Service condition value
-type ServiceConditionType string
-
+// ConditionType represents a Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady ServiceConditionType = "Ready"
+	ServiceConditionReady = duckv1alpha1.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	ServiceConditionRoutesReady duckv1alpha1.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady duckv1alpha1.ConditionType = "ConfigurationsReady"
 )
 
-type ServiceConditionSlice []ServiceCondition
+var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigurationsReady, ServiceConditionRoutesReady)
 
-// Len implements sort.Interface
-func (scs ServiceConditionSlice) Len() int {
-	return len(scs)
-}
-
-// Less implements sort.Interface
-func (scs ServiceConditionSlice) Less(i, j int) bool {
-	return scs[i].Type < scs[j].Type
-}
-
-// Swap implements sort.Interface
-func (scs ServiceConditionSlice) Swap(i, j int) {
-	scs[i], scs[j] = scs[j], scs[i]
-}
-
-var _ sort.Interface = (ServiceConditionSlice)(nil)
-
+// ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
 	// +optional
-	Conditions ServiceConditionSlice `json:"conditions,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -162,8 +181,13 @@ type ServiceStatus struct {
 	// DomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
+	// DEPRECATED: Use Address instead.
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
 
 	// From RouteStatus.
 	// Traffic holds the configured traffic distribution.
@@ -201,74 +225,44 @@ type ServiceList struct {
 	Items []Service `json:"items"`
 }
 
-func (s *Service) GetGeneration() int64 {
-	return s.Spec.Generation
+// GetGroupVersionKind returns the GetGroupVersionKind.
+func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Service")
 }
 
-func (s *Service) SetGeneration(generation int64) {
-	s.Spec.Generation = generation
-}
-
-func (s *Service) GetSpecJSON() ([]byte, error) {
-	return json.Marshal(s.Spec)
-}
-
+// IsReady returns if the service is ready to serve the requested configuration.
 func (ss *ServiceStatus) IsReady() bool {
-	if c := ss.GetCondition(ServiceConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+	return serviceCondSet.Manage(ss).IsHappy()
 }
 
-func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition {
-	for _, cond := range ss.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+// GetCondition returns the condition by name.
+func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 
-func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
-	if new == nil {
-		return
-	}
-
-	t := new.Type
-	var conditions ServiceConditionSlice
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
-				return
-			}
-		}
-	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
-	sort.Sort(conditions)
-	ss.Conditions = conditions
-}
-
+// InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionReady,
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		if rc := ss.GetCondition(cond); rc == nil {
-			ss.setCondition(&ServiceCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
-	}
+	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
-func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
+// MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
+// status noting that the Configuration with the name we want has already
+// been created and we do not own it.
+func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, "NotOwned",
+		fmt.Sprintf("There is an existing Configuration %q that we do not own.", name))
+}
+
+// MarkRouteNotOwned surfaces a failure via the RoutesReady status noting that the Route
+// with the name we want has already been created and we do not own it.
+func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "NotOwned",
+		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
+}
+
+// PropagateConfigurationStatus takes the Configuration status and applies its values
+// to the Service status.
+func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
 	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
 
@@ -276,67 +270,78 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	if cc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
-	// If the underlying Configuration reported not ready, then bubble it up.
-	if cc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  cc.Status,
-			Reason:  cc.Reason,
-			Message: cc.Message,
-		})
-	}
-	if cc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
+	switch {
+	case cc.Status == corev1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionTrue:
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionConfigurationsReady)
+	case cc.Status == corev1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
-func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+const (
+	trafficNotMigratedReason  = "TrafficNotMigrated"
+	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+)
+
+// MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
+// See: #2430, for details.
+func (ss *ServiceStatus) MarkRouteNotYetReady() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
+// PropagateRouteStatus propagates route's status to the service's status.
+func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.Domain = rs.Domain
 	ss.DomainInternal = rs.DomainInternal
+	ss.Address = rs.Address
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionRoutesReady}
-	// If the underlying Route reported not ready, then bubble it up.
-	if rc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  rc.Status,
-			Reason:  rc.Reason,
-			Message: rc.Message,
-		})
-	}
-	if rc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
+	switch {
+	case rc.Status == corev1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case rc.Status == corev1.ConditionTrue:
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+	case rc.Status == corev1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 
-func (ss *ServiceStatus) checkAndMarkReady() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	ss.markReady()
+// SetManualStatus updates the service conditions to unknown as the underlying Route
+// can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
+// report Ready.
+func (ss *ServiceStatus) SetManualStatus() {
+	const (
+		reason  = "Manual"
+		message = "Service is set to Manual, and is not managing underlying resources."
+	)
+
+	// Clear our fields by creating a new status and copying over only the fields and conditions we want
+	newStatus := &ServiceStatus{}
+	newStatus.InitializeConditions()
+	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
+	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
+
+	newStatus.Address = ss.Address
+	newStatus.Domain = ss.Domain
+	newStatus.DomainInternal = ss.DomainInternal
+
+	*ss = *newStatus
 }
 
-func (ss *ServiceStatus) markReady() {
-	ss.setCondition(&ServiceCondition{
-		Type:   ServiceConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {
+	return ss.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *ServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+	ss.Conditions = conditions
 }

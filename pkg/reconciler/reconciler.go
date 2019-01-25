@@ -17,19 +17,22 @@ limitations under the License.
 package reconciler
 
 import (
-	"k8s.io/client-go/kubernetes/scheme"
+	"time"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
+
+	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 )
 
 // Options defines the common reconciler options.
@@ -39,9 +42,24 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	SharedClientSet  sharedclientset.Interface
 	ServingClientSet clientset.Interface
-	BuildClientSet   buildclientset.Interface
+	DynamicClientSet dynamic.Interface
+	CachingClientSet cachingclientset.Interface
+	Recorder         record.EventRecorder
+	StatsReporter    StatsReporter
+
 	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
+
+	ResyncPeriod time.Duration
+	StopChannel  <-chan struct{}
+}
+
+// GetTrackerLease returns a multiple of the resync period to use as the
+// duration for tracker leases. This attempts to ensure that resyncs happen to
+// refresh leases frequently enough that we don't miss updates to tracked
+// objects.
+func (o Options) GetTrackerLease() time.Duration {
+	return o.ResyncPeriod * 3
 }
 
 // Base implements the core controller logic, given a Reconciler.
@@ -55,8 +73,11 @@ type Base struct {
 	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet clientset.Interface
 
-	// BuildClientSet allows us to configure Build objects
-	BuildClientSet buildclientset.Interface
+	// DynamicClientSet allows us to configure pluggable Build objects
+	DynamicClientSet dynamic.Interface
+
+	// CachingClientSet allows us to instantiate Image objects
+	CachingClientSet cachingclientset.Interface
 
 	// ConfigMapWatcher allows us to watch for ConfigMap changes.
 	ConfigMapWatcher configmap.Watcher
@@ -64,6 +85,9 @@ type Base struct {
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
+
+	// StatsReporter reports reconciler's metrics.
+	StatsReporter StatsReporter
 
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
@@ -79,21 +103,36 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
-	// Create event broadcaster
-	logger.Debug("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(
-		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	recorder := opt.Recorder
+	if recorder == nil {
+		// Create event broadcaster
+		logger.Debug("Creating event broadcaster")
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+		recorder = eventBroadcaster.NewRecorder(
+			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	}
+
+	statsReporter := opt.StatsReporter
+	if statsReporter == nil {
+		logger.Debug("Creating stats reporter")
+		var err error
+		statsReporter, err = NewStatsReporter(controllerAgentName)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	base := &Base{
 		KubeClientSet:    opt.KubeClientSet,
 		SharedClientSet:  opt.SharedClientSet,
 		ServingClientSet: opt.ServingClientSet,
-		BuildClientSet:   opt.BuildClientSet,
+		DynamicClientSet: opt.DynamicClientSet,
+		CachingClientSet: opt.CachingClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,
 		Recorder:         recorder,
+		StatsReporter:    statsReporter,
 		Logger:           logger,
 	}
 

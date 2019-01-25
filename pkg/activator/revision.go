@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package activator
 
 import (
@@ -20,11 +21,14 @@ import (
 	"net/http"
 	"time"
 
-	commonlogkey "github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/logging/logkey"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/utils"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -37,19 +41,17 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
-	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
 		logger:      logger,
-		reporter:    reporter,
 	}
 }
 
@@ -57,98 +59,123 @@ func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, activationError error) {
-	logger := loggerWithRevisionInfo(r.logger, namespace, name)
-	rev := revisionID{namespace: namespace,
-		configuration: configuration,
-		name:          name}
-
-	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
-		logger.Errorf(msg, args...)
-		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(fmt.Sprintf("%s for namespace: %s, revision name: %s ", msg, namespace, name), args...)
+func (r *revisionActivator) activateRevision(namespace, name string) (*v1alpha1.Revision, error) {
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	logger := r.logger.With(zap.String(logkey.Key, key))
+	rev := revisionID{
+		namespace: namespace,
+		name:      name,
 	}
 
 	// Get the current revision serving state
 	revisionClient := r.knaClient.ServingV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
-		return internalError("Unable to get revision: %v", err)
+		return nil, errors.Wrap(err, "Unable to get revision")
 	}
 
-	r.reporter.ReportRequest(namespace, configuration, name, string(revision.Spec.ServingState), 1.0)
-	switch revision.Spec.ServingState {
-	default:
-		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
-	case v1alpha1.RevisionServingStateRetired:
-		return internalError("Disregarding activation request for retired revision ")
-	case v1alpha1.RevisionServingStateActive:
-		// Revision is already active. Nothing to do
-	case v1alpha1.RevisionServingStateReserve:
-		// Activate the revision
-		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		if _, err := revisionClient.Update(revision); err != nil {
-			return internalError("Failed to activate revision %v", err)
-		}
-		logger.Info("Activated revision")
-	}
-
-	// Wait for the revision to be ready
-	if !revision.Status.IsReady() {
+	// Wait for the revision to not require activation.
+	if revision.Status.IsActivationRequired() {
 		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
-			return internalError("Failed to watch the revision")
+			return nil, errors.New("Failed to watch the revision")
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()
-	RevisionReady:
+	RevisionActive:
 		for {
 			select {
 			case <-time.After(r.readyTimout):
-				return internalError("Timeout waiting for revision to become ready")
+				// last chance to check
+				if !revision.Status.IsActivationRequired() {
+					break RevisionActive
+				}
+				return nil, errors.New("Timeout waiting for revision to become ready")
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
-					if !revision.Status.IsReady() {
+					if revision.Status.IsActivationRequired() {
 						logger.Info("Revision is not yet ready")
 						continue
 					} else {
 						logger.Info("Revision is ready")
 					}
-					break RevisionReady
+					break RevisionActive
 				} else {
-					return internalError("Unexpected result type for revision: %v", event)
+					return nil, fmt.Errorf("Unexpected result type for revision: %v", event)
 				}
 			}
 		}
 	}
+	return revision, nil
+}
 
+func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (end Endpoint, err error) {
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
 	serviceName := revisionresourcenames.K8sService(revision)
 	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		return internalError("Unable to get service %s for revision: %v",
-			serviceName, err)
+		return end, errors.Wrapf(err, "Unable to get service %s for revision", serviceName)
 	}
 
-	// TODO: in the future, the target service could have more than one port.
-	// https://github.com/knative/serving/issues/837
-	if len(svc.Spec.Ports) != 1 {
-		return internalError("Revision needs one port. Found %v", len(svc.Spec.Ports))
-	}
-	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, revision.Namespace)
-	port := svc.Spec.Ports[0].Port
+	fqdn := fmt.Sprintf("%s.%s.svc.%s", serviceName, revision.Namespace, utils.GetClusterDomainName())
 
-	// Return the endpoint and active=true
-	end = Endpoint{
+	// Search for the correct port in all the service ports.
+	port := int32(-1)
+	for _, p := range svc.Spec.Ports {
+		if p.Name == revisionresources.ServicePortName {
+			port = p.Port
+			break
+		}
+	}
+	if port == -1 {
+		return end, fmt.Errorf("Revision needs external. Found %v", len(svc.Spec.Ports))
+	}
+
+	return Endpoint{
 		FQDN: fqdn,
 		Port: port,
-	}
-	return end, 0, nil
+	}, nil
 }
 
-// loggerWithRevisionInfo enriches the logs with revision name and namespace.
-func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
+func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationResult {
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	logger := r.logger.With(zap.String(logkey.Key, key))
+	revision, err := r.activateRevision(namespace, name)
+	if err != nil {
+		logger.Error("Failed to activate the revision.", zap.Error(err))
+		return ActivationResult{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
+	}
+
+	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
+	endpoint, err := r.getRevisionEndpoint(revision)
+	if err != nil {
+		logger.Error("Failed to get revision endpoint.", zap.Error(err))
+		return ActivationResult{
+			Status:            http.StatusInternalServerError,
+			ServiceName:       serviceName,
+			ConfigurationName: configurationName,
+			Error:             err,
+		}
+	}
+
+	return ActivationResult{
+		Status:            http.StatusOK,
+		Endpoint:          endpoint,
+		ServiceName:       serviceName,
+		ConfigurationName: configurationName,
+		Error:             nil,
+	}
+}
+
+func getServiceAndConfigurationLabels(rev *v1alpha1.Revision) (string, string) {
+	if rev.Labels == nil {
+		return "", ""
+	}
+	return rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey]
 }
