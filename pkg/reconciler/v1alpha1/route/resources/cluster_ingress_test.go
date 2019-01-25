@@ -34,7 +34,7 @@ import (
 )
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{}
+	targets := map[string]traffic.RevisionTargets{}
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -65,7 +65,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 }
 
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{
+	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",
