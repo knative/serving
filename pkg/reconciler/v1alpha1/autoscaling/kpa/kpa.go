@@ -243,10 +243,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return err
 	}
 
-	reporter.Report(autoscaler.ActualPodCountM, float64(got))
+	reporter.ReportActualPodCount(int64(got))
 	// negative "want" values represent an empty metrics pipeline and thus no specific request is being made
 	if want >= 0 {
-		reporter.Report(autoscaler.RequestedPodCountM, float64(want))
+		reporter.ReportRequestedPodCount(int64(want))
 	}
 
 	switch {
