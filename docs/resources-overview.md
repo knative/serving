@@ -9,11 +9,8 @@ which they form.
 
 ## Dependencies
 
-Knative Serving depends on Istio[istio] in order to function. Istio is responsible for
+Knative Serving depends on [Istio](https://istio.io/) in order to function. Istio is responsible for
 setting up the network routing both inside the cluster and ingress into the cluster.
-You can find out more about it from their website:
-
-[istio]: https://istio.io/
 
 ## Components
 
@@ -49,16 +46,16 @@ The various Kubernetes resource configurations are organized as follows:
 
 ```plain
 # Knative Serving resources
-`config/*.yaml`
+config/*.yaml
 
 # Istio release configuration
-`third_party/istio-*/install/kubernetes/...`
+third_party/istio-*/install/kubernetes/...
 
 # Knative Serving Monitoring configs (Optional)
-`config/monitoring/...`
+config/monitoring/...
 
 # Knative Build resources (Optional)
-`third_party/config/build/release.yaml`
+third_party/config/build/release.yaml
 
 ```
 
