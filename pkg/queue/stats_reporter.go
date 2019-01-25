@@ -39,14 +39,11 @@ const (
 
 	operationsPerSecondN       = "operations_per_second"
 	averageConcurrentRequestsN = "average_concurrent_requests"
-	lameDuckN                  = "lame_duck"
 
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
 	AverageConcurrentRequestsM
-	// LameDuckM indicates this Pod has received a shutdown signal.
-	LameDuckM
 )
 
 var (
@@ -59,10 +56,6 @@ var (
 		AverageConcurrentRequestsM: stats.Float64(
 			averageConcurrentRequestsN,
 			"Number of requests currently being handled by this pod",
-			stats.UnitNone),
-		LameDuckM: stats.Float64(
-			lameDuckN,
-			"Indicates this Pod has received a shutdown signal with 1 else 0",
 			stats.UnitNone),
 	}
 )
@@ -131,12 +124,6 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
 		},
-		&view.View{
-			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
-			Measure:     measurements[LameDuckM],
-			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -158,15 +145,10 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 }
 
 // Report captures request metrics
-func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageConcurrentRequests float64) error {
+func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.Initialized {
 		return errors.New("StatsReporter is not Initialized yet")
 	}
-	_lameDuck := float64(0)
-	if lameDuck {
-		_lameDuck = float64(1)
-	}
-	stats.Record(r.ctx, measurements[LameDuckM].M(_lameDuck))
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
@@ -182,9 +164,6 @@ func (r *Reporter) UnregisterViews() error {
 		views = append(views, v)
 	}
 	if v := view.Find(averageConcurrentRequestsN); v != nil {
-		views = append(views, v)
-	}
-	if v := view.Find(lameDuckN); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)
