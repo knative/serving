@@ -33,7 +33,7 @@ var (
 	responseTimeInMsecM = stats.Float64(
 		"request_latencies",
 		"The response time in millisecond",
-		stats.UnitDimensionless)
+		stats.UnitMilliseconds)
 )
 
 // StatsReporter defines the interface for sending activator metrics
