@@ -30,6 +30,14 @@ const (
 	// ActivatorPodName defines the pod name of the activator
 	// as defined in the metrics it sends.
 	ActivatorPodName string = "activator"
+
+	// If the latest received stat from a pod is in the last activeThreshold duration,
+	// assume the pod is still active. Otherwise, the active status of a pod is
+	// unknown.
+	activeThreshold time.Duration = time.Second
+
+	// Activator pod weight is always 1
+	activatorPodWeight float64 = 1
 )
 
 // Stat defines a single measurement at a point in time
@@ -46,9 +54,6 @@ type Stat struct {
 
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
-
-	// Lameduck indicates this Pod has received a shutdown signal.
-	LameDuck bool
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -84,19 +89,17 @@ type totalAggregation struct {
 func (agg *totalAggregation) aggregate(stat Stat) {
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
-		current = &perPodAggregation{window: agg.window}
+		current = &perPodAggregation{
+			window:      agg.window,
+			isActivator: isActivator(stat.PodName),
+		}
 		agg.perPodAggregations[stat.PodName] = current
 	}
-	if stat.LameDuck {
-		current.lameduck(stat.Time)
-	} else {
-		current.aggregate(stat.AverageConcurrentRequests)
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
-			agg.activatorsContained[stat.PodName] = struct{}{}
-		}
-		agg.probeCount++
+	current.aggregate(stat)
+	if current.isActivator {
+		agg.activatorsContained[stat.PodName] = struct{}{}
 	}
+	agg.probeCount++
 }
 
 // The number of pods that are observable via stats
@@ -104,7 +107,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
-		podCount += pod.usageRatio(now)
+		podCount += pod.podWeight(now)
 	}
 
 	activatorsCount := len(agg.activatorsContained)
@@ -128,8 +131,7 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		// TODO(#2282): This can cause naming collisions.
-		if strings.HasPrefix(podName, ActivatorPodName) {
+		if isActivator(podName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
@@ -146,22 +148,16 @@ type perPodAggregation struct {
 	accumulatedConcurrency float64
 	probeCount             int32
 	window                 time.Duration
-	lameduckTime           *time.Time
+	latestStatTime         *time.Time
+	isActivator            bool
 }
 
 // Aggregates the given concurrency
-func (agg *perPodAggregation) aggregate(concurrency float64) {
-	agg.accumulatedConcurrency += concurrency
+func (agg *perPodAggregation) aggregate(stat Stat) {
+	agg.accumulatedConcurrency += stat.AverageConcurrentRequests
 	agg.probeCount++
-}
-
-// Registers the earliest lameduck metric received.
-func (agg *perPodAggregation) lameduck(t *time.Time) {
-	if agg.lameduckTime == nil {
-		agg.lameduckTime = t
-	}
-	if agg.lameduckTime.After(*t) {
-		agg.lameduckTime = t
+	if agg.latestStatTime == nil || agg.latestStatTime.Before(*stat.Time) {
+		agg.latestStatTime = stat.Time
 	}
 }
 
@@ -170,16 +166,22 @@ func (agg *perPodAggregation) calculateAverage(now time.Time) float64 {
 	if agg.probeCount == 0 {
 		return 0.0
 	}
-	return agg.accumulatedConcurrency / float64(agg.probeCount) * agg.usageRatio(now)
+	return agg.accumulatedConcurrency / float64(agg.probeCount) * agg.podWeight(now)
 }
 
-// Calculates the weighted pod count
-func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
-	if agg.lameduckTime == nil {
-		return float64(1.0)
+// Calculates the pod weight. Assuming the latest stat time is the point when
+// pod became out of service.
+func (agg *perPodAggregation) podWeight(now time.Time) float64 {
+	if agg.isActivator {
+		return activatorPodWeight
 	}
-	outOfService := now.Sub(*agg.lameduckTime)
-	return float64(1.0) - (float64(outOfService) / float64(agg.window))
+
+	gapToNow := now.Sub(*agg.latestStatTime)
+	// Less than activeThreshold means the pod is active, give 1 weight
+	if gapToNow <= activeThreshold {
+		return 1.0
+	}
+	return 1.0 - (float64(gapToNow) / float64(agg.window))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -351,4 +353,9 @@ func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
 		return a.Current().MaxScaleUpRate
 	}
 	return desiredRate
+}
+
+func isActivator(podName string) bool {
+	// TODO(#2282): This can cause naming collisions.
+	return strings.HasPrefix(podName, ActivatorPodName)
 }

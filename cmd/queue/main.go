@@ -135,14 +135,14 @@ func sendStat(s *autoscaler.Stat) error {
 	if statSink == nil {
 		return errors.New("stat sink not (yet) connected")
 	}
-	if healthState.IsShuttingDown() {
-		s.LameDuck = true
-	}
 	reporter.Report(
-		s.LameDuck,
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
 	)
+	if healthState.IsShuttingDown() {
+		// Do not send metrics if the pods is shutting down.
+		return nil
+	}
 	sm := autoscaler.StatMessage{
 		Stat: *s,
 		Key:  servingRevisionKey,
@@ -212,18 +212,6 @@ func createAdminHandlers() *http.ServeMux {
 	}))
 
 	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
-		// Force send one (empty) metric to mark the pod as a lameduck before shutting
-		// it down.
-		now := time.Now()
-		s := &autoscaler.Stat{
-			Time:     &now,
-			PodName:  podName,
-			LameDuck: true,
-		}
-		if err := sendStat(s); err != nil {
-			logger.Errorw("Error while sending stat", zap.Error(err))
-		}
-
 		time.Sleep(quitSleepDuration)
 
 		// Shutdown the proxy server.
