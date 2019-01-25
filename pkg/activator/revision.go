@@ -145,7 +145,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	revision, err := r.activateRevision(namespace, name)
 	if err != nil {
-		logger.Error("Failed to activate the revision.", zap.Error(err))
+		logger.Errorw("Failed to activate the revision.", zap.Error(err))
 		return ActivationResult{
 			Status: http.StatusInternalServerError,
 			Error:  err,
@@ -155,7 +155,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationRes
 	serviceName, configurationName := getServiceAndConfigurationLabels(revision)
 	endpoint, err := r.getRevisionEndpoint(revision)
 	if err != nil {
-		logger.Error("Failed to get revision endpoint.", zap.Error(err))
+		logger.Errorw("Failed to get revision endpoint.", zap.Error(err))
 		return ActivationResult{
 			Status:            http.StatusInternalServerError,
 			ServiceName:       serviceName,
