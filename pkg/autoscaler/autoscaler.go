@@ -54,6 +54,10 @@ type Stat struct {
 
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
+
+	// Lameduck indicates this Pod has received a shutdown signal.
+	// Deprecated and no longer used by newly created Pods.
+	LameDuck bool
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
