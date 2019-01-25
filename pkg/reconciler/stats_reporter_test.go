@@ -53,6 +53,10 @@ func TestReporter_ReportDuration(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create reporter: %v", err)
 	}
+	countWas := int64(0)
+	if m := getMetric(t, ServiceReadyCountN); m != nil {
+		countWas = m.Data.(*view.CountData).Value
+	}
 
 	if err = reporter.ReportServiceReady(testServiceNamespace, testServiceName, time.Second); err != nil {
 		t.Error(err)
@@ -64,32 +68,37 @@ func TestReporter_ReportDuration(t *testing.T) {
 
 	latency := getMetric(t, ServiceReadyLatencyN)
 	if v := latency.Data.(*view.LastValueData).Value; v != 1000 {
-		t.Errorf("expected latency %v, Got %v", 1000, v)
+		t.Errorf("Expected latency %v, Got %v", 1000, v)
 	}
 	checkTags(t, expectedTags, latency.Tags)
 
 	count := getMetric(t, ServiceReadyCountN)
-	if v := count.Data.(*view.CountData).Value; v != 1 {
-		t.Errorf("expected latency %v, Got %v", 1, v)
+	if got, want := count.Data.(*view.CountData).Value, countWas+1; got != want {
+		t.Errorf("Latency report count = %d, want: %d", got, want)
 	}
 	checkTags(t, expectedTags, count.Tags)
 }
 
 func getMetric(t *testing.T, metric string) *view.Row {
+	t.Helper()
 	rows, err := view.RetrieveData(metric)
 	if err != nil {
-		t.Errorf("failed retrieving data: %v", err)
+		t.Errorf("Failed retrieving data: %v", err)
+	}
+	if len(rows) == 0 {
+		return nil
 	}
 	return rows[0]
 }
 
 func checkTags(t *testing.T, expected, observed []tag.Tag) {
+	t.Helper()
 	if len(expected) != len(observed) {
-		t.Errorf("unexpected tags: desired %v observed %v", expected, observed)
+		t.Errorf("Unexpected tags: desired %v observed %v", expected, observed)
 	}
 	for i := 0; i < len(expected); i++ {
 		if expected[i] != observed[i] {
-			t.Errorf("unexpected tag at location %v: desired %v observed %v", i, expected[i], observed[i])
+			t.Errorf("Unexpected tag at location %v: desired %v observed %v", i, expected[i], observed[i])
 		}
 	}
 }

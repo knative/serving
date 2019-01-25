@@ -22,6 +22,21 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
+// unregister, ehm, unregisters the metrics that were registered, by
+// virtue of StatsReporter creation.
+// Since golang executes test iterations within the same process, the stats reporter
+// returns an error if the metric is already registered and the test panics.
+func unregister() {
+	for _, s := range []string{
+		"request_count",
+		"request_latencies",
+	} {
+		if v := view.Find(s); v != nil {
+			view.Unregister(v)
+		}
+	}
+}
+
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
@@ -33,6 +48,9 @@ func TestActivatorReporter(t *testing.T) {
 	if r, err = NewStatsReporter(); err != nil {
 		t.Errorf("Failed to create a new reporter: %v", err)
 	}
+	// Without this `go test ... -count=X`, where X > 1, fails, since
+	// we get an error about view already being registered.
+	defer unregister()
 
 	// test ReportRequestCount
 	wantTags2 := map[string]string{
@@ -82,10 +100,11 @@ func checkSumData(t *testing.T, name string, wantTags map[string]string, wantVal
 			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
 			} else if got.Value != want {
-				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", got.Key.Name(), got.Value, want)
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 
@@ -98,6 +117,7 @@ func checkSumData(t *testing.T, name string, wantTags map[string]string, wantVal
 }
 
 func checkDistributionData(t *testing.T, name string, wantTags map[string]string, expectedCount int, expectedMin float64, expectedMax float64) {
+	t.Helper()
 	if d, err := view.RetrieveData(name); err != nil {
 		t.Errorf("Unexpected reporter error: %v", err)
 	} else {
@@ -105,10 +125,11 @@ func checkDistributionData(t *testing.T, name string, wantTags map[string]string
 			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
 			} else if got.Value != want {
-				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", got.Key.Name(), got.Value, want)
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 

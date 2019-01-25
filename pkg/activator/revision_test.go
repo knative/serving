@@ -63,7 +63,6 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	case <-ch:
 		t.Error("Unexpected result before revision is ready.")
 	case <-time.After(100 * time.Microsecond):
-		break
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
@@ -110,14 +109,13 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
-	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
 		t.Error("Unexpected result before revision is ready.")
-	default:
+	case <-time.After(100 * time.Millisecond):
+		break
 	}
 
-	time.Sleep(3 * time.Second)
 	select {
 	case ar := <-ch:
 		if got, want := ar.Endpoint, (Endpoint{}); got != want {
@@ -127,15 +125,15 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			t.Errorf("Unexpected error state = %v, want: %v.", got, want)
 		}
 		if ar.ServiceName != "" {
-			t.Errorf("Unexpected non-empty service, got: %s.", ar.ServiceName)
+			t.Errorf("ServiceName = %s, expected empty.", ar.ServiceName)
 		}
 		if ar.ConfigurationName != "" {
-			t.Errorf("Unexpected non-empty configuration name; got: %s.", ar.ConfigurationName)
+			t.Errorf("ConfigurationName = %s, expected empty.", ar.ConfigurationName)
 		}
 		if ar.Error == nil {
 			t.Error("Expected error.")
 		}
-	default:
+	case <-time.After(3 * time.Second):
 		t.Error("Expected result after timeout.")
 	}
 }
