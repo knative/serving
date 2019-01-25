@@ -108,7 +108,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   123,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -136,7 +136,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -173,7 +173,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusBadGateway,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
@@ -202,7 +202,7 @@ func TestActivationHandler(t *testing.T) {
 					Config:     "config-real-name",
 					StatusCode: http.StatusOK,
 					Attempts:   1,
-					Value:      1.0,
+					Value:      1,
 				},
 				{
 					Op:         "ReportResponseTime",
