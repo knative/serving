@@ -233,6 +233,10 @@ data:
     # How frequently should Envoy fetch key/cert from NodeAgent.
     sdsRefreshDelay: 15s
 
+    # Mesh-wide TCP connection timeout between Envoy sidecar and Application
+    # https://github.com/istio/api/blob/1.0.2/mesh/v1alpha1/config.pb.go#L429
+    connectTimeout: 10s
+
     #
     defaultConfig:
       #
