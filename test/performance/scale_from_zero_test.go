@@ -39,6 +39,7 @@ const (
 	serviceName                      = "perftest-scalefromzero"
 	ScaleFromZeroAvgTestGridProperty = "perf_ScaleFromZero_Average"
 	helloWorldExpectedOutput         = "Hello World!"
+	helloWorldImage                  = "helloworld"
 )
 
 type stats struct {
@@ -76,21 +77,22 @@ func runScaleFromZero(clients *test.Clients, logger *logging.BaseLogger, ro *tes
 	return time.Since(start), nil
 }
 
-func parallelScaleFromZero(t *testing.T, logger *logging.BaseLogger, count int) ([]time.Duration, error) {
+func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Duration, error) {
 	ctx := context.TODO()
 	pc, err := Setup(ctx, logger, false)
 	if err != nil {
-		t.Fatalf("Failed to setup clients: %v", err)
+		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
 
 	testNames := make([]*test.ResourceNames, count)
 	durations := make([]time.Duration, count)
 
-	// Initialize our service names
+	// Initialize our service names.
 	for i := 0; i < count; i++ {
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i), logger),
-			Image:   test.ImagePath("helloworld"),
+			// The crd.go helpers will convert to the actual image path.
+			Image:   helloWorldImage,
 		}
 	}
 
@@ -110,7 +112,7 @@ func parallelScaleFromZero(t *testing.T, logger *logging.BaseLogger, count int) 
 		g.Go(func() error {
 			ro, err := test.CreateRunLatestServiceReady(logger, pc.E2EClients, testNames[ndx], &test.Options{})
 			if err != nil {
-				return fmt.Errorf("Failed to create Ready service: %v", err)
+				return fmt.Errorf("failed to create Ready service: %v", err)
 			}
 			dur, err := runScaleFromZero(pc.E2EClients, logger, ro)
 			if err == nil {
@@ -149,7 +151,7 @@ func testGrid(s *stats, tName string) error {
 
 func testScaleFromZero(t *testing.T, count int) {
 	logger := logging.GetContextLogger(fmt.Sprintf("TestScaleFromZero%d", count))
-	durs, err := parallelScaleFromZero(t, logger, count)
+	durs, err := parallelScaleFromZero(logger, count)
 	if err != nil {
 		t.Fatal(err)
 	}
