@@ -96,6 +96,7 @@ func (r *revisionActivator) activateRevision(namespace, name, key string) (*v1al
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
 					if revision.Status.IsActivationRequired() {
+						fmt.Print("#### THIS IS HAPPENING!")
 						logger.Infof("Revision %s is not yet ready", name)
 						continue
 					} else {

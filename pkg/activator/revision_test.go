@@ -96,6 +96,67 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	}
 }
 
+func TestActiveEndpoint_Reserve_WaitsForReady2Step(t *testing.T) {
+	// This generates two updates, so that the inner loop of the `Watch` can be exercised.
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	ch := make(chan ActivationResult)
+	go func() {
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
+	}()
+
+	select {
+	case <-ch:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(1200 * time.Millisecond):
+		// Wait long enough, so that ActiveEndpoint Go routine sets up the Watch.
+		// It does fire any events internally, so we have to "sleep".
+	}
+
+	// Partially update the service, to trigger a watch,
+	// which would not finish the loop.
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkResourcesAvailable()
+	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+
+	// ... and then finally make revision ready after a timeout.
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+		rev.Status.MarkActive()
+		rev.Status.MarkContainerHealthy()
+		kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+	}()
+
+	select {
+	case ar := <-ch:
+		want := Endpoint{testServiceFQDN, 8080}
+		if ar.Endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
+		}
+		if ar.Status != http.StatusOK {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
+		}
+		if ar.ServiceName != "test-service" {
+			t.Errorf("Unexpected service name. Want test-service. Got %v.", ar.ServiceName)
+		}
+		if ar.ConfigurationName != "test-config" {
+			t.Errorf("Unexpected configuration name. Want test-config. Got %v.", ar.ConfigurationName)
+		}
+		if ar.Error != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready.")
+	}
+}
+
 func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
@@ -140,6 +201,23 @@ func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Error("Expected result after revision ready @", time.Now())
 	}
+}
+
+func TestActivateEndpoint_NotFound(t *testing.T) {
+	// Tests when revision can't be found.
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	ae := a.ActiveEndpoint(testNamespace, testRevision+"dne")
+	if got, want := ae.Status, http.StatusInternalServerError; got != want {
+		t.Errorf("NotFound revision status: got: %v, want: %v", got, want)
+	}
+
 }
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
