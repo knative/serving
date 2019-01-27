@@ -62,7 +62,9 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	select {
 	case <-ch:
 		t.Error("Unexpected result before revision is ready.")
-	case <-time.After(100 * time.Microsecond):
+	case <-time.After(1200 * time.Millisecond):
+		// Wait long enough, so that ActiveEndpoint Go routine sets up the Watch.
+		// It does fire any events internally, so we have to "sleep".
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
@@ -91,6 +93,52 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Error("Expected result after revision ready.")
+	}
+}
+
+func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkActive()
+	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailable()
+	_, err := kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+	if err != nil {
+		t.Fatalf("Error updating the revision %s: %v", testRevision, err)
+	}
+
+	ch := make(chan ActivationResult)
+	go func() {
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
+	}()
+
+	select {
+	case ar := <-ch:
+		want := Endpoint{testServiceFQDN, 8080}
+		if ar.Endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
+		}
+		if ar.Status != http.StatusOK {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
+		}
+		if ar.ServiceName != "test-service" {
+			t.Errorf("Unexpected service name. Want test-service. Got %v.", ar.ServiceName)
+		}
+		if ar.ConfigurationName != "test-config" {
+			t.Errorf("Unexpected configuration name. Want test-config. Got %v.", ar.ConfigurationName)
+		}
+		if ar.Error != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
+		}
+	case <-time.After(10 * time.Second):
+		t.Error("Expected result after revision ready @", time.Now())
 	}
 }
 
