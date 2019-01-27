@@ -137,7 +137,7 @@ func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
 		if ar.Error != nil {
 			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(3 * time.Second):
 		t.Error("Expected result after revision ready @", time.Now())
 	}
 }
