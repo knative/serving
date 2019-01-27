@@ -50,15 +50,16 @@ To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
-  `export GOPATH=...`
+   `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-  work properly.
+   work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
    developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-  - **Note**: if you are using docker hub to store your images your
-    `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-  - **Note**: Currently Docker Hub doesn't let you create subdirs under your
-    username.
+
+- **Note**: if you are using docker hub to store your images your
+  `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+- **Note**: Currently Docker Hub doesn't let you create subdirs under your
+  username.
 
 `.bashrc` example:
 
