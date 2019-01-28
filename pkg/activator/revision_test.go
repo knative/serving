@@ -64,7 +64,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		t.Error("Unexpected result before revision is ready.")
 	case <-time.After(1200 * time.Millisecond):
 		// Wait long enough, so that ActiveEndpoint Go routine sets up the Watch.
-		// It does fire any events internally, so we have to "sleep".
+		// It does not fire any events internally, so we have to "sleep".
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
