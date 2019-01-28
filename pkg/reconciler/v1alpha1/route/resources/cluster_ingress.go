@@ -145,10 +145,6 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic
 			maxInactiveTarget = &inactive[i]
 		}
 	}
-	if totalInactivePercent == 0 {
-		// There is actually no inactive Revisions.
-		return r
-	}
 	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
 		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 			ServiceNamespace: system.Namespace(),
