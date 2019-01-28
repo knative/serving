@@ -174,7 +174,7 @@ Knative Serving.
 
 You can see things running with:
 
-```shell
+```console
 kubectl -n knative-serving get pods
 NAME                          READY     STATUS    RESTARTS   AGE
 activator-c8495dc9-z7xpz      2/2       Running   0          6d
