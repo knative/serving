@@ -114,9 +114,10 @@ func TestActiveEndpoint_Reserve_WaitsForReady2Step(t *testing.T) {
 	select {
 	case <-ch:
 		t.Error("Unexpected result before revision is ready.")
-	case <-time.After(1200 * time.Millisecond):
-		// Wait long enough, so that ActiveEndpoint Go routine sets up the Watch.
-		// It does fire any events internally, so we have to "sleep".
+	case <-time.After(1000 * time.Millisecond):
+		// Wait long enough, so that `ActiveEndpoint()` Go routine above
+		// sets up the `Watch` on the revisions. We need to sleep long enough
+		// for this to happen reliably, otherwise the test will flake.
 	}
 
 	// Partially update the service, to trigger a watch,
