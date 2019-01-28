@@ -127,7 +127,8 @@ func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	return podCount
 }
 
-// The observed concurrency (sum of all average concurrencies of the observed pods)
+// The observed concurrency of a revision (sum of all average concurrencies of
+// the observed pods)
 // Ignores activator sent metrics if its not the only pod reporting stats
 func (agg *totalAggregation) observedConcurrency(now time.Time) float64 {
 	accumulatedConcurrency := float64(0)
@@ -143,6 +144,13 @@ func (agg *totalAggregation) observedConcurrency(now time.Time) float64 {
 		return activatorConcurrency
 	}
 	return accumulatedConcurrency
+}
+
+// The observed concurrency per pod (sum of all average concurrencies
+// distributed over the observed pods)
+// Ignores activator sent metrics if its not the only pod reporting stats
+func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
+	return divide(agg.observedConcurrency(now), agg.observedPods(now))
 }
 
 // Holds an aggregation per pod
@@ -298,8 +306,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedPanicPods := panicData.observedPods(now)
 	observedStableConcurrency := stableData.observedConcurrency(now)
 	observedPanicConcurrency := panicData.observedConcurrency(now)
-	observedStableConcurrencyPerPod := divide(observedStableConcurrency, observedStablePods)
-	observedPanicConcurrencyPerPod := divide(observedPanicConcurrency, observedPanicPods)
+	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod(now)
+	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
 	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, observedStablePods)
