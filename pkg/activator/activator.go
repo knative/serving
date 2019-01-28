@@ -41,9 +41,10 @@ type Activator interface {
 	Shutdown()
 }
 
-type revisionID struct {
-	namespace string
-	name      string
+// RevisionID is the combination of namespace and service name
+type RevisionID struct {
+	Namespace string
+	Name      string
 }
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.
