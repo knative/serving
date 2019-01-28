@@ -122,7 +122,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("Object 'Kind' is missing in '{\"metadata\":{\"creationTimestamp\":null},\"spec\":{\"steps\":[{\"name\":\"\",\"image\":\"foo\",\"resources\":{}}]},\"status\":{\"startTime\":null,\"completionTime\":null,\"stepStates\":null,\"stepsCompleted\":null}}'", "build"),
+		want: apis.ErrInvalidValue("Object 'Kind' is missing in '{\"metadata\":{\"creationTimestamp\":null},\"spec\":{\"steps\":[{\"name\":\"\",\"image\":\"foo\",\"resources\":{}}]},\"status\":{\"stepsCompleted\":null}}'", "build"),
 	}, {
 		name: "build is not an object",
 		c: &ConfigurationSpec{

@@ -102,9 +102,6 @@ func TestBuilds(t *testing.T) {
 				}},
 			},
 			"status": map[string]interface{}{
-				"startTime":      nil,
-				"completionTime": nil,
-				"stepStates":     nil,
 				"stepsCompleted": nil,
 			},
 		}),
@@ -164,9 +161,6 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 			"status": map[string]interface{}{
-				"startTime":      nil,
-				"completionTime": nil,
-				"stepStates":     nil,
 				"stepsCompleted": nil,
 			},
 		}),
