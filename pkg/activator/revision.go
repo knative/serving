@@ -138,12 +138,13 @@ func (r *revisionActivator) revisionEndpoint(revision *v1alpha1.Revision) (end E
 	}, nil
 }
 
+// ActiveEndpoint activates the revision `name` and returnts the result.
 func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))
 	revision, err := r.activateRevision(namespace, name, key)
 	if err != nil {
-		logger.Errorw("failed to activate the revision", zap.Error(err))
+		logger.Errorw("Failed to activate the revision.", zap.Error(err))
 		return ActivationResult{
 			Status: http.StatusInternalServerError,
 			Error:  err,
