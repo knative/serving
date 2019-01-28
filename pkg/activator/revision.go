@@ -17,7 +17,6 @@ limitations under the License.
 package activator
 
 import (
-	gerrors "errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -130,7 +129,7 @@ func (r *revisionActivator) revisionEndpoint(revision *v1alpha1.Revision) (end E
 		}
 	}
 	if port == -1 {
-		return end, gerrors.New("revision needs external HTTP port")
+		return end, errors.New("revision needs external HTTP port")
 	}
 
 	return Endpoint{
