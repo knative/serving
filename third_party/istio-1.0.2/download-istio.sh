@@ -73,3 +73,4 @@ patch istio.yaml prestop-sleep.yaml.patch
 # Set the default connection timeout
 # as per https://github.com/istio/istio/issues/11319
 patch istio.yaml conn-timeout.yaml.patch
+patch istio-lean.yaml conn-timeout.yaml.patch
