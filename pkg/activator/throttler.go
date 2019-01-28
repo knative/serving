@@ -27,10 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	// OverloadMessage indicates that throttler has no free slots to buffer the request.
-	OverloadMessage = "activator overload"
-)
+// OverloadMessage indicates that throttler has no free slots to buffer the request.
+var OverloadMessage = errors.New("activator overload")
 
 // ThrottlerParams defines the parameters of the Throttler.
 type ThrottlerParams struct {
@@ -91,7 +89,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 		}
 	}
 	if !breaker.Maybe(function) {
-		return errors.New(OverloadMessage)
+		return OverloadMessage
 	}
 	return nil
 }

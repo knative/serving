@@ -168,7 +168,7 @@ func TestThrottler_Try(t *testing.T) {
 
 func TestThrottler_TryOverload(t *testing.T) {
 	th := getThrottler(
-		1 /*maxConcurrency*/, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
+		1 /*maxConcurrency*/ , existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
 		1 /*initial capacity*/)
 	done := make(chan struct{})
 
@@ -190,8 +190,8 @@ func TestThrottler_TryOverload(t *testing.T) {
 	})
 	// `err` must be non-nil here, since `t.Fatal()` above would ensure we
 	// don't reach here on success.
-	if got := err.Error(); got != OverloadMessage {
-		t.Errorf("Error message = %q, want: %q", got, OverloadMessage)
+	if got := err; got != OverloadMessage {
+		t.Errorf("Error message = %q, want: %q", got, OverloadMessage.Error())
 	}
 	close(done)
 	if err := g.Wait(); err != nil {
