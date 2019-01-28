@@ -39,13 +39,20 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
+	kubeinformers "k8s.io/client-go/informers"
+	corev1 "k8s.io/api/core/v1"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -63,6 +70,16 @@ const (
 
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+
+	// The number of requests that are queued on the breaker before the 503s are sent
+	// the value must be adjusted depending on the actual production requirements
+	breakerQueueDepth = 10000
+
+	// The upper bound for concurrent requests sent to the revision,
+	// as new endpoints show up, the Breakers concurrency increases up to this value
+	breakerMaxConcurrency = 1000
+
+	defaultResyncInterval = 10 * time.Hour
 )
 
 var (
@@ -132,6 +149,73 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
+	// set up signals so we handle the first shutdown signal gracefully
+	stopCh := signals.SetupSignalHandler()
+
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
+	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+
+	go endpointInformer.Informer().Run(stopCh)
+	go revisionInformer.Informer().Run(stopCh)
+
+	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
+
+	// Return the number of endpoints, 0 if no endpoints are found
+	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
+		endpointKey := cache.ExplicitKey(revID.Namespace + "/" + reconciler.GetServingK8SServiceNameForObj(revID.Name))
+		endpoints, exists, err := endpointInformer.Informer().GetIndexer().Get(endpointKey)
+		if err != nil {
+			return 0, fmt.Errorf("Error getting endpoints for revision %v", revID)
+		}
+		if !exists {
+			// no endpoints exist yet
+			return 0, nil
+		}
+		if exists && endpoints != nil {
+			endpoint := endpoints.(*corev1.Endpoints).Subsets
+			addresses := activator.EndpointsAddressCount(endpoint)
+			return int32(addresses), nil
+		}
+		return 0, nil
+	}
+
+	revisionGetter := func(revID activator.RevisionID) (*v1alpha12.Revision, bool, error) {
+		revisionKey := cache.ExplicitKey(revID.Namespace + "/" + revID.Name)
+		rev, exists, err := revisionInformer.Informer().GetIndexer().Get(revisionKey)
+		if exists && rev != nil {
+			return rev.(*v1alpha12.Revision), exists, err
+		}
+		return nil, exists, err
+	}
+
+	throttlerParams := activator.ThrottlerParams{BreakerParams: params, Logger: logger, GetEndpoints: endpointsGetter, GetRevision: revisionGetter}
+	throttler := activator.NewThrottler(throttlerParams)
+
+	endpointInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: activator.UpdateEndpoints(throttler),
+	})
+
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: activator.DeleteBreaker(throttler),
+	})
+
+	kubeInformerFactory.Start(stopCh)
+	servingInformerFactory.Start(stopCh)
+
+	logger.Info("Waiting for informer caches to sync")
+
+	informerSyncs := []cache.InformerSynced{
+		endpointInformer.Informer().HasSynced,
+		revisionInformer.Informer().HasSynced,
+	}
+	for i, synced := range informerSyncs {
+		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
+			logger.Fatalf("failed to wait for cache at index %d to sync", i)
+		}
+	}
+
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 
@@ -145,9 +229,6 @@ func main() {
 		Steps:    maxRetries,
 	}
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
-
-	// set up signals so we handle the first shutdown signal gracefully
-	stopCh := signals.SetupSignalHandler()
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace(), "8080")
@@ -170,6 +251,7 @@ func main() {
 					Transport: rt,
 					Logger:    logger,
 					Reporter:  reporter,
+					Throttler: throttler,
 				},
 			},
 		),

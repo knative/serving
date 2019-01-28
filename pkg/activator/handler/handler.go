@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
@@ -34,19 +33,36 @@ type ActivationHandler struct {
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
+	Throttler *activator.Throttler
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-
 	start := time.Now()
+	revID := activator.RevisionID{namespace, name}
+
+	// ActiveEndpoint() will block until the first endpoint is available.
+	ar := a.Activator.ActiveEndpoint(namespace, name)
+
+	err := a.Throttler.Try(revID, func() {
+		a.activate(w, r, namespace, name, start, ar)
+	})
+	if err != nil {
+		if err.Error() == activator.OverloadMessage {
+			http.Error(w, activator.OverloadMessage, http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func (a *ActivationHandler) activate(w http.ResponseWriter, r *http.Request, namespace, name string, start time.Time, ar activator.ActivationResult) {
 	capture := &statusCapture{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
 	}
 
-	ar := a.Activator.ActiveEndpoint(namespace, name)
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
 		a.Logger.Error(msg)
