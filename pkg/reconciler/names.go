@@ -20,12 +20,19 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/utils"
+	"strings"
 )
+
+const suffix = "-service"
 
 func GetK8sServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, utils.GetClusterDomainName())
 }
 
 func GetServingK8SServiceNameForObj(name string) string {
-	return name + "-service"
+	return name + suffix
+}
+
+func GetServingRevisionNameForK8sService(name string) string {
+	return strings.Split(name, suffix)[0]
 }
