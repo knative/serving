@@ -41,6 +41,6 @@ publish_test_images || fail_test "one or more test images weren't published"
 # Run the tests
 # We use a plain `go test` because `go_test_e2e()` calls bazel to generate
 # the test summary, thus overwriting our generated performance summary
-go test -v -count=1 -tags=performance -timeout=5m ./test/performance || fail_test
+go test -v -count=1 -tags="performance, performance-nightly" -timeout=5m ./test/performance || fail_test
 
 success
