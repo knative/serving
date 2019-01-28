@@ -47,7 +47,8 @@ func (r *request) wait() {
 }
 
 func TestBreakerOverload(t *testing.T) {
-	b := NewBreaker(1, 1, 1)          // Breaker capacity = 2
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params)           // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
 	locks := b.concurrentRequests(3)
@@ -58,7 +59,8 @@ func TestBreakerOverload(t *testing.T) {
 }
 
 func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
-	b := NewBreaker(1, 1, 0)          // Breaker capacity = 2
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
+	b := NewBreaker(params)           // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests are processed
 
 	b.sem.Release()
@@ -70,7 +72,8 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 }
 
 func TestBreakerNoOverload(t *testing.T) {
-	b := NewBreaker(1, 1, 1)               // Breaker capacity = 2
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params)                // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
 	locks := make([]request, 4)
 	locks[0] = b.concurrentRequest()
@@ -85,7 +88,8 @@ func TestBreakerNoOverload(t *testing.T) {
 }
 
 func TestBreakerRecover(t *testing.T) {
-	b := NewBreaker(1, 1, 1)                             // Breaker capacity = 2
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params)                              // Breaker capacity = 2
 	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
 	locks := b.concurrentRequests(4)
@@ -98,8 +102,9 @@ func TestBreakerRecover(t *testing.T) {
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
-	b := NewBreaker(5, 45, 45) // Breaker capacity = 50
-	want := make([]bool, 150)  // Process 150 requests
+	params := BreakerParams{QueueDepth: 5, MaxConcurrency: 45, InitialCapacity: 45}
+	b := NewBreaker(params)   // Breaker capacity = 50
+	want := make([]bool, 150) // Process 150 requests
 	for i := 0; i < 50; i++ {
 		want[i] = true // First 50 will fill the breaker capacity
 	}
@@ -122,6 +127,26 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	unlockAll(locks[50:])
 
 	assertEqual(want, accepted(locks), t)
+}
+
+func TestBreaker_UpdateConcurrency(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
+	b := NewBreaker(params)
+	b.UpdateConcurrency(int32(1))
+	assertEqual(int32(1), b.Capacity(), t)
+
+	b.UpdateConcurrency(int32(-1))
+	assertEqual(int32(0), b.Capacity(), t)
+
+	err := b.UpdateConcurrency(int32(-2))
+	assertEqual(err.Error(), reduceCapacityError, t)
+}
+
+func TestBreaker_UpdateConcurrencyOverlow(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
+	b := NewBreaker(params)
+	err := b.UpdateConcurrency(int32(2))
+	assertEqual(addCapacityError, err.Error(), t)
 }
 
 // Test empty semaphore, token cannot be acquired
@@ -180,8 +205,19 @@ func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
 	sem.Acquire()
 	sem.ReduceCapacity(2)
 	assertEqual(int32(2), sem.reducers, t)
-	sem.AddCapacity(3)
+	sem.Release()
+	sem.Release()
+	sem.Release()
 	assertEqual(int32(0), sem.reducers, t)
+}
+
+func TestSemaphore_AddCapacityOverflow(t *testing.T) {
+	error := addCapacityError
+	sem := NewSemaphore(2, 2)
+	sem.Acquire()
+	sem.Acquire()
+	response := sem.AddCapacity(3)
+	assertEqual(error, response.Error(), t)
 }
 
 func TestSemaphore_ReduceCapacity(t *testing.T) {
@@ -206,7 +242,7 @@ func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
 	sem := NewSemaphore(1, 1)
 	sem.Acquire()
 	err := sem.ReduceCapacity(2)
-	assertEqual(err, errors.New("the capacity that is released must be <= to added capacity"), t)
+	assertEqual(err, errors.New(reduceCapacityError), t)
 }
 
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {
