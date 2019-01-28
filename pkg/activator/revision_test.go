@@ -75,7 +75,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 
 	select {
 	case ar := <-ch:
-		want := Endpoint{testServiceFQDN, 8080}
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
 		if ar.Endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
@@ -137,7 +137,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady2Step(t *testing.T) {
 
 	select {
 	case ar := <-ch:
-		want := Endpoint{testServiceFQDN, 8080}
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
 		if ar.Endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
@@ -183,7 +183,7 @@ func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
 
 	select {
 	case ar := <-ch:
-		want := Endpoint{testServiceFQDN, 8080}
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
 		if ar.Endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
@@ -336,7 +336,7 @@ func newServiceBuilder() *serviceBuilder {
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
 					Name: revisionresources.ServicePortName,
-					Port: 8080,
+					Port: v1alpha1.DefaultUserPort,
 				}, {
 					Name: "anotherport",
 					Port: 9090,
