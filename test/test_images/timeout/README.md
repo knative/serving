@@ -9,6 +9,12 @@ When called, the server sleeps for the amount of milliseconds passed in via the
 query parameter `timeout` and responds with "Slept for X milliseconds` where X
 is the amount of milliseconds passed in.
 
+## Trying out
+
+To run the image as a Service outisde of the test suite:
+
+`ko apply -f service.yaml`
+
 ## Building
 
 For details about building and adding new images, see the
