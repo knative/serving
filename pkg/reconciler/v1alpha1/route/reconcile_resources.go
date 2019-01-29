@@ -41,6 +41,14 @@ import (
 )
 
 func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {
+	// First, look up the fixed name.
+	ciName := resourcenames.ClusterIngress(route)
+	ci, err := c.clusterIngressLister.Get(ciName)
+	if err == nil {
+		return ci, nil
+	}
+
+	// If that isn't found, then fallback on the legacy selector-based approach.
 	selector := labels.Set(map[string]string{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
@@ -50,7 +58,8 @@ func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alp
 		return nil, err
 	}
 	if len(ingresses) == 0 {
-		return nil, apierrs.NewNotFound(v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngressPrefix(route) /* prefix of GenerateName here */)
+		return nil, apierrs.NewNotFound(
+			v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngress(route))
 	}
 
 	if len(ingresses) > 1 {

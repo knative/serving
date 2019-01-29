@@ -31,8 +31,8 @@ func K8sServiceFullname(route *v1alpha1.Route) string {
 	return reconciler.GetK8sServiceFullname(K8sService(route), route.Namespace)
 }
 
-// ClusterIngressPrefix returns GenerateName prefix of the
-// ClusterIngress child resource for given Route.
-func ClusterIngressPrefix(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s-", route.Name)
+// ClusterIngress returns the name for the ClusterIngress
+// child resource for the given Route.
+func ClusterIngress(route *v1alpha1.Route) string {
+	return fmt.Sprintf("route-%s", route.UID)
 }

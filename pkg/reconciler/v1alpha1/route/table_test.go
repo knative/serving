@@ -101,14 +101,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			route("default", "becomes-ready", WithConfigTarget("config")),
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
+					WithRouteUID("12-34")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -125,6 +126,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
@@ -133,7 +135,7 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -142,14 +144,16 @@ func TestReconcile(t *testing.T) {
 		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
 			route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
-				WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+				route("default", "becomes-ready", WithConfigTarget("config"),
+					WithLocalDomain, WithRouteUID("65-23"),
 					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -167,6 +171,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithLocalDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
@@ -176,7 +181,7 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-65-23"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -968,7 +973,7 @@ func TestReconcile(t *testing.T) {
 				}, v1alpha1.TrafficTarget{
 					ConfigurationName: "green",
 					Percent:           50,
-				})),
+				}), WithRouteUID("34-78")),
 			cfg("default", "blue",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			cfg("default", "green",
@@ -985,7 +990,7 @@ func TestReconcile(t *testing.T) {
 					}, v1alpha1.TrafficTarget{
 						ConfigurationName: "green",
 						Percent:           50,
-					})),
+					}), WithRouteUID("34-78")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -1015,7 +1020,7 @@ func TestReconcile(t *testing.T) {
 				}, v1alpha1.TrafficTarget{
 					ConfigurationName: "green",
 					Percent:           50,
-				}),
+				}), WithRouteUID("34-78"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -1027,7 +1032,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-34-78"),
 		},
 		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
@@ -1043,7 +1048,7 @@ func TestReconcile(t *testing.T) {
 					Name:         "also-gray",
 					RevisionName: "gray-00001",
 					Percent:      50,
-				})),
+				}), WithRouteUID("1-2")),
 			cfg("default", "gray",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "gray", 1, MarkRevisionReady),
@@ -1059,7 +1064,7 @@ func TestReconcile(t *testing.T) {
 						Name:         "also-gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
-					})),
+					}), WithRouteUID("1-2")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -1100,7 +1105,7 @@ func TestReconcile(t *testing.T) {
 					Name:         "also-gray",
 					RevisionName: "gray-00001",
 					Percent:      50,
-				}),
+				}), WithRouteUID("1-2"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -1114,7 +1119,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 		},
 		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
@@ -1284,6 +1289,41 @@ func TestReconcile(t *testing.T) {
 			patchLastPinned("default", "config-00001"),
 		},
 		Key: "default/stale-lastpinned",
+	}, {
+		Name: "check that we can find the cluster ingress with old naming",
+		Objects: []runtime.Object{
+			route("default", "old-naming", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "old-naming"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			// Make sure that we can find the ingress by labels if the name is different.
+			changeIngressName(simpleReadyIngress(
+				route("default", "old-naming", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			)),
+			simpleK8sService(route("default", "old-naming", WithConfigTarget("config"))),
+		},
+		Key: "default/old-naming",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
@@ -1375,6 +1415,11 @@ func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1
 	ci := resources.MakeClusterIngress(r, tc)
 	ci.Status = status
 
+	return ci
+}
+
+func changeIngressName(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
+	ci.Name = "not-what-we-thought"
 	return ci
 }
 
