@@ -30,7 +30,7 @@ type MustEnvvars struct {
 	Port string `json:"PORT"`
 }
 
-// FilePathInfo data object returned by the environment test-image
+// FilePathInfo data object returned by the environment test-image.
 type FilePathInfo struct {
 	FilePath    string `json: "FilePath"`
 	IsDirectory bool   `json: "IsDirectory"`
@@ -47,4 +47,13 @@ var MustFilePathSpecs = map[string]FilePathInfo{
 		IsDirectory: true,
 		PermString:  "rw*rw*rw*", // * indicates no specification
 	},
+}
+
+// ShouldCgroupPathSpecs specifies the cgroups that SHOULD be exposed as per the run-time contract.
+var ShouldCgroupPathSpecs = map[string]FilePathInfo{
+	"/sys/fs/cgroup/memory/memory.limit_in_bytes": {},
+	"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        {},
+	"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         {},
+	// Not in runtime-contract, but should be exposed
+	"/sys/fs/cgroup/cpu/cpu.shares": {},
 }
