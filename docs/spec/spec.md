@@ -173,7 +173,7 @@ spec:
         ...
 
       # +optional. Influence scheduling by tolerating specific node "smells"
-      # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ 
+      # See: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
       tolerations:
       - key: ...
         operator: Equals | Exists
