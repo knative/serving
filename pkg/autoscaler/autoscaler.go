@@ -38,6 +38,8 @@ const (
 
 	// Activator pod weight is always 1
 	activatorPodWeight float64 = 1
+
+	approximateZero = 1e-8
 )
 
 // Stat defines a single measurement at a point in time
@@ -140,7 +142,7 @@ func (agg *totalAggregation) observedConcurrency(now time.Time) float64 {
 			accumulatedConcurrency += perPod.calculateAverage(now)
 		}
 	}
-	if accumulatedConcurrency == 0.0 {
+	if accumulatedConcurrency < approximateZero {
 		return activatorConcurrency
 	}
 	return accumulatedConcurrency
@@ -360,11 +362,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) float64 {
-	maxUpPodCount := a.Current().MaxScaleUpRate * currentPodCount
-	if desiredPodCount > maxUpPodCount {
-		return maxUpPodCount
-	}
-	return desiredPodCount
+	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
 func isActivator(podName string) bool {
@@ -373,7 +371,7 @@ func isActivator(podName string) bool {
 }
 
 func divide(a, b float64) float64 {
-	if b < 1e-8 && b > -1e-8 {
+	if math.Abs(b) < approximateZero {
 		return 0
 	}
 	return a / b
