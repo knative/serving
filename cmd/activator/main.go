@@ -156,11 +156,10 @@ func main() {
 	go statReporter(stopCh)
 
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
-	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
-		ReqChan:    reqChan,
-		StatChan:   statChan,
-		ReportChan: time.NewTicker(time.Second).C,
-	})
+
+	// Create and run our concurrency reporter
+	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
+	go cr.Run(stopCh)
 
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
