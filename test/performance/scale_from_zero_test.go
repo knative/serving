@@ -1,4 +1,4 @@
-// +build performanceNightly
+// +build performance
 
 /*
 Copyright 2018 The Knative Authors
@@ -171,5 +171,6 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
+	t.Skip()
 	testScaleFromZero(t, 50)
 }
