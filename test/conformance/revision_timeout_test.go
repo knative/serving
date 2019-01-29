@@ -189,7 +189,7 @@ func TestRevisionTimeout(t *testing.T) {
 		clients.KubeClient,
 		logger,
 		rev5sDomain,
-		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)
