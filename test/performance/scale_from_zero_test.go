@@ -1,4 +1,4 @@
-// +build performance
+// +build performanceNightly
 
 /*
 Copyright 2018 The Knative Authors
