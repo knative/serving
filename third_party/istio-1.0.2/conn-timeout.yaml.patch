@@ -1,0 +1,8 @@
+235a236,242
+>     # PATCH #3: Adding default connection timeout.
+>     # Mesh-wide TCP connection timeout between Envoy sidecar and Application.
+>     # If we do not specify the property - the value gets overwritten by mesh.connectTimeout's default (1s).
+>     # This config could be removed once https://github.com/istio/istio/issues/11319 is resolved
+>     connectTimeout: 10s
+>     # PATCH #3 ends.
+> 
