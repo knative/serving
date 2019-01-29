@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // BuildOption enables further configuration of a Build.
@@ -281,6 +282,13 @@ type RouteOption func(*v1alpha1.Route)
 func WithSpecTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
 	return func(r *v1alpha1.Route) {
 		r.Spec.Traffic = traffic
+	}
+}
+
+// WithRouteUID sets the Route's UID
+func WithRouteUID(uid types.UID) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.ObjectMeta.UID = uid
 	}
 }
 
