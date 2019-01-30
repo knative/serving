@@ -132,7 +132,7 @@ func MarkRouteNotOwned(service *v1alpha1.Service) {
 func WithPinnedRollout(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
-			Pinned: &v1alpha1.PinnedType{
+			DeprecatedPinned: &v1alpha1.PinnedType{
 				RevisionName:  name,
 				Configuration: configSpec,
 			},
@@ -199,7 +199,7 @@ func WithReadyRoute(s *v1alpha1.Service) {
 func WithSvcStatusDomain(s *v1alpha1.Service) {
 	n, ns := s.GetName(), s.GetNamespace()
 	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
-	s.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
+	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
@@ -332,7 +332,7 @@ func WithDomain(r *v1alpha1.Route) {
 
 // WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
 func WithDomainInternal(r *v1alpha1.Route) {
-	r.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+	r.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
@@ -436,7 +436,7 @@ func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
 // WithConfigConcurrencyModel sets the given Configuration's concurrency model.
 func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.RevisionTemplate.Spec.ConcurrencyModel = ss
+		cfg.Spec.RevisionTemplate.Spec.DeprecatedConcurrencyModel = ss
 	}
 }
 
@@ -528,7 +528,7 @@ func MarkResourceNotOwned(kind, name string) RevisionOption {
 // WithRevConcurrencyModel sets the concurrency model on the Revision.
 func WithRevConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.ConcurrencyModel = ss
+		rev.Spec.DeprecatedConcurrencyModel = ss
 	}
 }
 

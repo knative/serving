@@ -572,8 +572,8 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
-	if in.Pinned != nil {
-		in, out := &in.Pinned, &out.Pinned
+	if in.DeprecatedPinned != nil {
+		in, out := &in.DeprecatedPinned, &out.DeprecatedPinned
 		if *in == nil {
 			*out = nil
 		} else {

@@ -549,7 +549,7 @@ func TestRevisionBuildRefFromName(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar-build",
+			DeprecatedBuildName: "bar-build",
 		},
 	}
 	got := *r.BuildRef()
@@ -577,8 +577,8 @@ func TestRevisionBuildRef(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar",
-			BuildRef:  &buildRef,
+			DeprecatedBuildName: "bar",
+			BuildRef:            &buildRef,
 		},
 	}
 	got := *r.BuildRef()

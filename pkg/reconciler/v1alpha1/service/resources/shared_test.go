@@ -93,7 +93,7 @@ func createServiceWithRunLatest() *v1alpha1.Service {
 func createServiceWithPinned() *v1alpha1.Service {
 	s := createServiceMeta()
 	s.Spec = v1alpha1.ServiceSpec{
-		Pinned: &v1alpha1.PinnedType{
+		DeprecatedPinned: &v1alpha1.PinnedType{
 			RevisionName:  testRevisionName,
 			Configuration: createConfiguration(testContainerNamePinned),
 		},
