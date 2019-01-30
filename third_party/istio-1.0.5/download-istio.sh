@@ -1,5 +1,5 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.0.2
+ISTIO_VERSION=1.0.5
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
