@@ -61,6 +61,13 @@ func TestReconcile(t *testing.T) {
 		Name: "key not found",
 		Key:  "foo/not-found",
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			cfg("foo", "delete-pending", 1234, WithConfigDeletionTimestamp),
+		},
+		Key: "foo/delete-pending",
+	}, {
 		Name: "create revision matching generation",
 		Objects: []runtime.Object{
 			cfg("no-revisions-yet", "foo", 1234),

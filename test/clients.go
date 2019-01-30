@@ -131,6 +131,11 @@ func (clients *ServingClients) Delete(routes []string, configs []string, service
 		{clients.Services, services},
 	}
 
+	propPolicy := v1.DeletePropagationForeground
+	dopt := &v1.DeleteOptions{
+		PropagationPolicy: &propPolicy,
+	}
+
 	for _, deletion := range deletions {
 		if deletion.client == nil {
 			continue
@@ -141,7 +146,7 @@ func (clients *ServingClients) Delete(routes []string, configs []string, service
 				continue
 			}
 
-			if err := deletion.client.Delete(item, nil); err != nil {
+			if err := deletion.client.Delete(item, dopt); err != nil {
 				return err
 			}
 		}

@@ -97,6 +97,12 @@ var (
 	}
 )
 
+// WithServiceDeletionTimestamp will set the DeletionTimestamp on the Service.
+func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
 // WithRunLatestRollout configures the Service to use a "runLatest" rollout.
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
@@ -422,6 +428,12 @@ func WithRouteLabel(key, value string) RouteOption {
 // ConfigOption enables further configuration of a Configuration.
 type ConfigOption func(*v1alpha1.Configuration)
 
+// WithConfigDeletionTimestamp will set the DeletionTimestamp on the Config.
+func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
 // WithBuild adds a Build to the provided Configuration.
 func WithBuild(cfg *v1alpha1.Configuration) {
 	cfg.Spec.Build = &v1alpha1.RawExtension{
@@ -516,6 +528,12 @@ func WithConfigLabel(key, value string) ConfigOption {
 
 // RevisionOption enables further configuration of a Revision.
 type RevisionOption func(*v1alpha1.Revision)
+
+// WithRevisionDeletionTimestamp will set the DeletionTimestamp on the Revision.
+func WithRevisionDeletionTimestamp(r *v1alpha1.Revision) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
 
 // WithInitRevConditions calls .Status.InitializeConditions() on a Revision.
 func WithInitRevConditions(r *v1alpha1.Revision) {
@@ -720,6 +738,12 @@ func WithNoTraffic(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkInactive(reason, message)
 	}
+}
+
+// WithPADeletionTimestamp will set the DeletionTimestamp on the PodAutoscaler.
+func WithPADeletionTimestamp(r *autoscalingv1alpha1.PodAutoscaler) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
 // WithHPAClass updates the PA to add the hpa class annotation.
