@@ -88,7 +88,7 @@ func TestEnforceMaxContentLengthHandler(t *testing.T) {
 				if r.Body != nil {
 					body, err := ioutil.ReadAll(r.Body)
 					if err != nil {
-						t.Fatalf("Error request reading body")
+						t.Fatalf("Error reading request body: %v", err)
 					}
 					w.Write(body)
 				}
@@ -102,7 +102,7 @@ func TestEnforceMaxContentLengthHandler(t *testing.T) {
 
 			gotBody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Fatalf("Error request reading body")
+				t.Fatalf("Error reading response body: %v", err)
 			}
 
 			if e.response != string(gotBody) {
