@@ -50,7 +50,7 @@ func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error 
 			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
 		}
 		names.Revision = s.Status.LatestCreatedRevisionName
-		if s.Status.DomainInternal == "" {
+		if s.Status.DeprecatedDomainInternal == "" {
 			return false, fmt.Errorf("domainInternal is not present in Service status: %v", s)
 		}
 		if s.Status.LatestReadyRevisionName == "" {
@@ -165,8 +165,8 @@ func PatchServiceImage(logger *logging.BaseLogger, clients *Clients, svc *v1alph
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else if svc.Spec.Release != nil {
 		newSvc.Spec.Release.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
-	} else if svc.Spec.Pinned != nil {
-		newSvc.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+	} else if svc.Spec.DeprecatedPinned != nil {
+		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
@@ -195,8 +195,8 @@ func PatchServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *C
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
 	} else if svc.Spec.Release != nil {
 		newSvc.Spec.Release.Configuration.RevisionTemplate.ObjectMeta = metadata
-	} else if svc.Spec.Pinned != nil {
-		newSvc.Spec.Pinned.Configuration.RevisionTemplate.ObjectMeta = metadata
+	} else if svc.Spec.DeprecatedPinned != nil {
+		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.ObjectMeta = metadata
 	} else {
 		return nil, fmt.Errorf("UpdateServiceRevisionTemplateMetadata(%v): unable to determine service type", svc)
 	}

@@ -173,12 +173,12 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
+	// DeprecatedConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
 	// Revision. Defaults to Multi.
 	// Deprecated in favor of ContainerConcurrency.
 	// +optional
-	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
@@ -198,11 +198,11 @@ type RevisionSpec struct {
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// BuildName optionally holds the name of the Build responsible for
+	// DeprecatedBuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
 	// DEPRECATED: Use BuildRef instead.
 	// +optional
-	BuildName string `json:"buildName,omitempty"`
+	DeprecatedBuildName string `json:"buildName,omitempty"`
 
 	// BuildRef holds the reference to the build (if there is one) responsible
 	// for producing the container image for this Revision. Otherwise, nil
@@ -304,12 +304,12 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 		return buildRef
 	}
 
-	if r.Spec.BuildName != "" {
+	if r.Spec.DeprecatedBuildName != "" {
 		return &corev1.ObjectReference{
 			APIVersion: "build.knative.dev/v1alpha1",
 			Kind:       "Build",
 			Namespace:  r.Namespace,
-			Name:       r.Spec.BuildName,
+			Name:       r.Spec.DeprecatedBuildName,
 		}
 	}
 

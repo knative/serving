@@ -65,15 +65,15 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "fall back to concurrency model",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel:     "Single",
-				ContainerConcurrency: 0, // unspecified
+				DeprecatedConcurrencyModel: "Single",
+				ContainerConcurrency:       0, // unspecified
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel:     "Single",
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       defaultTimeoutSeconds,
+				DeprecatedConcurrencyModel: "Single",
+				ContainerConcurrency:       1,
+				TimeoutSeconds:             defaultTimeoutSeconds,
 			},
 		},
 	}}
