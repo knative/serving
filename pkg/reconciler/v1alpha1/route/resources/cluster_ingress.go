@@ -147,7 +147,7 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic
 		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 			ServiceNamespace: system.Namespace(),
 			ServiceName:      activator.K8sServiceName,
-			ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
+			ServicePort:      intstr.FromInt(int(activator.ServicePort(maxInactiveTarget.Protocol))),
 		},
 		Percent: totalInactivePercent,
 	})

@@ -189,6 +189,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		proxy.ServeHTTP(w, r)
 	}
+
 }
 
 // Sets up /health and /quitquitquit endpoints.
