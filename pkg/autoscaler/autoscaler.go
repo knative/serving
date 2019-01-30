@@ -210,7 +210,7 @@ type Autoscaler struct {
 	target          float64
 	stats           map[statKey]Stat
 	statsMutex      sync.Mutex
-	readyPods       map[time.Time]int
+	readyPods       map[time.Time]float64
 	readyPodsMutex  sync.RWMutex
 	panicking       bool
 	panicTime       *time.Time
@@ -234,7 +234,7 @@ func New(
 		endpointsLister: endpointsInformer.Lister(),
 		target:          target,
 		stats:           make(map[statKey]Stat),
-		readyPods:       make(map[time.Time]int),
+		readyPods:       make(map[time.Time]float64),
 		reporter:        reporter,
 	}
 }
@@ -254,6 +254,14 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		logger.Errorf("Missing time from stat: %+v", stat)
 		return
 	}
+
+	// Set ready pods count at the second of stat timestamp to cache.
+	if _, err := a.getReadyPods(*stat.Time); err != nil {
+		logger := logging.FromContext(ctx)
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return
+	}
+
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -311,7 +319,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedStablePods := stableData.observedPods(now)
 	// Do nothing when we have no data.
 	if observedStablePods < 1.0 {
-		logger.Info("No data to scale on.")
+		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
@@ -331,16 +339,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
 
 	readyPods, err := a.getReadyPods(now)
-	logger.Infof("readyPods=%v", readyPods)
 	if err != nil {
-		logger.Errorw("Failed to get Endpoints via Informer", zap.Error(err))
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
 	}
-	float64ReadyPods := float64(readyPods)
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, float64ReadyPods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/a.target, float64ReadyPods)
+	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, readyPods)
+	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/a.target, readyPods)
 
 	a.reporter.ReportObservedPodCount(observedStablePods)
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrencyPerPod)
@@ -393,16 +399,28 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
-func (a *Autoscaler) getReadyPods(now time.Time) (int, error) {
-	a.readyPodsMutex.RLock()
-	defer a.readyPodsMutex.RUnlock()
-
-	timeKey := now.Round(time.Second)
-	if v, ok := a.readyPods[timeKey]; ok {
+func (a *Autoscaler) getReadyPods(now time.Time) (float64, error) {
+	if v, ok := a.getReadyPodsFromCache(now); ok {
 		return v, nil
 	}
 
-	readyPods := 0
+	if v, err := a.getReadyPodsFromLister(now); err != nil {
+		return 0, err
+	} else {
+		return v, nil
+	}
+}
+
+func (a *Autoscaler) getReadyPodsFromCache(now time.Time) (float64, bool) {
+	a.readyPodsMutex.RLock()
+	defer a.readyPodsMutex.RUnlock()
+
+	v, ok := a.readyPods[now.Round(time.Second)]
+	return v, ok
+}
+
+func (a *Autoscaler) getReadyPodsFromLister(now time.Time) (float64, error) {
+	readyPods := 1
 	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
 	if errors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
@@ -419,9 +437,23 @@ func (a *Autoscaler) getReadyPods(now time.Time) (int, error) {
 
 	a.readyPodsMutex.Lock()
 	defer a.readyPodsMutex.Unlock()
-	a.readyPods[timeKey] = readyPods
 
-	return readyPods, nil
+	float64ReadyPods := float64(readyPods)
+	a.readyPods[now.Round(time.Second)] = float64ReadyPods
+
+	return float64ReadyPods, nil
+}
+
+func (a *Autoscaler) cleanReadyPodsCache(now time.Time) {
+	a.readyPodsMutex.Lock()
+	defer a.readyPodsMutex.Unlock()
+
+	for key := range a.readyPods {
+		if key.Add(a.Current().StableWindow).Before(now) {
+			// Drop ready pods count after StableWindow
+			delete(a.readyPods, key)
+		}
+	}
 }
 
 func isActivator(podName string) bool {
