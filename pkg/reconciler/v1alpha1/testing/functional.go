@@ -292,6 +292,22 @@ func WithRouteUID(uid types.UID) RouteOption {
 	}
 }
 
+// WithRouteDeletionTimestamp will set the DeletionTimestamp on the Route.
+func WithRouteDeletionTimestamp(r *v1alpha1.Route) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
+// WithRouteFinalizer adds the Route finalizer to the Route.
+func WithRouteFinalizer(r *v1alpha1.Route) {
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "routes.serving.knative.dev")
+}
+
+// WithAnotherRouteFinalizer adds a non-Route finalizer to the Route.
+func WithAnotherRouteFinalizer(r *v1alpha1.Route) {
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "another.serving.knative.dev")
+}
+
 // WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
 func WithConfigTarget(config string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
