@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -25,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -50,6 +53,15 @@ import (
 
 const (
 	controllerAgentName = "route-controller"
+)
+
+// routeFinalizer is the name that we put into the resource finalizer list, e.g.
+//  metadata:
+//    finalizers:
+//    - routes.serving.knative.dev
+var (
+	routeResource  = v1alpha1.Resource("routes")
+	routeFinalizer = routeResource.String()
 )
 
 type configStore interface {
@@ -132,13 +144,10 @@ func NewControllerWithClock(
 		},
 	})
 
-	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
-		},
+	clusterIngressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
+		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
@@ -214,6 +223,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 
+	if r.GetDeletionTimestamp() != nil {
+		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
+		return c.reconcileDeletion(ctx, r)
+	}
+
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
@@ -239,9 +253,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable.
 	r.Status.Domain = routeDomain(ctx, r)
-	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
+	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Hostname: resourcenames.K8sServiceFullname(r),
+	}
+
+	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
+	if err := c.ensureFinalizer(r); err != nil {
+		return err
 	}
 
 	logger.Info("Creating ClusterIngress.")
@@ -258,6 +277,28 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	logger.Info("Route successfully synced")
 	return nil
+}
+
+func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
+	logger := logging.FromContext(ctx)
+
+	// If our Finalizer is first, delete the ClusterIngress for this Route
+	// and remove the finalizer.
+	if len(r.Finalizers) == 0 || r.Finalizers[0] != routeFinalizer {
+		return nil
+	}
+
+	// Delete the ClusterIngress resources for this Route.
+	logger.Info("Cleaning up ClusterIngress")
+	if err := c.deleteClusterIngressesForRoute(r); err != nil {
+		return err
+	}
+
+	// Update the Route to remove the Finalizer.
+	logger.Info("Removing Finalizer")
+	r.Finalizers = r.Finalizers[1:]
+	_, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r)
+	return err
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
@@ -309,6 +350,29 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
+}
+
+func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
+	finalizers := sets.NewString(route.Finalizers...)
+	if finalizers.Has(routeFinalizer) {
+		return nil
+	}
+	finalizers.Insert(routeFinalizer)
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      finalizers.List(),
+			"resourceVersion": route.ResourceVersion,
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Patch(route.Name, types.MergePatchType, patch)
+	return err
 }
 
 /////////////////////////////////////////

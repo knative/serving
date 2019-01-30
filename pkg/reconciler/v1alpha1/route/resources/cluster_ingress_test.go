@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,11 +33,12 @@ import (
 )
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{}
+	targets := map[string]traffic.RevisionTargets{}
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
+			UID:       "1234-5678",
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
 			},
@@ -46,16 +46,13 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
 	expected := metav1.ObjectMeta{
-		GenerateName: "test-route-",
+		Name: "route-1234-5678",
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: "test-ns",
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
-		},
-		OwnerReferences: []metav1.OwnerReference{
-			*kmeta.NewControllerRef(r),
 		},
 	}
 	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}).ObjectMeta
@@ -65,7 +62,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 }
 
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{
+	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",

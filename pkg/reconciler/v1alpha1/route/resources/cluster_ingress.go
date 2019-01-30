@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -48,20 +47,19 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
 			// here we use GenerateName to avoid conflict.
-			GenerateName: names.ClusterIngressPrefix(r),
+			Name: names.ClusterIngress(r),
 			Labels: map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-			Annotations:     r.ObjectMeta.Annotations,
+			Annotations: r.ObjectMeta.Annotations,
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
 	return ci
 }
 
-func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha1.IngressSpec {
+func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic.RevisionTargets) v1alpha1.IngressSpec {
 	// Domain should have been specified in route status
 	// before calling this func.
 	names := make([]string, 0, len(targets))
@@ -70,6 +68,7 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string][]traff
 	}
 	// Sort the names to give things a deterministic ordering.
 	sort.Strings(names)
+
 	// The routes are matching rule based on domain name to traffic split targets.
 	rules := make([]v1alpha1.ClusterIngressRule, 0, len(names))
 	for _, name := range names {
@@ -102,28 +101,11 @@ func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 
 	return []string{fmt.Sprintf("%s.%s", targetName, r.Status.Domain)}
 }
-
-// groupTargets group given targets into active ones and inactive ones.
-func groupTargets(targets []traffic.RevisionTarget) (active []traffic.RevisionTarget, inactive []traffic.RevisionTarget) {
-	for _, t := range targets {
-		if t.Active {
-			active = append(active, t)
-		} else {
-			inactive = append(inactive, t)
-		}
-	}
-	return active, inactive
-}
-
-func makeClusterIngressRule(domains []string, ns string, targets []traffic.RevisionTarget) *v1alpha1.ClusterIngressRule {
-	active, inactive := groupTargets(targets)
+func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {
+	active, inactive := targets.GroupTargets()
 	// Optimistically allocate |active| elements.
 	splits := make([]v1alpha1.ClusterIngressBackendSplit, 0, len(active))
 	for _, t := range active {
-		if t.Percent == 0 {
-			// Don't include 0% routes.
-			continue
-		}
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: ns,
@@ -149,7 +131,7 @@ func makeClusterIngressRule(domains []string, ns string, targets []traffic.Revis
 }
 
 // addInactive constructs Splits for the inactive targets, and add into given IngressPath.
-func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traffic.RevisionTarget) *v1alpha1.HTTPClusterIngressPath {
+func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic.RevisionTargets) *v1alpha1.HTTPClusterIngressPath {
 	if len(inactive) == 0 {
 		return r
 	}
@@ -160,10 +142,6 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive []traff
 		if t.Percent >= maxInactiveTarget.Percent {
 			maxInactiveTarget = &inactive[i]
 		}
-	}
-	if totalInactivePercent == 0 {
-		// There is actually no inactive Revisions.
-		return r
 	}
 	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
 		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{

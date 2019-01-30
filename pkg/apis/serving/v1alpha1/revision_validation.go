@@ -49,9 +49,9 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	errs := validateContainer(rs.Container).ViaField("container").
 		Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
-	if err := rs.ConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
+	if err := rs.DeprecatedConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
-	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.DeprecatedConcurrencyModel); err != nil {
 		errs = errs.Also(err)
 	}
 

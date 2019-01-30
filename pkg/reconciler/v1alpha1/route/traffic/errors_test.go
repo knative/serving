@@ -34,7 +34,7 @@ func TestIsFailure_Missing(t *testing.T) {
 
 func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	err := errMissingRevision("missing-rev")
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []duckv1alpha1.ConditionType{
@@ -48,7 +48,7 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 			Reason:             "RevisionMissing",
 			Message:            `Revision "missing-rev" referenced in traffic not found.`,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
@@ -66,7 +66,7 @@ func TestIsFailure_NotYetReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []duckv1alpha1.ConditionType{
@@ -80,7 +80,7 @@ func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 			Reason:             "RevisionMissing",
 			Message:            `Configuration "unready-config" is waiting for a Revision to become ready.`,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
@@ -98,7 +98,7 @@ func TestIsFailure_ConfigFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 	err := errUnreadyConfiguration(failedConfig)
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []duckv1alpha1.ConditionType{
@@ -112,7 +112,7 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 			Reason:             "RevisionMissing",
 			Message:            `Configuration "failed-config" does not have any ready Revision.`,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
@@ -122,7 +122,7 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 	err := errUnreadyRevision(failedRev)
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []duckv1alpha1.ConditionType{
@@ -136,7 +136,7 @@ func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 			Reason:             "RevisionMissing",
 			Message:            `Revision "failed-revision" failed to become ready.`,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
@@ -154,7 +154,7 @@ func TestIsFailure_RevFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 	err := errUnreadyRevision(unreadyRev)
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []duckv1alpha1.ConditionType{
@@ -168,7 +168,7 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 			Reason:             "RevisionMissing",
 			Message:            `Revision "unready-revision" is not yet ready.`,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)

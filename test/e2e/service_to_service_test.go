@@ -117,7 +117,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
-		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound),
+		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"HttpProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)

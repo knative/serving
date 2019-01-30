@@ -85,11 +85,9 @@ type ServiceSpec struct {
 	// +optional
 	RunLatest *RunLatestType `json:"runLatest,omitempty"`
 
-	// Pins this service to a specific revision name. The revision must
-	// be owned by the configuration provided.
-	// PinnedType is DEPRECATED in favor of ReleaseType
+	// DeprecatedPinned is DEPRECATED in favor of ReleaseType
 	// +optional
-	Pinned *PinnedType `json:"pinned,omitempty"`
+	DeprecatedPinned *PinnedType `json:"pinned,omitempty"`
 
 	// Manual mode enables users to start managing the underlying Route and Configuration
 	// resources directly.  This advanced usage is intended as a path for users to graduate
@@ -178,12 +176,12 @@ type ServiceStatus struct {
 	Domain string `json:"domain,omitempty"`
 
 	// From RouteStatus.
-	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
 	// {route-name}.{route-namespace}.svc.cluster.local
 	// DEPRECATED: Use Address instead.
 	// +optional
-	DomainInternal string `json:"domainInternal,omitempty"`
+	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`
 
 	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
@@ -294,7 +292,7 @@ func (ss *ServiceStatus) MarkRouteNotYetReady() {
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.Domain = rs.Domain
-	ss.DomainInternal = rs.DomainInternal
+	ss.DeprecatedDomainInternal = rs.DeprecatedDomainInternal
 	ss.Address = rs.Address
 	ss.Traffic = rs.Traffic
 
@@ -329,7 +327,7 @@ func (ss *ServiceStatus) SetManualStatus() {
 
 	newStatus.Address = ss.Address
 	newStatus.Domain = ss.Domain
-	newStatus.DomainInternal = ss.DomainInternal
+	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
 
 	*ss = *newStatus
 }

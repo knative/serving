@@ -106,8 +106,8 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-			TimeoutSeconds:   60,
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+			TimeoutSeconds:             60,
 		},
 	}
 }

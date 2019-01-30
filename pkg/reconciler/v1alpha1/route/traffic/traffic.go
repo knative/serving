@@ -33,6 +33,28 @@ type RevisionTarget struct {
 	Active bool
 }
 
+// RevisionTargets is a collection of revision targets.
+type RevisionTargets []RevisionTarget
+
+// GroupTargets partitions the targets by active and inactive sets.
+// GroupTargets ignores the targets with 0 percent.
+func (rt RevisionTargets) GroupTargets() (active RevisionTargets, passive RevisionTargets) {
+	// Presume all are active, optimistically
+	active = make(RevisionTargets, 0, len(rt))
+	passive = make(RevisionTargets, 0)
+	for _, t := range rt {
+		if t.Percent == 0 {
+			continue
+		}
+		if t.Active {
+			active = append(active, t)
+		} else {
+			passive = append(passive, t)
+		}
+	}
+	return
+}
+
 // Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
 type Config struct {
@@ -40,11 +62,11 @@ type Config struct {
 	// under the key `DefaultTarget`, and named target are under the respective
 	// name.  This is used to configure network configuration to
 	// realize a route's setting.
-	Targets map[string][]RevisionTarget
+	Targets map[string]RevisionTargets
 
 	// A list traffic targets, flattened to the Revision level.  This
 	// is used to populate the Route.Status.TrafficTarget field.
-	revisionTargets []RevisionTarget
+	revisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1alpha1.Configuration
@@ -58,13 +80,8 @@ type Config struct {
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	u *v1alpha1.Route) (*Config, error) {
-	builder := newBuilder(configLister, revLister, u.Namespace)
-	for _, tt := range u.Spec.Traffic {
-		if err := builder.addTrafficTarget(&tt); err != nil {
-			// Other non-traffic target errors shouldn't be ignored.
-			return nil, err
-		}
-	}
+	builder := newBuilder(configLister, revLister, u.Namespace, len(u.Spec.Traffic))
+	builder.applySpecTraffic(u.Spec.Traffic)
 	return builder.build()
 }
 
@@ -72,6 +89,8 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
+		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
+		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 	}
 	return results
@@ -83,10 +102,10 @@ type configBuilder struct {
 	namespace    string
 
 	// targets is a grouping of traffic targets serving the same origin.
-	targets map[string][]RevisionTarget
+	targets map[string]RevisionTargets
 
 	// revisionTargets is the original list of targets, at the Revision level.
-	revisionTargets []RevisionTarget
+	revisionTargets RevisionTargets
 
 	// configurations contains all the referred Configuration, keyed by their name.
 	configurations map[string]*v1alpha1.Configuration
@@ -97,16 +116,29 @@ type configBuilder struct {
 	deferredTargetErr TargetError
 }
 
-func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *configBuilder {
+func newBuilder(
+	configLister listers.ConfigurationLister, revLister listers.RevisionLister,
+	namespace string, trafficSize int) *configBuilder {
 	return &configBuilder{
-		configLister: configLister,
-		revLister:    revLister,
-		namespace:    namespace,
-		targets:      make(map[string][]RevisionTarget),
+		configLister:    configLister,
+		revLister:       revLister,
+		namespace:       namespace,
+		targets:         make(map[string]RevisionTargets),
+		revisionTargets: make(RevisionTargets, 0, trafficSize),
 
 		configurations: make(map[string]*v1alpha1.Configuration),
 		revisions:      make(map[string]*v1alpha1.Revision),
 	}
+}
+
+func (t *configBuilder) applySpecTraffic(traffic []v1alpha1.TrafficTarget) error {
+	for _, tt := range traffic {
+		if err := t.addTrafficTarget(&tt); err != nil {
+			// Other non-traffic target errors shouldn't be ignored.
+			return err
+		}
+	}
+	return nil
 }
 
 func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
@@ -214,7 +246,7 @@ func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	}
 }
 
-func consolidate(targets []RevisionTarget) []RevisionTarget {
+func consolidate(targets RevisionTargets) RevisionTargets {
 	byName := make(map[string]RevisionTarget)
 	names := []string{}
 	for _, tt := range targets {
@@ -238,8 +270,8 @@ func consolidate(targets []RevisionTarget) []RevisionTarget {
 	return consolidated
 }
 
-func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTarget {
-	consolidated := make(map[string][]RevisionTarget)
+func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTargets {
+	consolidated := make(map[string]RevisionTargets)
 	for name, tts := range targets {
 		consolidated[name] = consolidate(tts)
 	}

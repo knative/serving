@@ -23,10 +23,11 @@ import (
 )
 
 type Actions struct {
-	Creates []clientgotesting.CreateAction
-	Updates []clientgotesting.UpdateAction
-	Deletes []clientgotesting.DeleteAction
-	Patches []clientgotesting.PatchAction
+	Creates           []clientgotesting.CreateAction
+	Updates           []clientgotesting.UpdateAction
+	Deletes           []clientgotesting.DeleteAction
+	DeleteCollections []clientgotesting.DeleteCollectionAction
+	Patches           []clientgotesting.PatchAction
 }
 
 type ActionRecorder interface {
@@ -50,6 +51,9 @@ func (l ActionRecorderList) ActionsByVerb() (Actions, error) {
 			case "delete":
 				a.Deletes = append(a.Deletes,
 					action.(clientgotesting.DeleteAction))
+			case "delete-collection":
+				a.DeleteCollections = append(a.DeleteCollections,
+					action.(clientgotesting.DeleteCollectionAction))
 			case "patch":
 				a.Patches = append(a.Patches,
 					action.(clientgotesting.PatchAction))

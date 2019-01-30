@@ -41,16 +41,22 @@ import (
 )
 
 func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {
-	selector := labels.Set(map[string]string{
-		serving.RouteLabelKey:          route.Name,
-		serving.RouteNamespaceLabelKey: route.Namespace,
-	}).AsSelector()
+	// First, look up the fixed name.
+	ciName := resourcenames.ClusterIngress(route)
+	ci, err := c.clusterIngressLister.Get(ciName)
+	if err == nil {
+		return ci, nil
+	}
+
+	// If that isn't found, then fallback on the legacy selector-based approach.
+	selector := routeOwnerLabelSelector(route)
 	ingresses, err := c.clusterIngressLister.List(selector)
 	if err != nil {
 		return nil, err
 	}
 	if len(ingresses) == 0 {
-		return nil, apierrs.NewNotFound(v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngressPrefix(route) /* prefix of GenerateName here */)
+		return nil, apierrs.NewNotFound(
+			v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngress(route))
 	}
 
 	if len(ingresses) > 1 {
@@ -59,6 +65,22 @@ func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alp
 	}
 
 	return ingresses[0], nil
+}
+
+func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
+	return labels.Set(map[string]string{
+		serving.RouteLabelKey:          route.Name,
+		serving.RouteNamespaceLabelKey: route.Namespace,
+	}).AsSelector()
+}
+
+func (c *Reconciler) deleteClusterIngressesForRoute(route *v1alpha1.Route) error {
+	selector := routeOwnerLabelSelector(route).String()
+
+	// We always use DeleteCollection because even with a fixed name, we apply the labels.
+	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
+		nil, metav1.ListOptions{LabelSelector: selector},
+	)
 }
 
 func (c *Reconciler) reconcileClusterIngress(
@@ -184,12 +206,12 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				newRev := rev.DeepCopy()
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
-					// Missing is an expected error case for a not yet pinned revision
+					// Missing is an expected error case for a not yet pinned revision.
 					if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
 						return err
 					}
 				} else {
-					// Enforce a delay before performing an update on lastPinned to avoid excess churn
+					// Enforce a delay before performing an update on lastPinned to avoid excess churn.
 					if lastPin.Add(lpDebounce).After(c.clock.Now()) {
 						return nil
 					}

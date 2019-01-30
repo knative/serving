@@ -1,5 +1,3 @@
-// +build performance
-
 /*
 Copyright 2018 The Knative Authors
 

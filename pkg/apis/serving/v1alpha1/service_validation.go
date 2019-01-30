@@ -52,9 +52,9 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 		set = append(set, "manual")
 		errs = errs.Also(ss.Manual.Validate().ViaField("manual"))
 	}
-	if ss.Pinned != nil {
+	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
-		errs = errs.Also(ss.Pinned.Validate().ViaField("pinned"))
+		errs = errs.Also(ss.DeprecatedPinned.Validate().ViaField("pinned"))
 	}
 
 	if len(set) > 1 {

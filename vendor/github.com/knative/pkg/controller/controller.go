@@ -200,7 +200,7 @@ func (c *Impl) EnqueueLabelOfClusterScopedResource(nameLabel string) func(obj in
 
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key string) {
-	c.WorkQueue.AddRateLimited(key)
+	c.WorkQueue.Add(key)
 }
 
 // Run starts the controller's worker threads, the number of which is threadiness.
