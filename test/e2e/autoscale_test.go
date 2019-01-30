@@ -320,7 +320,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 		ctx.t.Fatalf("Error during scale up: %v", err)
 	}
 
-	if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+	if err := assertNumberOfPods(ctx, numPods, maxPods); err != nil {
 		errChan <- err
 	}
 
