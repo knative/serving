@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
@@ -305,16 +304,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 
-	// Check owner refs
-	expectedRefs := []metav1.OwnerReference{{
-		APIVersion: "serving.knative.dev/v1alpha1",
-		Kind:       "Route",
-		Name:       route.Name,
-	}}
-
-	if diff := cmp.Diff(expectedRefs, ci.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
-		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
-	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,

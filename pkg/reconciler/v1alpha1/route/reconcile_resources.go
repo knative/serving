@@ -49,10 +49,7 @@ func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alp
 	}
 
 	// If that isn't found, then fallback on the legacy selector-based approach.
-	selector := labels.Set(map[string]string{
-		serving.RouteLabelKey:          route.Name,
-		serving.RouteNamespaceLabelKey: route.Namespace,
-	}).AsSelector()
+	selector := routeOwnerLabelSelector(route)
 	ingresses, err := c.clusterIngressLister.List(selector)
 	if err != nil {
 		return nil, err
@@ -68,6 +65,22 @@ func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alp
 	}
 
 	return ingresses[0], nil
+}
+
+func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
+	return labels.Set(map[string]string{
+		serving.RouteLabelKey:          route.Name,
+		serving.RouteNamespaceLabelKey: route.Namespace,
+	}).AsSelector()
+}
+
+func (c *Reconciler) deleteClusterIngressesForRoute(route *v1alpha1.Route) error {
+	selector := routeOwnerLabelSelector(route).String()
+
+	// We always use DeleteCollection because even with a fixed name, we apply the labels.
+	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
+		nil, metav1.ListOptions{LabelSelector: selector},
+	)
 }
 
 func (c *Reconciler) reconcileClusterIngress(

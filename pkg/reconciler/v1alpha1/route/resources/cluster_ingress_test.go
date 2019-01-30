@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -54,9 +53,6 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
-		},
-		OwnerReferences: []metav1.OwnerReference{
-			*kmeta.NewControllerRef(r),
 		},
 	}
 	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}).ObjectMeta

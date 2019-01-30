@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -53,8 +52,7 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-			Annotations:     r.ObjectMeta.Annotations,
+			Annotations: r.ObjectMeta.Annotations,
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
