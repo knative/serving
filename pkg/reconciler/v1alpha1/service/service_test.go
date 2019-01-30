@@ -45,6 +45,13 @@ func TestReconcile(t *testing.T) {
 		Name: "key not found",
 		Key:  "foo/not-found",
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			svc("delete-pending", "foo", WithServiceDeletionTimestamp),
+		},
+		Key: "foo/delete-pending",
+	}, {
 		Name: "incomplete service",
 		Objects: []runtime.Object{
 			// There is no spec.{runLatest,pinned} in this Service to

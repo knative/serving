@@ -174,6 +174,9 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 
 func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
+	if ci.GetDeletionTimestamp() != nil {
+		return nil
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
