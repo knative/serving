@@ -27,7 +27,7 @@ Knative Serving provides concurrency controls to limit the number of requests a 
 
 This is desireable to protect the Pod from being overloaded. But in the aggregate the behavior is not ideal for situations when autoscaling needs some time to react to sudden increases in request load (e.g. scale-from-zero).
 
-	The goal of Overload Handling is to enqueue requests at a revision-level. Scale-from-zero should not overload if autoscaling can react in a reasonable amount of time to provide additional pods. When new pods come online, they should be able to take load for the existing pods. Even when scaled above zero, brief spikes of overload should be handled by enqueuing requests at a revision-level. The depth of the revision-level queue should also be configurable because even the Revision as a whole needs to guard against overload.
+The goal of Overload Handling is to enqueue requests at a revision-level. Scale-from-zero should not overload if autoscaling can react in a reasonable amount of time to provide additional pods. When new pods come online, they should be able to take load for the existing pods. Even when scaled above zero, brief spikes of overload should be handled by enqueuing requests at a revision-level. The depth of the revision-level queue should also be configurable because even the Revision as a whole needs to guard against overload.
 
 The overall problem touches on both Networking and Autoscaling, two different working groups. Much of the overload handling will be implemented in the Activator, which is a part of ingress. So this project is shared jointly between the two working groups.
 
