@@ -156,6 +156,8 @@ func (s *Semaphore) Release() {
 // An error is returned if not all capacity could be added to the semaphore.
 // This error could happen when the number of tokens exceeds the semaphore's queue size.
 func (s *Semaphore) AddCapacity(size int32) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	if size > 0 {
 		for i := int32(0); i < size; i++ {
 			select {
