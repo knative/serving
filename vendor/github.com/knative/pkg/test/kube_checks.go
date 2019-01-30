@@ -75,9 +75,9 @@ func WaitForPodListState(client *KubeClient, inState func(p *corev1.PodList) (bo
 	})
 }
 
-// GetConfigMap gets the knative serving config map.
-func GetConfigMap(client *KubeClient) k8styped.ConfigMapInterface {
-	return client.Kube.CoreV1().ConfigMaps("knative-serving")
+// GetConfigMap gets the configmaps for a given namespace
+func GetConfigMap(client *KubeClient, namespace string) k8styped.ConfigMapInterface {
+	return client.Kube.CoreV1().ConfigMaps(namespace)
 }
 
 // Returns a func that evaluates if a deployment has scaled to 0 pods
