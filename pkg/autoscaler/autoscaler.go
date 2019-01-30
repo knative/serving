@@ -24,6 +24,10 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/errors"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -199,24 +203,39 @@ func (agg *perPodAggregation) podWeight(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	key          string
-	target       float64
-	stats        map[statKey]Stat
-	statsMutex   sync.Mutex
-	panicking    bool
-	panicTime    *time.Time
-	maxPanicPods float64
-	reporter     StatsReporter
-	targetMutex  sync.RWMutex
+	key             string
+	namespace       string
+	revisionService string
+	endpointsLister corev1listers.EndpointsLister
+	target          float64
+	stats           map[statKey]Stat
+	statsMutex      sync.Mutex
+	readyPods       map[time.Time]int
+	readyPodsMutex  sync.RWMutex
+	panicking       bool
+	panicTime       *time.Time
+	maxPanicPods    float64
+	reporter        StatsReporter
+	targetMutex     sync.RWMutex
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, target float64, reporter StatsReporter) *Autoscaler {
+func New(
+	dynamicConfig *DynamicConfig,
+	namespace string,
+	revisionService string,
+	endpointsInformer corev1informers.EndpointsInformer,
+	target float64,
+	reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		DynamicConfig: dynamicConfig,
-		target:        target,
-		stats:         make(map[statKey]Stat),
-		reporter:      reporter,
+		DynamicConfig:   dynamicConfig,
+		namespace:       namespace,
+		revisionService: revisionService,
+		endpointsLister: endpointsInformer.Lister(),
+		target:          target,
+		stats:           make(map[statKey]Stat),
+		readyPods:       make(map[time.Time]int),
+		reporter:        reporter,
 	}
 }
 
@@ -292,7 +311,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedStablePods := stableData.observedPods(now)
 	// Do nothing when we have no data.
 	if observedStablePods < 1.0 {
-		logger.Debug("No data to scale on.")
+		logger.Info("No data to scale on.")
 		return 0, false
 	}
 
@@ -310,10 +329,18 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedPanicConcurrency := panicData.observedConcurrency(now)
 	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod(now)
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
+
+	readyPods, err := a.getReadyPods(now)
+	logger.Infof("readyPods=%v", readyPods)
+	if err != nil {
+		logger.Errorw("Failed to get Endpoints via Informer", zap.Error(err))
+		return 0, false
+	}
+	float64ReadyPods := float64(readyPods)
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, observedStablePods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/a.target, observedStablePods)
+	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, float64ReadyPods)
+	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/a.target, float64ReadyPods)
 
 	a.reporter.ReportObservedPodCount(observedStablePods)
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrencyPerPod)
@@ -358,11 +385,43 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+	logger.Infof("desiredPodCount=%v", desiredPodCount)
 	return desiredPodCount, true
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) float64 {
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
+}
+
+func (a *Autoscaler) getReadyPods(now time.Time) (int, error) {
+	a.readyPodsMutex.RLock()
+	defer a.readyPodsMutex.RUnlock()
+
+	timeKey := now.Round(time.Second)
+	if v, ok := a.readyPods[timeKey]; ok {
+		return v, nil
+	}
+
+	readyPods := 0
+	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
+	if errors.IsNotFound(err) {
+		// Treat not found as zero endpoints, it either hasn't been created
+		// or it has been torn down.
+		// Use 1 as minimum.
+		readyPods = 1
+	} else if err != nil {
+		return 0, err
+	} else {
+		for _, es := range endpoints.Subsets {
+			readyPods += len(es.Addresses)
+		}
+	}
+
+	a.readyPodsMutex.Lock()
+	defer a.readyPodsMutex.Unlock()
+	a.readyPods[timeKey] = readyPods
+
+	return readyPods, nil
 }
 
 func isActivator(podName string) bool {

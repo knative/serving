@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/scale"
@@ -58,6 +60,8 @@ const (
 var (
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+
+	endpointsInformer corev1informers.EndpointsInformer
 )
 
 func main() {
@@ -135,7 +139,7 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, time.Second*30)
 
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	endpointsInformer = kubeInformerFactory.Core().V1().Endpoints()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
@@ -223,7 +227,14 @@ func uniScalerFactory(metric *autoscaler.Metric, dynamicConfig *autoscaler.Dynam
 		return nil, err
 	}
 
-	return autoscaler.New(dynamicConfig, metric.Spec.TargetConcurrency, reporter), nil
+	revName := metric.Labels[serving.RevisionLabelKey]
+	if revName == "" {
+		return nil, fmt.Errorf("No Revision label found in Metric: %v", metric)
+	}
+
+	return autoscaler.New(dynamicConfig, metric.Namespace,
+		reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
+		metric.Spec.TargetConcurrency, reporter), nil
 }
 
 func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
