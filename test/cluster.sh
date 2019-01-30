@@ -69,6 +69,7 @@ function install_knative_serving() {
   # TODO: Should we install build from a nightly release?
   # The latest released Build is always at this location.
   INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
+  INSTALL_PIPELINE_YAML=https://storage.googleapis.com/knative-nightly/build-pipeline/latest/release.yaml
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
@@ -83,6 +84,7 @@ function install_knative_serving() {
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
   kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
+  kubectl apply -f "${INSTALL_PIPELINE_YAML}" || return 1
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1

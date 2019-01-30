@@ -17,9 +17,14 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "v2.2.1"
 
-[[constraint]]
+[[override]]
   name = "github.com/knative/build"
   version = "v0.3.0"
+
+[[constraint]]
+  name = "github.com/knative/build-pipeline"
+  # HEAD as of 2019-01-24
+  revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
 
 [[override]]
   name = "github.com/knative/pkg"
