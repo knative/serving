@@ -41,8 +41,8 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 
 	if service.Spec.RunLatest != nil {
 		c.Spec = service.Spec.RunLatest.Configuration
-	} else if service.Spec.Pinned != nil {
-		c.Spec = service.Spec.Pinned.Configuration
+	} else if service.Spec.DeprecatedPinned != nil {
+		c.Spec = service.Spec.DeprecatedPinned.Configuration
 	} else if service.Spec.Release != nil {
 		c.Spec = service.Spec.Release.Configuration
 	} else {

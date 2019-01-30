@@ -160,6 +160,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
 	logger := logging.FromContext(ctx)
+	if service.GetDeletionTimestamp() != nil {
+		return nil
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result

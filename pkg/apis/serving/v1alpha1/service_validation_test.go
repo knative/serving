@@ -60,7 +60,7 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
@@ -149,7 +149,7 @@ func TestServiceValidation(t *testing.T) {
 						},
 					},
 				},
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
@@ -207,7 +207,7 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{

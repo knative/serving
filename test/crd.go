@@ -187,8 +187,8 @@ func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent in
 		config = svc.Spec.RunLatest.Configuration
 	} else if svc.Spec.Release != nil {
 		config = svc.Spec.Release.Configuration
-	} else if svc.Spec.Pinned != nil {
-		config = svc.Spec.Pinned.Configuration
+	} else if svc.Spec.DeprecatedPinned != nil {
+		config = svc.Spec.DeprecatedPinned.Configuration
 	}
 	return &v1alpha1.Service{
 		ObjectMeta: svc.ObjectMeta,
