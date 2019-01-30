@@ -12,10 +12,15 @@ limitations under the License.
 */
 package util
 
-import "io"
+import (
+	"io"
+	"io/ioutil"
+	"strings"
+	"testing"
+)
 
 type spyReadCloser struct {
-	io.Reader
+	io.ReadCloser
 	Closed         bool
 	ReadAfterClose bool
 }
@@ -25,11 +30,34 @@ func (s *spyReadCloser) Read(b []byte) (n int, err error) {
 		s.ReadAfterClose = true
 	}
 
-	return s.Reader.Read(b)
+	return s.ReadCloser.Read(b)
 }
 
 func (s *spyReadCloser) Close() error {
 	s.Closed = true
 
-	return nil
+	return s.ReadCloser.Close()
+}
+
+func TestLimitReadCloser(t *testing.T) {
+	want := "test"
+	r := strings.NewReader(want + " foo")
+	rc := &spyReadCloser{ReadCloser: ioutil.NopCloser(r)}
+
+	lrc := LimitReadCloser(rc, int64(len(want)))
+
+	got, err := ioutil.ReadAll(lrc)
+	lrc.Close()
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if string(got) != want {
+		t.Fatalf("Unexpected body. Want %q, got %q", want, got)
+	}
+
+	if !rc.Closed {
+		t.Fatalf("Expected ReadCloser to be closed.")
+	}
 }

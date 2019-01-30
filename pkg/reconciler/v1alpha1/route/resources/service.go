@@ -88,7 +88,7 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 		return &corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
-				Name: revisionresources.ServicePortName,
+				Name: revisionresources.ServicePortNameHTTP1,
 				Port: revisionresources.ServicePort,
 			}},
 		}, nil
