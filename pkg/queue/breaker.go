@@ -24,8 +24,9 @@ import (
 )
 
 var (
-	AddCapacityError    = errors.New("failed to add all capacity to the breaker")
-	ReduceCapacityError = errors.New("the capacity that is released must be <= to added capacity")
+	ErrAddCapacity    = errors.New("failed to add all capacity to the breaker")
+	ErrReduceCapacity = errors.New("the capacity that is released must be <= to added capacity")
+	ErrRelease        = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 )
 
 // BreakerParams defines the parameters of the breaker.
@@ -45,6 +46,7 @@ type token struct{}
 type Breaker struct {
 	pendingRequests chan token
 	sem             *Semaphore
+	logger          *zap.SugaredLogger
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -59,10 +61,11 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity, params.Logger)
+	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity)
 	return &Breaker{
 		pendingRequests: make(chan token, params.QueueDepth+params.MaxConcurrency),
 		sem:             sem,
+		logger:          params.Logger,
 	}
 }
 
@@ -82,7 +85,13 @@ func (b *Breaker) Maybe(thunk func()) bool {
 		// Wait for capacity in the active queue.
 		b.sem.Acquire()
 		// Defer releasing capacity in the active and pending request queue.
-		defer func() { b.sem.Release(); <-b.pendingRequests }()
+		defer func() {
+			err := b.sem.Release()
+			if err != nil {
+				b.logger.Errorw("Error while releasing a semaphore:", zap.Error(err))
+			}
+			<-b.pendingRequests
+		}()
 		// Do the thing.
 		thunk()
 		// Report success
@@ -94,9 +103,8 @@ func (b *Breaker) Maybe(thunk func()) bool {
 func (b *Breaker) UpdateConcurrency(size int32) error {
 	if size > 0 {
 		return b.sem.AddCapacity(size)
-	} else {
-		return b.sem.ReduceCapacity(-size)
 	}
+	return b.sem.ReduceCapacity(-size)
 }
 
 // Capacity retrieves the capacity of the breaker.
@@ -105,12 +113,12 @@ func (b *Breaker) Capacity() int32 {
 }
 
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
-func NewSemaphore(maxCapacity, initialCapacity int32, logger *zap.SugaredLogger) *Semaphore {
+func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
 	queue := make(chan token, maxCapacity)
-	sem := Semaphore{queue: queue, logger: logger}
+	sem := Semaphore{queue: queue}
 	if initialCapacity > 0 {
 		sem.AddCapacity(initialCapacity)
 	}
@@ -126,7 +134,6 @@ type Semaphore struct {
 	token    token
 	reducers int32
 	capacity int32
-	logger   *zap.SugaredLogger
 	mux      sync.Mutex
 }
 
@@ -138,7 +145,7 @@ func (s *Semaphore) Acquire() {
 // Release potentially puts the token back to the queue.
 // If the semaphore capacity was reduced in between and is not yet reflected,
 // we remove the tokens from the rotation instead of returning them back.
-func (s *Semaphore) Release() {
+func (s *Semaphore) Release() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.reducers > 0 {
@@ -150,9 +157,10 @@ func (s *Semaphore) Release() {
 		case s.queue <- s.token:
 		default:
 			// this should never happen
-			s.logger.Error("Semaphore release error: returned tokens must be <= acquired tokens")
+			return ErrRelease
 		}
 	}
+	return nil
 }
 
 // AddCapacity increases the number of tokens in the rotation.
@@ -167,7 +175,7 @@ func (s *Semaphore) AddCapacity(size int32) error {
 		case s.queue <- s.token:
 			s.capacity++
 		default:
-			return AddCapacityError
+			return ErrAddCapacity
 		}
 	}
 	return nil
@@ -180,7 +188,7 @@ func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if size > s.capacity {
-		return ReduceCapacityError
+		return ErrReduceCapacity
 	}
 	for i := int32(0); i < size; i++ {
 		select {
