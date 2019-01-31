@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"go.uber.org/zap"
 )
 
 const (
@@ -32,6 +33,7 @@ type BreakerParams struct {
 	QueueDepth      int32
 	MaxConcurrency  int32
 	InitialCapacity int32
+	Logger          *zap.SugaredLogger
 }
 
 type token struct{}
@@ -57,7 +59,7 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity)
+	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity, params.Logger)
 	return &Breaker{
 		pendingRequests: make(chan token, params.QueueDepth+params.MaxConcurrency),
 		sem:             sem,
@@ -104,12 +106,12 @@ func (b *Breaker) Capacity() int32 {
 }
 
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
-func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
+func NewSemaphore(maxCapacity, initialCapacity int32, logger *zap.SugaredLogger) *Semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
 	queue := make(chan token, maxCapacity)
-	sem := Semaphore{queue: queue}
+	sem := Semaphore{queue: queue, logger: logger}
 	if initialCapacity > 0 {
 		sem.AddCapacity(initialCapacity)
 	}
@@ -125,6 +127,7 @@ type Semaphore struct {
 	token    token
 	reducers int32
 	capacity int32
+	logger   *zap.SugaredLogger
 	mux      sync.Mutex
 }
 
@@ -147,6 +150,8 @@ func (s *Semaphore) Release() {
 		select {
 		case s.queue <- s.token:
 		default:
+			// this should never happen
+			s.logger.Error("Semaphore release error: returned tokens must be <= acquired tokens")
 		}
 	}
 }
@@ -158,14 +163,12 @@ func (s *Semaphore) Release() {
 func (s *Semaphore) AddCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if size > 0 {
-		for i := int32(0); i < size; i++ {
-			select {
-			case s.queue <- s.token:
-				s.capacity++
-			default:
-				return errors.New(addCapacityError)
-			}
+	for i := int32(0); i < size; i++ {
+		select {
+		case s.queue <- s.token:
+			s.capacity++
+		default:
+			return errors.New(addCapacityError)
 		}
 	}
 	return nil

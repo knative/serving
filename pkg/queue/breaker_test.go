@@ -25,6 +25,7 @@ import (
 	"errors"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 // semAcquireTimeout is a timeout for tests that try to acquire
@@ -153,7 +154,7 @@ func TestBreaker_UpdateConcurrencyOverlow(t *testing.T) {
 func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
-	sem := NewSemaphore(1, 0)
+	sem := NewSemaphore(1, 0, TestLogger(t))
 	tryAcquire(sem, gotChan)
 
 	select {
@@ -168,7 +169,7 @@ func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
 func TestSemaphore_Get_HasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
-	sem := NewSemaphore(1, 0)
+	sem := NewSemaphore(1, 0, TestLogger(t))
 	tryAcquire(sem, gotChan)
 	sem.Release() // Allows 1 acquire
 
@@ -180,7 +181,7 @@ func TestSemaphore_Put(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	requests := 3
-	sem := NewSemaphore(2, 0)
+	sem := NewSemaphore(2, 0, TestLogger(t))
 	for i := 0; i < requests; i++ {
 		tryAcquire(sem, gotChan)
 	}
@@ -191,7 +192,7 @@ func TestSemaphore_Put(t *testing.T) {
 }
 
 func TestSemaphore_AddCapacity(t *testing.T) {
-	sem := NewSemaphore(2, 1)
+	sem := NewSemaphore(2, 1, TestLogger(t))
 	assertEqual(int32(1), sem.capacity, t)
 	sem.Acquire()
 	sem.AddCapacity(2)
@@ -200,7 +201,7 @@ func TestSemaphore_AddCapacity(t *testing.T) {
 
 // Test the case when we add more capacity then the number of waiting reducers
 func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
-	sem := NewSemaphore(2, 2)
+	sem := NewSemaphore(2, 2, TestLogger(t))
 	sem.Acquire()
 	sem.Acquire()
 	sem.ReduceCapacity(2)
@@ -213,7 +214,7 @@ func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
 
 func TestSemaphore_AddCapacityOverflow(t *testing.T) {
 	error := addCapacityError
-	sem := NewSemaphore(2, 2)
+	sem := NewSemaphore(2, 2, TestLogger(t))
 	sem.Acquire()
 	sem.Acquire()
 	response := sem.AddCapacity(3)
@@ -222,14 +223,14 @@ func TestSemaphore_AddCapacityOverflow(t *testing.T) {
 
 func TestSemaphore_ReduceCapacity(t *testing.T) {
 	want := int32(0)
-	sem := NewSemaphore(1, 0)
+	sem := NewSemaphore(1, 0, TestLogger(t))
 	sem.AddCapacity(int32(1))
 	sem.ReduceCapacity(1)
 	assertEqual(want, sem.capacity, t)
 }
 
 func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
-	sem := NewSemaphore(1, 1)
+	sem := NewSemaphore(1, 1, TestLogger(t))
 	sem.Acquire()
 	sem.ReduceCapacity(1)
 	assertEqual(int32(1), sem.reducers, t)
@@ -239,7 +240,7 @@ func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
 }
 
 func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
-	sem := NewSemaphore(1, 1)
+	sem := NewSemaphore(1, 1, TestLogger(t))
 	sem.Acquire()
 	err := sem.ReduceCapacity(2)
 	assertEqual(err, errors.New(reduceCapacityError), t)
@@ -251,7 +252,7 @@ func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 			t.Error("The code did not panic")
 		}
 	}()
-	_ = NewSemaphore(1, 2)
+	_ = NewSemaphore(1, 2, TestLogger(t))
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
