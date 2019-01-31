@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/knative/pkg/apis"
@@ -99,7 +100,8 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 	}
 	for i, r := range rt.Revisions {
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
-			errs.Also(apis.ErrInvalidValue(r, "revisions").ViaIndex(i))
+			errs = errs.Also(apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs), apis.CurrentField).ViaFieldIndex("revisions", i))
 		}
 	}
 
