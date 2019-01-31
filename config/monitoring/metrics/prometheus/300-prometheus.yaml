@@ -290,9 +290,9 @@ spec:
         terminationMessagePath: /dev/termination-log
         volumeMounts:
         - name: prometheus-config-volume
-          mountPath: /etc/prometheus/
+          mountPath: /etc/prometheus
         - name: prometheus-storage-volume
-          mountPath: /prometheus/
+          mountPath: /prometheus
       serviceAccountName: prometheus-system
       terminationGracePeriodSeconds: 600
       volumes:
