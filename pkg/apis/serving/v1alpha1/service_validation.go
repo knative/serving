@@ -17,9 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/knative/pkg/apis"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // Validate validates the fields belonging to Service
@@ -95,6 +97,12 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 	}
 	if numRevisions > 2 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(numRevisions), "1", "2", "revisions"))
+	}
+	for i, r := range rt.Revisions {
+		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
+			errs = errs.Also(apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs), apis.CurrentField).ViaFieldIndex("revisions", i))
+		}
 	}
 
 	if numRevisions < 2 && rt.RolloutPercent != 0 {
