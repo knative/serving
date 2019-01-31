@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"errors"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	. "github.com/knative/pkg/logging/testing"
 )
@@ -140,14 +138,14 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	assertEqual(int32(0), b.Capacity(), t)
 
 	err := b.UpdateConcurrency(int32(-2))
-	assertEqual(err.Error(), reduceCapacityError, t)
+	assertEqual(err, ReduceCapacityError, t)
 }
 
 func TestBreaker_UpdateConcurrencyOverlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	err := b.UpdateConcurrency(int32(2))
-	assertEqual(addCapacityError, err.Error(), t)
+	assertEqual(AddCapacityError, err, t)
 }
 
 // Test empty semaphore, token cannot be acquired
@@ -213,12 +211,11 @@ func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
 }
 
 func TestSemaphore_AddCapacityOverflow(t *testing.T) {
-	error := addCapacityError
 	sem := NewSemaphore(2, 2, TestLogger(t))
 	sem.Acquire()
 	sem.Acquire()
 	response := sem.AddCapacity(3)
-	assertEqual(error, response.Error(), t)
+	assertEqual(AddCapacityError, response, t)
 }
 
 func TestSemaphore_ReduceCapacity(t *testing.T) {
@@ -243,7 +240,7 @@ func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
 	sem := NewSemaphore(1, 1, TestLogger(t))
 	sem.Acquire()
 	err := sem.ReduceCapacity(2)
-	assertEqual(err, errors.New(reduceCapacityError), t)
+	assertEqual(err, ReduceCapacityError, t)
 }
 
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {

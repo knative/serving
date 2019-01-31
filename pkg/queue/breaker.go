@@ -17,15 +17,15 @@ limitations under the License.
 package queue
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"go.uber.org/zap"
+	"errors"
 )
 
-const (
-	reduceCapacityError = "the capacity that is released must be <= to added capacity"
-	addCapacityError    = "failed to add all capacity to the breaker"
+var (
+	AddCapacityError    = errors.New("failed to add all capacity to the breaker")
+	ReduceCapacityError = errors.New("the capacity that is released must be <= to added capacity")
 )
 
 // BreakerParams defines the parameters of the breaker.
@@ -91,13 +91,12 @@ func (b *Breaker) Maybe(thunk func()) bool {
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
-func (b *Breaker) UpdateConcurrency(size int32) (err error) {
+func (b *Breaker) UpdateConcurrency(size int32) error {
 	if size > 0 {
-		err = b.sem.AddCapacity(size)
+		return b.sem.AddCapacity(size)
 	} else {
-		err = b.sem.ReduceCapacity(-size)
+		return b.sem.ReduceCapacity(-size)
 	}
-	return err
 }
 
 // Capacity retrieves the capacity of the breaker.
@@ -168,7 +167,7 @@ func (s *Semaphore) AddCapacity(size int32) error {
 		case s.queue <- s.token:
 			s.capacity++
 		default:
-			return errors.New(addCapacityError)
+			return AddCapacityError
 		}
 	}
 	return nil
@@ -181,7 +180,7 @@ func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if size > s.capacity {
-		return errors.New(reduceCapacityError)
+		return ReduceCapacityError
 	}
 	for i := int32(0); i < size; i++ {
 		select {
