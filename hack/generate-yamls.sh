@@ -46,6 +46,9 @@ readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.2/istio-crds.yam
 readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.2/istio.yaml
 readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.2/istio-lean.yaml
 
+# Location of Gloo YAML
+readonly GLOO_YAML=${YAML_REPO_ROOT}/third_party/gloo-0.6.16/gloo-knative.yaml
+
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
   readonly YAML_OUTPUT_DIR="$(mktemp -d)"
@@ -59,6 +62,7 @@ readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics
 readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
 readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
+readonly SERVING_NO_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-no-istio.yaml
 
 # Flags for all ko commands
 readonly KO_YAML_FLAGS="-P ${KO_FLAGS}"
@@ -76,6 +80,7 @@ cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
 ko resolve ${KO_YAML_FLAGS} -f config/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config-no-istio/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_NO_ISTIO_YAML}"
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
@@ -109,3 +114,4 @@ echo "All manifests generated"
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
 ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${GLOO_YAML} >> ${YAML_LIST_FILE}
