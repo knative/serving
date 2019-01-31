@@ -73,7 +73,7 @@ type CertificateSpec struct {
 	// DNSNames is a list of DNS names the Certificate could support.
 	DNSNames []string `json:"dnsNames"`
 
-	// SecretName is the name of the secret resource to store this secret in.
+	// SecretName is the name of the secret resource to store the SSL certificate in.
 	SecretName string `json:"secretName"`
 }
 
@@ -112,7 +112,7 @@ func (cs *CertificateStatus) SetConditions(conditions duckv1alpha1.Conditions) {
 
 // GetCondition gets a speicifc condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return clusterIngressCondSet.Manage(cs).GetCondition(t)
+	return certificateCondSet.Manage(cs).GetCondition(t)
 }
 
 // ConditionType represents a Certificate condition value

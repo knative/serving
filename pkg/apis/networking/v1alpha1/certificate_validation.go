@@ -23,12 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-// Validate inspects and validates ClusterIngress object.
+// Validate inspects and validates Certificate object.
 func (c *Certificate) Validate() *apis.FieldError {
 	return c.Spec.Validate().ViaField("spec")
 }
 
-// Validate inspects and validates IngressSpec object.
+// Validate inspects and validates CertificateSpec object.
 func (spec *CertificateSpec) Validate() *apis.FieldError {
 	// Spec must not be empty.
 	if equality.Semantic.DeepEqual(spec, &CertificateSpec{}) {
@@ -46,7 +46,7 @@ func (spec *CertificateSpec) Validate() *apis.FieldError {
 		}
 	}
 
-	// Spec must have secretName
+	// Spec must have secretName.
 	if len(spec.SecretName) == 0 {
 		all = all.Also(apis.ErrMissingField("secretName"))
 	}
