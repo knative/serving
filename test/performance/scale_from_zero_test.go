@@ -144,10 +144,10 @@ func getStats(durations []time.Duration) *stats {
 
 func testGrid(s *stats, tName string) error {
 	var tc []junit.TestCase
-	val := float32(s.avg.Seconds() / 1000)
+	val := float32(s.avg.Seconds())
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
 	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
 	return testgrid.CreateXMLOutput(&ts, tName)
 }
 
