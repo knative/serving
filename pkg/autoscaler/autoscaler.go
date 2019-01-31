@@ -316,6 +316,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
+	a.cleanReadyPodsCache(now)
+
 	observedStablePods := stableData.observedPods(now)
 	// Do nothing when we have no data.
 	if observedStablePods < 1.0 {
@@ -420,13 +422,11 @@ func (a *Autoscaler) getReadyPodsFromCache(now time.Time) (float64, bool) {
 }
 
 func (a *Autoscaler) getReadyPodsFromLister(now time.Time) (float64, error) {
-	readyPods := 1
+	readyPods := 0
 	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
 	if errors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
 		// or it has been torn down.
-		// Use 1 as minimum.
-		readyPods = 1
 	} else if err != nil {
 		return 0, err
 	} else {
@@ -438,7 +438,8 @@ func (a *Autoscaler) getReadyPodsFromLister(now time.Time) (float64, error) {
 	a.readyPodsMutex.Lock()
 	defer a.readyPodsMutex.Unlock()
 
-	float64ReadyPods := float64(readyPods)
+	// Use 1 as minimum for multiplication and division.
+	float64ReadyPods := math.Max(1, float64(readyPods))
 	a.readyPods[now.Round(time.Second)] = float64ReadyPods
 
 	return float64ReadyPods, nil
