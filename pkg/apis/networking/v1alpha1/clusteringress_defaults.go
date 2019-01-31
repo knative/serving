@@ -46,9 +46,9 @@ func (c *IngressSpec) SetDefaults() {
 }
 
 func (t *ClusterIngressTLS) SetDefaults() {
-	// Default Secret key for ServerCertificate is `tls.cert`.
+	// Default Secret key for ServerCertificate is `tls.crt`.
 	if t.ServerCertificate == "" {
-		t.ServerCertificate = "tls.cert"
+		t.ServerCertificate = "tls.crt"
 	}
 	// Default Secret key for PrivateKey is `tls.key`.
 	if t.PrivateKey == "" {
