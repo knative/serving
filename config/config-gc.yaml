@@ -19,13 +19,21 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-data:
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
+# data:
   # Delay after revision creation before considering it for GC
-  stale-revision-create-delay: "24h"
+  # stale-revision-create-delay: "24h"
+  
   # Duration since a route has been pointed at a revision before it should be GC'd
   # This minus lastpinned-debounce be longer than the controller resync period (10 hours)
-  stale-revision-timeout: "15h"
+  # stale-revision-timeout: "15h"
+  
   # Minimum number of generations of revisions to keep before considering for GC
-  stale-revision-minimum-generations: "1"
+  # stale-revision-minimum-generations: "1"
+
   # To avoid constant updates, we allow an existing annotation to be stale by this amount before we update the timestamp
-  stale-revision-lastpinned-debounce: "5h"
+  # stale-revision-lastpinned-debounce: "5h"

@@ -19,7 +19,12 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-data:
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
+# data:
   # Static parameters:
 
   # The Revision ContainerConcurrency field specifies the maximum number
@@ -30,9 +35,7 @@ data:
   # on average. A value of 0.7 is chosen because the Autoscaler panics
   # when concurrency exceeds 2x the desired set point. So we will panic
   # before we reach the limit.
-  # TODO(#1956): tune target usage based on empirical data.
-  # TODO(#2016): Revert to 0.7 once incorrect reporting is solved
-  container-concurrency-target-percentage: "1.0"
+  # container-concurrency-target-percentage: "1.0"
 
   # The container concurrency target default is what the Autoscaler will
   # try to maintain when the Revision specifies unlimited concurrency. A
@@ -40,34 +43,31 @@ data:
   # autoscaling to tune resource requests. E.g. maintaining 1 concurrent
   # "hello world" request doesn't consume enough resources to allow VPA
   # to achieve efficient resource usage (VPA CPU minimum is 300m).
-  container-concurrency-target-default: "100"
+  # container-concurrency-target-default: "100"
 
   # When operating in a stable mode, the autoscaler operates on the
   # average concurrency over the stable window.
-  stable-window: "60s"
+  # stable-window: "60s"
 
   # When observed average concurrency during the panic window reaches 2x
   # the target concurrency, the autoscaler enters panic mode. When
   # operating in panic mode, the autoscaler operates on the average
   # concurrency over the panic window.
-  panic-window: "6s"
+  # panic-window: "6s"
 
   # Max scale up rate limits the rate at which the autoscaler will
   # increase pod count. It is the maximum ratio of desired pods versus
   # observed pods.
-  max-scale-up-rate: "10"
+  # max-scale-up-rate: "10"
 
   # Scale to zero feature flag
-  enable-scale-to-zero: "true"
-
-  # This does nothing for now.
-  enable-vertical-pod-autoscaling: "false"
+  # enable-scale-to-zero: "true"
 
   # Tick interval is the time between autoscaling calculations.
-  tick-interval: "2s"
+  # tick-interval: "2s"
 
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero grace period is the time an inactive revision is left
   # running before it is scaled to zero (min: 30s).
-  scale-to-zero-grace-period: "30s"
+  # scale-to-zero-grace-period: "30s"

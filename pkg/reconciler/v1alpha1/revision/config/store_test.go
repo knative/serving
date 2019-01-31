@@ -31,7 +31,7 @@ import (
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName)
+	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
 	observabilityConfig := ConfigMapFromTestFile(t, ObservabilityConfigName)
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigName)
@@ -84,7 +84,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, NetworkConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ObservabilityConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigName))

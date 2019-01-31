@@ -826,8 +826,9 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}, {
-		// An invalid config map
-		expectedDomainSuffix: "newdefault.net",
+		// When no domain with an open selector is specified, we fallback
+		// on the default of example.com.
+		expectedDomainSuffix: config.DefaultDomain,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -842,18 +843,21 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}}
-	for _, expectation := range expectations {
-		expectation.apply()
-		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-		routeClient.Update(route)
-		controller.Reconcile(context.TODO(), KeyOrDie(route))
-		addResourcesToInformers(t, servingClient, servingInformer, route)
 
-		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-		if route.Status.Domain != expectedDomain {
-			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
-		}
+	for _, expectation := range expectations {
+		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
+			expectation.apply()
+			servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+			routeClient.Update(route)
+			controller.Reconcile(context.TODO(), KeyOrDie(route))
+			addResourcesToInformers(t, servingClient, servingInformer, route)
+
+			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+			if route.Status.Domain != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			}
+		})
 	}
 }
 
