@@ -405,11 +405,12 @@ func (a *Autoscaler) getReadyPods(now time.Time) (float64, error) {
 		return v, nil
 	}
 
-	if v, err := a.getReadyPodsFromLister(now); err != nil {
+	v, err := a.getReadyPodsFromLister(now)
+	if err != nil {
 		return 0, err
-	} else {
-		return v, nil
 	}
+
+	return v, nil
 }
 
 func (a *Autoscaler) getReadyPodsFromCache(now time.Time) (float64, bool) {
