@@ -142,6 +142,7 @@ var certificateCondSet = duckv1alpha1.NewLivingConditionSet(CertificateCondidtio
 
 var _ apis.Validatable = (*Certificate)(nil)
 
+// GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")
 }
