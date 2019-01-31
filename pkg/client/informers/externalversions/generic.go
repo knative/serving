@@ -56,6 +56,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
 
 		// Group=networking.internal.knative.dev, Version=v1alpha1
+	case networking_v1alpha1.SchemeGroupVersion.WithResource("certificates"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Certificates().Informer()}, nil
 	case networking_v1alpha1.SchemeGroupVersion.WithResource("clusteringresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ClusterIngresses().Informer()}, nil
 

@@ -25,6 +25,10 @@ type FakeNetworkingV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeNetworkingV1alpha1) Certificates(namespace string) v1alpha1.CertificateInterface {
+	return &FakeCertificates{c, namespace}
+}
+
 func (c *FakeNetworkingV1alpha1) ClusterIngresses() v1alpha1.ClusterIngressInterface {
 	return &FakeClusterIngresses{c}
 }
