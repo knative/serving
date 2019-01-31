@@ -31,6 +31,7 @@ import (
 
 const (
 	testRevision  = "test-revision"
+	testService   = "test-revision-service"
 	testNamespace = "test-namespace"
 	testPodName   = "test-revision-1234"
 	testKPAKey    = "test-namespace/test-revision"

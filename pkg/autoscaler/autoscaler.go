@@ -393,7 +393,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
-	logger.Infof("desiredPodCount=%v", desiredPodCount)
 	return desiredPodCount, true
 }
 

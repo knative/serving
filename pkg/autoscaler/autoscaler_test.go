@@ -23,6 +23,15 @@ import (
 
 	. "github.com/knative/pkg/logging/testing"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeinformers "k8s.io/client-go/informers"
+	fakeK8s "k8s.io/client-go/kubernetes/fake"
+)
+
+var (
+	kubeClient   = fakeK8s.NewSimpleClientset()
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
@@ -421,6 +430,40 @@ func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
 	a.expectScale(t, now, 100, true)
 }
 
+func TestAutoscaler_UseOnePodAsMinimunIfEndpointsNotFound(t *testing.T) {
+	a := newTestAutoscaler(10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         2,
+		})
+	ep := makeEndpoints()
+	kubeClient.CoreV1().Endpoints(testNamespace).Update(ep)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Update(ep)
+	// 2*10 as the rate limated if we can get the actual pods number.
+	// 1*10 as the rate limited since no read pods are there from K8S API.
+	a.expectScale(t, now, 10, true)
+
+	now = a.recordLinearSeries(
+		t,
+		now.Add(60*time.Second),
+		linearSeries{
+			startConcurrency: 1000,
+			endConcurrency:   1000,
+			durationSeconds:  1,
+			podCount:         2,
+		})
+	kubeClient.CoreV1().Endpoints(testNamespace).Delete(ep.Name, nil)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
+	// 2*10 as the rate limated if we can get the actual pods number.
+	// 1*10 as the rate limited since no Endpoints object is there from K8S API.
+	a.expectScale(t, now, 10, true)
+}
+
 func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -506,7 +549,7 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		config: config,
 		logger: zap.NewNop().Sugar(),
 	}
-	return New(dynConfig, float64(containerConcurrency), &mockReporter{})
+	return New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), float64(containerConcurrency), &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the
@@ -535,6 +578,8 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
+	// Change the IP count according to podCount and lameduck
+	createEndpoints(addIps(makeEndpoints(), s.podCount))
 	return now
 }
 
@@ -553,4 +598,30 @@ func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32,
 	if scale != expectScale {
 		t.Errorf("Unexpected scale. Expected %v. Got %v.", expectScale, scale)
 	}
+}
+
+func makeEndpoints() *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testService,
+		},
+	}
+}
+
+func addIps(ep *corev1.Endpoints, ipCount int) *corev1.Endpoints {
+	epAddresses := []corev1.EndpointAddress{}
+	for i := 1; i <= ipCount; i++ {
+		ip := fmt.Sprintf("127.0.0.%v", i)
+		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: ip})
+	}
+	ep.Subsets = []corev1.EndpointSubset{{
+		Addresses: epAddresses,
+	}}
+	return ep
+}
+
+func createEndpoints(ep *corev1.Endpoints) {
+	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }
