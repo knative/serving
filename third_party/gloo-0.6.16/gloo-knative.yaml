@@ -157,7 +157,7 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: "soloio/ingress:testing-8671e8b9"
+      - image: "soloio/ingress:0.6.16"
         imagePullPolicy: Always
         name: ingress
         args: ["--namespace", "gloo-system" ]
@@ -199,7 +199,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: soloio/gloo-envoy-wrapper:testing-8671e8b9
+        image: soloio/gloo-envoy-wrapper:0.6.16
         imagePullPolicy: Always
         name: clusteringress-proxy
         ports:
@@ -238,7 +238,7 @@ spec:
         gloo: gloo
     spec:
       containers:
-      - image: "soloio/gloo:testing-8671e8b9"
+      - image: "soloio/gloo:0.6.16"
         imagePullPolicy: Always
         name: gloo
         ports:
@@ -269,7 +269,7 @@ spec:
         gloo: discovery
     spec:
       containers:
-      - image: "soloio/discovery:testing-8671e8b9"
+      - image: "soloio/discovery:0.6.16"
         imagePullPolicy: Always
         name: discovery
         args: ["--namespace=gloo-system" ]
