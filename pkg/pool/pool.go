@@ -17,6 +17,7 @@ limitations under the License.
 package pool
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -76,8 +77,8 @@ func NewWithCapacity(workers, capacity int) Interface {
 // Go implements Interface.
 func (i *impl) Go(w func() error) {
 	select {
-	// This means, we no longer accept new work.
-	// This prevents racy client from panicing.
+		// This means, we no longer accept new work.
+		// This prevents racy client from panicing.
 	case <-i.doneCh:
 		return
 	default:
