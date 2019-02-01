@@ -2,11 +2,17 @@
 
 
 [[projects]]
-  digest = "1:5db4f94a0a6d5e4ce827563b1d96902f8777d58ae23cc59f38ae538ffed52c13"
+  digest = "1:6db34685a5216187ec35414e36c3bd0436fa2ac291d47b39f4ab4d68cf1c55f1"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
+    "iam",
+    "internal",
+    "internal/optional",
+    "internal/trace",
+    "internal/version",
     "monitoring/apiv3",
+    "storage",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
@@ -481,17 +487,20 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3c42ecb5d8e961b4d4df50b33c4b5fedf56d950ac0a8e51458c9781cb16c5610"
+  digest = "1:79fb69e99d06c5afc94c4470e041490724b77747696706bdc2755bd9cfe23210"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/gcs",
+    "shared/junit",
     "shared/loadgenerator",
     "shared/prometheus",
+    "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "8ef3dc1c2ed07e64024bc68c9dbd1a2e10e9e975"
+  revision = "e15222dc039e4fe569a35f9a068b54ba2da9bfd2"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -795,13 +804,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9403f312df79a1556f2529adff5718f2b29a0d806c7ab0637fd9e68e635a7f1b"
+  digest = "1:9c89a3b7383528050da687b4cf2947d8cdd2d20b1bc13d833dc4ed6a402a8f1c"
   name = "google.golang.org/api"
   packages = [
+    "gensupport",
+    "googleapi",
+    "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
     "option",
+    "storage/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -834,7 +847,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:57005092fa4440ad8b606ba030326b499f27ab920ca645da114b1c4262bb4502"
+  digest = "1:d2f1ee926ab1fddf817b98d03460c4126a48a32580bdb3eb1373f0b326862178"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -843,7 +856,9 @@
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/v1",
     "googleapis/monitoring/v3",
+    "googleapis/rpc/code",
     "googleapis/rpc/status",
     "protobuf/field_mask",
   ]
