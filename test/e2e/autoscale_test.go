@@ -341,7 +341,7 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 
 	// Increase workload for 2 replicas for 30s
 	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
-	// Assert the number of expcted replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
+	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
 	// Increase workload Scale to 3 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 3)
