@@ -32,8 +32,9 @@ import (
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
-func TestPerformanceLatency(t *testing.T) {
-	logger := logging.GetContextLogger("TestPerformanceLatency")
+func TestTimeToServeLatency(t *testing.T) {
+	testName := t.Name()
+	logger := logging.GetContextLogger(testName)
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -74,17 +75,17 @@ func TestPerformanceLatency(t *testing.T) {
 	}
 
 	// Save the json result for benchmarking
-	resp.SaveJSON("TestPerformanceLatency")
+	resp.SaveJSON(testName)
 
 	// Add latency metrics
 	var tc []testgrid.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, "TestPerformanceLatency"))
+		tc = append(tc, CreatePerfTestCase(val, name, testName))
 	}
 
-	if err = testgrid.CreateTestgridXML(tc, "TestPerformanceLatency"); err != nil {
+	if err = testgrid.CreateTestgridXML(tc, testName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
