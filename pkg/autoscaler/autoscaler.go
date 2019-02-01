@@ -382,7 +382,7 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	// Last stat per Pod
 	lastStat := make(map[string]Stat)
 
-	// accumulate stats into their respective buckets
+	// Accumulate stats into their respective buckets
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
@@ -394,9 +394,8 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 			// If there's no last stat for this pod, set it
 			if _, ok := lastStat[stat.PodName]; !ok {
 				lastStat[stat.PodName] = stat
-			}
-			// If the current last stat is older than the new one, override
-			if lastStat[stat.PodName].Time.Before(*stat.Time) {
+			} else if lastStat[stat.PodName].Time.Before(*stat.Time) {
+				// If the current last stat is older than the new one, override
 				lastStat[stat.PodName] = stat
 			}
 		} else {
@@ -422,12 +421,7 @@ func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
 		return v, nil
 	}
 
-	v, err := a.readyPodsFromLister(now)
-	if err != nil {
-		return 0, err
-	}
-
-	return v, nil
+	return a.readyPodsFromLister(now)
 }
 
 func (a *Autoscaler) readyPodsFromCache(now time.Time) (float64, bool) {
