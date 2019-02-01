@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
+	"github.com/knative/test-infra/shared/junit"
 )
 
 func TestTimeToServeLatency(t *testing.T) {
@@ -78,14 +79,17 @@ func TestTimeToServeLatency(t *testing.T) {
 	resp.SaveJSON(testName)
 
 	// Add latency metrics
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, testName))
 	}
 
-	if err = testgrid.CreateTestgridXML(tc, testName); err != nil {
+	ts := junit.TestSuites{}
+	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+
+	if err = testgrid.CreateXMLOutput(&ts, testName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
