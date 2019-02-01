@@ -55,10 +55,8 @@ func withHeaders(next http.HandlerFunc) http.HandlerFunc {
 
 // WriteObject write content to response.
 func writeJSON(w http.ResponseWriter, o interface{}) {
-
 	w.WriteHeader(http.StatusOK)
 	e := json.NewEncoder(w)
 	e.SetIndent("", "\t")
 	e.Encode(o)
-
 }

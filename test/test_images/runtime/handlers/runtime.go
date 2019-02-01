@@ -43,6 +43,11 @@ var cgroupPaths = []string{
 	"/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
 	"/sys/fs/cgroup/cpu/cpu.shares"}
 
+var (
+	yes = true
+	no  = false
+)
+
 func fileInfo(paths ...string) []*types.FileInfo {
 	var infoList []*types.FileInfo
 
@@ -66,7 +71,7 @@ func fileInfo(paths ...string) []*types.FileInfo {
 func env() map[string]string {
 	envMap := map[string]string{}
 	for _, e := range os.Environ() {
-		pair := strings.Split(e, "=")
+		pair := strings.SplitN(e, "=", 2)
 		envMap[pair[0]] = pair[1]
 	}
 	return envMap
@@ -121,12 +126,10 @@ func cgroups(paths ...string) []*types.Cgroup {
 		// method for read-only validation
 		newValue := []byte{'9'}
 		err = ioutil.WriteFile(path, newValue, 420)
-		t := true
-		f := false
 		if err != nil {
-			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &t})
+			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &yes})
 		} else {
-			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &f})
+			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &no})
 		}
 	}
 	return cgroups

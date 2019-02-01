@@ -28,9 +28,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// TestMustCgroupConfigured verifies that the Linux cgroups are configured based on the specified
+// TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
-func TestMustCgroupConfigured(t *testing.T) {
+func TestMustHaveCgroupConfigured(t *testing.T) {
 	logger := logging.GetContextLogger("TestMustCgroupConfigured")
 	clients := setup(t)
 
@@ -54,46 +54,46 @@ func TestMustCgroupConfigured(t *testing.T) {
 
 	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{ContainerResources: resources})
 	if err != nil {
-		t.Fatalf("unexpected error fetching runtime info: %v", err)
+		t.Fatalf("Error fetching runtime info: %v", err)
 	}
 
 	cgroups := ri.Host.Cgroups
 
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
-			t.Errorf("unexpected error getting cgroup information: %v", cgroup.Error)
+			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
 			continue
 		}
-		if expectedCgroups[cgroup.Name] == 0 {
+		if _, ok := expectedCgroups[cgroup.Name]; !ok {
 			// Service returned a value we don't test
 			logger.Infof("%v cgroup returned, but not validated", cgroup.Name)
 			continue
 		}
-		if expectedCgroups[cgroup.Name] != *cgroup.Value {
-			t.Errorf("%v = %v, want: %v", cgroup.Name, *cgroup.Value, expectedCgroups[cgroup.Name])
+		if got, want := *cgroup.Value, expectedCgroups[cgroup.Name]; got != want {
+			t.Errorf("%s = %d, want: %d", cgroup.Name, *cgroup.Value, expectedCgroups[cgroup.Name])
 		}
 	}
 }
 
-// TestShouldCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
+// TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
 // container.
-func TestShouldCgroupReadOnly(t *testing.T) {
+func TestShouldHaveCgroupReadOnly(t *testing.T) {
 	logger := logging.GetContextLogger("TestShouldCgroupReadOnly")
 	clients := setup(t)
 	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
 	if err != nil {
-		t.Fatalf("unexpected error fetching runtime info: %v", err)
+		t.Fatalf("Error fetching runtime info: %v", err)
 	}
 
 	cgroups := ri.Host.Cgroups
 
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
-			t.Errorf("unexpected error getting cgroup information: %v", cgroup.Error)
+			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
 			continue
 		}
-		if *cgroup.ReadOnly != true {
-			t.Errorf("cgroup.ReadOnly = %v, want:true", *cgroup.ReadOnly)
+		if got, want := *cgroup.ReadOnly, true; got != want {
+			t.Errorf("For cgroup %s cgroup.ReadOnly = %v, want: true", cgroup.Name, *cgroup.ReadOnly)
 		}
 	}
 
