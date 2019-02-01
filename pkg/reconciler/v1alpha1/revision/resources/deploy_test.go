@@ -193,31 +193,31 @@ func refInt64(num int64) *int64 {
 	return &num
 }
 
-type containerModifier func(*corev1.Container)
-type podSpecModifier func(*corev1.PodSpec)
-type deploymentModifier func(*appsv1.Deployment)
+type containerOpt func(*corev1.Container)
+type podSpecOpt func(*corev1.PodSpec)
+type deploymentOpt func(*appsv1.Deployment)
 
-func makeTestContainer(defaultContainer *corev1.Container, modifiers ...containerModifier) *corev1.Container {
+func makeTestContainer(defaultContainer *corev1.Container, opts ...containerOpt) *corev1.Container {
 	container := defaultContainer.DeepCopy()
-	for _, modifier := range modifiers {
-		modifier(container)
+	for _, opt := range opts {
+		opt(container)
 	}
 	return container
 }
 
-func makeTestUserContainer(modifiers ...containerModifier) *corev1.Container {
-	return makeTestContainer(defaultUserContainer, modifiers...)
+func makeTestUserContainer(opts ...containerOpt) *corev1.Container {
+	return makeTestContainer(defaultUserContainer, opts...)
 }
 
-func makeTestQueueContainer(modifiers ...containerModifier) *corev1.Container {
-	return makeTestContainer(defaultQueueContainer, modifiers...)
+func makeTestQueueContainer(opts ...containerOpt) *corev1.Container {
+	return makeTestContainer(defaultQueueContainer, opts...)
 }
 
-func makeTestFluentdContainer(modifiers ...containerModifier) *corev1.Container {
-	return makeTestContainer(defaultFluentdContainer, modifiers...)
+func makeTestFluentdContainer(opts ...containerOpt) *corev1.Container {
+	return makeTestContainer(defaultFluentdContainer, opts...)
 }
 
-func setContainerEnvVar(name, value string) containerModifier {
+func setContainerEnvVar(name, value string) containerOpt {
 	return func(container *corev1.Container) {
 		for i, envVar := range container.Env {
 			if envVar.Name == name {
@@ -233,21 +233,21 @@ func setContainerEnvVar(name, value string) containerModifier {
 	}
 }
 
-func makeTestPodSpec(containers []corev1.Container, modifiers ...podSpecModifier) *corev1.PodSpec {
+func makeTestPodSpec(containers []corev1.Container, opts ...podSpecOpt) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
 
-	for _, modifier := range modifiers {
-		modifier(podSpec)
+	for _, opt := range opts {
+		opt(podSpec)
 	}
 
 	return podSpec
 }
 
-func makeTestDeployment(modifiers ...deploymentModifier) *appsv1.Deployment {
+func makeTestDeployment(opts ...deploymentOpt) *appsv1.Deployment {
 	deployment := defaultDeployment.DeepCopy()
-	for _, modifier := range modifiers {
-		modifier(deployment)
+	for _, opt := range opts {
+		opt(deployment)
 	}
 	return deployment
 }
