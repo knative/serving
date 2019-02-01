@@ -31,7 +31,7 @@ import (
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
-	logger := logging.GetContextLogger("TestMustCgroupConfigured")
+	logger := logging.GetContextLogger("TestMustHaveCgroupConfigured")
 	clients := setup(t)
 
 	resources := corev1.ResourceRequirements{
