@@ -10,7 +10,7 @@ Serverless is only as good as the illusion it sustains. Throwing some code into 
 
 Right now cold-starts are between 10 and 15 seconds which is an order of magnitude too slow. The time is spent starting the pod, waiting for Envoy to start and telling all nodes how to reach the pod through the Kubernetes Service. Without the Istio mesh (just routing request to individual pods as they come up) still takes about 4 seconds.
 
-We've poked at this problem in 2019 ([#1297](https://github.com/knative/serving/issues/1297)) but haven't been able to make significant progress. This area requires some dedicated effort to:
+We've poked at this problem in 2018 ([#1297](https://github.com/knative/serving/issues/1297)) but haven't been able to make significant progress. This area requires some dedicated effort to:
 
 1. identify and programatically capture sources of cold-start latency at all levels of the stack ([#2495](https://github.com/knative/serving/issues/2495))
 2. chase down the low hanging fruit (e.g. [#2659](https://github.com/knative/serving/issues/2659))
@@ -87,6 +87,19 @@ Additionally, concurrency limits should be applied to streams, not connections. 
 
 * POC: Markus Thömmes (Red Hat)
 * Github: [Project 16](https://github.com/knative/serving/projects/16)
+
+### Pluggability and HPA
+
+This is work remaining from 2018 to add CPU-based autoscaling to Knative and provide an extension point for further customizing the autoscaling sub-system. Remaining work includes:
+
+1. metrics pipeline relayering to scrape metrics from Pods ([#1927](https://github.com/knative/serving/issues/1927))
+2. adding a `window` annotation to allow for further customization of the KPA autoscaler ([#2909](https://github.com/knative/serving/issues/2909))
+3. implementing scale-to-zero for CPU-scaled workloads ([#3064](https://github.com/knative/serving/issues/3064))
+
+**Our goal is to have a cleanly-layered, extensible autoscaling sub-system which fully supports concurrency and CPU metrics (including scale-to-zero).**
+
+* POC: Joseph Burnett (Google)
+* Github: [Project 11](https://github.com/knative/serving/projects/11)
 
 ### Vertical Pod Autoscaling Beta
 
