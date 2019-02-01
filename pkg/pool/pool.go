@@ -24,6 +24,7 @@ type impl struct {
 	wg     sync.WaitGroup
 	workCh chan func() error
 	errCh  chan error
+	doneCh chan interface{}
 
 	// Ensure that we Wait exactly once and memoize
 	// the result.
@@ -49,6 +50,7 @@ func NewWithCapacity(workers, capacity int) Interface {
 	i := &impl{
 		workCh: make(chan func() error, capacity),
 		errCh:  make(chan error, capacity),
+		doneCh: make(chan interface{}),
 	}
 
 	// Start a go routine for each worker, which:
@@ -73,6 +75,13 @@ func NewWithCapacity(workers, capacity int) Interface {
 
 // Go implements Interface.
 func (i *impl) Go(w func() error) {
+	select {
+	// This means, we no longer accept new work.
+	// This prevents racy client from panicing.
+	case <-i.doneCh:
+		return
+	default:
+	}
 	// Increment the amount of outstanding work we're waiting on.
 	i.wg.Add(1)
 	// Send the work along the queue.
@@ -83,7 +92,7 @@ func (i *impl) Go(w func() error) {
 func (i *impl) Wait() error {
 	i.once.Do(func() {
 		// Stop accepting new work.
-		close(i.workCh)
+		close(i.doneCh)
 
 		// Wait until outstanding work has completed and close the
 		// error channel.  The logic below will drain the error
@@ -92,6 +101,9 @@ func (i *impl) Wait() error {
 		go func() {
 			// Wait for queued work to complete.
 			i.wg.Wait()
+
+			// Now we know there are definitely no new items arriving.
+			close(i.workCh)
 
 			// Close the channel, so that the receive below
 			// completes in the non-error case.
