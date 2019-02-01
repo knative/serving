@@ -1,0 +1,305 @@
+---
+# Source: gloo/templates/0-namespace.yaml
+
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gloo-system
+---
+# Source: gloo/templates/15-clusteringress-proxy-configmap.yaml
+
+# configmap
+apiVersion: v1
+data:
+  envoy.yaml: |
+    node:
+      cluster: clusteringress
+      id: "{{.PodName}}.{{.PodNamespace}}"
+      metadata:
+        # this line must match !
+        role: "gloo-system~clusteringress-proxy"
+    static_resources:
+      clusters:
+      - name: xds_cluster
+        connect_timeout: 5.000s
+        load_assignment:
+          cluster_name: xds_cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: gloo
+                    port_value: 9977
+        http2_protocol_options: {}
+        type: STRICT_DNS
+    dynamic_resources:
+      ads_config:
+        api_type: GRPC
+        grpc_services:
+        - envoy_grpc: {cluster_name: xds_cluster}
+      cds_config:
+        ads: {}
+      lds_config:
+        ads: {}
+    admin:
+      access_log_path: /dev/null
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 19000
+kind: ConfigMap
+metadata:
+  labels:
+    app: gloo
+  name: clusteringress-envoy-config
+  namespace: gloo-system
+---
+# Source: gloo/templates/1-namespace-clusterrole.yaml
+
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+    name: gloo-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "secrets", "endpoints", "configmaps"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "create"]
+- apiGroups: ["gloo.solo.io"]
+  resources: ["settings", "upstreams", "proxies","virtualservices"]
+  verbs: ["*"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["clusteringresses"]
+  verbs: ["get", "list", "watch"]
+---
+# Source: gloo/templates/2-namespace-clusterrolebinding.yaml
+
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-role-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: gloo-system
+roleRef:
+  kind: ClusterRole
+  name: gloo-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: gloo/templates/16-clusteringress-proxy-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gloo
+    gloo: clusteringress-proxy
+  name: clusteringress-proxy
+  namespace: gloo-system
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    protocol: TCP
+    name: https
+  selector:
+    gloo: clusteringress-proxy
+  type: LoadBalancer
+---
+# Source: gloo/templates/4-gloo-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gloo
+    gloo: gloo
+  name: gloo
+  namespace: gloo-system
+spec:
+  ports:
+  - name: grpc
+    port: 9977
+    protocol: TCP
+  selector:
+    gloo: gloo
+
+---
+# Source: gloo/templates/10-ingress-deployment.yaml
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo
+    gloo: ingress
+  name: ingress
+  namespace: gloo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: ingress
+  template:
+    metadata:
+      labels:
+        gloo: ingress
+    spec:
+      containers:
+      - image: "soloio/ingress:testing-8671e8b9"
+        imagePullPolicy: Always
+        name: ingress
+        args: ["--namespace", "gloo-system" ]
+        env:
+        - name: "ENABLE_KNATIVE_INGRESS"
+          value: "true"
+        - name: "DISABLE_KUBE_INGRESS"
+          value: "true"
+---
+# Source: gloo/templates/14-clusteringress-proxy-deployment.yaml
+
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo
+    gloo: clusteringress-proxy
+  name: clusteringress-proxy
+  namespace: gloo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: clusteringress-proxy
+  template:
+    metadata:
+      labels:
+        gloo: clusteringress-proxy
+    spec:
+      containers:
+      - args: ["--disable-hot-restart"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: soloio/gloo-envoy-wrapper:testing-8671e8b9
+        imagePullPolicy: Always
+        name: clusteringress-proxy
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/envoy
+          name: envoy-config
+      volumes:
+      - configMap:
+          name: clusteringress-envoy-config
+        name: envoy-config
+
+---
+# Source: gloo/templates/3-gloo-deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo
+    gloo: gloo
+  name: gloo
+  namespace: gloo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: gloo
+  template:
+    metadata:
+      labels:
+        gloo: gloo
+    spec:
+      containers:
+      - image: "soloio/gloo:testing-8671e8b9"
+        imagePullPolicy: Always
+        name: gloo
+        ports:
+        - containerPort: 9977
+          name: grpc
+          protocol: TCP
+        args: ["--namespace", "gloo-system" ]
+
+
+---
+# Source: gloo/templates/5-discovery-deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo
+    gloo: discovery
+  name: discovery
+  namespace: gloo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: discovery
+  template:
+    metadata:
+      labels:
+        gloo: discovery
+    spec:
+      containers:
+      - image: "soloio/discovery:testing-8671e8b9"
+        imagePullPolicy: Always
+        name: discovery
+        args: ["--namespace=gloo-system" ]
+
+
+---
+# Source: gloo/templates/11-ingress-proxy-deployment.yaml
+
+---
+# Source: gloo/templates/12-ingress-proxy-configmap.yaml
+
+---
+# Source: gloo/templates/13-ingress-proxy-service.yaml
+
+---
+# Source: gloo/templates/6-gateway-deployment.yaml
+
+---
+# Source: gloo/templates/7-gateway-proxy-deployment.yaml
+
+---
+# Source: gloo/templates/8-gateway-proxy-service.yaml
+
+---
+# Source: gloo/templates/9-gateway-proxy-configmap.yaml
+
+---
+# Source: gloo/templates/settings-crd.yaml
+
+---
+# Source: gloo/templates/settings.yaml
+
+
