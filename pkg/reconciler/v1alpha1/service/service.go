@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
@@ -221,11 +222,15 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	// Update our Status based on the state of our underlying Route.
 	ss := &service.Status
+	fmt.Printf("### RouteStatus: %#v\n\n", route.Status)
+	fmt.Printf("### ConfigStatus: %#v\n\n", config.Status)
 	ss.PropagateRouteStatus(&route.Status)
+	fmt.Printf("### ServiceStatus: %#v\n\n", ss)
 
 	// `manual` is not reconciled.
 	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
 		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
+		fmt.Printf("### Route Traffic diff: %s", cmp.Diff(want, got))
 		// Replace `configuration` target with its latest ready revision.
 		for idx := range want {
 			if want[idx].ConfigurationName == config.Name {
@@ -233,6 +238,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 				want[idx].ConfigurationName = ""
 			}
 		}
+		fmt.Printf("### Route Traffic diff2: %s", cmp.Diff(want, got))
 		if eq, err := kmp.SafeEqual(got, want); !eq || err != nil {
 			service.Status.MarkRouteNotYetReady()
 		}
