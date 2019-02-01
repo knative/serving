@@ -410,12 +410,6 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
-func (a *Autoscaler) targetConcurrency() float64 {
-	a.targetMutex.RLock()
-	defer a.targetMutex.RUnlock()
-	return a.target
-}
-
 func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
 	if v, ok := a.readyPodsFromCache(now); ok {
 		return v, nil
