@@ -25,7 +25,7 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-source $(dirname $0)/cluster.sh
+source $(dirname $0)/e2e-common.sh
 
 # Latest serving release. This is intentionally hardcoded so that we can test
 # upgrade/downgrade on release branches (or even arbitrary commits).
@@ -55,11 +55,6 @@ function install_head() {
   install_knative_serving || fail_test "Knative head release installation failed"
 }
 
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
-}
-
 # Script entry point.
 
 initialize $@
@@ -71,17 +66,18 @@ install_latest_release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
+
 header "Running preupgrade tests"
-go_test_e2e -tags=preupgrade -timeout=$TIMEOUT ./test/upgrade || fail_test
+go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=$TIMEOUT ./test/upgrade || fail_test
+go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=$TIMEOUT ./test/upgrade || fail_test
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
 
 success
