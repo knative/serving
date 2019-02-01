@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
 	"sync"
@@ -25,7 +26,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -207,16 +208,22 @@ type Autoscaler struct {
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
-	target          float64
-	stats           map[statKey]Stat
-	statsMutex      sync.Mutex
-	readyPods       map[time.Time]float64
-	readyPodsMutex  sync.RWMutex
 	panicking       bool
 	panicTime       *time.Time
 	maxPanicPods    float64
 	reporter        StatsReporter
-	targetMutex     sync.RWMutex
+
+	// targetMutex guards the elements in the block below.
+	targetMutex sync.RWMutex
+	target      float64
+
+	// statsMutex guards the elements in the block below.
+	statsMutex sync.Mutex
+	stats      map[statKey]Stat
+
+	// readyPodsMutex guards the elements in the block below.
+	readyPodsMutex sync.RWMutex
+	readyPodsCache map[time.Time]float64
 }
 
 // New creates a new instance of autoscaler
@@ -226,7 +233,10 @@ func New(
 	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
 	target float64,
-	reporter StatsReporter) *Autoscaler {
+	reporter StatsReporter) (*Autoscaler, error) {
+	if endpointsInformer == nil {
+		return nil, errors.New("Empty interface of EndpointsInformer")
+	}
 	return &Autoscaler{
 		DynamicConfig:   dynamicConfig,
 		namespace:       namespace,
@@ -234,9 +244,9 @@ func New(
 		endpointsLister: endpointsInformer.Lister(),
 		target:          target,
 		stats:           make(map[statKey]Stat),
-		readyPods:       make(map[time.Time]float64),
+		readyPodsCache:  make(map[time.Time]float64),
 		reporter:        reporter,
-	}
+	}, nil
 }
 
 // Update reconfigures the UniScaler according to the MetricSpec.
@@ -256,7 +266,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	}
 
 	// Set ready pods count at the second of stat timestamp to cache.
-	if _, err := a.getReadyPods(*stat.Time); err != nil {
+	if _, err := a.readyPods(*stat.Time); err != nil {
 		logger := logging.FromContext(ctx)
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return
@@ -316,7 +326,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
-	a.cleanReadyPodsCache(now)
+	a.cleanReadyPodsCache(now, config.StableWindow)
 
 	observedStablePods := stableData.observedPods(now)
 	// Do nothing when we have no data.
@@ -340,7 +350,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod(now)
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
 
-	readyPods, err := a.getReadyPods(now)
+	readyPods, err := a.readyPods(now)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
@@ -400,12 +410,18 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
-func (a *Autoscaler) getReadyPods(now time.Time) (float64, error) {
-	if v, ok := a.getReadyPodsFromCache(now); ok {
+func (a *Autoscaler) targetConcurrency() float64 {
+	a.targetMutex.RLock()
+	defer a.targetMutex.RUnlock()
+	return a.target
+}
+
+func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
+	if v, ok := a.readyPodsFromCache(now); ok {
 		return v, nil
 	}
 
-	v, err := a.getReadyPodsFromLister(now)
+	v, err := a.readyPodsFromLister(now)
 	if err != nil {
 		return 0, err
 	}
@@ -413,18 +429,18 @@ func (a *Autoscaler) getReadyPods(now time.Time) (float64, error) {
 	return v, nil
 }
 
-func (a *Autoscaler) getReadyPodsFromCache(now time.Time) (float64, bool) {
+func (a *Autoscaler) readyPodsFromCache(now time.Time) (float64, bool) {
 	a.readyPodsMutex.RLock()
 	defer a.readyPodsMutex.RUnlock()
 
-	v, ok := a.readyPods[now.Round(time.Second)]
+	v, ok := a.readyPodsCache[now.Round(time.Second)]
 	return v, ok
 }
 
-func (a *Autoscaler) getReadyPodsFromLister(now time.Time) (float64, error) {
+func (a *Autoscaler) readyPodsFromLister(now time.Time) (float64, error) {
 	readyPods := 0
 	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
 		// or it has been torn down.
 	} else if err != nil {
@@ -435,24 +451,25 @@ func (a *Autoscaler) getReadyPodsFromLister(now time.Time) (float64, error) {
 		}
 	}
 
-	a.readyPodsMutex.Lock()
-	defer a.readyPodsMutex.Unlock()
-
 	// Use 1 as minimum for multiplication and division.
 	float64ReadyPods := math.Max(1, float64(readyPods))
-	a.readyPods[now.Round(time.Second)] = float64ReadyPods
+	timeKey := now.Round(time.Second)
+
+	a.readyPodsMutex.Lock()
+	defer a.readyPodsMutex.Unlock()
+	a.readyPodsCache[timeKey] = float64ReadyPods
 
 	return float64ReadyPods, nil
 }
 
-func (a *Autoscaler) cleanReadyPodsCache(now time.Time) {
+func (a *Autoscaler) cleanReadyPodsCache(now time.Time, stableWindow time.Duration) {
 	a.readyPodsMutex.Lock()
 	defer a.readyPodsMutex.Unlock()
 
-	for key := range a.readyPods {
-		if key.Add(a.Current().StableWindow).Before(now) {
+	for key := range a.readyPodsCache {
+		if key.Add(stableWindow).Before(now) {
 			// Drop ready pods count after StableWindow
-			delete(a.readyPods, key)
+			delete(a.readyPodsCache, key)
 		}
 	}
 }

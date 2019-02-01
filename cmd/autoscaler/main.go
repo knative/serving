@@ -127,8 +127,6 @@ func main() {
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
-
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
@@ -142,6 +140,8 @@ func main() {
 	endpointsInformer = kubeInformerFactory.Core().V1().Endpoints()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
+	// uniScalerFactory depends endpointsInformer to be set.
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
@@ -234,7 +234,7 @@ func uniScalerFactory(metric *autoscaler.Metric, dynamicConfig *autoscaler.Dynam
 
 	return autoscaler.New(dynamicConfig, metric.Namespace,
 		reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
-		metric.Spec.TargetConcurrency, reporter), nil
+		metric.Spec.TargetConcurrency, reporter)
 }
 
 func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
@@ -33,6 +34,16 @@ var (
 	kubeClient   = fakeK8s.NewSimpleClientset()
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
+
+func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
+	dynConfig := &DynamicConfig{}
+	var endpointsInformer corev1informers.EndpointsInformer
+
+	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
+	if err == nil {
+		t.Error("Expected error when EndpointsInformer interface is emtpy, but got none.")
+	}
+}
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
@@ -549,7 +560,9 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		config: config,
 		logger: zap.NewNop().Sugar(),
 	}
-	return New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), float64(containerConcurrency), &mockReporter{})
+
+	a, _ := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), float64(containerConcurrency), &mockReporter{})
+	return a
 }
 
 // Record a data point every second, for every pod, for duration of the
