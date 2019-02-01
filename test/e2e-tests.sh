@@ -60,6 +60,8 @@ header "Setting up environment"
 if [[ "${RUN_GLOO_TESTS}" -eq "1" ]]; then
   echo "Running e2e tests using Gloo in place of Istio"
   install_knative_serving_gloo_version || fail_test "Knative Serving installation failed"
+  export GATEWAY_OVERRIDE="clusteringress-proxy"
+  export GATEWAY_NAMESPACE_OVERRIDE="gloo-system"
 else
   install_knative_serving || fail_test "Knative Serving installation failed"
 fi
