@@ -30,13 +30,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestContainerValidation(t *testing.T) {
+	bidir := corev1.MountPropagationBidirectional
+
 	tests := []struct {
-		name string
-		c    corev1.Container
-		want *apis.FieldError
+		name    string
+		c       corev1.Container
+		want    *apis.FieldError
+		volumes sets.String
 	}{{
 		name: "empty container",
 		c:    corev1.Container{},
@@ -232,15 +236,44 @@ func TestContainerValidation(t *testing.T) {
 			Details: "Name must be empty, or one of: 'h2c', 'http1'",
 		},
 	}, {
-		name: "has volumeMounts",
+		name: "has unknown volumeMounts",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:             "the-name",
+				SubPath:          "oops",
+				MountPropagation: &bidir,
+			}},
+		},
+		want: (&apis.FieldError{
+			Message: "volumeMount has no matching volume",
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("volumeMounts", 0).Also(
+			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
+			apis.ErrDisallowedFields("subPath").ViaFieldIndex("volumeMounts", 0)).Also(
+			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
+	}, {
+		name: "missing known volumeMounts",
+		c: corev1.Container{
+			Image: "foo",
+		},
+		volumes: sets.NewString("the-name"),
+		want: &apis.FieldError{
+			Message: "volumes not mounted: [the-name]",
+			Paths:   []string{"volumeMounts"},
+		},
+	}, {
+		name: "has known volumeMounts",
 		c: corev1.Container{
 			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
 				MountPath: "mount/path",
-				Name:      "name",
+				Name:      "the-name",
+				ReadOnly:  true,
 			}},
 		},
-		want: apis.ErrDisallowedFields("volumeMounts"),
+		volumes: sets.NewString("the-name"),
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
@@ -248,6 +281,21 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("lifecycle"),
+	}, {
+		name: "has known volumeMount twice",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				MountPath: "mount/path",
+				Name:      "the-name",
+				ReadOnly:  true,
+			}, {
+				MountPath: "another/mount/path",
+				Name:      "the-name",
+				ReadOnly:  true,
+			}},
+		},
+		volumes: sets.NewString("the-name"),
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
@@ -296,14 +344,10 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
-			Name: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "mount/path",
-				Name:      "name",
-			}},
+			Name:      "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "volumeMounts", "lifecycle").Also(
+		want: apis.ErrDisallowedFields("name", "lifecycle").Also(
 			&apis.FieldError{
 				Message: "Failed to parse image reference",
 				Paths:   []string{"image"},
@@ -314,9 +358,82 @@ func TestContainerValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := validateContainer(test.c)
+			got := validateContainer(test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestVolumeValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		v    corev1.Volume
+		want *apis.FieldError
+	}{{
+		name: "just name",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		want: apis.ErrMissingOneOf("secret", "configMap"),
+	}, {
+		name: "secret volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+				},
+			},
+		},
+	}, {
+		name: "configMap volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "foo"},
+				},
+			},
+		},
+	}, {
+		name: "emptyDir volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		want: apis.ErrMissingOneOf("secret", "configMap"),
+	}, {
+		name: "no name",
+		v: corev1.Volume{
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+				},
+			},
+		},
+		want: apis.ErrMissingField("name"),
+	}, {
+		name: "bad name",
+		v: corev1.Volume{
+			Name: "@@@",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("@@@", "name"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateVolume(test.v)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("validateVolume (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -515,6 +632,58 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedConcurrencyModel: "Multi",
 		},
 		want: nil,
+	}, {
+		name: "with volume (ok)",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			Volumes: []corev1.Volume{{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}},
+			DeprecatedConcurrencyModel: "Multi",
+		},
+		want: nil,
+	}, {
+		name: "with volume name collision",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			Volumes: []corev1.Volume{{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}, {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{},
+				},
+			}},
+			DeprecatedConcurrencyModel: "Multi",
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("volumes", 1),
 	}, {
 		name: "has bad build ref",
 		rs: &RevisionSpec{

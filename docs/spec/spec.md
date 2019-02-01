@@ -155,6 +155,14 @@ spec:
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container: ... # See the Container section below
 
+      # is a heavily restricted []core.v1.Volume; only the secret and configMap
+      # types are allowed.
+      volumes:
+      - name: foo
+        secret: ...
+      - name: bar
+        configMap: ...
+
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
       concurrencyModel: ...
@@ -216,6 +224,14 @@ spec:
     name: foo-bar-00001
 
   container: ... # See the Container section below
+
+  # is a heavily restricted []core.v1.Volume; only the secret and configMap
+  # types are allowed.
+  volumes:
+  - name: foo
+    secret: ...
+  - name: bar
+    configMap: ...
 
   # Name of the service account the code should run as.
   serviceAccountName: ...
@@ -302,6 +318,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -315,6 +332,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -331,6 +349,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
           timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
@@ -423,6 +442,15 @@ container: # v1.Container
     - containerPort: ...
       name: ... # Optional, one of "http1", "h2c"
       protocol: ... # Optional, one of "", "tcp"
+
+  # This specifies where the volumes present in the RevisionSpec will be mounted into
+  # the container.  Each of the volumes in the ConfigurationSpec must be mounted here
+  # or it is an error.
+  volumeMounts:
+  - name: ... # This must match a name from Volumes
+    mountPath: ... # Where to mount the named Volume.
+    readOnly: ... # Must be True, will default to True, so it may be omitted.
+    # All other fields are disallowed.
 
   livenessProbe: ... # Optional
   readinessProbe: ... # Optional

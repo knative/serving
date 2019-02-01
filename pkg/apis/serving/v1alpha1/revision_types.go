@@ -223,10 +223,16 @@ type RevisionSpec struct {
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
 	// this Container, including: name, resources, ports, and volumeMounts.
-	// TODO(mattmoor): Link to the runtime contract tracked by:
-	// https://github.com/knative/serving/issues/627
+	// See also the runtime contract for more information about the execution
+	// environment:
+	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
+
+	// Volumes defines a set of Kubernetes volumes to be mounted into the
+	// specified Container.  Currently only ConfigMap and Secret volumes are
+	// supported.
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
 	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
 	// +optional

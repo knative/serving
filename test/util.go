@@ -23,6 +23,10 @@ import (
 	"github.com/knative/pkg/test/logging"
 )
 
+const (
+	HelloVolumePath = "/hello/world"
+)
+
 // util.go provides shared utilities methods across knative serving test
 
 // LogResourceObject logs the resource object with the resource name and value

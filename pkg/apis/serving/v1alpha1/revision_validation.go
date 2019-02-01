@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -46,19 +47,31 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := validateContainer(rs.Container).ViaField("container").
-		Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
+
+	volumes := sets.NewString()
+	var errs *apis.FieldError
+	for i, volume := range rs.Volumes {
+		if volumes.Has(volume.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumes", i))
+		}
+		volumes.Insert(volume.Name)
+		errs = errs.Also(validateVolume(volume).ViaFieldIndex("volumes", i))
+	}
+
+	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
+	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
 	if err := rs.DeprecatedConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
-	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.DeprecatedConcurrencyModel); err != nil {
-		errs = errs.Also(err)
+	} else {
+		errs = errs.Also(ValidateContainerConcurrency(
+			rs.ContainerConcurrency, rs.DeprecatedConcurrencyModel))
 	}
 
-	if err := validateTimeoutSeconds(rs.TimeoutSeconds); err != nil {
-		errs = errs.Also(err)
-	}
-	return errs
+	return errs.Also(validateTimeoutSeconds(rs.TimeoutSeconds))
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
@@ -118,10 +131,67 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 	return nil
 }
 
-func validateContainer(container corev1.Container) *apis.FieldError {
+func validateVolume(volume corev1.Volume) *apis.FieldError {
+	var errs *apis.FieldError
+	if volume.Name == "" {
+		errs = apis.ErrMissingField("name")
+	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
+		errs = apis.ErrInvalidValue(volume.Name, "name")
+	}
+
+	vs := volume.VolumeSource
+	switch {
+	case vs.Secret != nil, vs.ConfigMap != nil:
+		// These are fine.
+	default:
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+	}
+	return errs
+}
+
+func validateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+
+	// Check that volume mounts match names in "volumes", that "volumes" has 100%
+	// coverage, and the field restrictions.
+	seen := sets.NewString()
+	var errs *apis.FieldError
+	for i, vm := range container.VolumeMounts {
+		// This effectively checks that Name is non-empty because Volume name must be non-empty.
+		if !volumes.Has(vm.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: "volumeMount has no matching volume",
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumeMounts", i))
+		}
+		seen.Insert(vm.Name)
+
+		if vm.MountPath == "" {
+			errs = errs.Also(apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", i))
+		}
+		if !vm.ReadOnly {
+			errs = errs.Also(apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", i))
+		}
+
+		if vm.SubPath != "" {
+			errs = errs.Also(
+				apis.ErrDisallowedFields("subPath").ViaFieldIndex("volumeMounts", i))
+		}
+		if vm.MountPropagation != nil {
+			errs = errs.Also(
+				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", i))
+		}
+	}
+
+	if missing := volumes.Difference(seen); missing.Len() > 0 {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
+			Paths:   []string{"volumeMounts"},
+		})
+	}
+
 	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
 	// the users.  See pkg/controller/revision/resources/deploy.go#makePodSpec.
@@ -129,13 +199,10 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "name")
 	}
-	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "volumeMounts")
-	}
+
 	if container.Lifecycle != nil {
 		ignoredFields = append(ignoredFields, "lifecycle")
 	}
-	var errs *apis.FieldError
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
