@@ -444,7 +444,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:4eeeaf55912485c9a68cf37b119693a58173cd06b41cabf92ba758fc47ca273b"
+  digest = "1:5939611dfe85d04bec3c8dc6947ea3acc699e8c9127c0a1438e2e4878f20dbff"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -491,7 +491,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "298debc821c24bef5375b22ff7513079603df4dc"
+  revision = "819ebda80ca60ec95e67d8db23dec3f67828ccb5"
 
 [[projects]]
   branch = "master"
@@ -1346,6 +1346,7 @@
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
+    "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/apimachinery/pkg/util/sets/types",
     "k8s.io/apimachinery/pkg/util/validation",
     "k8s.io/apimachinery/pkg/util/wait",
