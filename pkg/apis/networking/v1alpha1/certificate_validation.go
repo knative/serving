@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -41,7 +39,7 @@ func (spec *CertificateSpec) Validate() *apis.FieldError {
 	} else {
 		for index, dnsName := range spec.DNSNames {
 			if len(dnsName) == 0 {
-				all = all.Also(apis.ErrMissingField(fmt.Sprintf("dnsNames[%d]", index)))
+				all = all.Also(apis.ErrMissingField(apis.CurrentField).ViaFieldIndex("dnsNames", index))
 			}
 		}
 	}

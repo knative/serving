@@ -63,12 +63,6 @@ type CertificateList struct {
 
 // CertificateSpec defines the desired state of Certificate.
 type CertificateSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	// +optional
-	Generation int64 `json:"generation,omitempty"`
 
 	// DNSNames is a list of DNS names the Certificate could support.
 	DNSNames []string `json:"dnsNames"`
