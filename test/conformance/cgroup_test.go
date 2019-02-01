@@ -78,7 +78,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
 // container.
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
-	logger := logging.GetContextLogger("TestShouldCgroupReadOnly")
+	logger := logging.GetContextLogger("TestShouldHaveCgroupReadOnly")
 	clients := setup(t)
 	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
 	if err != nil {
