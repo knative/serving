@@ -47,6 +47,8 @@ type HostInfo struct {
 	EnvVars map[string]string `json:"envs"`
 	// Cgroups is a list of cgroup information.
 	Cgroups []*Cgroup `json:"cgroups"`
+	// Mounts is a list of mounted volume information, or error.
+	Mounts []*Mount `json:"mounts"`
 }
 
 // FileInfo contains the metadata for a given file.
@@ -73,6 +75,20 @@ type Cgroup struct {
 	Value *int `json:"value",optional`
 	// ReadOnly is true if the cgroup was not writable.
 	ReadOnly *bool `json:"readOnly",optional`
+	// Error is the String representation of the error returned obtaining the information.
+	Error string `json:"error",optional`
+}
+
+// Mount contains information about a given mount.
+type Mount struct {
+	// Device is the device that is mounted
+	Device string `json:"device",optional`
+	// Path is the location where the volume is mounted
+	Path string `json:"path",optional`
+	// Type is the filesystem type (i.e. sysfs, proc, tmpfs, ext4, overlay, etc.)
+	Type string `json:"type",optional`
+	// Options is the mount options set (i.e. rw, nosuid, relatime, etc.)
+	Options []string `json:"options",optional`
 	// Error is the String representation of the error returned obtaining the information.
 	Error string `json:"error",optional`
 }
