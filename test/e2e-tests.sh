@@ -57,7 +57,13 @@ initialize $@
 
 header "Setting up environment"
 
-install_knative_serving || fail_test "Knative Serving installation failed"
+if [[ "${RUN_GLOO_TESTS}" -eq "1" ]]; then
+  echo "Running e2e tests using Gloo in place of Istio"
+  install_knative_serving_gloo_version || fail_test "Knative Serving installation failed"
+else
+  install_knative_serving || fail_test "Knative Serving installation failed"
+fi
+
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
