@@ -32,6 +32,7 @@ import (
 
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 )
 
 const (
@@ -142,10 +143,12 @@ func getStats(durations []time.Duration) *stats {
 }
 
 func testGrid(s *stats, tName string) error {
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	val := float32(s.avg.Seconds() / 1000)
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
-	return testgrid.CreateTestgridXML(tc, tName)
+	ts := junit.TestSuites{}
+	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	return testgrid.CreateXMLOutput(&ts, tName)
 }
 
 func testScaleFromZero(t *testing.T, count int) {
