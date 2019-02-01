@@ -63,8 +63,8 @@ func TestLabelValueOrEmpty(t *testing.T) {
 	}
 }
 
-func TestUniScalerFactory(t *testing.T) {
-	setInformer()
+func TestUniScalerFactoryFunc(t *testing.T) {
+	uniScalerFactory := getTestUniScalerFactory()
 	metric := &autoscaler.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -79,8 +79,8 @@ func TestUniScalerFactory(t *testing.T) {
 	}
 }
 
-func TestUniScalerFactory_FailWhenRevisionLabelMissing(t *testing.T) {
-	setInformer()
+func TestUniScalerFactoryFunc_FailWhenRevisionLabelMissing(t *testing.T) {
+	uniScalerFactory := getTestUniScalerFactory()
 	metric := &autoscaler.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -94,8 +94,8 @@ func TestUniScalerFactory_FailWhenRevisionLabelMissing(t *testing.T) {
 	}
 }
 
-func setInformer() {
+func getTestUniScalerFactory() func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	endpointsInformer = kubeInformer.Core().V1().Endpoints()
+	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints())
 }
