@@ -1,0 +1,22 @@
+apiVersion: gloo.solo.io/v1
+kind: Settings
+metadata:
+  name: default
+  namespace: gloo-system
+spec:
+  bindAddr: 0.0.0.0:9977
+  devMode: true
+  discoveryNamespace: gloo-system
+  kubernetesArtifactSource: {}
+  kubernetesConfigSource: {}
+  kubernetesSecretSource: {}
+  refreshRate: 60s
+  watchNamespaces:
+  - default
+  - gloo-system
+  - knative-build
+  - knative-serving
+  - knative-testing
+  - kube-public
+  - kube-system
+  - serving-tests
