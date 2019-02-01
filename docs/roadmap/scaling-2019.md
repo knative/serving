@@ -98,7 +98,7 @@ This is work remaining from 2018 to add CPU-based autoscaling to Knative and pro
 
 **Our goal is to have a cleanly-layered, extensible autoscaling sub-system which fully supports concurrency and CPU metrics (including scale-to-zero).**
 
-* POC: Joseph Burnett (Google)
+* POC: Yanwei Guo (Google)
 * Github: [Project 11](https://github.com/knative/serving/projects/11)
 
 ### Vertical Pod Autoscaling Beta
