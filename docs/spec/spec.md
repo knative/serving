@@ -444,7 +444,7 @@ container: # v1.Container
       protocol: ... # Optional, one of "", "tcp"
 
   # This specifies where the volumes present in the RevisionSpec will be mounted into
-  # the container.  Each of the volumes in the ConfigurationSpec must be mounted here
+  # the container.  Each of the volumes in the RevisionSpec must be mounted here
   # or it is an error.
   volumeMounts:
   - name: ... # This must match a name from Volumes
