@@ -336,11 +336,7 @@ func newServiceBuilder() *serviceBuilder {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-<<<<<<< HEAD
-					Name: revisionresources.ServicePortName,
-=======
 					Name: revisionresources.ServicePortNameH2C,
->>>>>>> master
 					Port: v1alpha1.DefaultUserPort,
 				}, {
 					Name: "anotherport",

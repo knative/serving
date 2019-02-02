@@ -27,12 +27,8 @@ type rewinder struct {
 	eof      bool
 }
 
-<<<<<<< HEAD
-// NewRewinder wraps a single-use `ReadCloser` into a `ReadCloser` that can be read multiple times
-=======
 // NewRewinder wraps a single-use `ReadCloser` into a `ReadCloser`
 // that can be read multiple times
->>>>>>> master
 func NewRewinder(rc io.ReadCloser) io.ReadCloser {
 	r := &rewinder{original: rc}
 
