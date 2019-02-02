@@ -19,7 +19,12 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-data:
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
+# data:
   # Specifies the IP ranges that Istio sidecar will intercept.
   # Replace this with the IP ranges of your cluster (see below for some examples).
   # Separate multiple entries with a comma.
@@ -53,4 +58,4 @@ data:
   # For more information, visit
   # https://istio.io/docs/tasks/traffic-management/egress/
   #
-  istio.sidecar.includeOutboundIPRanges: "*"
+  # istio.sidecar.includeOutboundIPRanges: "*"

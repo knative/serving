@@ -19,6 +19,11 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
 data:
   # CONTROLLER CONFIGURATION
 
@@ -27,4 +32,4 @@ data:
   queueSidecarImage: github.com/knative/serving/cmd/queue
 
   # List of repositories for which tag to digest resolving should be skipped
-  registriesSkippingTagResolving: "ko.local,dev.local"
+  # registriesSkippingTagResolving: "ko.local,dev.local"

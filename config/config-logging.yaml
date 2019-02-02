@@ -19,36 +19,41 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-data:
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
+# data:
   # Common configuration for all Knative codebase
-  zap-logger-config: |
-    {
-      "level": "info",
-      "development": false,
-      "outputPaths": ["stdout"],
-      "errorOutputPaths": ["stderr"],
-      "encoding": "json",
-      "encoderConfig": {
-        "timeKey": "ts",
-        "levelKey": "level",
-        "nameKey": "logger",
-        "callerKey": "caller",
-        "messageKey": "msg",
-        "stacktraceKey": "stacktrace",
-        "lineEnding": "",
-        "levelEncoder": "",
-        "timeEncoder": "iso8601",
-        "durationEncoder": "",
-        "callerEncoder": ""
-      }
-    }
+  # zap-logger-config: |
+  #   {
+  #     "level": "info",
+  #     "development": false,
+  #     "outputPaths": ["stdout"],
+  #     "errorOutputPaths": ["stderr"],
+  #     "encoding": "json",
+  #     "encoderConfig": {
+  #       "timeKey": "ts",
+  #       "levelKey": "level",
+  #       "nameKey": "logger",
+  #       "callerKey": "caller",
+  #       "messageKey": "msg",
+  #       "stacktraceKey": "stacktrace",
+  #       "lineEnding": "",
+  #       "levelEncoder": "",
+  #       "timeEncoder": "iso8601",
+  #       "durationEncoder": "",
+  #       "callerEncoder": ""
+  #     }
+  #   }
   
   # Log level overrides
   # For all components except the autoscaler and queue proxy, 
   # changes are be picked up immediately.
   # For autoscaler and queue proxy, changes require recreation of the pods.
-  loglevel.controller: "info"
-  loglevel.autoscaler: "info"
-  loglevel.queueproxy: "info"
-  loglevel.webhook: "info"
-  loglevel.activator: "info"
+  # loglevel.controller: "info"
+  # loglevel.autoscaler: "info"
+  # loglevel.queueproxy: "info"
+  # loglevel.webhook: "info"
+  # loglevel.activator: "info"
