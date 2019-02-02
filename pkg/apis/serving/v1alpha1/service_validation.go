@@ -103,7 +103,7 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 	}
 	for i, r := range rt.Revisions {
 		// Skip over the last revision special keyword.
-		if r == releaseLastRevisionKeyword {
+		if r == releaseLatestRevisionKeyword {
 			continue
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {

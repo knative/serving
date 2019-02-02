@@ -298,7 +298,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
-					Revisions: []string{"s-1-00001", releaseLastRevisionKeyword},
+					Revisions: []string{"s-1-00001", releaseLatestRevisionKeyword},
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
