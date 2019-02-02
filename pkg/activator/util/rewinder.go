@@ -26,7 +26,7 @@ type rewinder struct {
 	rs io.ReadSeeker
 }
 
-// rewinder wraps a single-use `ReadCloser` into a `ReadCloser` that can be read multiple times
+// NewRewinder wraps a single-use `ReadCloser` into a `ReadCloser` that can be read multiple times
 func NewRewinder(rc io.ReadCloser) io.ReadCloser {
 	return &rewinder{rc: rc}
 }
