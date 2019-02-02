@@ -87,7 +87,7 @@ func (m *ManualType) Validate() *apis.FieldError {
 }
 
 // See #2819.
-const releaseLastRevisionKeyword = "@latestRevision"
+const releaseLatestRevisionKeyword = "@latestRevision"
 
 // Validate validates the fields belonging to ReleaseType
 func (rt *ReleaseType) Validate() *apis.FieldError {
