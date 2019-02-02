@@ -553,7 +553,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	// An invalid IP range
 	in = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
+	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; !ok {
 		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 

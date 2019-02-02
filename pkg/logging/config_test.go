@@ -17,11 +17,8 @@ limitations under the License.
 package logging
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	_ "github.com/knative/serving/pkg/system/testing"
@@ -29,6 +26,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestNewLogger(t *testing.T) {
@@ -128,7 +127,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 		t.Errorf("Expected no errors. got: %v", err)
 	}
 	if got := c.LoggingConfig; got == "" {
-		t.Error("LoggingConfig got empty")
+		t.Error("LoggingConfig = empty, want not empty")
 	}
 	if got, want := len(c.LoggingLevel), len(components); got != want {
 		t.Errorf("len(LoggingLevel) = %d, want %d", got, want)
@@ -160,15 +159,8 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
-	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	cfg, err := NewConfigFromConfigMap(&cm)
+	cm := ConfigMapFromTestFile(t, ConfigName)
+	cfg, err := NewConfigFromConfigMap(cm)
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	}

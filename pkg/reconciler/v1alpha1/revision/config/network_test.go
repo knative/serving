@@ -42,9 +42,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		wantController interface{}
 		config         *corev1.ConfigMap
 	}{{
-		name:           "network configuration with no network input",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with no network input",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges: "*",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
