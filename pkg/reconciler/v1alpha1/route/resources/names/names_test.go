@@ -56,10 +56,11 @@ func TestNamer(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "bar",
 				Namespace: "default",
+				UID:       "1234-5678-910",
 			},
 		},
-		f:    ClusterIngressPrefix,
-		want: "bar-",
+		f:    ClusterIngress,
+		want: "route-1234-5678-910",
 	}}
 
 	for _, test := range tests {

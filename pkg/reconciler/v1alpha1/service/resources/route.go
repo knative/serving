@@ -76,9 +76,9 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			Percent:           100,
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)
-	} else if service.Spec.Pinned != nil {
+	} else if service.Spec.DeprecatedPinned != nil {
 		tt := v1alpha1.TrafficTarget{
-			RevisionName: service.Spec.Pinned.RevisionName,
+			RevisionName: service.Spec.DeprecatedPinned.RevisionName,
 			Percent:      100,
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)

@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"testing"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 )
 
 const (
@@ -92,7 +92,7 @@ func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Durati
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i), logger),
 			// The crd.go helpers will convert to the actual image path.
-			Image:   helloWorldImage,
+			Image: helloWorldImage,
 		}
 	}
 
@@ -143,21 +143,24 @@ func getStats(durations []time.Duration) *stats {
 }
 
 func testGrid(s *stats, tName string) error {
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	val := float32(s.avg.Seconds() / 1000)
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
-	return testgrid.CreateTestgridXML(tc, "TestPerformanceScaleFromZero")
+	ts := junit.TestSuites{}
+	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	return testgrid.CreateXMLOutput(&ts, tName)
 }
 
 func testScaleFromZero(t *testing.T, count int) {
-	logger := logging.GetContextLogger(fmt.Sprintf("TestScaleFromZero%d", count))
+	tName := fmt.Sprintf("TestScaleFromZero%d", count)
+	logger := logging.GetContextLogger(tName)
 	durs, err := parallelScaleFromZero(logger, count)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stats := getStats(durs)
 	logger.Infof("Average: %v", stats.avg)
-	if err = testGrid(stats, strconv.Itoa(count)); err != nil {
+	if err = testGrid(stats, tName); err != nil {
 		t.Fatalf("Creating testgrid output: %v", err)
 	}
 }
@@ -171,5 +174,6 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
+	t.Skip()
 	testScaleFromZero(t, 50)
 }

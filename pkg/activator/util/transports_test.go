@@ -75,7 +75,7 @@ func TestRetryRoundTripper(t *testing.T) {
 	req := &http.Request{Header: http.Header{}}
 
 	resp := func(status int) *http.Response {
-		return &http.Response{StatusCode: status, Body: &spyReadCloser{}}
+		return &http.Response{StatusCode: status, Body: &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(""))}}
 	}
 
 	someErr := errors.New("some error")
@@ -210,11 +210,16 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 		conditions...,
 	)
 
+<<<<<<< HEAD
 	spy := &spyReadCloser{Reader: strings.NewReader(bodyContent)}
 	req, err := http.NewRequest(http.MethodPost, "http://test.domain", spy)
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
 	}
+=======
+	spy := &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(bodyContent))}
+	req, _ := http.NewRequest("POST", "http://test.domain", spy)
+>>>>>>> master
 
 	rt.RoundTrip(req)
 	if spy.ReadAfterClose {

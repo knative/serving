@@ -63,6 +63,9 @@ type TableRow struct {
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
+	// WantDeleteCollections holds the set of DeleteCollection calls we expect during reconciliation.
+	WantDeleteCollections []clientgotesting.DeleteCollectionActionImpl
+
 	// WantPatches holds the set of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
 
@@ -235,9 +238,32 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
+	for i, want := range r.WantDeleteCollections {
+		if i >= len(actions.DeleteCollections) {
+			t.Errorf("Missing delete-collection: %#v", want)
+			continue
+		}
+		got := actions.DeleteCollections[i]
+		if got, want := got.GetListRestrictions().Labels, want.GetListRestrictions().Labels; (got != nil) != (want != nil) || got.String() != want.String() {
+			t.Errorf("Unexpected delete-collection[%d].Labels = %v, wanted %v", i, got, want)
+		}
+		// TODO(mattmoor): Add this if/when we need support.
+		if got := got.GetListRestrictions().Fields; got.String() != "" {
+			t.Errorf("Unexpected delete-collection[%d].Fields = %v, wanted ''", i, got)
+		}
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected delete-collection[%d]: %#v, wanted %s", i, got, expectedNamespace)
+		}
+	}
+	if got, want := len(actions.DeleteCollections), len(r.WantDeleteCollections); got > want {
+		for _, extra := range actions.DeleteCollections[want:] {
+			t.Errorf("Extra delete-collection: %#v", extra)
+		}
+	}
+
 	for i, want := range r.WantPatches {
 		if i >= len(actions.Patches) {
-			t.Errorf("Missing patch: %#v", want)
+			t.Errorf("Missing patch: %#v; raw: %s", want, string(want.GetPatch()))
 			continue
 		}
 
@@ -254,7 +280,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
 		for _, extra := range actions.Patches[want:] {
-			t.Errorf("Extra patch: %#v", extra)
+			t.Errorf("Extra patch: %#v; raw: %s", extra, string(extra.GetPatch()))
 		}
 	}
 

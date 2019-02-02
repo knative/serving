@@ -28,7 +28,7 @@ func (r *Revision) SetDefaults() {
 func (rs *RevisionSpec) SetDefaults() {
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
-	if rs.ConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
+	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
 		rs.ContainerConcurrency = 1
 	}
 

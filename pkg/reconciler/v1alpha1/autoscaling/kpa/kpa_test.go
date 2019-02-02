@@ -730,7 +730,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				Args:       []string{"hello", "world"},
 				WorkingDir: "/tmp",
 			},
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
 }

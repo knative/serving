@@ -99,12 +99,12 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "pinned",
 		in: &Service{
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{},
+				DeprecatedPinned: &PinnedType{},
 			},
 		},
 		want: &Service{
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
@@ -119,7 +119,7 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "pinned - no overwrite",
 		in: &Service{
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
@@ -133,7 +133,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 		want: &Service{
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{

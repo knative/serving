@@ -50,15 +50,16 @@ To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
-  `export GOPATH=...`
+   `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-  work properly.
+   work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
    developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-  - **Note**: if you are using docker hub to store your images your
-    `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-  - **Note**: Currently Docker Hub doesn't let you create subdirs under your
-    username.
+
+- **Note**: if you are using docker hub to store your images your
+  `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+- **Note**: Currently Docker Hub doesn't let you create subdirs under your
+  username.
 
 `.bashrc` example:
 
@@ -142,11 +143,11 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.2/istio-crds.yaml
+kubectl apply -f ./third_party/istio-1.0.5/istio-crds.yaml
 while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.5/istio.yaml
 ```
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
@@ -246,8 +247,8 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.2/istio.yaml \
-  -f ./third_party/istio-1.0.2/istio-crds.yaml
+  -f ./third_party/istio-1.0.5/istio.yaml \
+  -f ./third_party/istio-1.0.5/istio-crds.yaml
 ```
 
 ## Telemetry

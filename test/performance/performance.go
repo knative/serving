@@ -1,5 +1,3 @@
-// +build performance
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -27,7 +25,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/prometheus"
-	"github.com/knative/test-infra/shared/testgrid"
+	"github.com/knative/test-infra/shared/junit"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -75,11 +73,11 @@ func TearDown(client *PerformanceClient, logger *logging.BaseLogger, names test.
 }
 
 // CreatePerfTestCase creates a perf test case with the provided name and value
-func CreatePerfTestCase(metricValue float32, metricName, testName string) testgrid.TestCase {
-	tp := []testgrid.TestProperty{{Name: perfLatency, Value: metricValue}}
-	tc := testgrid.TestCase{
+func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.TestCase {
+	tp := []junit.TestProperty{{Name: perfLatency, Value: fmt.Sprintf("%f", metricValue)}}
+	tc := junit.TestCase{
 		ClassName:  testName,
 		Name:       fmt.Sprintf("%s/%s", testName, metricName),
-		Properties: testgrid.TestProperties{Property: tp}}
+		Properties: junit.TestProperties{Properties: tp}}
 	return tc
 }

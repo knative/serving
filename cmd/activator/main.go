@@ -156,11 +156,10 @@ func main() {
 	go statReporter(stopCh)
 
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
-	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
-		ReqChan:    reqChan,
-		StatChan:   statChan,
-		ReportChan: time.NewTicker(time.Second).C,
-	})
+
+	// Create and run our concurrency reporter
+	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
+	go cr.Run(stopCh)
 
 	ah := &activatorhandler.FilteringHandler{
 		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
@@ -185,14 +184,22 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(":8080", ah)
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := http1Srv.ListenAndServe(); err != nil {
+			logger.Errorw("Error running HTTP server", zap.Error(err))
+		}
+	}()
+
+	h2cSrv := h2c.NewServer(":8081", ah)
+	go func() {
+		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
 	<-stopCh
 	a.Shutdown()
-	srv.Shutdown(context.TODO())
+	http1Srv.Shutdown(context.TODO())
+	h2cSrv.Shutdown(context.TODO())
 }

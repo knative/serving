@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 
 	"github.com/knative/serving/test/e2e"
@@ -114,7 +115,7 @@ func (l *latencies) Num(name string) int64 {
 	return l.metrics[name].Num()
 }
 
-func (l *latencies) Results(t *testing.T) []testgrid.TestCase {
+func (l *latencies) Results(t *testing.T) []junit.TestCase {
 	l.m.RLock()
 	defer l.m.RUnlock()
 
@@ -125,7 +126,7 @@ func (l *latencies) Results(t *testing.T) []testgrid.TestCase {
 	sort.Strings(order)
 
 	// Add latency metrics
-	tc := make([]testgrid.TestCase, 0, 3*len(order))
+	tc := make([]junit.TestCase, 0, 3*len(order))
 	for _, key := range order {
 		tc = append(tc,
 			CreatePerfTestCase(l.Min(key), fmt.Sprintf("%s.min", key), t.Name()),
@@ -141,7 +142,7 @@ func TestScaleToN(t *testing.T) {
 	tests := []int{10, 50, 100}
 
 	// Accumulate the results from each row in our table (recorded below).
-	var results []testgrid.TestCase
+	var results []junit.TestCase
 
 	for _, size := range tests {
 		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
@@ -161,7 +162,10 @@ func TestScaleToN(t *testing.T) {
 	}
 
 	// We do this once here because it doesn't like table test names (with '/')
-	if err := testgrid.CreateTestgridXML(results, t.Name()); err != nil {
+	ts := junit.TestSuites{}
+	ts.AddTestSuite( &junit.TestSuite{Name:t.Name(), TestCases:results} )
+
+	if err := testgrid.CreateXMLOutput(&ts, t.Name()); err != nil {
 		t.Errorf("Cannot create output xml: %v", err)
 	}
 }

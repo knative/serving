@@ -130,15 +130,15 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}},
 				},
 			),
@@ -181,15 +181,15 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}},
 				},
 			),

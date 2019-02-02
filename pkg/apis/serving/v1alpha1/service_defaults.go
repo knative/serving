@@ -23,8 +23,8 @@ func (s *Service) SetDefaults() {
 func (ss *ServiceSpec) SetDefaults() {
 	if ss.RunLatest != nil {
 		ss.RunLatest.Configuration.SetDefaults()
-	} else if ss.Pinned != nil {
-		ss.Pinned.Configuration.SetDefaults()
+	} else if ss.DeprecatedPinned != nil {
+		ss.DeprecatedPinned.Configuration.SetDefaults()
 	} else if ss.Release != nil {
 		ss.Release.Configuration.SetDefaults()
 	}

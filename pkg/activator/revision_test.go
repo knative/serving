@@ -289,6 +289,7 @@ func newRevisionBuilder(labels map[string]string) *revisionBuilder {
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
 					Image: "gcr.io/repo/image",
+					Ports: []corev1.ContainerPort{{Name: "h2c"}},
 				},
 			},
 			Status: v1alpha1.RevisionStatus{
@@ -335,7 +336,11 @@ func newServiceBuilder() *serviceBuilder {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
+<<<<<<< HEAD
 					Name: revisionresources.ServicePortName,
+=======
+					Name: revisionresources.ServicePortNameH2C,
+>>>>>>> master
 					Port: v1alpha1.DefaultUserPort,
 				}, {
 					Name: "anotherport",

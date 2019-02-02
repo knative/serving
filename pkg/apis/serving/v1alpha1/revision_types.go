@@ -118,6 +118,17 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
+// RevisionProtocolType is an enumeration of the supported application-layer protocols
+// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
+type RevisionProtocolType string
+
+const (
+	// HTTP/1.1
+	RevisionProtocolHTTP1 RevisionProtocolType = "http1"
+	// HTTP/2 with Prior Knowledge
+	RevisionProtocolH2C RevisionProtocolType = "h2c"
+)
+
 const (
 	// UserPortName is the name that will be used for the Port on the
 	// Deployment and Pod created by a Revision. This name will be set regardless of if
@@ -173,12 +184,12 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
+	// DeprecatedConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
 	// Revision. Defaults to Multi.
 	// Deprecated in favor of ContainerConcurrency.
 	// +optional
-	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
@@ -198,11 +209,11 @@ type RevisionSpec struct {
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// BuildName optionally holds the name of the Build responsible for
+	// DeprecatedBuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
 	// DEPRECATED: Use BuildRef instead.
 	// +optional
-	BuildName string `json:"buildName,omitempty"`
+	DeprecatedBuildName string `json:"buildName,omitempty"`
 
 	// BuildRef holds the reference to the build (if there is one) responsible
 	// for producing the container image for this Revision. Otherwise, nil
@@ -304,16 +315,25 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 		return buildRef
 	}
 
-	if r.Spec.BuildName != "" {
+	if r.Spec.DeprecatedBuildName != "" {
 		return &corev1.ObjectReference{
 			APIVersion: "build.knative.dev/v1alpha1",
 			Kind:       "Build",
 			Namespace:  r.Namespace,
-			Name:       r.Spec.BuildName,
+			Name:       r.Spec.DeprecatedBuildName,
 		}
 	}
 
 	return nil
+}
+
+func (r *Revision) GetProtocol() RevisionProtocolType {
+	ports := r.Spec.Container.Ports
+	if len(ports) > 0 && ports[0].Name == "h2c" {
+		return RevisionProtocolH2C
+	}
+
+	return RevisionProtocolHTTP1
 }
 
 // IsReady looks at the conditions and if the Status has a condition
