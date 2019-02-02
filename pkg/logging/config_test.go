@@ -120,18 +120,18 @@ func TestNewLogger(t *testing.T) {
 func TestNewConfigNoEntry(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
+			Namespace: "knative-something",
 			Name:      "config-logging",
 		},
 	})
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	}
-	if got, want := c.LoggingConfig, ""; got != want {
-		t.Errorf("LoggingConfig = %v, want %v", got, want)
+	if got := c.LoggingConfig; got == "" {
+		t.Error("LoggingConfig got empty")
 	}
-	if got, want := len(c.LoggingLevel), 0; got != want {
-		t.Errorf("len(LoggingLevel) = %v, want %v", got, want)
+	if got, want := len(c.LoggingLevel), len(components); got != want {
+		t.Errorf("len(LoggingLevel) = %d, want %d", got, want)
 	}
 }
 
@@ -197,10 +197,10 @@ func TestEmptyLevel(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Errorf("Expected no errors. got: %v", err)
+		t.Errorf("Expected no errors, got: %v", err)
 	}
-	if _, ok := c.LoggingLevel["queueproxy"]; ok {
-		t.Errorf("Expected nothing for LoggingLevel[queueproxy]. got: %v", c.LoggingLevel["queueproxy"])
+	if got, want := c.LoggingLevel["queueproxy"], zapcore.InfoLevel; got != want {
+		t.Errorf("LoggingLevel[queueproxy] = %v, want: %v", got, want)
 	}
 }
 

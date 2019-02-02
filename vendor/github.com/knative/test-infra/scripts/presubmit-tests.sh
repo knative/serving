@@ -110,8 +110,11 @@ function run_build_tests() {
 # Perform markdown build tests if necessary, unless disabled.
 function markdown_build_tests() {
   (( DISABLE_MD_LINTING && DISABLE_MD_LINK_CHECK )) && return 0
-  # Get changed markdown files (ignore /vendor)
-  local mdfiles="$(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/)"
+  # Get changed markdown files (ignore /vendor and deleted files)
+  local mdfiles=""
+  for file in $(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/); do
+    [[ -f "{file}" ]] && mdfiles="${mdfiles} ${file}"
+  done
   [[ -z "${mdfiles}" ]] && return 0
   local failed=0
   if (( ! DISABLE_MD_LINTING )); then
@@ -250,7 +253,7 @@ function main() {
     echo ">> gcloud SDK version"
     gcloud version
     echo ">> kubectl version"
-    kubectl version
+    kubectl version --client
     echo ">> go version"
     go version
     echo ">> git version"

@@ -22,6 +22,11 @@ This is a helper script to run the presubmit tests. To use it:
    `test-infra/scripts` directory. To override it, create a file with the same
    name, containing the custom config in the `/test` directory.
 
+   The markdown lint tool ignores long lines by default. Its configuration file,
+   `markdown-lint-config.rc`, lives in the `test-infra/scripts` directory. To
+   override it, create a file with the same name, containing the custom config
+   in the `/test` directory.
+
 1. [optional] Customize the default build test runner, if you're using it. Set
    the following environment variables if the default values don't fit your needs:
 
