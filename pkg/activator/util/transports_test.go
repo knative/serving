@@ -61,6 +61,7 @@ func TestHTTPRoundTripper(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
+			wants.Delete(e.want)
 			r := &http.Request{ProtoMajor: e.protoMajor}
 			rt.RoundTrip(r)
 
