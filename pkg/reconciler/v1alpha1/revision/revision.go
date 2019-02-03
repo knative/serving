@@ -400,6 +400,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}
 	}
 
+	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 

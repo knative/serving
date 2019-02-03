@@ -172,6 +172,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 			}
 		}
 	}
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
