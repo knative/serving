@@ -28,10 +28,14 @@ import (
 )
 
 func TestIstio(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, IstioConfigName)
+	cm, example := ConfigMapsFromTestFile(t, IstioConfigName)
 
 	if _, err := NewIstioFromConfigMap(cm); err != nil {
-		t.Errorf("NewIstioFromConfigMap() = %v", err)
+		t.Errorf("NewIstioFromConfigMap(actual) = %v", err)
+	}
+
+	if _, err := NewIstioFromConfigMap(example); err != nil {
+		t.Errorf("NewIstioFromConfigMap(example) = %v", err)
 	}
 }
 
