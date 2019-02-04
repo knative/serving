@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -132,6 +133,18 @@ func validateLabelsPropagation(logger *logging.BaseLogger, objects test.Resource
 	route := objects.Route
 	if route.Labels["serving.knative.dev/service"] != names.Service {
 		return fmt.Errorf("expect Service name in Route label %q but got %q ", names.Service, route.Labels["serving.knative.dev/service"])
+	}
+	return nil
+}
+
+func validateReleaseServiceShape(objs *test.ResourceObjects) error {
+	// Check that Spec.Revisions is as expected.
+	if got, want := objs.Service.Spec.Release.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
+		return fmt.Errorf("Spec.Release.Revisions mismatch: diff: %s", cmp.Diff(got, want))
+	}
+	// Traffic should be routed to the lastest created revision.
+	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
+		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
 	}
 	return nil
 }
@@ -318,6 +331,10 @@ func TestReleaseService(t *testing.T) {
 	objects, err := test.CreateReleaseServiceWithLatest(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+	logger.Info("Validating service shape.")
+	if err := validateReleaseServiceShape(objects); err != nil {
+		t.Fatalf("Release shape incorrect: %v", err)
 	}
 	revisions := []string{names.Revision}
 
