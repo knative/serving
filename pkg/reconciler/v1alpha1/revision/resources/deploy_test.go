@@ -239,7 +239,7 @@ func withReadinessProbe(probe *corev1.Probe) containerOption {
 	}
 }
 
-func withHttpReadinessProbe() containerOption {
+func withHTTPReadinessProbe() containerOption {
 	return withReadinessProbe(&corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -448,7 +448,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
 			userContainer(
-				withHttpReadinessProbe(),
+				withHTTPReadinessProbe(),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -526,7 +526,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
 			userContainer(
-				withHttpReadinessProbe(),
+				withHTTPReadinessProbe(),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
