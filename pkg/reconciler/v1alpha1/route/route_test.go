@@ -39,6 +39,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -922,7 +923,13 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
 			stopCh := make(chan struct{})
-			defer close(stopCh)
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
 
 			h := NewHooks()
 
@@ -950,7 +957,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Fatalf("failed to start configuration manager: %v", err)
 			}
 
-			go controller.Run(1, stopCh)
+			grp.Go(func() error { return controller.Run(1, stopCh) })
 
 			// Create a route.
 			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
