@@ -137,7 +137,7 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	assertEqual(int32(0), b.Capacity(), t)
 
 	err := b.UpdateConcurrency(int32(-2))
-	assertEqual(err, ErrReduceCapacity, t)
+	assertEqual(ErrReduceCapacity, err, t)
 }
 
 func TestBreaker_UpdateConcurrencyOverlow(t *testing.T) {
@@ -237,7 +237,10 @@ func TestSemaphore_AddCapacityOverflow(t *testing.T) {
 	sem := NewSemaphore(2, 2)
 	sem.Acquire()
 	sem.Acquire()
-	response := sem.AddCapacity(3)
+	// Add capacity until max capacity and then return an error
+	response := sem.AddCapacity(2)
+	assertEqual(nil, response, t)
+	response = sem.AddCapacity(1)
 	assertEqual(ErrAddCapacity, response, t)
 }
 

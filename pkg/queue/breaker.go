@@ -86,8 +86,7 @@ func (b *Breaker) Maybe(thunk func()) bool {
 		b.sem.Acquire()
 		// Defer releasing capacity in the active and pending request queue.
 		defer func() {
-			err := b.sem.Release()
-			if err != nil {
+			if err := b.sem.Release(); err != nil {
 				b.logger.Errorw("Error while releasing a semaphore:", zap.Error(err))
 			}
 			<-b.pendingRequests
@@ -185,13 +184,13 @@ func (s *Semaphore) AddCapacity(size int32) error {
 }
 
 // ReduceCapacity removes tokens from the rotation.
-// It tries to acquire as many tokens as possible, if there are not enough tokens in the queue,
+// It tries to acquire as many tokens as possible. If there are not enough tokens in the queue,
 // it postpones the operation for the future by increasing the `reducers` counter.
-// We return an error when attempting to reduce more capacity then was originally added.
+// We return an error when attempting to reduce more capacity than was originally added.
 func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if size > s.capacity || size+s.reducers > s.capacity {
+	if size+s.reducers > s.capacity {
 		return ErrReduceCapacity
 	}
 	for i := int32(0); i < size; i++ {
