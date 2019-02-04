@@ -319,11 +319,11 @@ func TestReleaseService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
-	firstRevision := names.Revision
+	revisions := []string{names.Revision}
 
 	// One Revision Specified, current == latest.
 	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
-	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, []string{firstRevision}, 0)
+	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 0)
 	if err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
@@ -345,7 +345,7 @@ func TestReleaseService(t *testing.T) {
 	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
-	secondRevision := names.Revision
+	revisions = append(revisions, names.Revision)
 
 	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
 	validateDomains(t, logger, clients,
@@ -356,7 +356,7 @@ func TestReleaseService(t *testing.T) {
 
 	// Two Revisions Specified, 50% rollout, candidate == latest.
 	logger.Info("Updating Service to split traffic between two revisions using Release mode")
-	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, []string{firstRevision, secondRevision}, 50); err != nil {
+	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 

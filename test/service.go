@@ -21,7 +21,6 @@ package test
 import (
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -77,7 +76,6 @@ func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects
 	if err != nil {
 		return nil, err
 	}
-	spew.Printf("###### Service: %#v\n", serviceObject)
 
 	configObject, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
