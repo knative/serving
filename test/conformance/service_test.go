@@ -315,7 +315,7 @@ func TestReleaseService(t *testing.T) {
 		expectedThirdRev  = helloWorldText
 	)
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	objects, err := test.CreateReleaseServiceWithLatest(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
