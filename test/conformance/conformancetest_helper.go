@@ -36,7 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// fetchRuntimeInfo creates a Servie that uses the 'runtime' test image, and extracts the returned output into the
+// fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object.
 func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options *test.Options) (*types.RuntimeInfo, error) {
 	names := test.ResourceNames{

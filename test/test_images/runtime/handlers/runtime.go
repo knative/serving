@@ -137,7 +137,7 @@ func cgroups(paths ...string) []*types.Cgroup {
 
 func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 
-	log.Println("Retrieiving Runtime Information")
+	log.Println("Retrieving Runtime Information")
 	w.Header().Set("Content-Type", "application/json")
 
 	k := &types.RuntimeInfo{

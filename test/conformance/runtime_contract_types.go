@@ -37,7 +37,7 @@ type FilePathInfo struct {
 	PermString  string `json: "PermString"`
 }
 
-// MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the run-time contract.
+// MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the runtime contract.
 var MustFilePathSpecs = map[string]FilePathInfo{
 	"/tmp": {
 		IsDirectory: true,
@@ -47,13 +47,4 @@ var MustFilePathSpecs = map[string]FilePathInfo{
 		IsDirectory: true,
 		PermString:  "rw*rw*rw*", // * indicates no specification
 	},
-}
-
-// ShouldCgroupPathSpecs specifies the cgroups that SHOULD be exposed as per the run-time contract.
-var ShouldCgroupPathSpecs = map[string]FilePathInfo{
-	"/sys/fs/cgroup/memory/memory.limit_in_bytes": {},
-	"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        {},
-	"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         {},
-	// Not in runtime-contract, but should be exposed
-	"/sys/fs/cgroup/cpu/cpu.shares": {},
 }

@@ -31,7 +31,7 @@ import (
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
-	logger := logging.GetContextLogger("TestMustHaveCgroupConfigured")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
 	resources := corev1.ResourceRequirements{
@@ -44,7 +44,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		},
 	}
 
-	// Cgroup settintgs are based on the CPU and Memory Limits as well as CPU Reuqests
+	// Cgroup settings are based on the CPU and Memory Limits as well as CPU Reuqests
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	expectedCgroups := map[string]int{
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": 128000000, // 128 MB
@@ -78,7 +78,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
 // container.
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
-	logger := logging.GetContextLogger("TestShouldHaveCgroupReadOnly")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
 	if err != nil {

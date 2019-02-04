@@ -43,7 +43,7 @@ type RequestInfo struct {
 type HostInfo struct {
 	// Files is a map of file metadata.
 	Files []*FileInfo `json:"files"`
-	// EnvVars is a map of all enviornment variables set.
+	// EnvVars is a map of all environment variables set.
 	EnvVars map[string]string `json:"envs"`
 	// Cgroups is a list of cgroup information.
 	Cgroups []*Cgroup `json:"cgroups"`
@@ -67,7 +67,7 @@ type FileInfo struct {
 
 // Cgroup contains the Cgroup value for a given setting.
 type Cgroup struct {
-	// Name is trhe full path name of the cgroup.
+	// Name is the full path name of the cgroup.
 	Name string `json:"name"`
 	// Value is the integer files in the cgroup file.
 	Value *int `json:"value",optional`
