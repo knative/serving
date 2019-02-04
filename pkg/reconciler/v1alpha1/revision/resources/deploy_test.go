@@ -193,31 +193,31 @@ func refInt64(num int64) *int64 {
 	return &num
 }
 
-type containerOpt func(*corev1.Container)
-type podSpecOpt func(*corev1.PodSpec)
-type deploymentOpt func(*appsv1.Deployment)
+type containerOption func(*corev1.Container)
+type podSpecOption func(*corev1.PodSpec)
+type deploymentOption func(*appsv1.Deployment)
 
-func makeTestContainer(defaultContainer *corev1.Container, opts ...containerOpt) *corev1.Container {
+func container(defaultContainer *corev1.Container, opts ...containerOption) corev1.Container {
 	container := defaultContainer.DeepCopy()
-	for _, opt := range opts {
-		opt(container)
+	for _, option := range opts {
+		option(container)
 	}
-	return container
+	return *container
 }
 
-func makeTestUserContainer(opts ...containerOpt) *corev1.Container {
-	return makeTestContainer(defaultUserContainer, opts...)
+func userContainer(opts ...containerOption) corev1.Container {
+	return container(defaultUserContainer, opts...)
 }
 
-func makeTestQueueContainer(opts ...containerOpt) *corev1.Container {
-	return makeTestContainer(defaultQueueContainer, opts...)
+func queueContainer(opts ...containerOption) corev1.Container {
+	return container(defaultQueueContainer, opts...)
 }
 
-func makeTestFluentdContainer(opts ...containerOpt) *corev1.Container {
-	return makeTestContainer(defaultFluentdContainer, opts...)
+func fluentdContainer(opts ...containerOption) corev1.Container {
+	return container(defaultFluentdContainer, opts...)
 }
 
-func setContainerEnvVar(name, value string) containerOpt {
+func withEnvVar(name, value string) containerOption {
 	return func(container *corev1.Container) {
 		for i, envVar := range container.Env {
 			if envVar.Name == name {
@@ -233,21 +233,44 @@ func setContainerEnvVar(name, value string) containerOpt {
 	}
 }
 
-func makeTestPodSpec(containers []corev1.Container, opts ...podSpecOpt) *corev1.PodSpec {
+func withReadinessProbe(probe *corev1.Probe) containerOption {
+	return func(container *corev1.Container) {
+		container.ReadinessProbe = probe
+	}
+}
+
+func withHttpReadinessProbe() containerOption {
+	return withReadinessProbe(&corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(v1alpha1.RequestQueuePort),
+				Path: "/",
+			},
+		},
+	})
+}
+
+func withLivenessProbe(probe *corev1.Probe) containerOption {
+	return func(container *corev1.Container) {
+		container.LivenessProbe = probe
+	}
+}
+
+func makeTestPodSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
 
-	for _, opt := range opts {
-		opt(podSpec)
+	for _, option := range opts {
+		option(podSpec)
 	}
 
 	return podSpec
 }
 
-func makeTestDeployment(opts ...deploymentOpt) *appsv1.Deployment {
+func makeTestDeployment(opts ...deploymentOption) *appsv1.Deployment {
 	deployment := defaultDeployment.DeepCopy()
-	for _, opt := range opts {
-		opt(deployment)
+	for _, option := range opts {
+		option(deployment)
 	}
 	return deployment
 }
@@ -289,15 +312,15 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
+			userContainer(
 				func(container *corev1.Container) {
 					container.Ports[0].ContainerPort = 8888
 				},
-				setContainerEnvVar("PORT", "8888"),
+				withEnvVar("PORT", "8888"),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
-				setContainerEnvVar("USER_PORT", "8888"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				withEnvVar("USER_PORT", "8888"),
 			),
 		}),
 	}, {
@@ -322,9 +345,9 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
+			userContainer(),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 			),
 		}),
 	}, {
@@ -352,11 +375,11 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(func(container *corev1.Container) {
+			userContainer(func(container *corev1.Container) {
 				container.Image = "busybox@sha256:deadbeef"
 			}),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 			),
 		}),
 	}, {
@@ -388,10 +411,10 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(),
-			*makeTestQueueContainer(
-				setContainerEnvVar("SERVING_CONFIGURATION", "parent-config"),
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
+			userContainer(),
+			queueContainer(
+				withEnvVar("SERVING_CONFIGURATION", "parent-config"),
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 			),
 		}),
 	}, {
@@ -424,20 +447,11 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
-				func(container *corev1.Container) {
-					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(v1alpha1.RequestQueuePort),
-								Path: "/",
-							},
-						},
-					}
-				},
+			userContainer(
+				withHttpReadinessProbe(),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "0"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
@@ -469,19 +483,17 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
-				func(container *corev1.Container) {
-					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
-							Exec: &corev1.ExecAction{
-								Command: []string{"echo", "hello"},
-							},
+			userContainer(
+				withReadinessProbe(&corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"echo", "hello"},
 						},
-					}
-				},
+					},
+				}),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "0"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
@@ -513,21 +525,11 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
-				func(container *corev1.Container) {
-					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-								// HTTP probes route through the queue
-								Port: intstr.FromInt(v1alpha1.RequestQueuePort),
-							},
-						},
-					}
-				},
+			userContainer(
+				withHttpReadinessProbe(),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "0"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
@@ -557,19 +559,17 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
-				func(container *corev1.Container) {
-					container.LivenessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-							},
+			userContainer(
+				withLivenessProbe(&corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(v1alpha1.DefaultUserPort),
 						},
-					}
-				},
+					},
+				}),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "0"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
@@ -598,11 +598,11 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: makeTestPodSpec(
 			[]corev1.Container{
-				*makeTestUserContainer(),
-				*makeTestQueueContainer(
-					setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
+				userContainer(),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 				),
-				*makeTestFluentdContainer(),
+				fluentdContainer(),
 			},
 			func(podSpec *corev1.PodSpec) {
 				podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
@@ -658,7 +658,7 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: makeTestPodSpec([]corev1.Container{
-			*makeTestUserContainer(
+			userContainer(
 				func(container *corev1.Container) {
 					container.Command = []string{"/bin/bash"}
 					container.Args = []string{"-c", "echo Hello world"}
@@ -681,11 +681,11 @@ func TestMakePodSpec(t *testing.T) {
 					}
 					container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
 				},
-				setContainerEnvVar("K_CONFIGURATION", ""),
-				setContainerEnvVar("K_SERVICE", ""),
+				withEnvVar("K_CONFIGURATION", ""),
+				withEnvVar("K_SERVICE", ""),
 			),
-			*makeTestQueueContainer(
-				setContainerEnvVar("CONTAINER_CONCURRENCY", "1"),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 			),
 		}),
 	}}
