@@ -256,7 +256,7 @@ func withLivenessProbe(probe *corev1.Probe) containerOption {
 	}
 }
 
-func makeTestPodSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
+func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
 
@@ -267,7 +267,7 @@ func makeTestPodSpec(containers []corev1.Container, opts ...podSpecOption) *core
 	return podSpec
 }
 
-func makeTestDeployment(opts ...deploymentOption) *appsv1.Deployment {
+func deployment(opts ...deploymentOption) *appsv1.Deployment {
 	deployment := defaultDeployment.DeepCopy()
 	for _, option := range opts {
 		option(deployment)
@@ -311,7 +311,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
 					container.Ports[0].ContainerPort = 8888
@@ -344,7 +344,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
@@ -374,7 +374,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(func(container *corev1.Container) {
 				container.Image = "busybox@sha256:deadbeef"
 			}),
@@ -410,7 +410,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
 				withEnvVar("SERVING_CONFIGURATION", "parent-config"),
@@ -446,7 +446,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(),
 			),
@@ -482,7 +482,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				withReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
@@ -524,7 +524,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(),
 			),
@@ -558,7 +558,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				withLivenessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
@@ -596,7 +596,7 @@ func TestMakePodSpec(t *testing.T) {
 		},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec(
+		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
 				queueContainer(
@@ -657,7 +657,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestPodSpec([]corev1.Container{
+		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
 					container.Command = []string{"/bin/bash"}
@@ -735,7 +735,7 @@ func TestMakeDeployment(t *testing.T) {
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
-		want: makeTestDeployment(),
+		want: deployment(),
 	}, {
 		name: "simple concurrency=multi with owner",
 		rev: &v1alpha1.Revision{
@@ -764,7 +764,7 @@ func TestMakeDeployment(t *testing.T) {
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
-		want: makeTestDeployment(),
+		want: deployment(),
 	}, {
 		name: "simple concurrency=multi with outbound IP range configured",
 		rev: &v1alpha1.Revision{
@@ -788,7 +788,7 @@ func TestMakeDeployment(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestDeployment(func(deploy *appsv1.Deployment) {
+		want: deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
 		}),
 	}, {
@@ -817,7 +817,7 @@ func TestMakeDeployment(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		want: makeTestDeployment(func(deploy *appsv1.Deployment) {
+		want: deployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"
 		}),
