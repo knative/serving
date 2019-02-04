@@ -25,6 +25,8 @@ import (
 
 const (
 	ObservabilityConfigName = "config-observability"
+
+	defaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
 )
 
 // Observability contains the configuration defined in the observability ConfigMap.
@@ -33,7 +35,7 @@ type Observability struct {
 	// collect logs under /var/log/.
 	EnableVarLogCollection bool
 
-	// TODO(#818): Use the fluentd deamon set to collect /var/log.
+	// TODO(#818): Use the fluentd daemon set to collect /var/log.
 	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
 	// injected into the revision pod. It is used only when enableVarLogCollection
 	// is true.
@@ -60,11 +62,14 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 		return nil, fmt.Errorf("Received bad Observability ConfigMap, want %q when %q is true",
 			"logging.fluentd-sidecar-image", "logging.enable-var-log-collection")
 	}
+
 	if fsoc, ok := configMap.Data["logging.fluentd-sidecar-output-config"]; ok {
 		oc.FluentdSidecarOutputConfig = fsoc
 	}
 	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
 		oc.LoggingURLTemplate = rut
+	} else {
+		oc.LoggingURLTemplate = defaultLogURLTemplate
 	}
 	return oc, nil
 }

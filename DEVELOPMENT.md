@@ -143,11 +143,11 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.5/istio-crds.yaml
+kubectl apply -f ./third_party/istio-1.0.2/istio-crds.yaml
 while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.0.5/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
@@ -247,8 +247,8 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.5/istio.yaml \
-  -f ./third_party/istio-1.0.5/istio-crds.yaml
+  -f ./third_party/istio-1.0.2/istio.yaml \
+  -f ./third_party/istio-1.0.2/istio-crds.yaml
 ```
 
 ## Telemetry

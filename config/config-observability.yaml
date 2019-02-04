@@ -19,71 +19,76 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-data:
+
+# This sample data shows the kinds of things that can be set in this ConfigMap,
+# but it should be replaced with proper documentation and a pointer to that left
+# here.  The Knative ConfigMap resources should be left empty for the reasons
+# outlined here: https://github.com/knative/serving/issues/2668
+# data:
   # LOGGING CONFIGURATION
 
   # Static parameters:
 
   # enable-var-log-collection defaults to false. A fluentd sidecar
   # will be set up to collect var log if this flag is true.
-  logging.enable-var-log-collection: "false"
+  # logging.enable-var-log-collection: "false"
 
   # The fluentd sidecar image used to collect logs from /var/log as a sidecar.
   # Must be presented if logging.enable-var-log-collection is true.
   # KEEP THIS CONSISTENT WITH 999-cache.yaml
   # TODO(mattmoor): Devise a way to test that this (and others like it)
   # stay in sync.
-  logging.fluentd-sidecar-image: "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
+  # logging.fluentd-sidecar-image: "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
 
   # The fluentd sidecar output config to specify logging destination.
-  logging.fluentd-sidecar-output-config: |
-    # Parse json log before sending to Elastic Search
-    <filter **>
-      @type parser
-      key_name log
-      <parse>
-        @type multi_format
-        <pattern>
-          format json
-          time_key fluentd-time # fluentd-time is reserved for structured logs
-          time_format %Y-%m-%dT%H:%M:%S.%NZ
-        </pattern>
-        <pattern>
-          format none
-          message_key log
-        </pattern>
-      </parse>
-    </filter>
-    # Send to Elastic Search
-    <match **>
-      @id elasticsearch
-      @type elasticsearch
-      @log_level info
-      include_tag_key true
-      # Elasticsearch service is in monitoring namespace.
-      host elasticsearch-logging.knative-monitoring
-      port 9200
-      logstash_format true
-      <buffer>
-        @type file
-        path /var/log/fluentd-buffers/kubernetes.system.buffer
-        flush_mode interval
-        retry_type exponential_backoff
-        flush_thread_count 2
-        flush_interval 5s
-        retry_forever
-        retry_max_interval 30
-        chunk_limit_size 2M
-        queue_limit_length 8
-        overflow_action block
-      </buffer>
-    </match>
+  # logging.fluentd-sidecar-output-config: |
+  #   # Parse json log before sending to Elastic Search
+  #   <filter **>
+  #     @type parser
+  #     key_name log
+  #     <parse>
+  #       @type multi_format
+  #       <pattern>
+  #         format json
+  #         time_key fluentd-time # fluentd-time is reserved for structured logs
+  #         time_format %Y-%m-%dT%H:%M:%S.%NZ
+  #       </pattern>
+  #       <pattern>
+  #         format none
+  #         message_key log
+  #       </pattern>
+  #     </parse>
+  #   </filter>
+  #   # Send to Elastic Search
+  #   <match **>
+  #     @id elasticsearch
+  #     @type elasticsearch
+  #     @log_level info
+  #     include_tag_key true
+  #     # Elasticsearch service is in monitoring namespace.
+  #     host elasticsearch-logging.knative-monitoring
+  #     port 9200
+  #     logstash_format true
+  #     <buffer>
+  #       @type file
+  #       path /var/log/fluentd-buffers/kubernetes.system.buffer
+  #       flush_mode interval
+  #       retry_type exponential_backoff
+  #       flush_thread_count 2
+  #       flush_interval 5s
+  #       retry_forever
+  #       retry_max_interval 30
+  #       chunk_limit_size 2M
+  #       queue_limit_length 8
+  #       overflow_action block
+  #     </buffer>
+  #   </match>
 
   # The revision log url template, where ${REVISION_UID} will be replaced by the actual
   # revision uid. For the url to work you'll need to set up monitoring and have access to
   # the kibana dashboard using `kubectl proxy`.
-  logging.revision-url-template: |
-    http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
+  # logging.revision-url-template: |
+  #   http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
 
   # METRICS CONFIGURATION
 
@@ -91,7 +96,7 @@ data:
   # It defaults to prometheus. If this is stackdriver, the metrics will be sent
   # to stackdriver. "prometheus" and "stackdriver" are supported. This field 
   # is required.
-  metrics.backend-destination: "prometheus"
+  # metrics.backend-destination: "prometheus"
 
   # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
   # field is optional. When running on GKE, application default credentials will be

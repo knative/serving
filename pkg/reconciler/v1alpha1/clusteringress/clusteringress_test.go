@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -331,7 +332,13 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
+	grp := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
 
 	h := NewHooks()
 
@@ -363,7 +370,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	servingInformer.WaitForCacheSync(stopCh)
 	sharedInformer.WaitForCacheSync(stopCh)
 
-	go controller.Run(1, stopCh)
+	grp.Go(func() error { return controller.Run(1, stopCh) })
 
 	ingress := ingressWithStatus("config-update", 1234,
 		v1alpha1.IngressStatus{

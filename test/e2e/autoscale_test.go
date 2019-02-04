@@ -28,6 +28,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/autoscaler"
 	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
@@ -35,6 +36,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -134,18 +137,13 @@ func setup(t *testing.T) *testContext {
 	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
-	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
+	cm := ConfigMapFromTestFile(t, autoscaler.ConfigName)
+	cfg, err := autoscaler.NewConfigFromConfigMap(cm)
 	if err != nil {
-		t.Fatalf("Unable to get autoscaler config map: %v", err)
+		t.Fatalf("NewConfigFromConfigMap() = %v", err)
 	}
-	scaleToZeroGrace, err = time.ParseDuration(configMap.Data["scale-to-zero-grace-period"])
-	if err != nil {
-		t.Fatalf("Unable to parse scale-to-zero-grace as duration: %v", err)
-	}
-	stableWindow, err = time.ParseDuration(configMap.Data["stable-window"])
-	if err != nil {
-		t.Fatalf("Unable to parse stable-window as duration: %v", err)
-	}
+	stableWindow = cfg.StableWindow
+	scaleToZeroGrace = cfg.ScaleToZeroGracePeriod
 
 	logger.Info("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
