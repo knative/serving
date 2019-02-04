@@ -162,16 +162,15 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	return errs
 }
 
-
-	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
-	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
-	// allowed.
-	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
-	var validPortNames = sets.NewString(
-		"h2c",
-		"http1",
-		"",
-	)
+// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
+// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
+// allowed.
+// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+var validPortNames = sets.NewString(
+	"h2c",
+	"http1",
+	"",
+)
 
 func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 0 {
@@ -220,7 +219,6 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
 	}
-
 
 	if !validPortNames.Has(userPort.Name) {
 		errs = errs.Also(&apis.FieldError{
