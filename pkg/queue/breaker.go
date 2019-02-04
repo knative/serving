@@ -113,6 +113,9 @@ func (b *Breaker) Capacity() int32 {
 }
 
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
+// Maximal capacity is the size of the buffered channel, it defines maximum number of tokens
+// in the rotation. Attempting to add more capacity then the max will result in error.
+// Initial capacity is the initial number of free tokens.
 func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
@@ -149,14 +152,14 @@ func (s *Semaphore) Release() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.reducers > 0 {
-		s.capacity -= s.reducers
+		s.capacity--
 		s.reducers--
 	} else {
 		// We want to make sure releasing a token is always non-blocking.
 		select {
 		case s.queue <- s.token:
 		default:
-			// this should never happen
+			// This should never happen.
 			return ErrRelease
 		}
 	}
@@ -184,10 +187,11 @@ func (s *Semaphore) AddCapacity(size int32) error {
 // ReduceCapacity removes tokens from the rotation.
 // It tries to acquire as many tokens as possible, if there are not enough tokens in the queue,
 // it postpones the operation for the future by increasing the `reducers` counter.
+// We return an error when attempting to reduce more capacity then was originally added.
 func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if size > s.capacity {
+	if size > s.capacity || size+s.reducers > s.capacity {
 		return ErrReduceCapacity
 	}
 	for i := int32(0); i < size; i++ {

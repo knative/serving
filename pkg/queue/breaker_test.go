@@ -197,6 +197,21 @@ func TestSemaphore_Release(t *testing.T) {
 	assertEqual(ErrRelease, err, t)
 }
 
+func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
+	wantAfterFirstRelease := int32(1)
+	wantAfterSecondRelease := int32(0)
+	sem := NewSemaphore(2, 2)
+	sem.Acquire()
+	sem.Acquire()
+	sem.ReduceCapacity(int32(2))
+	sem.Release()
+	assertEqual(wantAfterFirstRelease, sem.capacity, t)
+	assertEqual(wantAfterFirstRelease, sem.reducers, t)
+	sem.Release()
+	assertEqual(wantAfterSecondRelease, sem.capacity, t)
+	assertEqual(wantAfterSecondRelease, sem.reducers, t)
+}
+
 func TestSemaphore_AddCapacity(t *testing.T) {
 	sem := NewSemaphore(2, 1)
 	assertEqual(int32(1), sem.capacity, t)
