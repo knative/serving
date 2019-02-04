@@ -1,0 +1,23 @@
+- package: serving.v1alpha1
+  type: ServiceSpec
+  fields:
+    - Pinned
+- package: serving.v1alpha1
+  type: RevisionSpec
+  fields:
+    - ConcurrencyModel
+    - BuildName
+- package: core.v1
+  type: Container
+  fields:
+    - Name
+    - VolumeDevices
+    - VolumeMounts
+- package: meta.v1
+  type: ObjectMeta
+  fields:
+    - DeletionTimestamp
+    - Initializers
+    - Finalizers
+    - ClusterName
+    - DeletionGracePeriodSeconds
