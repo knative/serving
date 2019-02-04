@@ -174,17 +174,17 @@ func TestReconcile(t *testing.T) {
 			"foo/pinned3": 1,
 		},
 	}, {
-		Name: "release - with @latestRevision",
+		Name: "release - with @latest",
 		Objects: []runtime.Object{
-			svc("release", "foo", WithReleaseRollout("@latestRevision")),
+			svc("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
 		Key: "foo/release",
 		WantCreates: []metav1.Object{
 			config("release", "foo", WithReleaseRollout("release-00001")),
-			route("release", "foo", WithReleaseRollout("@latestRevision")),
+			route("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svc("release", "foo", WithReleaseRollout("@latestRevision"),
+			Object: svc("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
@@ -345,12 +345,12 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts2"),
 		},
 	}, {
-		Name: "release - route and config ready, using @latestRevision",
+		Name: "release - route and config ready, using @latest",
 		Objects: []runtime.Object{
 			svc("release-ready-lr", "foo",
-				WithReleaseRollout("@latestRevision"), WithInitSvcConditions),
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
 			route("release-ready-lr", "foo",
-				WithReleaseRollout("@latestRevision"),
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
 				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					Name:         "current",
@@ -367,7 +367,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/release-ready-lr",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("release-ready-lr", "foo",
-				WithReleaseRollout("@latestRevision"),
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
 				// The delta induced by the config object.
 				WithReadyConfig("release-ready-lr-00001"),
 				// The delta induced by route object.
@@ -389,14 +389,14 @@ func TestReconcile(t *testing.T) {
 			"foo/release-ready-lr": 1,
 		},
 	}, {
-		Name: "release - route and config ready, traffic split, using @latestRevision",
+		Name: "release - route and config ready, traffic split, using @latest",
 		Objects: []runtime.Object{
 			svc("release-ready-lr", "foo",
 				WithReleaseRolloutAndPercentage(
-					42, "release-ready-lr-00001", "@latestRevision"), WithInitSvcConditions),
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
 			route("release-ready-lr", "foo",
 				WithReleaseRolloutAndPercentage(
-					42, "release-ready-lr-00001", "@latestRevision"),
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
 				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					Name:         "current",
@@ -418,7 +418,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("release-ready-lr", "foo",
 				WithReleaseRolloutAndPercentage(
-					42, "release-ready-lr-00001", "@latestRevision"),
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
 				// The delta induced by the config object.
 				WithReadyConfig("release-ready-lr-00002"),
 				// The delta induced by route object.

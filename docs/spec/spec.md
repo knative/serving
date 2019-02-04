@@ -323,7 +323,7 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
   release:
     # Ordered list of 1 or 2 revisions. First revision is traffic target
     # "current" and second revision is traffic target "candidate".
-    # It is possible to specify `"@latestRevision"` string as a shortcut to the lastest available revision.
+    # It is possible to specify `"@latest"` string as a shortcut to the lastest available revision.
     revisions: ["myservice-00013", "myservice-00015"]
     rolloutPercent: 50 # Percent [0-99] of traffic to route to "candidate" revision
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec

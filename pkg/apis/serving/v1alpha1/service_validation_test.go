@@ -291,7 +291,7 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue(incorrectDNS1035Label, "spec.release.revisions[0]"),
 	}, {
-		name: "valid release -- with @latestRevision",
+		name: "valid release -- with @latest",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
