@@ -128,6 +128,11 @@ type ReleaseType struct {
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
+// ReleaseLatestRevisionKeyword is a shortcut for usage in the `release` mode
+// to refer to the latest created revision.
+// See #2819 for details.
+const ReleaseLatestRevisionKeyword = "@latestRevision"
+
 // RunLatestType contains the options for always having a route to the latest configuration. See
 // ServiceSpec for more details.
 type RunLatestType struct {

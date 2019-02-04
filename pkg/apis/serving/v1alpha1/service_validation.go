@@ -86,9 +86,6 @@ func (m *ManualType) Validate() *apis.FieldError {
 	return nil
 }
 
-// See #2819.
-const releaseLatestRevisionKeyword = "@latestRevision"
-
 // Validate validates the fields belonging to ReleaseType
 func (rt *ReleaseType) Validate() *apis.FieldError {
 	var errs *apis.FieldError
@@ -103,7 +100,7 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 	}
 	for i, r := range rt.Revisions {
 		// Skip over the last revision special keyword.
-		if r == releaseLatestRevisionKeyword {
+		if r == ReleaseLatestRevisionKeyword {
 			continue
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {

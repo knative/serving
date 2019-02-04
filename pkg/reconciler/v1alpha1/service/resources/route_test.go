@@ -167,7 +167,7 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		currentPercent = 100 - rolloutPercent
 	)
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
-	s.Spec.Release.Revisions = []string{releaseLastRevisionKeyword, "juicy-revision"}
+	s.Spec.Release.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword, "juicy-revision"}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
@@ -210,7 +210,7 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		currentPercent = 100 - rolloutPercent
 	)
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
-	s.Spec.Release.Revisions = []string{"squishy-revision", releaseLastRevisionKeyword}
+	s.Spec.Release.Revisions = []string{"squishy-revision", v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
@@ -249,7 +249,7 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 }
 func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	s := createServiceWithRelease(1 /*num revisions*/, 0 /*unused*/)
-	s.Spec.Release.Revisions = []string{releaseLastRevisionKeyword}
+	s.Spec.Release.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 

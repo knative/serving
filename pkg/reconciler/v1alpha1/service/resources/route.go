@@ -26,9 +26,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 )
 
-// See #2819.
-const releaseLastRevisionKeyword = "@latestRevision"
-
 // MakeRoute creates a Route from a Service object.
 func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	c := &v1alpha1.Route{
@@ -57,7 +54,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		// known revision, use `Configuration` instead.
 		// Same for the `candidate` below.
 		// Part of #2819.
-		if currentRevisionName == releaseLastRevisionKeyword {
+		if currentRevisionName == v1alpha1.ReleaseLatestRevisionKeyword {
 			ttCurrent.ConfigurationName = names.Configuration(service)
 		} else {
 			ttCurrent.RevisionName = currentRevisionName
@@ -71,7 +68,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 				Percent: rolloutPercent,
 			}
 			candidateRevisionName := service.Spec.Release.Revisions[1]
-			if candidateRevisionName == releaseLastRevisionKeyword {
+			if candidateRevisionName == v1alpha1.ReleaseLatestRevisionKeyword {
 				ttCandidate.ConfigurationName = names.Configuration(service)
 			} else {
 				ttCandidate.RevisionName = candidateRevisionName
