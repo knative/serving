@@ -44,6 +44,37 @@ func (r *request) wait() {
 	r.accepted <- ok
 }
 
+func TestBreakerInvalidConstructor(t *testing.T) {
+	tests := []struct {
+		name    string
+		options BreakerParams
+	}{{
+		"QueueDepth = 0",
+		BreakerParams{QueueDepth: 0, MaxConcurrency: 1, InitialCapacity: 1},
+	}, {
+		"MaxConcurrency negative",
+		BreakerParams{QueueDepth: 1, MaxConcurrency: -1, InitialCapacity: 1},
+	}, {
+		"InitialCapacity negative",
+		BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: -1},
+	}, {
+		"InitialCapacity out-of-bounds",
+		BreakerParams{QueueDepth: 1, MaxConcurrency: 5, InitialCapacity: 6},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("Expected a panic but the code didn't panic.")
+				}
+			}()
+
+			NewBreaker(test.options)
+		})
+	}
+}
+
 func TestBreakerOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
 	b := NewBreaker(params)           // Breaker capacity = 2
@@ -205,19 +236,19 @@ func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
 	sem.Acquire()
 	sem.ReduceCapacity(int32(2))
 	sem.Release()
-	assertEqual(wantAfterFirstRelease, sem.capacity, t)
+	assertEqual(wantAfterFirstRelease, sem.Capacity(), t)
 	assertEqual(wantAfterFirstRelease, sem.reducers, t)
 	sem.Release()
-	assertEqual(wantAfterSecondRelease, sem.capacity, t)
+	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
 	assertEqual(wantAfterSecondRelease, sem.reducers, t)
 }
 
 func TestSemaphore_AddCapacity(t *testing.T) {
 	sem := NewSemaphore(2, 1)
-	assertEqual(int32(1), sem.capacity, t)
+	assertEqual(int32(1), sem.Capacity(), t)
 	sem.Acquire()
 	sem.AddCapacity(2)
-	assertEqual(int32(3), sem.capacity, t)
+	assertEqual(int32(3), sem.Capacity(), t)
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
@@ -249,7 +280,7 @@ func TestSemaphore_ReduceCapacity(t *testing.T) {
 	sem := NewSemaphore(1, 0)
 	sem.AddCapacity(int32(1))
 	sem.ReduceCapacity(1)
-	assertEqual(want, sem.capacity, t)
+	assertEqual(want, sem.Capacity(), t)
 }
 
 func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
@@ -259,7 +290,7 @@ func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
 	assertEqual(int32(1), sem.reducers, t)
 	sem.Release()
 	assertEqual(int32(0), sem.reducers, t)
-	assertEqual(int32(0), sem.capacity, t)
+	assertEqual(int32(0), sem.Capacity(), t)
 }
 
 func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
