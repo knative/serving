@@ -37,8 +37,8 @@ import (
 )
 
 var (
-	one            int32  = 1
-	defaultPortStr string = strconv.Itoa(int(v1alpha1.DefaultUserPort))
+	one            int32 = 1
+	defaultPortStr       = strconv.Itoa(int(v1alpha1.DefaultUserPort))
 
 	defaultUserContainer = &corev1.Container{
 		Name:                     UserContainerName,
@@ -187,6 +187,24 @@ var (
 			},
 		},
 	}
+
+	defaultRevision = &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+			Labels: map[string]string{
+				serving.ConfigurationLabelKey: "cfg",
+				serving.ServiceLabelKey:       "svc",
+			},
+		},
+		Spec: v1alpha1.RevisionSpec{
+			Container: corev1.Container{
+				Image: "busybox",
+			},
+			TimeoutSeconds: 45,
+		},
+	}
 )
 
 func refInt64(num int64) *int64 {
@@ -196,6 +214,7 @@ func refInt64(num int64) *int64 {
 type containerOption func(*corev1.Container)
 type podSpecOption func(*corev1.PodSpec)
 type deploymentOption func(*appsv1.Deployment)
+type revisionOption func(*v1alpha1.Revision)
 
 func container(defaultContainer *corev1.Container, opts ...containerOption) corev1.Container {
 	container := defaultContainer.DeepCopy()
@@ -275,8 +294,27 @@ func deployment(opts ...deploymentOption) *appsv1.Deployment {
 	return deployment
 }
 
+func revision(opts ...revisionOption) *v1alpha1.Revision {
+	revision := defaultRevision.DeepCopy()
+	for _, option := range opts {
+		option(revision)
+	}
+	return revision
+}
+
+func withContainerConcurrency(containerConcurrency int) revisionOption {
+	return func(revision *v1alpha1.Revision) {
+		revision.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(containerConcurrency)
+	}
+}
+
+func withoutLabels() revisionOption {
+	return func(revision *v1alpha1.Revision) {
+		revision.ObjectMeta.Labels = map[string]string{}
+	}
+}
+
 func TestMakePodSpec(t *testing.T) {
-	labels := map[string]string{serving.ConfigurationLabelKey: "cfg", serving.ServiceLabelKey: "svc"}
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -287,26 +325,14 @@ func TestMakePodSpec(t *testing.T) {
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
+		rev: revision(
+			withContainerConcurrency(1),
+			func(revision *v1alpha1.Revision) {
+				revision.Spec.Container.Ports = []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}}
 			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       45,
-				Container: corev1.Container{
-					Image: "busybox",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 8888,
-						},
-					},
-				},
-			},
-		},
+		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -325,25 +351,11 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "simple concurrency=single no owner",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
-		lc: &logging.Config{},
-		oc: &config.Observability{},
-		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		rev:  revision(withContainerConcurrency(1)),
+		lc:   &logging.Config{},
+		oc:   &config.Observability{},
+		ac:   &autoscaler.Config{},
+		cc:   &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -352,24 +364,14 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "simple concurrency=single no owner digest resolved",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
+		rev: revision(
+			withContainerConcurrency(1),
+			func(revision *v1alpha1.Revision) {
+				revision.Status = v1alpha1.RevisionStatus{
+					ImageDigest: "busybox@sha256:deadbeef",
+				}
 			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-			Status: v1alpha1.RevisionStatus{
-				ImageDigest: "busybox@sha256:deadbeef",
-			},
-		},
+		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -384,28 +386,18 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "simple concurrency=single with owner",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-				OwnerReferences: []metav1.OwnerReference{{
+		rev: revision(
+			withContainerConcurrency(1),
+			func(revision *v1alpha1.Revision) {
+				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "parent-config",
 					Controller:         &boolTrue,
 					BlockOwnerDeletion: &boolTrue,
-				}},
+				}}
 			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
+		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -419,29 +411,16 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "simple concurrency=multi http readiness probe",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-								Path: "/",
-							},
-						},
+		rev: revision(func(revision *v1alpha1.Revision) {
+			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(v1alpha1.DefaultUserPort),
+						Path: "/",
 					},
 				},
-				TimeoutSeconds: 45,
-			},
-		},
+			}
+		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -456,28 +435,15 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "concurrency=multi, readinessprobe=shell",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							Exec: &corev1.ExecAction{
-								Command: []string{"echo", "hello"},
-							},
-						},
+		rev: revision(func(revision *v1alpha1.Revision) {
+			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "hello"},
 					},
 				},
-				TimeoutSeconds: 45,
-			},
-		},
+			}
+		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -498,28 +464,15 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "concurrency=multi, readinessprobe=http",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-							},
-						},
+		rev: revision(func(revision *v1alpha1.Revision) {
+			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
 					},
 				},
-				TimeoutSeconds: 45,
-			},
-		},
+			}
+		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -534,26 +487,13 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "concurrency=multi, livenessprobe=tcp",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-					LivenessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							TCPSocket: &corev1.TCPSocketAction{},
-						},
-					},
+		rev: revision(func(revision *v1alpha1.Revision) {
+			revision.Spec.Container.LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{},
 				},
-				TimeoutSeconds: 45,
-			},
-		},
+			}
+		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -574,22 +514,8 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "with /var/log collection",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
-		lc: &logging.Config{},
+		rev:  revision(withContainerConcurrency(1)),
+		lc:   &logging.Config{},
 		oc: &config.Observability{
 			EnableVarLogCollection: true,
 			FluentdSidecarImage:    "indiana:jones",
@@ -619,40 +545,32 @@ func TestMakePodSpec(t *testing.T) {
 		),
 	}, {
 		name: "complex pod spec",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image:   "busybox",
-					Command: []string{"/bin/bash"},
-					Args:    []string{"-c", "echo Hello world"},
-					Env: []corev1.EnvVar{{
-						Name:  "FOO",
-						Value: "bar",
-					}, {
-						Name:  "BAZ",
-						Value: "blah",
-					}},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("666Mi"),
-							corev1.ResourceCPU:    resource.MustParse("666m"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("888Mi"),
-							corev1.ResourceCPU:    resource.MustParse("888m"),
-						},
+		rev: revision(
+			withContainerConcurrency(1),
+			func(revision *v1alpha1.Revision) {
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.Spec.Container.Command = []string{"/bin/bash"}
+				revision.Spec.Container.Args = []string{"-c", "echo Hello world"}
+				revision.Spec.Container.Env = []corev1.EnvVar{{
+					Name:  "FOO",
+					Value: "bar",
+				}, {
+					Name:  "BAZ",
+					Value: "blah",
+				}}
+				revision.Spec.Container.Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("666Mi"),
+						corev1.ResourceCPU:    resource.MustParse("666m"),
 					},
-					TerminationMessagePolicy: corev1.TerminationMessageReadFile,
-				},
-				TimeoutSeconds: 45,
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("888Mi"),
+						corev1.ResourceCPU:    resource.MustParse("888m"),
+					},
+				}
+				revision.Spec.Container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
 			},
-		},
+		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
@@ -716,20 +634,10 @@ func TestMakeDeployment(t *testing.T) {
 		want *appsv1.Deployment
 	}{{
 		name: "simple concurrency=single no owner",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
+		rev: revision(
+			withoutLabels(),
+			withContainerConcurrency(1),
+		),
 		lc:   &logging.Config{},
 		nc:   &config.Network{},
 		oc:   &config.Observability{},
@@ -738,27 +646,18 @@ func TestMakeDeployment(t *testing.T) {
 		want: deployment(),
 	}, {
 		name: "simple concurrency=multi with owner",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				OwnerReferences: []metav1.OwnerReference{{
+		rev: revision(
+			withoutLabels(),
+			func(revision *v1alpha1.Revision) {
+				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "parent-config",
 					Controller:         &boolTrue,
 					BlockOwnerDeletion: &boolTrue,
-				}},
+				}}
 			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
+		),
 		lc:   &logging.Config{},
 		nc:   &config.Network{},
 		oc:   &config.Observability{},
@@ -767,21 +666,8 @@ func TestMakeDeployment(t *testing.T) {
 		want: deployment(),
 	}, {
 		name: "simple concurrency=multi with outbound IP range configured",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
-		lc: &logging.Config{},
+		rev:  revision(withoutLabels()),
+		lc:   &logging.Config{},
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
 		},
@@ -793,23 +679,14 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "simple concurrency=multi with outbound IP range override",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Annotations: map[string]string{
+		rev: revision(
+			withoutLabels(),
+			func(revision *v1alpha1.Revision) {
+				revision.ObjectMeta.Annotations = map[string]string{
 					IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
-				},
+				}
 			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-				TimeoutSeconds: 45,
-			},
-		},
+		),
 		lc: &logging.Config{},
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
