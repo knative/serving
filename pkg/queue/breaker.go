@@ -17,16 +17,20 @@ limitations under the License.
 package queue
 
 import (
+	"errors"
 	"fmt"
 	"sync"
+
 	"go.uber.org/zap"
-	"errors"
 )
 
 var (
-	ErrAddCapacity    = errors.New("failed to add all capacity to the breaker")
+	// ErrAddCapacity indicates that not all capacity could be added to the breaker.
+	ErrAddCapacity = errors.New("failed to add all capacity to the breaker")
+	// ErrReduceCapacity indicates that there's not enough capacity to be reduced.
 	ErrReduceCapacity = errors.New("the capacity that is released must be <= to added capacity")
-	ErrRelease        = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
+	// ErrRelease indicates that Release was called more often than Acquire.
+	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 )
 
 // BreakerParams defines the parameters of the breaker.
@@ -108,7 +112,7 @@ func (b *Breaker) UpdateConcurrency(size int32) error {
 
 // Capacity retrieves the capacity of the breaker.
 func (b *Breaker) Capacity() int32 {
-	return b.sem.capacity
+	return b.sem.Capacity()
 }
 
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
@@ -150,19 +154,21 @@ func (s *Semaphore) Acquire() {
 func (s *Semaphore) Release() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	if s.reducers > 0 {
 		s.capacity--
 		s.reducers--
-	} else {
-		// We want to make sure releasing a token is always non-blocking.
-		select {
-		case s.queue <- s.token:
-		default:
-			// This should never happen.
-			return ErrRelease
-		}
+		return nil
 	}
-	return nil
+
+	// We want to make sure releasing a token is always non-blocking.
+	select {
+	case s.queue <- s.token:
+		return nil
+	default:
+		// This should never happen.
+		return ErrRelease
+	}
 }
 
 // AddCapacity increases the number of tokens in the rotation.
@@ -172,6 +178,7 @@ func (s *Semaphore) Release() error {
 func (s *Semaphore) AddCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	for i := int32(0); i < size; i++ {
 		select {
 		case s.queue <- s.token:
@@ -190,9 +197,11 @@ func (s *Semaphore) AddCapacity(size int32) error {
 func (s *Semaphore) ReduceCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	if size+s.reducers > s.capacity {
 		return ErrReduceCapacity
 	}
+
 	for i := int32(0); i < size; i++ {
 		select {
 		case <-s.queue:
@@ -202,4 +211,12 @@ func (s *Semaphore) ReduceCapacity(size int32) error {
 		}
 	}
 	return nil
+}
+
+// Capacity returns the current capacity of the semaphore.
+func (s *Semaphore) Capacity() int32 {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.capacity
 }
