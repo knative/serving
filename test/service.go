@@ -136,13 +136,13 @@ func CreateReleaseServiceWithLatest(
 // CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options) (*ResourceObjects, error) {
+func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options, fopt ...testing.ServiceOption) (*ResourceObjects, error) {
 	if names.Service == "" || names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
 	}
 
 	logger.Info("Creating a new Service as RunLatest.")
-	svc, err := CreateLatestService(logger, clients, *names, options)
+	svc, err := CreateLatestService(logger, clients, *names, options, fopt...)
 	if err != nil {
 		return nil, err
 	}
