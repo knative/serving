@@ -35,4 +35,9 @@ func (rs *RevisionSpec) SetDefaults() {
 	if rs.TimeoutSeconds == 0 {
 		rs.TimeoutSeconds = defaultTimeoutSeconds
 	}
+
+	vms := rs.Container.VolumeMounts
+	for i := range vms {
+		vms[i].ReadOnly = true
+	}
 }

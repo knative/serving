@@ -54,7 +54,7 @@ func runScaleFromZero(clients *test.Clients, logger *logging.BaseLogger, ro *tes
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		test.DeploymentScaledToZeroFunc(),
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		2*time.Minute); err != nil {

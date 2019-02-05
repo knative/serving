@@ -26,13 +26,14 @@ import (
 )
 
 func TestOurConfig(t *testing.T) {
+	actual, example := ConfigMapsFromTestFile(t, "config-gc")
 	for _, tt := range []struct {
 		name string
 		fail bool
 		want Config
 		data *corev1.ConfigMap
 	}{{
-		name: "Standard config",
+		name: "actual config",
 		fail: false,
 		want: Config{
 			StaleRevisionCreateDelay:        24 * time.Hour,
@@ -40,7 +41,17 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionMinimumGenerations: 1,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 		},
-		data: ConfigMapFromTestFile(t, "config-gc"),
+		data: actual,
+	}, {
+		name: "example config",
+		fail: false,
+		want: Config{
+			StaleRevisionCreateDelay:        24 * time.Hour,
+			StaleRevisionTimeout:            15 * time.Hour,
+			StaleRevisionMinimumGenerations: 1,
+			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+		},
+		data: example,
 	}, {
 		name: "With value overrides",
 		want: Config{

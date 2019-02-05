@@ -280,6 +280,12 @@ func withLivenessProbe(handler corev1.Handler) containerOption {
 	}
 }
 
+func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
+	return func(c *corev1.Container) {
+		c.VolumeMounts = append(volumeMounts, c.VolumeMounts...)
+	}
+}
+
 func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
@@ -289,6 +295,12 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	}
 
 	return podSpec
+}
+
+func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.Volumes = append(ps.Volumes, volumes...)
+	}
 }
 
 func deployment(opts ...deploymentOption) *appsv1.Deployment {
@@ -365,6 +377,65 @@ func TestMakePodSpec(t *testing.T) {
 				withEnvVar("USER_PORT", "8888"),
 			),
 		}),
+	}, {
+		name: "volumes passed through",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels:    labels,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       45,
+				Container: corev1.Container{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8888,
+					}},
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      "asdf",
+						MountPath: "/asdf",
+					}},
+				},
+				Volumes: []corev1.Volume{{
+					Name: "asdf",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "asdf",
+						},
+					},
+				}},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: podSpec([]corev1.Container{
+			userContainer(
+				func(container *corev1.Container) {
+					container.Ports[0].ContainerPort = 8888
+				},
+				withEnvVar("PORT", "8888"),
+				withPrependedVolumeMounts(corev1.VolumeMount{
+					Name:      "asdf",
+					MountPath: "/asdf",
+				}),
+			),
+			queueContainer(
+				withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				withEnvVar("USER_PORT", "8888"),
+			),
+		}, withAppendedVolumes(corev1.Volume{
+			Name: "asdf",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "asdf",
+				},
+			},
+		})),
 	}, {
 		name: "simple concurrency=single no owner",
 		rev:  revision(withContainerConcurrency(1)),
