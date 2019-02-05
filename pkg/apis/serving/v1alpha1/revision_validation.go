@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -161,6 +162,16 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	return errs
 }
 
+// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
+// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
+// allowed.
+// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+var validPortNames = sets.NewString(
+	"h2c",
+	"http1",
+	"",
+)
+
 func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 0 {
 		return nil
@@ -209,17 +220,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
 	}
 
-	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
-	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
-	// allowed.
-	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
-	validPortNames := map[string]bool{
-		"h2c":   true,
-		"http1": true,
-		"":      true,
-	}
-
-	if !validPortNames[userPort.Name] {
+	if !validPortNames.Has(userPort.Name) {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
 			Paths:   []string{apis.CurrentField},
