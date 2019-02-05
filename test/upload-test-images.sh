@@ -29,7 +29,7 @@ function upload_test_images() {
       local image_name="$(basename ${image_dir})"
       local image="github.com/knative/serving/test/test_images/${image_name}"
 
-      ko publish -B "${image}" "${tag_option}"
+      ko publish -B ${tag_option} "${image}"
   done
 }
 
