@@ -28,10 +28,14 @@ import (
 )
 
 func TestOurObservability(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, ObservabilityConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ObservabilityConfigName)
 
 	if _, err := NewObservabilityFromConfigMap(cm); err != nil {
-		t.Errorf("NewObservabilityFromConfigMap() = %v", err)
+		t.Errorf("NewObservabilityFromConfigMap(actual) = %v", err)
+	}
+
+	if _, err := NewObservabilityFromConfigMap(example); err != nil {
+		t.Errorf("NewObservabilityFromConfigMap(example) = %v", err)
 	}
 }
 

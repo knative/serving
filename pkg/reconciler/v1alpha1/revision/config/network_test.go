@@ -28,10 +28,13 @@ import (
 )
 
 func TestOurNetwork(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, NetworkConfigName)
+	cm, example := ConfigMapsFromTestFile(t, NetworkConfigName)
 
 	if _, err := NewNetworkFromConfigMap(cm); err != nil {
-		t.Errorf("NewNetworkFromConfigMap() = %v", err)
+		t.Errorf("NewNetworkFromConfigMap(actual) = %v", err)
+	}
+	if _, err := NewNetworkFromConfigMap(example); err != nil {
+		t.Errorf("NewNetworkFromConfigMap(example) = %v", err)
 	}
 }
 
