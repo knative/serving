@@ -78,7 +78,6 @@ func NewBreaker(params BreakerParams) *Breaker {
 // already consumed, Maybe returns immediately without calling thunk. If
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(thunk func()) bool {
-
 	var t token
 	select {
 	default:

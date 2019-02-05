@@ -19,6 +19,9 @@ package activator
 import (
 	"errors"
 	"testing"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	. "github.com/knative/pkg/logging/testing"
 	testinghelper "github.com/knative/serving/pkg/activator/testing"
@@ -27,8 +30,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -140,7 +143,8 @@ func TestThrottler_Try(t *testing.T) {
 		t.Run(s.label, func(t *testing.T) {
 			var got int32
 			want := s.wantBreakers
-			throttler := getThrottler(defaultMaxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
+			throttler := getThrottler(
+				defaultMaxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
@@ -160,6 +164,39 @@ func TestThrottler_Try(t *testing.T) {
 				t.Errorf("Unexpected number of function runs in Try = %d, want: %d", got, want)
 			}
 		})
+	}
+}
+
+func TestThrottler_TryOverload(t *testing.T) {
+	th := getThrottler(
+		1 /*maxConcurrency*/, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
+		1 /*initial capacity*/)
+	done := make(chan struct{})
+
+	// We have two slots to fill.
+	var g errgroup.Group
+	for i := 0; i < 2; i++ {
+		g.Go(func() error {
+			return th.Try(revID, func() {
+				select {
+				case <-done:
+				}
+			})
+		})
+	}
+	// Give the chance for the goroutines to launch. 
+	time.Sleep(150 * time.Millisecond)
+	err := th.Try(revID, func() {
+		t.Fatal("This should not have executed")
+	})
+	// `err` must be non-nil here, since `t.Fatal()` above would ensure we
+	// don't reach here on success.
+	if got := err.Error(); got != OverloadMessage {
+		t.Errorf("Error message = %q, want: %q", got, OverloadMessage)
+	}
+	close(done)
+	if err := g.Wait(); err != nil {
+		t.Errorf("Unexpected error in the parallel requests: %v", err)
 	}
 }
 
@@ -251,8 +288,11 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	}
 }
 
-func getThrottler(maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, error), endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger, initCapacity int32) *Throttler {
-	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
+func getThrottler(
+	maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, error),
+	endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger,
+	initCapacity int32) *Throttler {
+	params := queue.BreakerParams{QueueDepth: 1, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
 	throttlerParams := ThrottlerParams{BreakerParams: params, Logger: logger, GetRevision: revisionGetter, GetEndpoints: endpointsGetter}
 	return NewThrottler(throttlerParams)
 }
