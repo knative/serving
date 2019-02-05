@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -29,6 +30,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
+)
+
+var (
+	reservedPaths = sets.NewString(
+		"/dev/log",
+		"/var/log",
+		"/tmp",
+	)
 )
 
 // Validate ensures Revision is properly configured.
@@ -57,8 +66,8 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 				Paths:   []string{"name"},
 			}).ViaFieldIndex("volumes", i))
 		}
-		volumes.Insert(volume.Name)
 		errs = errs.Also(validateVolume(volume).ViaFieldIndex("volumes", i))
+		volumes.Insert(volume.Name)
 	}
 
 	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
@@ -170,6 +179,11 @@ func validateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 
 		if vm.MountPath == "" {
 			errs = errs.Also(apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", i))
+		} else if reservedPaths.Has(filepath.Clean(vm.MountPath)) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("mountPath %q is a reserved path", filepath.Clean(vm.MountPath)),
+				Paths:   []string{"mountPath"},
+			}).ViaFieldIndex("volumeMounts", i))
 		}
 		if !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", i))

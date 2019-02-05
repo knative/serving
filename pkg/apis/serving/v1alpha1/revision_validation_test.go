@@ -275,6 +275,21 @@ func TestContainerValidation(t *testing.T) {
 		},
 		volumes: sets.NewString("the-name"),
 	}, {
+		name: "has known volumeMounts, but at reserved path",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				MountPath: "//var//log//",
+				Name:      "the-name",
+				ReadOnly:  true,
+			}},
+		},
+		volumes: sets.NewString("the-name"),
+		want: (&apis.FieldError{
+			Message: `mountPath "/var/log" is a reserved path`,
+			Paths:   []string{"mountPath"},
+		}).ViaFieldIndex("volumeMounts", 0),
+	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
 			Image:     "foo",

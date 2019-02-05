@@ -46,7 +46,7 @@ func TestConfigMapVolume(t *testing.T) {
 	// Create the ConfigMap with random text.
 	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: text,
+			Name: names.Service, // Give it the same name as the service.
 		},
 		Data: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
@@ -59,7 +59,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	cleanup := func() {
 		tearDown(clients, names)
-		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(text, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
 	}
@@ -81,7 +81,7 @@ func TestConfigMapVolume(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: text,
+						Name: configMap.Name,
 					},
 				},
 			},
@@ -121,7 +121,7 @@ func TestSecretVolume(t *testing.T) {
 	// Create the Secret with random text.
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: text,
+			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
@@ -134,7 +134,7 @@ func TestSecretVolume(t *testing.T) {
 
 	cleanup := func() {
 		tearDown(clients, names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(text, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
 	}
@@ -155,7 +155,7 @@ func TestSecretVolume(t *testing.T) {
 			Name: "asdf",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: text,
+					SecretName: secret.Name,
 				},
 			},
 		}}

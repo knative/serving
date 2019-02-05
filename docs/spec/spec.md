@@ -408,7 +408,7 @@ status:
 
 This is a
 [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
-Some fields are not allowed, such as name and volumeMounts.
+Some fields are not allowed, such as name and lifecycle.
 
 This type is not used on its own but is found composed inside
 [Service](#service), [Configuration](#configuration), and [Revision](#revision).
