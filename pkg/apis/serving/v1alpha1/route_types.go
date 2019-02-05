@@ -132,7 +132,7 @@ type RouteStatus struct {
 
 	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
-	// {route-name}.{route-namespace}.svc.cluster.local
+	// {route-name}.{route-namespace}.svc.{cluster-domain-name}
 	// DEPRECATED: Use Address instead.
 	// +optional
 	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`

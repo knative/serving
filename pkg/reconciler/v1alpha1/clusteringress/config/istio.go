@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+        "github.com/knative/serving/pkg/utils"
 )
 
 const (
@@ -40,11 +41,11 @@ const (
 var (
 	defaultGateway = Gateway{
 		GatewayName: "knative-ingress-gateway",
-		ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+		ServiceURL:  fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s", utils.GetClusterDomainName()),
 	}
 	defaultLocalGateway = Gateway{
 		GatewayName: "cluster-local-gateway",
-		ServiceURL:  "cluster-local-gateway.istio-system.svc.cluster.local",
+		ServiceURL:  fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s", utils.GetClusterDomainName()),
 	}
 )
 
@@ -91,6 +92,7 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
+        
 	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
 	if err != nil {
 		return nil, err
