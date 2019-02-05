@@ -216,8 +216,7 @@ type podSpecOption func(*corev1.PodSpec)
 type deploymentOption func(*appsv1.Deployment)
 type revisionOption func(*v1alpha1.Revision)
 
-func container(defaultContainer *corev1.Container, opts ...containerOption) corev1.Container {
-	container := defaultContainer.DeepCopy()
+func container(container *corev1.Container, opts ...containerOption) corev1.Container {
 	for _, option := range opts {
 		option(container)
 	}
@@ -225,15 +224,15 @@ func container(defaultContainer *corev1.Container, opts ...containerOption) core
 }
 
 func userContainer(opts ...containerOption) corev1.Container {
-	return container(defaultUserContainer, opts...)
+	return container(defaultUserContainer.DeepCopy(), opts...)
 }
 
 func queueContainer(opts ...containerOption) corev1.Container {
-	return container(defaultQueueContainer, opts...)
+	return container(defaultQueueContainer.DeepCopy(), opts...)
 }
 
 func fluentdContainer(opts ...containerOption) corev1.Container {
-	return container(defaultFluentdContainer, opts...)
+	return container(defaultFluentdContainer.DeepCopy(), opts...)
 }
 
 func withEnvVar(name, value string) containerOption {
@@ -252,26 +251,32 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withReadinessProbe(probe *corev1.Probe) containerOption {
+func withReadinessProbe(handler corev1.Handler) containerOption {
 	return func(container *corev1.Container) {
-		container.ReadinessProbe = probe
+		container.ReadinessProbe = &corev1.Probe{Handler: handler}
 	}
 }
 
-func withHTTPReadinessProbe() containerOption {
-	return withReadinessProbe(&corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(v1alpha1.RequestQueuePort),
-				Path: "/",
-			},
+func withHTTPReadinessProbe(port int) containerOption {
+	return withReadinessProbe(corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(port),
+			Path: "/",
 		},
 	})
 }
 
-func withLivenessProbe(probe *corev1.Probe) containerOption {
+func withExecReadinessProbe(command []string) containerOption {
+	return withReadinessProbe(corev1.Handler{
+		Exec: &corev1.ExecAction{
+			Command: command,
+		},
+	})
+}
+
+func withLivenessProbe(handler corev1.Handler) containerOption {
 	return func(container *corev1.Container) {
-		container.LivenessProbe = probe
+		container.LivenessProbe = &corev1.Probe{Handler: handler}
 	}
 }
 
@@ -308,11 +313,22 @@ func withContainerConcurrency(containerConcurrency int) revisionOption {
 	}
 }
 
-func withoutLabels() revisionOption {
+func withoutLabels(revision *v1alpha1.Revision) {
+	revision.ObjectMeta.Labels = map[string]string{}
+}
+
+func withOwnerReference(name string) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.ObjectMeta.Labels = map[string]string{}
+		revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+			Kind:               "Configuration",
+			Name:               name,
+			Controller:         &boolTrue,
+			BlockOwnerDeletion: &boolTrue,
+		}}
 	}
 }
+
 
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
@@ -388,15 +404,7 @@ func TestMakePodSpec(t *testing.T) {
 		name: "simple concurrency=single with owner",
 		rev: revision(
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
-				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "parent-config",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
-				}}
-			},
+			withOwnerReference("parent-config"),
 		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
@@ -412,14 +420,9 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "simple concurrency=multi http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-						Path: "/",
-					},
-				},
-			}
+			container(&revision.Spec.Container,
+				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
+			)
 		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
@@ -427,7 +430,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(),
+				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -436,13 +439,11 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, readinessprobe=shell",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"echo", "hello"},
-					},
-				},
-			}
+			container(&revision.Spec.Container,
+				withExecReadinessProbe(
+					[]string{"echo", "hello"},
+				),
+			)
 		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
@@ -450,13 +451,9 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withReadinessProbe(&corev1.Probe{
-					Handler: corev1.Handler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"echo", "hello"},
-						},
-					},
-				}),
+				withExecReadinessProbe(
+					[]string{"echo", "hello"},
+				),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -465,13 +462,13 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, readinessprobe=http",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			revision.Spec.Container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+			container(&revision.Spec.Container,
+				withReadinessProbe(corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
 					},
-				},
-			}
+				}),
+			)
 		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
@@ -479,7 +476,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(),
+				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -488,11 +485,11 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, livenessprobe=tcp",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			revision.Spec.Container.LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+			container(&revision.Spec.Container,
+				withLivenessProbe(corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{},
-				},
-			}
+				}),
+			)
 		}),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
@@ -500,11 +497,9 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withLivenessProbe(&corev1.Probe{
-					Handler: corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-						},
+				withLivenessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromInt(v1alpha1.DefaultUserPort),
 					},
 				}),
 			),
@@ -551,13 +546,10 @@ func TestMakePodSpec(t *testing.T) {
 				revision.ObjectMeta.Labels = map[string]string{}
 				revision.Spec.Container.Command = []string{"/bin/bash"}
 				revision.Spec.Container.Args = []string{"-c", "echo Hello world"}
-				revision.Spec.Container.Env = []corev1.EnvVar{{
-					Name:  "FOO",
-					Value: "bar",
-				}, {
-					Name:  "BAZ",
-					Value: "blah",
-				}}
+				container(&revision.Spec.Container,
+					withEnvVar("FOO", "bar"),
+					withEnvVar("BAZ", "blah"),
+				)
 				revision.Spec.Container.Resources = corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("666Mi"),
@@ -635,7 +627,7 @@ func TestMakeDeployment(t *testing.T) {
 	}{{
 		name: "simple concurrency=single no owner",
 		rev: revision(
-			withoutLabels(),
+			withoutLabels,
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
@@ -647,16 +639,8 @@ func TestMakeDeployment(t *testing.T) {
 	}, {
 		name: "simple concurrency=multi with owner",
 		rev: revision(
-			withoutLabels(),
-			func(revision *v1alpha1.Revision) {
-				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "parent-config",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
-				}}
-			},
+			withoutLabels,
+			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
 		nc:   &config.Network{},
@@ -666,7 +650,7 @@ func TestMakeDeployment(t *testing.T) {
 		want: deployment(),
 	}, {
 		name: "simple concurrency=multi with outbound IP range configured",
-		rev:  revision(withoutLabels()),
+		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
 		nc: &config.Network{
 			IstioOutboundIPRanges: "*",
@@ -680,7 +664,7 @@ func TestMakeDeployment(t *testing.T) {
 	}, {
 		name: "simple concurrency=multi with outbound IP range override",
 		rev: revision(
-			withoutLabels(),
+			withoutLabels,
 			func(revision *v1alpha1.Revision) {
 				revision.ObjectMeta.Annotations = map[string]string{
 					IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
