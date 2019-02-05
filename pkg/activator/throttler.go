@@ -143,8 +143,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	err = t.updateCapacity(revision, breaker, size)
-	if err != nil {
+	if err = t.updateCapacity(revision, breaker, size); err != nil {
 		return err
 	}
 	return nil
