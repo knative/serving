@@ -87,6 +87,7 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
 func (t *Throttler) Try(rev RevisionID, function func()) error {
 	breaker, existed := t.getOrCreateBreaker(rev)
 	if !existed {
+		// Need to fetch the latest endpoints state, in case we missed the update.
 		if err := t.forceUpdateCapacity(rev, breaker); err != nil {
 			return err
 		}
@@ -130,7 +131,7 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 	return breaker, ok
 }
 
-// forceUpdateCapacity fetches the endpoints and update the capacity of the newly created breaker.
+// forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
 func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) (err error) {

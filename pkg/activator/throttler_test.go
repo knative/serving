@@ -67,30 +67,26 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 		maxConcurrency  int32
 		want            int32
 		wantError       string
-	}{
-		{
-			label:           "all good",
-			revisionGetter:  existingRevisionGetter(10),
-			endpointsGetter: existingEndpointsGetter,
-			maxConcurrency:  defaultMaxConcurrency,
-			want:            int32(10),
-		},
-		{
-			label:           "unlimited concurrency",
-			revisionGetter:  existingRevisionGetter(0),
-			endpointsGetter: existingEndpointsGetter,
-			maxConcurrency:  100,
-			want:            int32(100),
-		},
-		{
-			label:           "non-existing revision",
-			revisionGetter:  nonExistingRevisionGetter,
-			endpointsGetter: existingEndpointsGetter,
-			maxConcurrency:  defaultMaxConcurrency,
-			want:            int32(0),
-			wantError:       sampleError,
-		},
-	}
+	}{{
+		label:           "all good",
+		revisionGetter:  existingRevisionGetter(10),
+		endpointsGetter: existingEndpointsGetter,
+		maxConcurrency:  defaultMaxConcurrency,
+		want:            int32(10),
+	}, {
+		label:           "unlimited concurrency",
+		revisionGetter:  existingRevisionGetter(0),
+		endpointsGetter: existingEndpointsGetter,
+		maxConcurrency:  100,
+		want:            int32(100),
+	}, {
+		label:           "non-existing revision",
+		revisionGetter:  nonExistingRevisionGetter,
+		endpointsGetter: existingEndpointsGetter,
+		maxConcurrency:  defaultMaxConcurrency,
+		want:            int32(0),
+		wantError:       sampleError,
+	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			want := s.want
