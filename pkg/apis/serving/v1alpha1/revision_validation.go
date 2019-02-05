@@ -34,9 +34,12 @@ import (
 
 var (
 	reservedPaths = sets.NewString(
-		"/dev/log",
-		"/var/log",
+		"/",
+		"/dev",
+		"/dev/log", // Should be a domain socket
 		"/tmp",
+		"/var",
+		"/var/log",
 	)
 )
 
@@ -184,6 +187,8 @@ func validateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 				Message: fmt.Sprintf("mountPath %q is a reserved path", filepath.Clean(vm.MountPath)),
 				Paths:   []string{"mountPath"},
 			}).ViaFieldIndex("volumeMounts", i))
+		} else if !filepath.IsAbs(vm.MountPath) {
+			errs = errs.Also(apis.ErrInvalidValue(vm.MountPath, "mountPath").ViaFieldIndex("volumeMounts", i))
 		}
 		if !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", i))

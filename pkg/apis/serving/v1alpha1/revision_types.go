@@ -222,7 +222,7 @@ type RevisionSpec struct {
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
-	// this Container, including: name, and lifecycle.
+	// this Container, including: name and lifecycle.
 	// See also the runtime contract for more information about the execution
 	// environment:
 	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md

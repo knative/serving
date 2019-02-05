@@ -268,7 +268,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "mount/path",
+				MountPath: "/mount/path",
 				Name:      "the-name",
 				ReadOnly:  true,
 			}},
@@ -290,6 +290,18 @@ func TestContainerValidation(t *testing.T) {
 			Paths:   []string{"mountPath"},
 		}).ViaFieldIndex("volumeMounts", 0),
 	}, {
+		name: "has known volumeMounts, bad mountPath",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				MountPath: "not/absolute",
+				Name:      "the-name",
+				ReadOnly:  true,
+			}},
+		},
+		volumes: sets.NewString("the-name"),
+		want:    apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
 			Image:     "foo",
@@ -301,11 +313,11 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "mount/path",
+				MountPath: "/mount/path",
 				Name:      "the-name",
 				ReadOnly:  true,
 			}, {
-				MountPath: "another/mount/path",
+				MountPath: "/another/mount/path",
 				Name:      "the-name",
 				ReadOnly:  true,
 			}},
@@ -419,6 +431,12 @@ func TestVolumeValidation(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
+		},
+		want: apis.ErrMissingOneOf("secret", "configMap"),
+	}, {
+		name: "no volume source",
+		v: corev1.Volume{
+			Name: "foo",
 		},
 		want: apis.ErrMissingOneOf("secret", "configMap"),
 	}, {
@@ -653,7 +671,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
-					MountPath: "mount/path",
+					MountPath: "/mount/path",
 					Name:      "the-name",
 					ReadOnly:  true,
 				}},
@@ -675,7 +693,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
-					MountPath: "mount/path",
+					MountPath: "/mount/path",
 					Name:      "the-name",
 					ReadOnly:  true,
 				}},
