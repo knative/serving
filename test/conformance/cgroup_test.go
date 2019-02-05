@@ -100,7 +100,7 @@ func TestShouldHaveCgroupReadOnly(t *testing.T) {
 			continue
 		}
 		if got, want := *cgroup.ReadOnly, true; got != want {
-			t.Errorf("For cgroup %s cgroup.ReadOnly = %v, want: true", cgroup.Name, *cgroup.ReadOnly)
+			t.Errorf("For cgroup %s cgroup.ReadOnly = %v, want: %v", cgroup.Name, *cgroup.ReadOnly, want)
 		}
 	}
 
