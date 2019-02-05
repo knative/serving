@@ -22,7 +22,7 @@ function upload_test_images() {
   local docker_tag=$1
   local tag_option=""
   if [ -n "${docker_tag}" ]; then
-    tag_option="--tags $docker_tag"
+    tag_option="--tags $docker_tag,latest"
   fi
 
   for image_dir in ${image_dirs}; do
