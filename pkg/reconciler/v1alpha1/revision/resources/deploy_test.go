@@ -379,36 +379,26 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 	}, {
 		name: "volumes passed through",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-				Labels:    labels,
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       45,
-				Container: corev1.Container{
-					Image: "busybox",
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: 8888,
-					}},
-					VolumeMounts: []corev1.VolumeMount{{
-						Name:      "asdf",
-						MountPath: "/asdf",
-					}},
-				},
-				Volumes: []corev1.Volume{{
+		rev: revision(
+			withContainerConcurrency(1),
+			func(revision *v1alpha1.Revision) {
+				revision.Spec.Container.Ports = []corev1.ContainerPort{{
+                                        ContainerPort: 8888,
+                                }}
+				revision.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
+					Name:      "asdf",
+					MountPath: "/asdf",
+				}}
+				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: "asdf",
 						},
 					},
-				}},
+				}}
 			},
-		},
+		),
 		lc: &logging.Config{},
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
