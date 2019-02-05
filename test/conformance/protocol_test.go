@@ -27,11 +27,8 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type protocolsTest struct {
@@ -97,42 +94,15 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 	return resp
 }
 
-func (pt *protocolsTest) createService(options *test.Options) *v1alpha1.Service {
+func (pt *protocolsTest) createService(options *test.Options) string {
 	pt.logger.Infof("Creating service %q with options: %#v", pt.names.Service, options)
 
-	service := test.LatestService(test.ServingNamespace, pt.names, options)
-
-	svc, err := pt.clients.ServingClient.Services.Create(service)
+	objects, err := test.CreateRunLatestServiceReady(pt.logger, pt.clients, &pt.names, options)
 	if err != nil {
-		pt.t.Fatalf("Error creating service: %s", err.Error())
+		pt.t.Fatalf("Failed to create service %v", err)
 	}
 
-	if err := test.WaitForServiceState(pt.clients.ServingClient, pt.names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		pt.t.Fatalf("Service %s not marked Ready: %v", pt.names.Service, err)
-	}
-
-	pt.logger.Infof("Service %q created", pt.names.Service)
-
-	return svc
-}
-
-func (pt *protocolsTest) getDomain(service *v1alpha1.Service) string {
-	pt.names.Route = serviceresourcenames.Route(service)
-
-	pt.logger.Infof("Fetching domain from route %q", pt.names.Route)
-
-	if err := test.WaitForRouteState(pt.clients.ServingClient, pt.names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		pt.t.Fatalf("Route %s not marked Ready: %v", pt.names.Route, err)
-	}
-
-	route, err := pt.clients.ServingClient.Routes.Get(pt.names.Route, metav1.GetOptions{})
-	if err != nil {
-		pt.t.Fatalf("Error fetching Route %s: %v", pt.names.Route, err)
-	}
-
-	pt.logger.Infof("Got domain %q", route.Status.Domain)
-
-	return route.Status.Domain
+	return objects.Route.Status.Domain
 }
 
 type protocol struct {
@@ -181,9 +151,7 @@ func TestProtocols(t *testing.T) {
 			defer pt.teardown()
 
 			options := portOption(tt.PortName)
-
-			service := pt.createService(options)
-			domain := pt.getDomain(service)
+			domain := pt.createService(options)
 
 			response := pt.makeRequest(domain)
 			got := pt.getProtocol(response)
