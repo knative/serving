@@ -19,6 +19,7 @@ limitations under the License.
 package conformance
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -26,6 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	cpuLimit    = 1   // CPU
+	memoryLimit = 128 // MB
+	cpuRequest  = 1   // CPU
 )
 
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
@@ -36,21 +43,21 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1"),
-			corev1.ResourceMemory: resource.MustParse("128M"),
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuLimit)),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "M"),
 		},
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("1"),
+			corev1.ResourceCPU: resource.MustParse(strconv.Itoa(cpuRequest)),
 		},
 	}
 
 	// Cgroup settings are based on the CPU and Memory Limits as well as CPU Reuqests
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	expectedCgroups := map[string]int{
-		"/sys/fs/cgroup/memory/memory.limit_in_bytes": 128000000, // 128 MB
-		"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        100000,    // 100ms (100,000us) default
-		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         100000,    // 1000 millicore * 100
-		"/sys/fs/cgroup/cpu/cpu.shares":               1024}      // CPURequests * 1024
+		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1000000, // 128 MB
+		"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        100000,                // 100ms (100,000us) default
+		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
+		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
 	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{ContainerResources: resources})
 	if err != nil {
