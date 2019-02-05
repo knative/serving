@@ -32,7 +32,7 @@ the following objects:
 - A VirtualService to realize the routing from the Gateway
   `knative-shared-gateway` to the traffic target referenced in the Route.
 - A Service with the same name as the Route, so that we can access the Route
-  using `<route-name>.<route-namespace>.svc.cluster.local`. This Service has no
+  using `<route-name>.<route-namespace>.svc.<cluster-domain-name>`. This Service has no
   Pod, we use it solely to have a domain name and a cluster IP to be used in the
   VirtualService.
 
