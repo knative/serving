@@ -28,7 +28,6 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -244,9 +243,9 @@ func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
 	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
 	rndMutex.Lock()
+	defer rndMutex.Unlock()
 	for i := range suffix {
 		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
 	}
-	rndMutex.Unlock()
 	return prefix + string(suffix)
 }

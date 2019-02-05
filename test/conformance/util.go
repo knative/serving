@@ -65,6 +65,7 @@ const (
 )
 
 func setup(t *testing.T) *test.Clients {
+	t.Helper()
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
@@ -91,7 +92,9 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 	return err
 }
 
-func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string, baseExpected, trafficTargets, targetsExpected []string) {
+func validateDomains(
+	t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
+	baseExpected, trafficTargets, targetsExpected []string) {
 	t.Helper()
 	var subdomains []string
 	for _, target := range trafficTargets {
@@ -102,7 +105,7 @@ func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Cli
 	// started returning at least one expected result to key that we should validate percentage splits.
 	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
 	if err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0]); err != nil {
-		t.Fatalf("Error waiting for route to update %s: %v", subdomains[0], targetsExpected[0])
+		t.Fatalf("Error waiting for route to update %s: %s", subdomains[0], targetsExpected[0])
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
@@ -133,14 +136,7 @@ func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Cli
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", test.ServingFlags.DockerRepo, imageName)
-	match, err := regexp.MatchString(imageDigestRegex, imageDigest)
-	if err != nil {
-		return false, err
-	}
-	if !match {
-		return false, nil
-	}
-	return true, nil
+	return regexp.MatchString(imageDigestRegex, imageDigest)
 }
 
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.

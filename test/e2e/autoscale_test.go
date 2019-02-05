@@ -225,7 +225,7 @@ func assertScaleDown(ctx *testContext) {
 	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
-		test.DeploymentScaledToZeroFunc(),
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)
