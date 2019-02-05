@@ -76,8 +76,7 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
 		return err
 	}
 	breaker, _ := t.getOrCreateBreaker(rev)
-	err = t.updateCapacity(revision, breaker, size)
-	return err
+	return t.updateCapacity(revision, breaker, size)
 }
 
 // Try potentially registers a new breaker in our bookkeeping
@@ -92,7 +91,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 			return err
 		}
 	}
-	if ok := breaker.Maybe(function); !ok {
+	if !breaker.Maybe(function) {
 		return errors.New(OverloadMessage)
 	}
 	return nil
