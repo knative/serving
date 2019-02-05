@@ -211,8 +211,11 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, ConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ConfigName)
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap() = %v", err)
+		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
+	}
+	if _, err := NewConfigFromConfigMap(example); err != nil {
+		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
 	}
 }

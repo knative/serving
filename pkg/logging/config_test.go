@@ -159,13 +159,18 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, ConfigName)
-	cfg, err := NewConfigFromConfigMap(cm)
-	if err != nil {
+	cm, example := ConfigMapsFromTestFile(t, ConfigName)
+
+	if cfg, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
+	} else if cfg == nil {
+		t.Errorf("NewConfigFromConfigMap(actual) = %v, want non-nil", cfg)
 	}
-	if cfg == nil {
-		t.Errorf("NewConfigFromConfigMap() = %v, want non-nil", cfg)
+
+	if cfg, err := NewConfigFromConfigMap(example); err != nil {
+		t.Errorf("Expected no errors. got: %v", err)
+	} else if cfg == nil {
+		t.Errorf("NewConfigFromConfigMap(example) = %v, want non-nil", cfg)
 	}
 }
 

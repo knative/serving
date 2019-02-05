@@ -184,8 +184,11 @@ func TestLookupDomainForLabels(t *testing.T) {
 }
 
 func TestOurDomain(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, DomainConfigName)
+	cm, example := ConfigMapsFromTestFile(t, DomainConfigName)
 	if _, err := NewDomainFromConfigMap(cm); err != nil {
-		t.Errorf("NewDomainFromConfigMap() = %v", err)
+		t.Errorf("NewDomainFromConfigMap(actual) = %v", err)
+	}
+	if _, err := NewDomainFromConfigMap(example); err != nil {
+		t.Errorf("NewDomainFromConfigMap(example) = %v", err)
 	}
 }
