@@ -18,7 +18,6 @@ package activator
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	. "github.com/knative/pkg/logging/testing"
@@ -37,15 +36,15 @@ var (
 
 	sampleError = "some error"
 
-	existingRevisionGetter = func(concurrency v1alpha1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha12.Revision, bool, error) {
-		return func(RevisionID) (*v1alpha12.Revision, bool, error) {
+	existingRevisionGetter = func(concurrency v1alpha1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha12.Revision, error) {
+		return func(RevisionID) (*v1alpha12.Revision, error) {
 			revision := &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: concurrency}}
-			return revision, true, nil
+			return revision, nil
 		}
 	}
-	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, bool, error) {
+	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
 		revision := &v1alpha12.Revision{}
-		return revision, false, nil
+		return revision, errors.New(sampleError)
 	}
 	initCapacity            = int32(0)
 	existingEndpointsGetter = func(RevisionID) (int32, error) {
@@ -63,7 +62,7 @@ const (
 func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label           string
-		revisionGetter  func(RevisionID) (*v1alpha12.Revision, bool, error)
+		revisionGetter  func(RevisionID) (*v1alpha12.Revision, error)
 		endpointsGetter func(RevisionID) (int32, error)
 		maxConcurrency  int32
 		want            int32
@@ -89,20 +88,19 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 			endpointsGetter: existingEndpointsGetter,
 			maxConcurrency:  defaultMaxConcurrency,
 			want:            int32(0),
-			wantError:       fmt.Sprintf("no revision was found for: %s", revID),
+			wantError:       sampleError,
 		},
 	}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
-			var received string
 			want := s.want
 			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
 			err := throttler.UpdateCapacity(revID, 1)
 			if s.wantError != "" {
-				received = err.Error()
-			}
-			if received != s.wantError {
-				t.Errorf("Expected error in Update capacity. Want %s, got %s", s.wantError, err.Error())
+				received := err.Error()
+				if received != s.wantError {
+					t.Errorf("Expected error in Update capacity. Want %s, got %s", s.wantError, err.Error())
+				}
 			}
 			if want > 0 {
 				breaker, _ := throttler.breakers[revID]
@@ -121,7 +119,7 @@ func TestThrottler_Try(t *testing.T) {
 		addCapacity     bool
 		wantBreakers    int32
 		wantError       string
-		revisionGetter  func(RevisionID) (*v1alpha12.Revision, bool, error)
+		revisionGetter  func(RevisionID) (*v1alpha12.Revision, error)
 		endpointsGetter func(RevisionID) (int32, error)
 	}{{
 		label:           "all good",
@@ -134,7 +132,7 @@ func TestThrottler_Try(t *testing.T) {
 		label:           "non-existing revision",
 		addCapacity:     true,
 		wantBreakers:    int32(0),
-		wantError:       fmt.Sprintf("no revision was found for: %s", revID),
+		wantError:       sampleError,
 		revisionGetter:  nonExistingRevisionGetter,
 		endpointsGetter: existingEndpointsGetter,
 	}, {
@@ -258,7 +256,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	}
 }
 
-func getThrottler(maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, bool, error), endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger, initCapacity int32) *Throttler {
+func getThrottler(maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, error), endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger, initCapacity int32) *Throttler {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
 	throttlerParams := ThrottlerParams{BreakerParams: params, Logger: logger, GetRevision: revisionGetter, GetEndpoints: endpointsGetter}
 	return NewThrottler(throttlerParams)

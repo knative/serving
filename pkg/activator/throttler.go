@@ -18,10 +18,9 @@ package activator
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
-	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
@@ -39,7 +38,7 @@ type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
 	GetEndpoints  func(RevisionID) (int32, error)
-	GetRevision   func(RevisionID) (*v1alpha1.Revision, bool, error)
+	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
 }
 
 // NewThrottler creates a new Throttler.
@@ -59,7 +58,7 @@ type Throttler struct {
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
 	getEndpoints  func(RevisionID) (int32, error)
-	getRevision   func(RevisionID) (*v1alpha1.Revision, bool, error)
+	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
 	mux           sync.Mutex
 }
 
@@ -72,9 +71,7 @@ func (t *Throttler) Remove(rev RevisionID) {
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
 func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
-	t.mux.Lock()
-	defer t.mux.Unlock()
-	revision, err := t.revision(rev)
+	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
 	}
@@ -88,15 +85,12 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
 // It returns an error if either breaker doesn't have enough capacity,
 // or breaker's registration didn't succeed, e.g. getting endpoints or update capacity failed.
 func (t *Throttler) Try(rev RevisionID, function func()) error {
-	t.mux.Lock()
 	breaker, existed := t.getOrCreateBreaker(rev)
 	if !existed {
-		err := t.forceUpdateCapacity(rev, breaker)
-		if err != nil {
+		if err := t.forceUpdateCapacity(rev, breaker); err != nil {
 			return err
 		}
 	}
-	t.mux.Unlock()
 	if ok := breaker.Maybe(function); !ok {
 		return errors.New(OverloadMessage)
 	}
@@ -126,27 +120,14 @@ func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.B
 // This is important for not loosing the update signals
 // that came before the requests reached the Activator's Handler.
 func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
+	t.mux.Lock()
+	defer t.mux.Unlock()
 	breaker, ok := t.breakers[rev]
 	if !ok {
 		breaker = queue.NewBreaker(t.breakerParams)
 		t.breakers[rev] = breaker
 	}
 	return breaker, ok
-}
-
-// revision returns the Revision id if it exists.
-// Do not inline it inside `updateCapacity` to save the deletion
-// of newly created breaker if no revision exists yet.
-// TODO: this method must be inlined in t.getRevision() when the throttler is enabled
-func (t *Throttler) revision(rev RevisionID) (*v1alpha1.Revision, error) {
-	revision, exists, err := t.getRevision(rev)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("no revision was found for: %s", rev)
-	}
-	return revision, nil
 }
 
 // forceUpdateCapacity fetches the endpoints and update the capacity of the newly created breaker.
@@ -157,7 +138,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	revision, err := t.revision(rev)
+	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
 	}
@@ -177,17 +158,13 @@ func UpdateEndpoints(throttler *Throttler) func(oldObj, newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
-		_, exists, err := throttler.getRevision(revID)
+		_, err := throttler.getRevision(revID)
 		if err != nil {
 			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
 			return
 		}
-		// Only update capacity if it is a registered revision.
-		if exists {
-			err := throttler.UpdateCapacity(revID, int32(addresses))
-			if err != nil {
-				throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
-			}
+		if err = throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
+			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
 		}
 	}
 }
