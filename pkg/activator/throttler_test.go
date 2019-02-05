@@ -25,16 +25,14 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"go.uber.org/zap"
 )
 
 var (
 	revID = RevisionID{"good-namespace", "good-name"}
-
-	sampleError = "some error"
 
 	existingRevisionGetter = func(concurrency v1alpha1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha12.Revision, error) {
 		return func(RevisionID) (*v1alpha12.Revision, error) {
@@ -43,10 +41,8 @@ var (
 		}
 	}
 	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
-		revision := &v1alpha12.Revision{}
-		return revision, errors.New(sampleError)
+		return nil, errors.New(sampleError)
 	}
-	initCapacity            = int32(0)
 	existingEndpointsGetter = func(RevisionID) (int32, error) {
 		return initCapacity, nil
 	}
@@ -57,6 +53,8 @@ var (
 
 const (
 	defaultMaxConcurrency = int32(10)
+	initCapacity          = int32(0)
+	sampleError           = "some error"
 )
 
 func TestThrottler_UpdateCapacity(t *testing.T) {
@@ -89,20 +87,20 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
-			want := s.want
 			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
 			err := throttler.UpdateCapacity(revID, 1)
 			if s.wantError != "" {
-				received := err.Error()
-				if received != s.wantError {
-					t.Errorf("Expected error in Update capacity. Want %s, got %s", s.wantError, err.Error())
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+				if got := err.Error(); got != s.wantError {
+					t.Errorf("Update capacity error message = %s, want: %s", got, s.wantError)
 				}
 			}
-			if want > 0 {
+			if s.want > 0 {
 				breaker, _ := throttler.breakers[revID]
-				got := breaker.Capacity()
-				if got != want {
-					t.Errorf("Unexpected capacity of the breaker. Want %d, got %d", want, got)
+				if got := breaker.Capacity(); got != s.want {
+					t.Errorf("Breaker Capacity = %d, want %d", got, s.want)
 				}
 			}
 		})
@@ -121,7 +119,6 @@ func TestThrottler_Try(t *testing.T) {
 		label:           "all good",
 		addCapacity:     true,
 		wantBreakers:    int32(1),
-		wantError:       "",
 		revisionGetter:  existingRevisionGetter(10),
 		endpointsGetter: existingEndpointsGetter,
 	}, {
@@ -151,13 +148,16 @@ func TestThrottler_Try(t *testing.T) {
 				got++
 			})
 			if s.wantError != "" {
-				received := err.Error()
-				if received != s.wantError {
-					t.Errorf("Expected error in the Try. Want %s, got %s", s.wantError, received)
+				if err == nil {
+					t.Fatal("Expected an error got nil")
+				}
+
+				if got := err.Error(); got != s.wantError {
+					t.Errorf("Try error = %s, want: %s", got, s.wantError)
 				}
 			}
 			if got != want {
-				t.Errorf("Unexpected number of function runs in Try. Want %d, got %d", want, got)
+				t.Errorf("Unexpected number of function runs in Try = %d, want: %d", got, want)
 			}
 		})
 	}
@@ -213,7 +213,7 @@ func TestUpdateEndpoints(t *testing.T) {
 		breaker, _ := throttler.breakers[revID]
 		got := breaker.Capacity()
 		if got != s.wantCapacity {
-			t.Errorf("Unexpected Breaker capacity received. Want %d, got %d", s.wantCapacity, got)
+			t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
 		}
 	}
 }
@@ -221,14 +221,14 @@ func TestUpdateEndpoints(t *testing.T) {
 func TestThrottler_Remove(t *testing.T) {
 	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), initCapacity)
 	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	got := len(throttler.breakers)
-	if got != 1 {
-		t.Errorf("Unexpected number of Breakers was created. Want %d, got %d", 1, got)
+
+	if got := len(throttler.breakers); got != 1 {
+		t.Errorf("Number of Breakers created = %d, want: 1", got)
 	}
 	throttler.Remove(revID)
-	got = len(throttler.breakers)
-	if got != 0 {
-		t.Errorf("Unexpected number of Breakers was created. Want %d, got %d", 0, got)
+
+	if got := len(throttler.breakers); got != 0 {
+		t.Errorf("Number of Breakers created = %d, want: %d", got, 0)
 	}
 }
 
@@ -242,11 +242,10 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	}
 	revID := RevisionID{Namespace: revID.Namespace, Name: revID.Name}
 	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	if len(throttler.breakers) != 1 {
-		t.Errorf("Breaker map size didn't change. Wanted %d, got %d", 1, len(throttler.breakers))
+	if got := len(throttler.breakers); got != 1 {
+		t.Errorf("Breaker map size got %d, want: 1", got)
 	}
-	deleter := DeleteBreaker(throttler)
-	deleter(revision)
+	DeleteBreaker(throttler)(revision)
 	if len(throttler.breakers) != 0 {
 		t.Error("Breaker map is not empty")
 	}
