@@ -256,7 +256,7 @@ func withLivenessProbe(probe *corev1.Probe) containerOption {
 	}
 }
 
-func prependVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
+func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
 	return func(c *corev1.Container) {
 		c.VolumeMounts = append(volumeMounts, c.VolumeMounts...)
 	}
@@ -273,7 +273,7 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
-func appendVolumes(volumes ...corev1.Volume) podSpecOption {
+func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		ps.Volumes = append(ps.Volumes, volumes...)
 	}
@@ -375,7 +375,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Ports[0].ContainerPort = 8888
 				},
 				withEnvVar("PORT", "8888"),
-				prependVolumeMounts(corev1.VolumeMount{
+				withPrependedVolumeMounts(corev1.VolumeMount{
 					Name:      "asdf",
 					MountPath: "/asdf",
 				}),
@@ -384,7 +384,7 @@ func TestMakePodSpec(t *testing.T) {
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 				withEnvVar("USER_PORT", "8888"),
 			),
-		}, appendVolumes(corev1.Volume{
+		}, withAppendedVolumes(corev1.Volume{
 			Name: "asdf",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{

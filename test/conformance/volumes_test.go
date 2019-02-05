@@ -53,7 +53,7 @@ func TestConfigMapVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create configmap: %v", err)
 	}
 	logger.Info("Successfully created configMap: %v", configMap)
 
@@ -128,7 +128,7 @@ func TestSecretVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create secret: %v", err)
 	}
 	logger.Info("Successfully created secret: %v", secret)
 
