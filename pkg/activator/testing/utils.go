@@ -21,11 +21,11 @@ import (
 )
 
 // GetTestEndpointsSubset generates the subsets of endpoints used for testing.
-// It return a list of desired number of subsets including the desired number of hosts per each subset.
+// It returns a list of desired number of subsets including the desired number of hosts per each subset.
 func GetTestEndpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
 	resp := []v1.EndpointSubset{}
 	if hostsPerSubset > 0 {
-		addresses := GetTestAddresses(hostsPerSubset)
+		addresses := make([]v1.EndpointAddress, hostsPerSubset)
 		subset := v1.EndpointSubset{Addresses: addresses}
 		for s := 0; s < subsets; s++ {
 			resp = append(resp, subset)
@@ -33,12 +33,4 @@ func GetTestEndpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
 		return resp
 	}
 	return resp
-}
-
-// GetTestAddresses generates endpoint addresses used for testing.
-func GetTestAddresses(hosts int) (endpoints []v1.EndpointAddress) {
-	for i := 0; i < hosts; i++ {
-		endpoints = append(endpoints, v1.EndpointAddress{})
-	}
-	return endpoints
 }

@@ -30,7 +30,8 @@ import (
 
 const (
 	capacityUpdateFailure = "updating capacity failed"
-	OverloadMessage       = "activator overload"
+	// OverloadMessage indicates that throttler has no free slots to buffer the request
+	OverloadMessage = "activator overload"
 )
 
 // ThrottlerParams defines the parameters of the Throttler
@@ -77,8 +78,8 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
 	return err
 }
 
-// This method updates Breaker's concurrency and requires external synchronization, e.g. use the mux.
-// It create a new breaker and saves it into our bookkeeping if doesn't exist.
+// This method updates Breaker's concurrency and requires external synchronization, `updateCapacity` requires `mux` to be held..
+// It create a new breaker and saves it for bookkeeping if doesn't exist.
 // This is important for not loosing the update signals
 // that came before the requests reached the Activator's Handler.
 func (t *Throttler) updateCapacity(rev RevisionID, size int32) (breaker *queue.Breaker, err error) {
@@ -126,7 +127,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 	return nil
 }
 
-// Get existing breaker or create a new one.
+// Get retrieves existing breaker or creates a new one.
 // In the latter case fetch the endpoints and update the capacity of the newly created breaker.
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
