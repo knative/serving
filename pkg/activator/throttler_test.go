@@ -31,7 +31,6 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -103,7 +102,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 			if s.want > 0 {
 				breaker, _ := throttler.breakers[revID]
 				if got := breaker.Capacity(); got != s.want {
-					t.Errorf("Breaker Capacity = %d, want %d", got, s.want)
+					t.Errorf("Breaker Capacity = %d, want: %d", got, s.want)
 				}
 			}
 		})
@@ -153,7 +152,7 @@ func TestThrottler_Try(t *testing.T) {
 			})
 			if s.wantError != "" {
 				if err == nil {
-					t.Fatal("Expected an error got nil")
+					t.Fatal("Expected error got nil")
 				}
 
 				if got := err.Error(); got != s.wantError {
@@ -184,7 +183,7 @@ func TestThrottler_TryOverload(t *testing.T) {
 			})
 		})
 	}
-	// Give the chance for the goroutines to launch. 
+	// Give the chance for the goroutines to launch.
 	time.Sleep(150 * time.Millisecond)
 	err := th.Try(revID, func() {
 		t.Fatal("This should not have executed")
@@ -196,7 +195,7 @@ func TestThrottler_TryOverload(t *testing.T) {
 	}
 	close(done)
 	if err := g.Wait(); err != nil {
-		t.Errorf("Unexpected error in the parallel requests: %v", err)
+		t.Errorf("Error in the parallel requests: %v", err)
 	}
 }
 
@@ -243,8 +242,8 @@ func TestUpdateEndpoints(t *testing.T) {
 		throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
 		updater := UpdateEndpoints(throttler)
 
-		endpointsBefore := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointBefore, 1)}
-		endpointsAfter := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
+		endpointsBefore := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointBefore, 1)}
+		endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
 		updater(&endpointsBefore, &endpointsAfter)
 
 		breaker, _ := throttler.breakers[revID]
