@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"go.uber.org/zap"
 )
 
 var (
@@ -95,7 +96,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 		t.Run(s.label, func(t *testing.T) {
 			var received string
 			want := s.want
-			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, t)
+			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
 			err := throttler.UpdateCapacity(revID, 1)
 			if s.wantError != "" {
 				received = err.Error()
@@ -122,38 +123,33 @@ func TestThrottler_Try(t *testing.T) {
 		wantError       string
 		revisionGetter  func(RevisionID) (*v1alpha12.Revision, bool, error)
 		endpointsGetter func(RevisionID) (int32, error)
-	}{
-		{
-			label:           "all good",
-			addCapacity:     true,
-			wantBreakers:    int32(1),
-			wantError:       "",
-			revisionGetter:  existingRevisionGetter(10),
-			endpointsGetter: existingEndpointsGetter,
-		},
-		{
-			label:           "non-existing revision",
-			addCapacity:     true,
-			wantBreakers:    int32(0),
-			wantError:       fmt.Sprintf("no revision was found for: %s", revID),
-			revisionGetter:  nonExistingRevisionGetter,
-			endpointsGetter: existingEndpointsGetter,
-		},
-		{
-			label:           "non-existing endpoint",
-			addCapacity:     false,
-			wantBreakers:    int32(0),
-			wantError:       sampleError,
-			revisionGetter:  existingRevisionGetter(10),
-			endpointsGetter: nonExistingEndpointsGetter,
-		},
-	}
+	}{{
+		label:           "all good",
+		addCapacity:     true,
+		wantBreakers:    int32(1),
+		wantError:       "",
+		revisionGetter:  existingRevisionGetter(10),
+		endpointsGetter: existingEndpointsGetter,
+	}, {
+		label:           "non-existing revision",
+		addCapacity:     true,
+		wantBreakers:    int32(0),
+		wantError:       fmt.Sprintf("no revision was found for: %s", revID),
+		revisionGetter:  nonExistingRevisionGetter,
+		endpointsGetter: existingEndpointsGetter,
+	}, {
+		label:           "non-existing endpoint",
+		addCapacity:     false,
+		wantBreakers:    int32(0),
+		wantError:       sampleError,
+		revisionGetter:  existingRevisionGetter(10),
+		endpointsGetter: nonExistingEndpointsGetter,
+	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			var got int32
-			var received string
 			want := s.wantBreakers
-			throttler := getThrottler(defaultMaxConcurrency, s.revisionGetter, s.endpointsGetter, t)
+			throttler := getThrottler(defaultMaxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
@@ -161,10 +157,10 @@ func TestThrottler_Try(t *testing.T) {
 				got++
 			})
 			if s.wantError != "" {
-				received = err.Error()
-			}
-			if received != s.wantError {
-				t.Errorf("Expected error in the Try. Want %s, got %s", s.wantError, received)
+				received := err.Error()
+				if received != s.wantError {
+					t.Errorf("Expected error in the Try. Want %s, got %s", s.wantError, received)
+				}
 			}
 			if got != want {
 				t.Errorf("Unexpected number of function runs in Try. Want %d, got %d", want, got)
@@ -173,8 +169,63 @@ func TestThrottler_Try(t *testing.T) {
 	}
 }
 
+func TestUpdateEndpoints(t *testing.T) {
+	samples := []struct {
+		label          string
+		concurrency    int32
+		endpointBefore int
+		endpointsAfter int
+		wantCapacity   int32
+		initCapacity   int32
+	}{{
+		label:          "delta > 0, add single endpoint",
+		concurrency:    defaultMaxConcurrency,
+		endpointBefore: 0,
+		endpointsAfter: 1,
+		wantCapacity:   10,
+		initCapacity:   0,
+	}, {
+		label:          "delta > 0, add several endpoints",
+		concurrency:    20,
+		endpointBefore: 0,
+		endpointsAfter: 2,
+		wantCapacity:   20,
+		initCapacity:   0,
+	}, {
+		label:          "delta = 0",
+		concurrency:    10,
+		endpointBefore: 1,
+		endpointsAfter: 1,
+		wantCapacity:   10,
+		initCapacity:   10,
+	}, {
+		label:          "delta < 0",
+		concurrency:    10,
+		endpointBefore: 2,
+		endpointsAfter: 1,
+		wantCapacity:   10,
+		initCapacity:   10,
+	}}
+
+	for _, s := range samples {
+		throttler := getThrottler(s.concurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), s.initCapacity)
+		throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
+		updater := UpdateEndpoints(throttler)
+
+		endpointsBefore := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointBefore, 1)}
+		endpointsAfter := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
+		updater(&endpointsBefore, &endpointsAfter)
+
+		breaker, _ := throttler.breakers[revID]
+		got := breaker.Capacity()
+		if got != s.wantCapacity {
+			t.Errorf("Unexpected Breaker capacity received. Want %d, got %d", s.wantCapacity, got)
+		}
+	}
+}
+
 func TestThrottler_Remove(t *testing.T) {
-	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, t)
+	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), initCapacity)
 	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
 	got := len(throttler.breakers)
 	if got != 1 {
@@ -187,42 +238,8 @@ func TestThrottler_Remove(t *testing.T) {
 	}
 }
 
-func TestHelper_UpdateEndpoints(t *testing.T) {
-	want := int32(10)
-	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, t)
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	updater := UpdateEndpoints(throttler)
-
-	endpointsBefore := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(0, 1)}
-	endpointsAfter := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(1, 1)}
-	updater(&endpointsBefore, &endpointsAfter)
-
-	breaker, _ := throttler.breakers[revID]
-	got := breaker.Capacity()
-	if got != want {
-		t.Errorf("Unexpected Breaker capacity received. Want %d, got %d", want, got)
-	}
-}
-
-func TestHelper_UpdateEndpoints_WithDeltaMoreThenOne(t *testing.T) {
-	want := int32(20)
-	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter, t)
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	updater := UpdateEndpoints(throttler)
-
-	endpointsBefore := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(0, 1)}
-	endpointsAfter := corev1.Endpoints{ObjectMeta: v1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(2, 1)}
-	updater(&endpointsBefore, &endpointsAfter)
-
-	breaker, _ := throttler.breakers[revID]
-	got := breaker.Capacity()
-	if got != want {
-		t.Errorf("Unexpected Breaker capacity received. Want %d, got %d", want, got)
-	}
-}
-
 func TestHelper_DeleteBreaker(t *testing.T) {
-	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter, t)
+	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), initCapacity)
 	revision := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revID.Name,
@@ -241,8 +258,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	}
 }
 
-func getThrottler(maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, bool, error), endpointsGetter func(RevisionID) (int32, error), t *testing.T) *Throttler {
-	logger := TestLogger(t)
+func getThrottler(maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, bool, error), endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger, initCapacity int32) *Throttler {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
 	throttlerParams := ThrottlerParams{BreakerParams: params, Logger: logger, GetRevision: revisionGetter, GetEndpoints: endpointsGetter}
 	return NewThrottler(throttlerParams)
