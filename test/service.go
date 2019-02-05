@@ -95,16 +95,21 @@ func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects
 	}, nil
 }
 
-// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
-// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
-// Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options) (*ResourceObjects, error) {
+// CreateReleaseServiceWithLatest creates a `Release` service using `@latest`
+// as the only revision.
+// This function expects `Service` and `Image` name passed in through `names`.
+// Names is updated with the `Route` and `Configuration` created by the Service
+// and `ResourceObjects` is returned with the `Service`, `Route`, and `Configuration` objects.
+// Returns an error if the service does not come up correctly.
+func CreateReleaseServiceWithLatest(
+	logger *logging.BaseLogger, clients *Clients,
+	names *ResourceNames, options *Options) (*ResourceObjects, error) {
 	if names.Service == "" || names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service = %s, Image = %s", names.Service, names.Image)
 	}
 
-	logger.Info("Creating a new Service as RunLatest.")
-	svc, err := CreateLatestService(logger, clients, *names, options)
+	logger.Info("Creating a new Service as Release with @latest.")
+	svc, err := CreateReleaseService(logger, clients, *names, options)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +131,47 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 
 	logger.Info("Getting latest objects Created by Service.")
 	return getResourceObjects(clients, *names)
+}
+
+// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
+// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options, fopt ...testing.ServiceOption) (*ResourceObjects, error) {
+	if names.Service == "" || names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+	}
+
+	logger.Info("Creating a new Service as RunLatest.")
+	svc, err := CreateLatestService(logger, clients, *names, options, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, err
+	}
+
+	logger.Info("Checking to ensure Service Status is populated for Ready service.")
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info("Getting latest objects Created by Service.")
+	return getResourceObjects(clients, *names)
+}
+
+// CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
+// configured with `@latest` revision.
+func CreateReleaseService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options, fopt ...testing.ServiceOption) (*v1alpha1.Service, error) {
+	service := ReleaseLatestService(ServingNamespace, names, options, fopt...)
+	LogResourceObject(logger, ResourceObjects{Service: service})
+	return clients.ServingClient.Services.Create(service)
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image

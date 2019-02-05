@@ -291,6 +291,28 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue(incorrectDNS1035Label, "spec.release.revisions[0]"),
 	}, {
+		name: "valid release -- with @latest",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"s-1-00001", ReleaseLatestRevisionKeyword},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
 		name: "invalid release -- too few revisions; empty slice",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{

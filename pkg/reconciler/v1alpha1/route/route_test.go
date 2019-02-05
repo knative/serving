@@ -39,6 +39,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -826,8 +827,9 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}, {
-		// An invalid config map
-		expectedDomainSuffix: "newdefault.net",
+		// When no domain with an open selector is specified, we fallback
+		// on the default of example.com.
+		expectedDomainSuffix: config.DefaultDomain,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -842,18 +844,21 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}}
-	for _, expectation := range expectations {
-		expectation.apply()
-		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-		routeClient.Update(route)
-		controller.Reconcile(context.TODO(), KeyOrDie(route))
-		addResourcesToInformers(t, servingClient, servingInformer, route)
 
-		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-		if route.Status.Domain != expectedDomain {
-			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
-		}
+	for _, expectation := range expectations {
+		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
+			expectation.apply()
+			servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+			routeClient.Update(route)
+			controller.Reconcile(context.TODO(), KeyOrDie(route))
+			addResourcesToInformers(t, servingClient, servingInformer, route)
+
+			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+			if route.Status.Domain != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			}
+		})
 	}
 }
 
@@ -918,7 +923,13 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
 			stopCh := make(chan struct{})
-			defer close(stopCh)
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
 
 			h := NewHooks()
 
@@ -946,7 +957,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Fatalf("failed to start configuration manager: %v", err)
 			}
 
-			go controller.Run(1, stopCh)
+			grp.Go(func() error { return controller.Run(1, stopCh) })
 
 			// Create a route.
 			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})

@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -132,6 +133,18 @@ func validateLabelsPropagation(logger *logging.BaseLogger, objects test.Resource
 	route := objects.Route
 	if route.Labels["serving.knative.dev/service"] != names.Service {
 		return fmt.Errorf("expect Service name in Route label %q but got %q ", names.Service, route.Labels["serving.knative.dev/service"])
+	}
+	return nil
+}
+
+func validateReleaseServiceShape(objs *test.ResourceObjects) error {
+	// Check that Spec.Revisions is as expected.
+	if got, want := objs.Service.Spec.Release.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
+		return fmt.Errorf("Spec.Release.Revisions mismatch: diff: %s", cmp.Diff(got, want))
+	}
+	// Traffic should be routed to the lastest created revision.
+	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
+		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
 	}
 	return nil
 }
@@ -315,15 +328,19 @@ func TestReleaseService(t *testing.T) {
 		expectedThirdRev  = helloWorldText
 	)
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	objects, err := test.CreateReleaseServiceWithLatest(logger, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
-	firstRevision := names.Revision
+	logger.Info("Validating service shape.")
+	if err := validateReleaseServiceShape(objects); err != nil {
+		t.Fatalf("Release shape incorrect: %v", err)
+	}
+	revisions := []string{names.Revision}
 
 	// One Revision Specified, current == latest.
 	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
-	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, []string{firstRevision}, 0)
+	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 0)
 	if err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
@@ -345,7 +362,7 @@ func TestReleaseService(t *testing.T) {
 	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
-	secondRevision := names.Revision
+	revisions = append(revisions, names.Revision)
 
 	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
 	validateDomains(t, logger, clients,
@@ -356,7 +373,7 @@ func TestReleaseService(t *testing.T) {
 
 	// Two Revisions Specified, 50% rollout, candidate == latest.
 	logger.Info("Updating Service to split traffic between two revisions using Release mode")
-	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, []string{firstRevision, secondRevision}, 50); err != nil {
+	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 

@@ -15,24 +15,23 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/test/logging"
+)
+
+const (
+	HelloVolumePath = "/hello/world"
 )
 
 // util.go provides shared utilities methods across knative serving test
 
 // LogResourceObject logs the resource object with the resource name and value
 func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
-	// Log the route object
-	if resourceJSON, err := json.Marshal(value); err != nil {
-		logger.Infof("Failed to create json from resource object: %v", err)
-	} else {
-		logger.Infof("resource %s", string(resourceJSON))
-	}
+	logger.Infof("resource %s", spew.Sdump(value))
 }
 
 // ImagePath is a helper function to prefix image name with repo and suffix with tag

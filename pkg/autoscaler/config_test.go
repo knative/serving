@@ -17,16 +17,15 @@ limitations under the License.
 package autoscaler
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestTargetConcurrency(t *testing.T) {
@@ -80,6 +79,7 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 		},
 		want: &Config{
+			EnableScaleToZero:                    true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,
@@ -92,7 +92,6 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles on",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
-			"enable-vertical-pod-autoscaling":         "true",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
@@ -102,7 +101,6 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
-			EnableVPA:                            true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,
@@ -115,7 +113,6 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles on strange casing",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "TRUE",
-			"enable-vertical-pod-autoscaling":         "True",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
@@ -125,7 +122,6 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
-			EnableVPA:                            true,
 			ContainerConcurrencyTargetPercentage: 0.5,
 			ContainerConcurrencyTargetDefault:    10.0,
 			MaxScaleUpRate:                       1.0,
@@ -138,7 +134,6 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles explicitly off",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "false",
-			"enable-vertical-pod-autoscaling":         "False",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
@@ -159,7 +154,6 @@ func TestNewConfig(t *testing.T) {
 		name: "with explicit grace period",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "false",
-			"enable-vertical-pod-autoscaling":         "False",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
@@ -177,26 +171,6 @@ func TestNewConfig(t *testing.T) {
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
 		},
-	}, {
-		name: "missing required float field",
-		input: map[string]string{
-			"container-concurrency-target-percentage": "0.5",
-			"container-concurrency-target-default":    "10.0",
-			"stable-window":                           "5m",
-			"panic-window":                            "10s",
-			"tick-interval":                           "2s",
-		},
-		wantErr: true,
-	}, {
-		name: "missing required duration field",
-		input: map[string]string{
-			"max-scale-up-rate":                       "1.0",
-			"container-concurrency-target-percentage": "0.5",
-			"container-concurrency-target-default":    "10.0",
-			"stable-window":                           "5m",
-			"tick-interval":                           "2s",
-		},
-		wantErr: true,
 	}, {
 		name: "malformed float",
 		input: map[string]string{
@@ -237,15 +211,11 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
+	cm, example := ConfigMapsFromTestFile(t, ConfigName)
+	if _, err := NewConfigFromConfigMap(cm); err != nil {
+		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
 	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	if _, err := NewConfigFromConfigMap(&cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap() = %v", err)
+	if _, err := NewConfigFromConfigMap(example); err != nil {
+		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
 	}
 }

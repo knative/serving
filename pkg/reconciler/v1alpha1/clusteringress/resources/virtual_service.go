@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
@@ -136,12 +137,12 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 }
 
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := make(map[string]interface{})
+	hosts := sets.NewString()
 	unique := []string{}
 	for _, rule := range ci.Spec.Rules {
 		for _, h := range rule.Hosts {
-			if _, existed := hosts[h]; !existed {
-				hosts[h] = true
+			if !hosts.Has(h) {
+				hosts.Insert(h)
 				unique = append(unique, h)
 			}
 		}
