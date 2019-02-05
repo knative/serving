@@ -99,6 +99,10 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(numRevisions), "1", "2", "revisions"))
 	}
 	for i, r := range rt.Revisions {
+		// Skip over the last revision special keyword.
+		if r == ReleaseLatestRevisionKeyword {
+			continue
+		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
 				fmt.Sprintf("not a DNS 1035 label: %v", msgs), "revisions", i))
