@@ -17,20 +17,11 @@
 # This script runs the performance tests; It is run by prow daily.
 # For convenience, it can also be executed manually.
 
-source $(dirname $0)/cluster.sh
-
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
-}
+source $(dirname $0)/e2e-common.sh
 
 initialize $@
 
 header "Setting up environment"
-
-# Handle test failures ourselves, so we can dump useful info.
-set +o errexit
-set +o pipefail
 
 # Build Knative, but don't install the default "no monitoring" version
 build_knative_from_source

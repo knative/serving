@@ -25,7 +25,7 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-source $(dirname $0)/cluster.sh
+source $(dirname $0)/e2e-common.sh
 
 # Helper functions.
 function dump_app_logs() {
@@ -51,28 +51,19 @@ function dump_extra_cluster_state() {
   dump_app_logs activator
 }
 
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
-}
-
 # Script entry point.
 
 initialize $@
 
 header "Setting up environment"
 
-# Handle failures ourselves, so we can dump useful info.
-set +o errexit
-set +o pipefail
-
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
 header "Running tests"
-
 failed=0
+
 # Run conformance tests, but don't exit if it fails.
 go_test_e2e -timeout=10m ./test/conformance || failed=1
 

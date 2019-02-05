@@ -29,7 +29,25 @@ INSTALL_ISTIO_YAML=""
 # TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
 # Build is used by some tests and so is also included here.
-INSTALL_BUILD_YAML=""
+# TODO: Should we install build from a nightly release?
+# The latest released Build is always at this location.
+readonly INSTALL_BUILD_YAML="https://storage.googleapis.com/knative-releases/build/latest/release.yaml"
+readonly INSTALL_PIPELINE_YAML="./third_party/config/pipeline/release.yaml"
+
+# List of custom YAMLs to install, if specified (space-separated).
+INSTALL_CUSTOM_YAMLS=""
+
+# Parse our custom flags.
+function parse_flags() {
+  if [[ "$1" == "--custom-yamls" ]]; then
+    [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
+    # Expect a list of comma-separated YAMLs.
+    INSTALL_CUSTOM_YAMLS="${2//,/ }"
+    readonly INSTALL_CUSTOM_YAMLS
+    return 2
+  fi
+  return 0
+}
 
 # Create all manifests required to install Knative Serving.
 # This will build everything from the current source.
@@ -51,11 +69,35 @@ function build_knative_from_source() {
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
-# If no parameters are passed, installs the current source-based build.
+# If no parameters are passed, installs the current source-based build, unless custom
+# YAML files were passed using the --custom-yamls flag.
 # Parameters: $1 - Istio CRD YAML file
 #             $2 - Istio YAML file
 #             $3 - Knative Serving YAML file
 function install_knative_serving() {
+  if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
+    install_knative_serving_standard "$1" "$2" "$3"
+    return
+  fi
+  echo ">> Installing Knative serving from custom YAMLs"
+  kubectl label namespace default istio-injection=enabled
+  echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
+  for yaml in ${INSTALL_CUSTOM_YAMLS}; do
+    echo "Installing '${yaml}'"
+    kubectl create -f "${yaml}" || return 1
+  done
+  echo ">> Creating test resources (test/config/)"
+  ko apply -f test/config/ || return 1
+
+  wait_until_pods_running knative-serving || return 1
+}
+
+# Installs Knative Serving in the current cluster, and waits for it to be ready.
+# If no parameters are passed, installs the current source-based build.
+# Parameters: $1 - Istio CRD YAML file
+#             $2 - Istio YAML file
+#             $3 - Knative Serving YAML file
+function install_knative_serving_standard() {
   INSTALL_ISTIO_CRD_YAML=$1
   INSTALL_ISTIO_YAML=$2
   INSTALL_RELEASE_YAML=$3
@@ -66,16 +108,13 @@ function install_knative_serving() {
     # TODO(#2122): Install monitoring as well once we have e2e testing for it.
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
   fi
-  # TODO: Should we install build from a nightly release?
-  # The latest released Build is always at this location.
-  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
-  INSTALL_PIPELINE_YAML=./third_party/config/pipeline/release.yaml
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
   echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
+  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
@@ -139,26 +178,33 @@ function install_knative_serving() {
 
 # Uninstalls Knative Serving from the current cluster.
 function uninstall_knative_serving() {
-  if [[ -z "${INSTALL_RELEASE_YAML}" ]]; then
+  if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${INSTALL_RELEASE_YAML}" ]]; then
     echo "install_knative_serving() was not called, nothing to uninstall"
     return 0
   fi
-  echo ">> Uninstalling Knative serving"
-  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
-  echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/ || return 1
-
-  echo ">> Bringing down Serving"
-  ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
-
-  echo ">> Bringing down Build"
-  ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
-
-  echo ">> Bringing down Istio"
-  kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
-  kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+  if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
+    echo ">> Uninstalling Knative serving from custom YAMLs"
+    for yaml in ${INSTALL_CUSTOM_YAMLS}; do
+      echo "Uninstalling '${yaml}'"
+      kubectl delete --ignore-not-found=true -f "${yaml}" || return 1
+    done
+  else
+    echo ">> Uninstalling Knative serving"
+    echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+    echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+    echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
+    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
+    echo ">> Bringing down Serving"
+    ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+    echo ">> Bringing down Build"
+    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
+    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_YAML}" || return 1
+    echo ">> Bringing down Istio"
+    kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
+    kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+  fi
 }
 
 # Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
@@ -166,4 +212,9 @@ function publish_test_images() {
   echo ">> Creating test namespace"
   kubectl create namespace serving-tests
   ${REPO_ROOT_DIR}/test/upload-test-images.sh
+}
+
+# Deletes everything created on the cluster including all knative and istio components.
+function teardown() {
+  uninstall_knative_serving
 }

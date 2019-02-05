@@ -41,11 +41,23 @@ func Authenticate(ctx context.Context, serviceAccount string) error {
 	return err
 }
 
-// Exist checks if path exist under gcs bucket
-func Exist(ctx context.Context, bucketName, filePath string) bool {
-	handle := createStorageObject(bucketName, filePath)
-	_, err := handle.Attrs(ctx)
+// Exists checks if path exist under gcs bucket,
+// this path can either be a directory or a file.
+func Exists(ctx context.Context, bucketName, storagePath string) bool {
+	// Check if this is a file
+	handle := createStorageObject(bucketName, storagePath)
+	if _, err := handle.Attrs(ctx); nil == err {
+		return true
+	}
+	// Check if this is a directory,
+	// gcs directory paths are virtual paths, they automatically got deleted if there is no child file
+	_, err := getObjectsIter(ctx, bucketName, strings.TrimRight(storagePath, " /") + "/", "").Next()
 	return nil == err
+}
+
+// ListChildrenFiles recursively lists all children files.
+func ListChildrenFiles(ctx context.Context, bucketName, storagePath string) []string {
+	return list(ctx, bucketName, strings.TrimRight(storagePath, " /") + "/", "")
 }
 
 // ListDirectChildren lists direct children paths (including files and directories).
@@ -94,10 +106,10 @@ func Upload(ctx context.Context, bucketName, dstPath, srcPath string) error {
 		return err
 	}
 	dst := createStorageObject(bucketName, dstPath).NewWriter(ctx)
-	defer dst.Close()
 	if _, err = io.Copy(dst, src); nil != err {
 		return err
 	}
+	dst.Close()
 	return nil
 }
 
@@ -105,10 +117,10 @@ func Upload(ctx context.Context, bucketName, dstPath, srcPath string) error {
 func Read(ctx context.Context, bucketName, filePath string) ([]byte, error) {
 	var contents []byte
 	f, err := NewReader(ctx, bucketName, filePath)
-	defer f.Close()
 	if err != nil {
 		return contents, err
 	}
+	defer f.Close()
 	contents, err = ioutil.ReadAll(f)
 	if err != nil {
 		return contents, err
@@ -131,15 +143,10 @@ func createStorageObject(bucketName, filePath string) *storage.ObjectHandle {
 	return client.Bucket(bucketName).Object(filePath)
 }
 
-// Query items under given gcs storagePath, use delim to eliminate some files.
-// see https://godoc.org/cloud.google.com/go/storage#Query
-func getObjectsAttrs(ctx context.Context, bucketName, storagePath, delim string) []*storage.ObjectAttrs {
+// Query items under given gcs storagePath, use exclusionFilter to eliminate some files.
+func getObjectsAttrs(ctx context.Context, bucketName, storagePath, exclusionFilter string) []*storage.ObjectAttrs {
 	var allAttrs []*storage.ObjectAttrs
-	bucketHandle := client.Bucket(bucketName)
-	it := bucketHandle.Objects(ctx, &storage.Query{
-		Prefix:	storagePath,
-		Delimiter: delim,
-	})
+	it := getObjectsIter(ctx, bucketName, storagePath, exclusionFilter)
 
 	for {
 		attrs, err := it.Next()
@@ -167,4 +174,12 @@ func list(ctx context.Context, bucketName, storagePath, exclusionFilter string) 
 		filePaths = append(filePaths, path.Join(attrs.Prefix, attrs.Name))
 	}
 	return filePaths
+}
+
+// get objects iterator under given storagePath and bucketName, use exclusionFilter to eliminate some files.
+func getObjectsIter(ctx context.Context, bucketName, storagePath, exclusionFilter string) *storage.ObjectIterator {
+	return client.Bucket(bucketName).Objects(ctx, &storage.Query{
+		Prefix:	storagePath,
+		Delimiter: exclusionFilter,
+	})
 }
