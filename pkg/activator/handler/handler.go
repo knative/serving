@@ -49,7 +49,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ar := a.Activator.ActiveEndpoint(namespace, name)
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
-		a.Logger.Errorf(msg)
+		a.Logger.Error(msg)
 		http.Error(w, msg, ar.Status)
 		return
 	}
@@ -86,7 +86,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	httpStatus := capture.statusCode
 	duration := time.Now().Sub(start)
 
-	a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1)
+	a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
 	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
 }
 
