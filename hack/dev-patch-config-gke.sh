@@ -46,9 +46,14 @@ function patch_network_config_gke() {
   kubectl get configmap config-network -n knative-serving -o yaml > \
     "${tmp_config_file}"
   # Patch the temp yaml file.
-  local source_line_regex="^  istio.sidecar.includeOutboundIPRanges.*$"
-  local target_line="  istio.sidecar.includeOutboundIPRanges: \"${ip_ranges?}\""
-  sed -i "s#${source_line_regex}#${target_line}#g" "${tmp_config_file}"
+  local source_line_regex="^  istio.sidecar.includeOutboundIPRanges:.*$"
+  local target_line="\ \ istio.sidecar.includeOutboundIPRanges: \"${ip_ranges?}\""
+  if grep -q "${source_line_regex}" "${tmp_config_file}"; then
+    sed -i "s#${source_line_regex}#${target_line}#g" "${tmp_config_file}"
+  else
+    data_start="^data:$"
+    sed -i "/${data_start}/a${target_line}" "${tmp_config_file}"
+  fi
 
   echo "The following configuration will be applied:"
   echo
