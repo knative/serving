@@ -89,7 +89,7 @@ func newServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, http
 func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
 	stat, err := s.scrapeViaURL()
 	if err != nil {
-		s.logger.Debugf("Failed to get metrics: %v", err)
+		s.logger.Errorw("Failed to get metrics", zap.Error(err))
 		return
 	}
 

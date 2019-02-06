@@ -36,14 +36,6 @@ const (
 	// as defined in the metrics it sends.
 	ActivatorPodName string = "activator"
 
-	// If the latest received stat from a pod is in the last activeThreshold duration,
-	// assume the pod is still active. Otherwise, the active status of a pod is
-	// unknown.
-	activeThreshold time.Duration = time.Second
-
-	// Activator pod weight is always 1
-	activatorPodWeight float64 = 1
-
 	approximateZero = 1e-8
 )
 
@@ -113,27 +105,6 @@ func (agg *totalAggregation) aggregate(stat Stat, readyPods float64) {
 	agg.probeCount++
 }
 
-// The number of pods that are observable via stats
-// Subtracts the activator pod if its not the only pod reporting stats
-func (agg *totalAggregation) observedPods(now time.Time) float64 {
-	podCount := float64(0.0)
-	for _, pod := range agg.perPodAggregations {
-		podCount += pod.podWeight(now)
-	}
-
-	activatorsCount := len(agg.activatorsContained)
-	// Discount the activators in the pod count.
-	if activatorsCount > 0 {
-		discountedPodCount := podCount - float64(activatorsCount)
-		// Report a minimum of 1 pod if the activators are sending metrics.
-		if discountedPodCount < 1.0 {
-			return 1.0
-		}
-		return discountedPodCount
-	}
-	return podCount
-}
-
 // The observed concurrency of a revision and the observed concurrency per pod.
 // Ignores activator sent metrics if its not the only pod reporting stats.
 func (agg *totalAggregation) observedConcurrency(now time.Time) (float64, float64) {
@@ -143,7 +114,7 @@ func (agg *totalAggregation) observedConcurrency(now time.Time) (float64, float6
 	samplePodCount := 0
 	for _, perPod := range agg.perPodAggregations {
 		if perPod.isActivator {
-			activatorConcurrency += perPod.averageRevConcurrency(now)
+			activatorConcurrency += perPod.averagePodConcurrency(now)
 		} else {
 			accumulatedPodConcurrency += perPod.averagePodConcurrency(now)
 			accumulatedRevConcurrency += perPod.averageRevConcurrency(now)
@@ -194,21 +165,6 @@ func (agg *perPodAggregation) averageRevConcurrency(now time.Time) float64 {
 		return 0.0
 	}
 	return agg.accumulatedRevConcurrency / float64(agg.probeCount)
-}
-
-// Calculates the pod weight. Assuming the latest stat time is the point when
-// pod became out of service.
-func (agg *perPodAggregation) podWeight(now time.Time) float64 {
-	if agg.isActivator {
-		return activatorPodWeight
-	}
-
-	gapToNow := now.Sub(*agg.latestStatTime)
-	// Less than activeThreshold means the pod is active, give 1 weight
-	if gapToNow <= activeThreshold {
-		return 1.0
-	}
-	return 1.0 - (float64(gapToNow) / float64(agg.window))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -282,6 +238,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		return
 	}
 
+	a.logger.Infof("podName=%v concurrency=%0.3f", stat.PodName, stat.AverageConcurrentRequests)
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -372,6 +329,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+	logger.Infof("desiredPodCount=%v observedPanicConcurrencyPerPod=%0.3f observedStableConcurrencyPerPod=%0.3f", desiredPodCount, observedPanicConcurrencyPerPod, observedStableConcurrencyPerPod)
 	return desiredPodCount, true
 }
 
