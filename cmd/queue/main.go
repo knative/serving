@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -132,22 +131,10 @@ func statReporter() {
 
 // sendStat sends a single StatMessage to the autoscaler.
 func sendStat(s *autoscaler.Stat) error {
-	if statSink == nil {
-		return errors.New("stat sink not (yet) connected")
-	}
-	reporter.Report(
+	return reporter.Report(
 		float64(s.RequestCount),
 		float64(s.AverageConcurrentRequests),
 	)
-	if healthState.IsShuttingDown() {
-		// Do not send metrics if the pods is shutting down.
-		return nil
-	}
-	sm := autoscaler.StatMessage{
-		Stat: *s,
-		Key:  servingRevisionKey,
-	}
-	return statSink.Send(sm)
 }
 
 func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
