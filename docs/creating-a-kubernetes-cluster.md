@@ -80,7 +80,7 @@ export KO_DOCKER_REPO="ko.local"
 ### Enabling Knative to Use Images in Minikube
 
 In order to have Knative access an image in Minikube's Docker daemon you should
-prefix your image name with the `dev.local` registry. This will cause Knative to
+prefix your image name with the `ko.local` registry. This will cause Knative to
 use the cached image. You must not tag your image as `latest` since this causes
 Kubernetes to
 [always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
@@ -90,7 +90,7 @@ For example:
 ```shell
 eval $(minikube docker-env)
 docker pull gcr.io/knative-samples/primer:latest
-docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
+docker tag gcr.io/knative-samples/primer:latest ko.local/knative-samples/primer:v1
 ```
 
 ### Minikube with GCR
