@@ -39,6 +39,9 @@ helm template --namespace=istio-system \
   --set pilot.autoscaleMin=3 \
   --set pilot.autoscaleMax=10 \
   --set pilot.cpu.targetAverageUtilization=60 \
+  `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
+  --set gateways.istio-ingressgateway.autoscaleMin=1 \
+  --set gateways.istio-ingressgateway.autoscaleMax=1 \
   install/kubernetes/helm/istio > ../istio.yaml
 cat cluster-local-gateway.yaml >> ../istio.yaml
 
@@ -52,6 +55,9 @@ helm template --namespace=istio-system \
   --set prometheus.enabled=false \
   `# Disable mixer policy check, since in our template we set no policy.` \
   --set global.disablePolicyChecks=true \
+  `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
+  --set gateways.istio-ingressgateway.autoscaleMin=1 \
+  --set gateways.istio-ingressgateway.autoscaleMax=1 \
   install/kubernetes/helm/istio > ../istio-lean.yaml
 cat cluster-local-gateway.yaml >> ../istio-lean.yaml
 
