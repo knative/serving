@@ -400,18 +400,18 @@ func TestReleaseService(t *testing.T) {
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
 
 	// Now update the service to use `@latest` as candidate.
+	fmt.Printf("########## WERE HERE ##########\n")
 	revisions[1] = v1alpha1.ReleaseLatestRevisionKeyword
 	logger.Info("Updating Service to split traffic between two `current` and `@latest`")
 	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 
-	// The domains should not change, since configuration was not changed.
 	validateDomains(t, logger, clients,
 		names.Domain,
-		[]string{expectedFirstRev, expectedSecondRev},
+		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
+		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev})
 }
 
 // TODO(jonjohnsonjr): Examples of deploying from source.
