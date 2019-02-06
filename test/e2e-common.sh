@@ -146,7 +146,6 @@ function install_knative_serving_standard() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to verify if we can reduce flakes.
   if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
@@ -157,7 +156,7 @@ function install_knative_serving_standard() {
       `# Ignore error messages to avoid causing red herrings in the tests` \
       2>/dev/null
   else
-    # Some versions of Istio doesn't provide an HPA for pilot.
+    # Some versions of Istio don't provide an HPA for pilot.
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 

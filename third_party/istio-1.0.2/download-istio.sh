@@ -47,7 +47,7 @@ helm template --namespace=istio-system \
   install/kubernetes/helm/istio > ../istio.yaml
 cat cluster-local-gateway.yaml >> ../istio.yaml
 
-# A liter template, with no sidecar injection.  We could probably remove
+# A lighter template, with no sidecar injection.  We could probably remove
 # more from this template.
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=false \
