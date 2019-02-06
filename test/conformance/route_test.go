@@ -98,7 +98,7 @@ func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestRouteCreation")
+	logger := logging.GetContextLogger(t.Name())
 
 	var objects test.ResourceObjects
 	names := test.ResourceNames{

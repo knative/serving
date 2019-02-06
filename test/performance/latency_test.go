@@ -35,7 +35,7 @@ import (
 
 func TestTimeToServeLatency(t *testing.T) {
 	testName := t.Name()
-	logger := logging.GetContextLogger(testName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
