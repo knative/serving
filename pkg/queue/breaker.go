@@ -103,15 +103,7 @@ func (b *Breaker) Maybe(thunk func()) bool {
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
 func (b *Breaker) UpdateConcurrency(size int32) error {
-	if size > 0 {
-		return b.sem.AddCapacity(size)
-	}
-	return b.sem.ReduceCapacity(-size)
-}
-
-// Capacity retrieves the capacity of the breaker.
-func (b *Breaker) Capacity() int32 {
-	return b.sem.Capacity()
+	return b.sem.UpdateCapacity(size)
 }
 
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
@@ -123,9 +115,9 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
 	queue := make(chan token, maxCapacity)
-	sem := Semaphore{queue: queue}
+	sem := Semaphore{queue: queue, maxCapacity: maxCapacity}
 	if initialCapacity > 0 {
-		sem.AddCapacity(initialCapacity)
+		sem.UpdateCapacity(initialCapacity)
 	}
 	return &sem
 }
@@ -135,11 +127,12 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 // Hence the max number of tokens to hand out equals to the size of the channel.
 // `capacity` defines the current number of tokens in the rotation.
 type Semaphore struct {
-	queue    chan token
-	token    token
-	reducers int32
-	capacity int32
-	mux      sync.Mutex
+	queue       chan token
+	token       token
+	reducers    int32
+	capacity    int32
+	maxCapacity int32
+	mux         sync.Mutex
 }
 
 // Acquire receives the token from the semaphore, potentially blocking.
@@ -170,52 +163,42 @@ func (s *Semaphore) Release() error {
 	}
 }
 
-// AddCapacity increases the number of tokens in the rotation.
-// Increases only if the size is positive, does nothing otherwise.
-// An error is returned if not all capacity could be added to the semaphore.
-// This error could happen when the number of tokens exceeds the semaphore's queue size.
-func (s *Semaphore) AddCapacity(size int32) error {
+// UpdateCapacity updates the capacity of the semaphore to the desired
+// size.
+func (s *Semaphore) UpdateCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i := int32(0); i < size; i++ {
-		select {
-		case s.queue <- s.token:
-			s.capacity++
-		default:
-			return ErrAddCapacity
-		}
+	// Effective capacity is the capacity after taking reducers
+	// into account.
+	effectiveCapacity := s.capacity - s.reducers
+
+	if effectiveCapacity == size {
+		return nil
 	}
-	return nil
-}
 
-// ReduceCapacity removes tokens from the rotation.
-// It tries to acquire as many tokens as possible. If there are not enough tokens in the queue,
-// it postpones the operation for the future by increasing the `reducers` counter.
-// We return an error when attempting to reduce more capacity than was originally added.
-func (s *Semaphore) ReduceCapacity(size int32) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	if size > s.maxCapacity {
+		return ErrAddCapacity
+	}
 
-	if size+s.reducers > s.capacity {
+	if size < 0 {
 		return ErrReduceCapacity
 	}
 
-	for i := int32(0); i < size; i++ {
-		select {
-		case <-s.queue:
-			s.capacity--
-		default:
-			s.reducers++
+	if effectiveCapacity < size {
+		for ; s.capacity-s.reducers < size; s.capacity++ {
+			s.queue <- s.token
+		}
+	} else if effectiveCapacity > size {
+		for s.capacity-s.reducers > size {
+			select {
+			case <-s.queue:
+				s.capacity--
+			default:
+				s.reducers++
+			}
 		}
 	}
+
 	return nil
-}
-
-// Capacity returns the current capacity of the semaphore.
-func (s *Semaphore) Capacity() int32 {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	return s.capacity
 }

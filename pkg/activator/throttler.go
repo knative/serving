@@ -97,20 +97,17 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 	return nil
 }
 
-// This method updates Breaker's concurrency and requires external synchronization, `updateCapacity` requires `mux` to be held.
+// This method updates Breaker's concurrency.
 func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int32) (err error) {
 	cc := int32(revision.Spec.ContainerConcurrency)
-	// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
-	if cc == 0 {
-		cc = t.breakerParams.MaxConcurrency
+
+	targetCapacity := cc * size
+	if targetCapacity == 0 {
+		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
+		targetCapacity = t.breakerParams.MaxConcurrency
 	}
-	delta := size*cc - breaker.Capacity()
-	// Do not update throttler's concurrency if the same number of endpoints is received
-	// or the number is negative.
-	if delta <= 0 {
-		return nil
-	}
-	if err := breaker.UpdateConcurrency(delta); err != nil {
+
+	if err := breaker.UpdateConcurrency(targetCapacity); err != nil {
 		return err
 	}
 	return nil
@@ -152,8 +149,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // It updates the endpoints in the Throttler if the number of hosts changed and
 // the revision already exists (we don't want to create/update throttlers for the endpoints
 // that do not belong to any revision).
-func UpdateEndpoints(throttler *Throttler) func(oldObj, newObj interface{}) {
-	return func(oldObj, newObj interface{}) {
+func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
+	return func(_, newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
