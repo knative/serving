@@ -14,6 +14,8 @@ cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
 
 # Create a custom cluster local gateway, based on the Istio custom-gateway template.
 helm template --namespace=istio-system \
+  --set gateways.custom-gateway.autoscaleMin=1 \
+  --set gateways.custom-gateway.autoscaleMax=1 \
   --set gateways.custom-gateway.cpu.targetAverageUtilization=60 \
   --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
   --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
