@@ -49,7 +49,7 @@ const (
 	printport           = "printport"
 	runtime             = "runtime"
 
-	concurrentRequests = 50
+	concurrentRequests = 100
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1

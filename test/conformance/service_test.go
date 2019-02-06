@@ -301,8 +301,8 @@ func TestRunLatestService(t *testing.T) {
 	}
 }
 
-func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients, logger *logging.BaseLogger)(error) {
-return test.WaitForServiceState(
+func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients, logger *logging.BaseLogger) error {
+	return test.WaitForServiceState(
 		clients.ServingClient, sName, func(s *v1alpha1.Service) (bool, error) {
 			// IsServiceReady never returns an error.
 			if ok, _ := test.IsServiceReady(s); !ok {
@@ -398,7 +398,7 @@ func TestReleaseService(t *testing.T) {
 		[]string{expectedFirstRev, expectedFirstRev})
 
 	// 2. One Revision Specified, current != latest.
-	logger.Info("Updating the Service Spec with a new image")
+	logger.Info("2. Updating the Service Spec with a new image")
 	if _, err := test.PatchServiceImage(logger, clients, objects.Service, releaseImagePath2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
 	}
@@ -409,6 +409,16 @@ func TestReleaseService(t *testing.T) {
 	}
 	revisions = append(revisions, names.Revision)
 
+	// Also verify traffic is in the correct shape.
+	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
+		Name:         "latest",
+		RevisionName: names.Revision,
+	}
+	logger.Info("Step 2. Waiting for Service to become ready with the new shape.")
+	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
+		t.Fatal("Service never obtained expected shape")
+	}
+
 	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
 	validateDomains(t, logger, clients,
 		names.Domain,
@@ -416,10 +426,31 @@ func TestReleaseService(t *testing.T) {
 		[]string{"latest", "current"},
 		[]string{expectedSecondRev, expectedFirstRev})
 
-	// Two Revisions Specified, 50% rollout, candidate == latest.
-	logger.Info("Updating Service to split traffic between two revisions using Release mode")
+	// 3. Two Revisions Specified, 50% rollout, candidate == latest.
+	logger.Info("3. Updating Service to split traffic between two revisions using Release mode")
 	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+
+	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
+		"current": v1alpha1.TrafficTarget{
+			Name:         "current",
+			RevisionName: revisions[0],
+			Percent:      50,
+		},
+		"candidate": v1alpha1.TrafficTarget{
+			Name:         "candidate",
+			RevisionName: revisions[1],
+			Percent:      50,
+		},
+		"latest": v1alpha1.TrafficTarget{
+			Name:         "latest",
+			RevisionName: revisions[1],
+		},
+	}
+	logger.Info("Step 3. Waiting for Service to become ready with the new shape.")
+	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
+		t.Fatal("Service never obtained expected shape")
 	}
 
 	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")

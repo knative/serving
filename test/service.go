@@ -164,7 +164,7 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 	}
 
 	logger.Info("Getting latest objects Created by Service.")
-	return getResourceObjects(clients, *names)
+	return GetResourceObjects(clients, *names)
 }
 
 // CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
