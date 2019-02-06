@@ -455,7 +455,7 @@ func TestAutoscaler_UseOnePodAsMinimunIfEndpointsNotFound(t *testing.T) {
 	ep := makeEndpoints()
 	kubeClient.CoreV1().Endpoints(testNamespace).Update(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Update(ep)
-	// 2*10 as the rate limated if we can get the actual pods number.
+	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
 	a.expectScale(t, now, 10, true)
 
@@ -470,7 +470,7 @@ func TestAutoscaler_UseOnePodAsMinimunIfEndpointsNotFound(t *testing.T) {
 		})
 	kubeClient.CoreV1().Endpoints(testNamespace).Delete(ep.Name, nil)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
-	// 2*10 as the rate limated if we can get the actual pods number.
+	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no Endpoints object is there from K8S API.
 	a.expectScale(t, now, 10, true)
 }

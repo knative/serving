@@ -285,6 +285,13 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 // Scale calculates the desired scale based on current statistics given the current time.
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
+
+	readyPods, err := a.readyPods(now)
+	if err != nil {
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return 0, false
+	}
+
 	config := a.Current()
 
 	stableData, panicData, lastStat := a.aggregateData(now, config.StableWindow, config.PanicWindow)
@@ -312,11 +319,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod(now)
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
 
-	readyPods, err := a.readyPods(now)
-	if err != nil {
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, false
-	}
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
