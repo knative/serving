@@ -38,7 +38,7 @@ const (
 
 	// sampleSize is the times to scrape metrics per second.
 	// TODO(yanweiguo): tuning the sample size
-	sampleSize = 3
+	sampleSize = 5
 )
 
 // Metric is a resource which observes the request load of a Revision and

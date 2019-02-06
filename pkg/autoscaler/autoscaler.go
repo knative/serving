@@ -391,6 +391,8 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
+// readyPods returns the ready IP count in the K8S Endpoints object for a Revision
+// via K8S Informer. This is same as ready Pod count.
 func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
 	if v, ok := a.readyPodsFromCache(now); ok {
 		return v, nil
