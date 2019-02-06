@@ -22,6 +22,8 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	serving "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -330,6 +332,209 @@ func TestIsReady(t *testing.T) {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
+}
+
+func TestTargetAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		pa         *PodAutoscaler
+		wantTarget int32
+		wantOk     bool
+	}{{
+		name:       "not present",
+		pa:         pa(map[string]string{}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "1",
+		}),
+		wantTarget: 1,
+		wantOk:     true,
+	}, {
+		name: "invalid zero",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "0",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid format",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "sandwich",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotTarget, gotOk := tc.pa.Target()
+			if gotTarget != tc.wantTarget {
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantTarget, gotTarget)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			}
+		})
+	}
+}
+
+func TestWindowAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		pa         *PodAutoscaler
+		wantWindow time.Duration
+		wantOk     bool
+	}{{
+		name:       "not present",
+		pa:         pa(map[string]string{}),
+		wantWindow: 0,
+		wantOk:     false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "120s",
+		}),
+		wantWindow: time.Second * 120,
+		wantOk:     true,
+	}, {
+		name: "invalid too small",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "1s",
+		}),
+		wantWindow: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid format",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "sandwich",
+		}),
+		wantWindow: 0,
+		wantOk:     false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotWindow, gotOk := tc.pa.Window()
+			if gotWindow != tc.wantWindow {
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantWindow, gotWindow)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			}
+		})
+	}
+}
+
+func TestWindowPanicPercentageAnnotation(t *testing.T) {
+	cases := []struct {
+		name           string
+		pa             *PodAutoscaler
+		wantPercentage float64
+		wantOk         bool
+	}{{
+		name:           "not present",
+		pa:             pa(map[string]string{}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.WindowPanicPercentageAnnotationKey: "10.0",
+		}),
+		wantPercentage: 10.0,
+		wantOk:         true,
+	}, {
+		name: "too large",
+		pa: pa(map[string]string{
+			autoscaling.WindowPanicPercentageAnnotationKey: "150.0",
+		}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}, {
+		name: "too small",
+		pa: pa(map[string]string{
+			autoscaling.WindowPanicPercentageAnnotationKey: "0.0",
+		}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.WindowPanicPercentageAnnotationKey: "sandwich",
+		}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotPercentage, gotOk := tc.pa.WindowPanicPercentage()
+			if gotPercentage != tc.wantPercentage {
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			}
+		})
+	}
+}
+
+func TestTargetPanicPercentage(t *testing.T) {
+	cases := []struct {
+		name           string
+		pa             *PodAutoscaler
+		wantPercentage float64
+		wantOk         bool
+	}{{
+		name:           "not present",
+		pa:             pa(map[string]string{}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetPanicPercentageAnnotationKey: "300.0",
+		}),
+		wantPercentage: 300.0,
+		wantOk:         true,
+	}, {
+		name: "too small",
+		pa: pa(map[string]string{
+			autoscaling.TargetPanicPercentageAnnotationKey: "100.0",
+		}),
+		wantPercentage: 0.0,
+		wantOk:         false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotPercentage, gotOk := tc.pa.TargetPanicPercentage()
+			if gotPercentage != tc.wantPercentage {
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			}
+		})
+	}
+}
+
+func pa(annotations map[string]string) *PodAutoscaler {
+	p := &PodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   "test-namespace",
+			Name:        "test-name",
+			Annotations: annotations,
+		},
+		Spec: PodAutoscalerSpec{
+			ContainerConcurrency: serving.RevisionContainerConcurrencyType(0),
+		},
+		Status: PodAutoscalerStatus{},
+	}
+	return p
 }
 
 func TestTypicalFlow(t *testing.T) {

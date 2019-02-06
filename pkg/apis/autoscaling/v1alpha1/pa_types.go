@@ -125,7 +125,7 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-func (ps *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
+func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("PodAutoscaler")
 }
 
@@ -146,6 +146,15 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	return 0
 }
 
+func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
+	if s, ok := pa.Annotations[key]; ok {
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0.0, false
+}
+
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
@@ -155,13 +164,54 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	return
 }
 
-func (pa *PodAutoscaler) MetricTarget() (target int32, ok bool) {
+// Target returns the target annotation value or false if not present.
+func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
 		if i, err := strconv.Atoi(s); err == nil {
+			if i < 1 {
+				return 0, false
+			}
 			return int32(i), true
 		}
 	}
 	return 0, false
+}
+
+// Window returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, false
+		}
+		if d < time.Second*6 {
+			return 0, false
+		}
+		return d, true
+	}
+	return 0, false
+}
+
+// WindowPanicPercentage returns panic window annotation value or false if not present.
+func (pa *PodAutoscaler) WindowPanicPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.WindowPanicPercentageAnnotationKey)
+	// Panic window cannot be bigger than stable window. Or vanishingly small
+	// (cannot divide by zero).
+	if !ok || percentage > 100.0 || percentage < 1.0 {
+		return 0, false
+	}
+	return percentage, ok
+}
+
+// TargetPanicPercentage return the panic target annotation value or false if not present.
+func (pa *PodAutoscaler) TargetPanicPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.TargetPanicPercentageAnnotationKey)
+	// Panic target cannot be the same size as the stable target. Otherwise
+	// we would alway be panicking.
+	if !ok || percentage < 110.0 {
+		return 0, false
+	}
+	return percentage, ok
 }
 
 // IsReady looks at the conditions and if the Status has a condition
