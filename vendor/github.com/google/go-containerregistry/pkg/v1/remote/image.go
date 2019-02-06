@@ -42,6 +42,7 @@ type remoteImage struct {
 	config       []byte
 }
 
+// ImageOption is a functional option for Image.
 type ImageOption func(*imageOpener) error
 
 var _ partial.CompressedImageCore = (*remoteImage)(nil)
