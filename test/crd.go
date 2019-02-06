@@ -28,7 +28,6 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -178,6 +177,29 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 	return svc
 }
 
+// ReleaseLatestService returns a Release Service object in namespace with the name names.Service
+// that uses the image specified by names.Image and `@latest` as the only revision.
+func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+	svc := &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      names.Service,
+		},
+		Spec: v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions: []string{v1alpha1.ReleaseLatestRevisionKeyword},
+				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
+			},
+		},
+	}
+
+	// Apply any mutations we have been provided.
+	for _, opt := range fopt {
+		opt(svc)
+	}
+	return svc
+}
+
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses
 // the image specified by names.Image. It also takes a list of 1-2 revisons and a rolloutPercent to be
 // used to configure routing
@@ -244,9 +266,9 @@ func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
 	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
 	rndMutex.Lock()
+	defer rndMutex.Unlock()
 	for i := range suffix {
 		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
 	}
-	rndMutex.Unlock()
 	return prefix + string(suffix)
 }

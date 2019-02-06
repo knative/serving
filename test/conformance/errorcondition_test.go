@@ -45,7 +45,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	clients := setup(t)
 
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestContainerErrorMsg")
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("test-container-error-msg", logger),
@@ -122,7 +122,7 @@ func TestContainerExitingMsg(t *testing.T) {
 	clients := setup(t)
 
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestContainerExitingMsg")
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("test-container-exiting-msg", logger),

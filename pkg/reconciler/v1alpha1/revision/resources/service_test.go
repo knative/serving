@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -63,7 +64,17 @@ func TestMakeK8sService(t *testing.T) {
 				}},
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: servicePorts,
+				Ports: []corev1.ServicePort{{
+					Name:       ServicePortNameHTTP1,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       ServicePort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
+				}, {
+					Name:       MetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       MetricsPort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
+				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
 				},
@@ -76,6 +87,13 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "blah",
 				Name:      "baz",
 				UID:       "1234",
+			},
+			Spec: v1alpha1.RevisionSpec{
+				Container: corev1.Container{
+					Ports: []corev1.ContainerPort{
+						{Name: "h2c"},
+					},
+				},
 			},
 		},
 		want: &corev1.Service{
@@ -99,7 +117,17 @@ func TestMakeK8sService(t *testing.T) {
 				}},
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: servicePorts,
+				Ports: []corev1.ServicePort{{
+					Name:       ServicePortNameH2C,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       ServicePort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
+				}, {
+					Name:       MetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       MetricsPort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
+				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
 				},

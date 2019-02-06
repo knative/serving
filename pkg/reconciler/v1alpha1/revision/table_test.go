@@ -53,6 +53,13 @@ func TestReconcile(t *testing.T) {
 		// Make sure Reconcile handles good keys that don't exist.
 		Key: "foo/not-found",
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			rev("foo", "delete-pending", WithRevisionDeletionTimestamp),
+		},
+		Key: "foo/delete-pending",
+	}, {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,

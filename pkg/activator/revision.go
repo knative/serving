@@ -61,22 +61,22 @@ func (r *revisionActivator) Shutdown() {
 
 func (r *revisionActivator) activateRevision(namespace, name, key string) (*v1alpha1.Revision, error) {
 	logger := r.logger.With(zap.String(logkey.Key, key))
-	rev := revisionID{
-		namespace: namespace,
-		name:      name,
+	rev := RevisionID{
+		Namespace: namespace,
+		Name:      name,
 	}
 
 	// Get the current revision serving state
-	revisionClient := r.knaClient.ServingV1alpha1().Revisions(rev.namespace)
-	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
+	revisionClient := r.knaClient.ServingV1alpha1().Revisions(rev.Namespace)
+	revision, err := revisionClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get the revision")
 	}
 
 	// Wait for the revision to not require activation.
 	if revision.Status.IsActivationRequired() {
-		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
+		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.Namespace).Watch(metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.Name),
 		})
 		if err != nil {
 			return nil, errors.New("failed to watch the revision")
@@ -123,7 +123,7 @@ func (r *revisionActivator) revisionEndpoint(revision *v1alpha1.Revision) (end E
 	// Search for the correct port in all the service ports.
 	port := int32(-1)
 	for _, p := range svc.Spec.Ports {
-		if p.Name == revisionresources.ServicePortName {
+		if p.Name == revisionresources.ServicePortName(revision) {
 			port = p.Port
 			break
 		}

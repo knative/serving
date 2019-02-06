@@ -45,6 +45,13 @@ func TestReconcile(t *testing.T) {
 		Name: "key not found",
 		Key:  "foo/not-found",
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			svc("delete-pending", "foo", WithServiceDeletionTimestamp),
+		},
+		Key: "foo/delete-pending",
+	}, {
 		Name: "incomplete service",
 		Objects: []runtime.Object{
 			// There is no spec.{runLatest,pinned} in this Service to
@@ -165,6 +172,26 @@ func TestReconcile(t *testing.T) {
 		},
 		WantServiceReadyStats: map[string]int{
 			"foo/pinned3": 1,
+		},
+	}, {
+		Name: "release - with @latest",
+		Objects: []runtime.Object{
+			svc("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
+		},
+		Key: "foo/release",
+		WantCreates: []metav1.Object{
+			config("release", "foo", WithReleaseRollout("release-00001")),
+			route("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release"),
 		},
 	}, {
 		Name: "release - create route and service",
@@ -316,6 +343,105 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts2"),
+		},
+	}, {
+		Name: "release - route and config ready, using @latest",
+		Objects: []runtime.Object{
+			svc("release-ready-lr", "foo",
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
+			route("release-ready-lr", "foo",
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
+				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic([]v1alpha1.TrafficTarget{{
+					Name:         "current",
+					RevisionName: "release-ready-lr-00001",
+					Percent:      100,
+				}, {
+					Name:         "latest",
+					RevisionName: "release-ready-lr-00001",
+				}}...), MarkTrafficAssigned, MarkIngressReady),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(1),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/release-ready-lr",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-ready-lr", "foo",
+				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
+				// The delta induced by the config object.
+				WithReadyConfig("release-ready-lr-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
+					Name:         "current",
+					RevisionName: "release-ready-lr-00001",
+					Percent:      100,
+				}, {
+					Name:         "latest",
+					RevisionName: "release-ready-lr-00001",
+				}}...),
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/release-ready-lr": 1,
+		},
+	}, {
+		Name: "release - route and config ready, traffic split, using @latest",
+		Objects: []runtime.Object{
+			svc("release-ready-lr", "foo",
+				WithReleaseRolloutAndPercentage(
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
+			route("release-ready-lr", "foo",
+				WithReleaseRolloutAndPercentage(
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
+				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic([]v1alpha1.TrafficTarget{{
+					Name:         "current",
+					RevisionName: "release-ready-lr-00001",
+					Percent:      58,
+				}, {
+					Name:         "candidate",
+					RevisionName: "release-ready-lr-00002",
+					Percent:      42,
+				}, {
+					Name:         "latest",
+					RevisionName: "release-ready-lr-00002",
+				}}...), MarkTrafficAssigned, MarkIngressReady),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(2),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated, WithLatestReady),
+		},
+		Key: "foo/release-ready-lr",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("release-ready-lr", "foo",
+				WithReleaseRolloutAndPercentage(
+					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
+				// The delta induced by the config object.
+				WithReadyConfig("release-ready-lr-00002"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
+					Name:         "current",
+					RevisionName: "release-ready-lr-00001",
+					Percent:      58,
+				}, {
+					Name:         "candidate",
+					RevisionName: "release-ready-lr-00002",
+					Percent:      42,
+				}, {
+					Name:         "latest",
+					RevisionName: "release-ready-lr-00002",
+				}}...),
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
+		},
+		WantServiceReadyStats: map[string]int{
+			"foo/release-ready-lr": 1,
 		},
 	}, {
 		Name: "release - route and config ready, propagate ready, percentage set",

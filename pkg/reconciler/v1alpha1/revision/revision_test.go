@@ -50,6 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -553,7 +554,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	// An invalid IP range
 	in = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
+	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; !ok {
 		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
@@ -731,7 +732,13 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})
-			defer close(stopCh)
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
 
 			rev := getTestRevision()
 			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
@@ -769,7 +776,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 				t.Fatalf("Failed to start configuration manager: %v", err)
 			}
 
-			go controller.Run(1, stopCh)
+			grp.Go(func() error { return controller.Run(1, stopCh) })
 
 			revClient.Create(rev)
 

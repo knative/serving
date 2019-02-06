@@ -331,9 +331,19 @@ serverless workloads. Containers MUST use the provided temporary storage areas
 
 ### Mounts
 
-Platform providers SHOULD NOT allow additional volume mounts. Stateless
-applications should package their dependencies within the container. As
-serverless applications are expected to scale horizontally and statelessly,
+In general, stateless applications should package their dependencies within the
+container and not rely on mutable external state for templates, logging
+configuration, etc. In some cases, it may be necessary for certain application
+settings to be overridden at deploy time (for example, database backends or
+authentication credentials). When these settings need to be loaded via a file,
+read-only mounts of application configuration and secrets are supported by
+`ConfigMap` and `Secrets` volumes. Platform providers MAY apply updates to
+`Secrets` and `ConfigMaps` while the application is running; these updates could
+complicate rollout and rollback. It is up to the developer to choose appropriate
+policies for mounting and updating `ConfigMap` and `Secrets` which are mounted
+as volumes.
+
+As serverless applications are expected to scale horizontally and statelessly,
 per-container volumes are likely to introduce state and scaling bottlenecks and
 are NOT RECOMMENDED.
 

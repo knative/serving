@@ -189,6 +189,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		proxy.ServeHTTP(w, r)
 	}
+
 }
 
 // Sets up /health and /quitquitquit endpoints.
@@ -258,8 +259,9 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		breaker = queue.NewBreaker(int32(queueDepth), int32(containerConcurrency), int32(containerConcurrency))
-		logger.Infof("Queue container is starting with queueDepth: %d, containerConcurrency: %d", queueDepth, containerConcurrency)
+		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency), Logger: logger}
+		breaker = queue.NewBreaker(params)
+		logger.Infof("Queue container is starting with %#v", params)
 	}
 
 	logger.Info("Initializing OpenCensus Prometheus exporter")

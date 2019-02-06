@@ -27,6 +27,8 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
+const incorrectDNS1035Label = "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"
+
 func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -245,6 +247,72 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("spec.release.revisions"),
 	}, {
+		name: "invalid release -- revision name invalid, long",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{strings.Repeat("a", 64)},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [must be no more than 63 characters]", "spec.release.revisions[0]"),
+	}, {
+		name: "invalid release -- revision name invalid, incorrect",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{".negative"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(incorrectDNS1035Label, "spec.release.revisions[0]"),
+	}, {
+		name: "valid release -- with @latest",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"s-1-00001", ReleaseLatestRevisionKeyword},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
 		name: "invalid release -- too few revisions; empty slice",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -378,7 +446,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Message: incorrectDNS1035Label,
 			Paths:   []string{"metadata.name"},
 		},
 	}, {

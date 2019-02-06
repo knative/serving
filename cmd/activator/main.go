@@ -44,6 +44,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 )
@@ -150,7 +151,7 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace(), "8080")
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter(stopCh)
@@ -184,14 +185,22 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(":8080", ah)
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := http1Srv.ListenAndServe(); err != nil {
+			logger.Errorw("Error running HTTP server", zap.Error(err))
+		}
+	}()
+
+	h2cSrv := h2c.NewServer(":8081", ah)
+	go func() {
+		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
 	<-stopCh
 	a.Shutdown()
-	srv.Shutdown(context.TODO())
+	http1Srv.Shutdown(context.TODO())
+	h2cSrv.Shutdown(context.TODO())
 }

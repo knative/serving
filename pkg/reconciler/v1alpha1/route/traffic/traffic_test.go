@@ -131,7 +131,8 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -140,7 +141,8 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 				RevisionName:      goodNewRev.Name,
 				Percent:           100,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
@@ -164,9 +166,9 @@ func TestPartitionTargets(t *testing.T) {
 			"skip 0 percent",
 			RevisionTargets(
 				[]RevisionTarget{
-					{v1alpha1.TrafficTarget{RevisionName: "implicit"}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "explicit", Percent: 0}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "passive", Percent: 0}, false},
+					{v1alpha1.TrafficTarget{RevisionName: "implicit"}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "explicit", Percent: 0}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "passive", Percent: 0}, false, ""},
 				},
 			),
 			make(RevisionTargets, 0),
@@ -174,49 +176,49 @@ func TestPartitionTargets(t *testing.T) {
 		},
 		{
 			"1 active",
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, true}}),
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, true}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, true, ""}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, true, ""}}),
 			make(RevisionTargets, 0),
 		},
 		{
 			"1 passive",
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, false}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, false, ""}}),
 			make(RevisionTargets, 0),
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, false}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "a", Percent: 1}, false, ""}}),
 		},
 		{
 			"1 active, 1 passive, 1 0 percent",
 			RevisionTargets(
 				[]RevisionTarget{
-					{v1alpha1.TrafficTarget{RevisionName: "zero"}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 5}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "sixer", Percent: 6}, false},
+					{v1alpha1.TrafficTarget{RevisionName: "zero"}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 5}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "sixer", Percent: 6}, false, ""},
 				},
 			),
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 5}, true}}),
-			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "sixer", Percent: 6}, false}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 5}, true, ""}}),
+			RevisionTargets([]RevisionTarget{{v1alpha1.TrafficTarget{RevisionName: "sixer", Percent: 6}, false, ""}}),
 		},
 		{
 			"2 of each",
 			RevisionTargets(
 				[]RevisionTarget{
-					{v1alpha1.TrafficTarget{RevisionName: "one", Percent: 1}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "two", Percent: 2}, false},
-					{v1alpha1.TrafficTarget{RevisionName: "three", Percent: 3}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "four", Percent: 4}, false},
-					{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 0}, true},
+					{v1alpha1.TrafficTarget{RevisionName: "one", Percent: 1}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "two", Percent: 2}, false, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "three", Percent: 3}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "four", Percent: 4}, false, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "fiver", Percent: 0}, true, ""},
 				},
 			),
 			RevisionTargets(
 				[]RevisionTarget{
-					{v1alpha1.TrafficTarget{RevisionName: "one", Percent: 1}, true},
-					{v1alpha1.TrafficTarget{RevisionName: "three", Percent: 3}, true},
+					{v1alpha1.TrafficTarget{RevisionName: "one", Percent: 1}, true, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "three", Percent: 3}, true, ""},
 				},
 			),
 			RevisionTargets(
 				[]RevisionTarget{
-					{v1alpha1.TrafficTarget{RevisionName: "two", Percent: 2}, false},
-					{v1alpha1.TrafficTarget{RevisionName: "four", Percent: 4}, false},
+					{v1alpha1.TrafficTarget{RevisionName: "two", Percent: 2}, false, ""},
+					{v1alpha1.TrafficTarget{RevisionName: "four", Percent: 4}, false, ""},
 				},
 			),
 		},
@@ -246,7 +248,8 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 					ConfigurationName: goodConfig.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -255,7 +258,8 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 				RevisionName:      goodNewRev.Name,
 				Percent:           100,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
@@ -281,7 +285,8 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 					RevisionName:      inactiveRev.Name,
 					Percent:           100,
 				},
-				Active: false,
+				Active:   false,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -290,7 +295,8 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 				RevisionName:      inactiveRev.Name,
 				Percent:           100,
 			},
-			Active: false,
+			Active:   false,
+			Protocol: v1alpha1.RevisionProtocolHTTP1,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{inactiveConfig.Name: inactiveConfig},
 		Revisions:      map[string]*v1alpha1.Revision{inactiveRev.Name: inactiveRev},
@@ -319,13 +325,16 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 					RevisionName:      niceNewRev.Name,
 					Percent:           90,
 				},
-				Active: true}, {
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
+			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -334,13 +343,16 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 				RevisionName:      niceNewRev.Name,
 				Percent:           90,
 			},
-			Active: true}, {
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
+		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig, niceConfig.Name: niceConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev, niceNewRev.Name: niceNewRev},
@@ -370,14 +382,16 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 					RevisionName:      goodOldRev.Name,
 					Percent:           90,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
 			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -386,14 +400,16 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 				RevisionName:      goodOldRev.Name,
 				Percent:           90,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolHTTP1,
 		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
@@ -430,7 +446,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					RevisionName:      goodOldRev.Name,
 					Percent:           49,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
 			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "two",
@@ -438,7 +455,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					RevisionName:      goodNewRev.Name,
 					Percent:           51,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 			"one": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -447,7 +465,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					RevisionName:      goodOldRev.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
 			}},
 			"two": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -456,7 +475,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 			"also-two": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -465,7 +485,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -475,7 +496,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				RevisionName:      goodOldRev.Name,
 				Percent:           49,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolHTTP1,
 		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				Name:              "two",
@@ -483,7 +505,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				RevisionName:      goodNewRev.Name,
 				Percent:           50,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				Name:              "also-two",
@@ -491,7 +514,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				RevisionName:      goodNewRev.Name,
 				Percent:           1,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
@@ -520,14 +544,16 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 					RevisionName:      goodOldRev.Name,
 					Percent:           90,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
 			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -536,14 +562,16 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 				RevisionName:      goodOldRev.Name,
 				Percent:           90,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolHTTP1,
 		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev, goodOldRev.Name: goodOldRev},
@@ -572,14 +600,16 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 					RevisionName:      goodNewRev.Name,
 					Percent:           40,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 					Percent:           60,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -588,14 +618,16 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 				RevisionName:      goodNewRev.Name,
 				Percent:           40,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 				Percent:           60,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig, niceConfig.Name: niceConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev, niceNewRev.Name: niceNewRev},
@@ -627,19 +659,24 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					RevisionName:      goodOldRev.Name,
 					Percent:           100,
 				},
-				Active: true}, {
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolHTTP1,
+			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 				},
-				Active: true}, {
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
+			}, {
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 			"beta": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -648,7 +685,9 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
 				},
-				Active: true}},
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
+			}},
 			"alpha": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "alpha",
@@ -656,7 +695,8 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					RevisionName:      niceNewRev.Name,
 					Percent:           100,
 				},
-				Active: true,
+				Active:   true,
+				Protocol: v1alpha1.RevisionProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -665,19 +705,24 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				RevisionName:      goodOldRev.Name,
 				Percent:           100,
 			},
-			Active: true}, {
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolHTTP1,
+		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				Name:              "beta",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 			},
-			Active: true}, {
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
+		}, {
 			TrafficTarget: v1alpha1.TrafficTarget{
 				Name:              "alpha",
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 			},
-			Active: true,
+			Active:   true,
+			Protocol: v1alpha1.RevisionProtocolH2C,
 		}},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig, niceConfig.Name: niceConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev, niceNewRev.Name: niceNewRev},
@@ -973,6 +1018,10 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 			Status: corev1.ConditionTrue,
 		}},
 	})
+
+	// rev1 will use http1, rev2 will use h2c
+	config.Spec.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{Name: "h2c"}}
+
 	rev2 := testRevForConfig(config, name+"-revision-2")
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()

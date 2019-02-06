@@ -16,44 +16,65 @@ package util
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"sync"
 )
 
 type rewinder struct {
 	sync.Mutex
-	rc io.ReadCloser
-	rs io.ReadSeeker
+	original io.ReadCloser
+	current  io.Reader
+	next     io.ReadWriter
+	eof      bool
 }
 
-// rewinder wraps a single-use `ReadCloser` into a `ReadCloser` that can be read multiple times
+// NewRewinder wraps a single-use `ReadCloser` into a `ReadCloser`
+// that can be read multiple times
 func NewRewinder(rc io.ReadCloser) io.ReadCloser {
-	return &rewinder{rc: rc}
+	r := &rewinder{original: rc}
+
+	r.next = new(bytes.Buffer)
+	r.current = r.original
+
+	return r
 }
 
 func (r *rewinder) Read(b []byte) (int, error) {
 	r.Lock()
 	defer r.Unlock()
-	// On the first `Read()`, the contents of `rc` is read into a buffer `rs`.
-	// This buffer is used for all subsequent reads
-	if r.rs == nil {
-		buf, err := ioutil.ReadAll(r.rc)
-		if err != nil {
-			return 0, err
-		}
-		r.rc.Close()
 
-		r.rs = bytes.NewReader(buf)
+	// Buffer everything we read
+	n, err := io.TeeReader(r.current, r.next).Read(b)
+
+	// Keep track of when we reach the end
+	if err == io.EOF {
+		r.eof = true
 	}
 
-	return r.rs.Read(b)
+	return n, err
 }
 
 func (r *rewinder) Close() error {
 	r.Lock()
 	defer r.Unlock()
-	// Rewind the buffer on `Close()` for the next call to `Read`
-	r.rs.Seek(0, io.SeekStart)
+
+	// Start = what we've read already + what we haven't read yet
+	start := io.MultiReader(r.next, r.current)
+
+	// Close the original ReadCloser if we have read it to the end
+	if r.eof && r.original != nil {
+
+		if r.current == r.original {
+			// Start = only what we've read already
+			start = r.next
+		}
+
+		r.original.Close()
+		r.original = nil
+	}
+
+	// Rewind back to the start
+	r.next = new(bytes.Buffer)
+	r.current = start
 
 	return nil
 }

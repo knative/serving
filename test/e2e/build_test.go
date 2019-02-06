@@ -46,7 +46,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildSpecAndServe")
+	logger := logging.GetContextLogger(t.Name())
 	logger.Info("Creating a new Route and Configuration with build")
 
 	names := test.ResourceNames{
@@ -149,7 +149,7 @@ func TestBuildAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildAndServe")
+	logger := logging.GetContextLogger(t.Name())
 	logger.Info("Creating a new Route and Configuration with build")
 
 	names := test.ResourceNames{
@@ -268,7 +268,7 @@ func TestBuildFailure(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildFailure")
+	logger := logging.GetContextLogger(t.Name())
 
 	logger.Info("Creating a new Configuration with failing build")
 	names := test.ResourceNames{

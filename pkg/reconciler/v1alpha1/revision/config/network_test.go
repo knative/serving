@@ -28,10 +28,13 @@ import (
 )
 
 func TestOurNetwork(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, NetworkConfigName)
+	cm, example := ConfigMapsFromTestFile(t, NetworkConfigName)
 
 	if _, err := NewNetworkFromConfigMap(cm); err != nil {
-		t.Errorf("NewNetworkFromConfigMap() = %v", err)
+		t.Errorf("NewNetworkFromConfigMap(actual) = %v", err)
+	}
+	if _, err := NewNetworkFromConfigMap(example); err != nil {
+		t.Errorf("NewNetworkFromConfigMap(example) = %v", err)
 	}
 }
 
@@ -42,9 +45,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		wantController interface{}
 		config         *corev1.ConfigMap
 	}{{
-		name:           "network configuration with no network input",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with no network input",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges: "*",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
