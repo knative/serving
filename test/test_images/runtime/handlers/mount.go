@@ -22,8 +22,6 @@ import (
 )
 
 func mounts() []*types.Mount {
-	var mounts []*types.Mount
-
 	file, err := os.Open("/proc/mounts")
 	if err != nil {
 		return []*types.Mount{{Error: err.Error()}}
@@ -31,6 +29,7 @@ func mounts() []*types.Mount {
 	defer file.Close()
 
 	sc := bufio.NewScanner(file)
+	var mounts []*types.Mount
 	for sc.Scan() {
 		ml := sc.Text()
 		// Each line should be:

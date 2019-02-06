@@ -49,7 +49,7 @@ func cgroups(paths ...string) []*types.Cgroup {
 			continue
 		}
 		cs := strings.Trim(string(bc), "\n")
-		ic, err := strconv.Atoi(string(cs))
+		ic, err := strconv.Atoi(cs)
 		if err != nil {
 			cgroups = append(cgroups, &types.Cgroup{Name: path, Error: err.Error()})
 			continue

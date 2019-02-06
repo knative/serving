@@ -21,6 +21,8 @@ package conformance
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
@@ -39,23 +41,18 @@ func TestShouldHaveSysctlReadOnly(t *testing.T) {
 
 	for _, mount := range mounts {
 		if mount.Error != "" {
-			t.Fatalf("Error getting mount information: %v", mount.Error)
+			t.Fatalf("Error getting mount information: %s", mount.Error)
 		}
 		if mount.Path == "/proc/sys" {
 			if got, want := mount.Type, "proc"; got != want {
-				t.Errorf("mount.Type = %v, wanted: %v", mount.Type, want)
+				t.Errorf("%s has mount.Type = %s, wanted: %s", mount.Path, mount.Type, want)
 			}
 			if got, want := mount.Device, "proc"; got != want {
-				t.Errorf("mount.Device = %v, wanted: %v", mount.Device, want)
+				t.Errorf("%s has mount.Device = %s, wanted: %s", mount.Path, mount.Device, want)
 			}
-			for _, option := range mount.Options {
-				// Read Only must be present in options list
-				if option == "ro" {
-					return
-				}
+			if !sets.NewString(mount.Options...).Has("ro") {
+				t.Errorf("%s has mount.Options = %v, wanted: ro", mount.Path, mount.Options)
 			}
-			t.Fatalf("mount.Options = %v, wanted: ro", mount.Options)
 		}
 	}
-	t.Fatalf("/proc/sys missing from mount list")
 }
