@@ -301,13 +301,15 @@ func TestRunLatestService(t *testing.T) {
 	}
 }
 
-// TestReleaseService creates a Service in runLatest mode and then updates it to release mode. Once in release mode the test
-// goes through Update/Validate to try different possible configurations for a release service.
+// TestReleaseService creates a Service in `release` mode with the only revision
+// being `@latest`. Once this succeeded, the test goes through Update/Validate to
+// try different possible configurations for a release service.
 // Currently tests for the following combinations
 // 1. One Revision Specified, current == latest
 // 2. One Revision Specified, current != latset
 // 3. Two Revisions Specified, 50% rollout,  candidate == latest
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
+// 5. Two Revisions Specified, 50% rollout, candidate != latest, latest referred to as `@latest`.
 func TestReleaseService(t *testing.T) {
 	// Create Initial Service
 	clients := setup(t)
@@ -391,6 +393,20 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
+	validateDomains(t, logger, clients,
+		names.Domain,
+		[]string{expectedFirstRev, expectedSecondRev},
+		[]string{"latest", "candidate", "current"},
+		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
+
+	// Now update the service to use `@latest` as candidate.
+	revisions[1] = v1alpha1.ReleaseLatestRevisionKeyword
+	logger.Info("Updating Service to split traffic between two `current` and `@latest`")
+	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
+		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+
+	// The domains should not change, since configuration was not changed.
 	validateDomains(t, logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
