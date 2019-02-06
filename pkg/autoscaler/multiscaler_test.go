@@ -365,8 +365,9 @@ func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.Mul
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
+	statsChan := make(chan *autoscaler.StatMessage)
 	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
-		stopChan, uniscaler.fakeUniScalerFactory, logger)
+		stopChan, statsChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, uniscaler
 }

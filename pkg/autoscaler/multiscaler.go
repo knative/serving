@@ -35,6 +35,10 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
+
+	// sampleSize is the times to scrape metrics per second.
+	// TODO(yanweiguo): tuning the sample size
+	sampleSize = 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -109,6 +113,7 @@ type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
+	statsCh       chan<- *StatMessage
 
 	dynConfig *DynamicConfig
 
@@ -121,11 +126,17 @@ type MultiScaler struct {
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+func NewMultiScaler(
+	dynConfig *DynamicConfig,
+	stopCh <-chan struct{},
+	statsCh chan<- *StatMessage,
+	uniScalerFactory UniScalerFactory,
+	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
 		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
+		statsCh:          statsCh,
 		dynConfig:        dynConfig,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
@@ -250,6 +261,26 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 			}
 		}
 	}()
+
+	if scraper, err := NewServiceScraper(metric, m.logger); err == nil {
+		scraperTicker := time.NewTicker(1 / sampleSize)
+		go func() {
+			for {
+				select {
+				case <-m.scalersStopCh:
+					scraperTicker.Stop()
+					return
+				case <-stopCh:
+					scraperTicker.Stop()
+					return
+				case <-scraperTicker.C:
+					scraper.Scrape(m.statsCh)
+				}
+			}
+		}()
+	} else {
+		m.logger.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
+	}
 
 	metricKey := NewMetricKey(metric.Namespace, metric.Name)
 	go func() {
