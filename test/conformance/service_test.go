@@ -301,10 +301,31 @@ func TestRunLatestService(t *testing.T) {
 	}
 }
 
+func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients, logger *logging.BaseLogger)(error) {
+return test.WaitForServiceState(
+		clients.ServingClient, sName, func(s *v1alpha1.Service) (bool, error) {
+			// IsServiceReady never returns an error.
+			if ok, _ := test.IsServiceReady(s); !ok {
+				return false, nil
+			}
+			// Match the traffic shape.
+			got := map[string]v1alpha1.TrafficTarget{}
+			for _, tt := range s.Status.Traffic {
+				got[tt.Name] = tt
+			}
+			if !cmp.Equal(got, want) {
+				logger.Info("Traffic shape mismatch: (-got, +want)", cmp.Diff(got, want))
+				return false, nil
+			}
+			return true, nil
+		}, "Verify Service Step 1",
+	)
+}
+
 // TestReleaseService creates a Service in `release` mode with the only revision
 // being `@latest`. Once this succeeded, the test goes through Update/Validate to
 // try different possible configurations for a release service.
-// Currently tests for the following combinations
+// Currently tests for the following combinations:
 // 1. One Revision Specified, current == latest
 // 2. One Revision Specified, current != latset
 // 3. Two Revisions Specified, 50% rollout,  candidate == latest
@@ -334,17 +355,39 @@ func TestReleaseService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
+
+	// This is just creating the service, so make sure it ready.
+	logger.Info("Waiting for Service to transition to Ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "Verify Service Initial State"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+
 	logger.Info("Validating service shape.")
 	if err := validateReleaseServiceShape(objects); err != nil {
 		t.Fatalf("Release shape incorrect: %v", err)
 	}
 	revisions := []string{names.Revision}
 
-	// One Revision Specified, current == latest.
+	// 1. One Revision Specified, current == latest.
 	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
 	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 0)
 	if err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
+		"current": v1alpha1.TrafficTarget{
+			Name:         "current",
+			RevisionName: objects.Config.Status.LatestReadyRevisionName,
+			Percent:      100,
+		},
+		"latest": v1alpha1.TrafficTarget{
+			Name:         "latest",
+			RevisionName: objects.Config.Status.LatestReadyRevisionName,
+		},
+	}
+	logger.Info("Step 1. Waiting for Service to become ready with the new shape.")
+	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
+		t.Fatal("Service never obtained expected shape")
 	}
 
 	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
@@ -354,7 +397,7 @@ func TestReleaseService(t *testing.T) {
 		[]string{"latest", "current"},
 		[]string{expectedFirstRev, expectedFirstRev})
 
-	// One Revision Specified, current != latest.
+	// 2. One Revision Specified, current != latest.
 	logger.Info("Updating the Service Spec with a new image")
 	if _, err := test.PatchServiceImage(logger, clients, objects.Service, releaseImagePath2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
