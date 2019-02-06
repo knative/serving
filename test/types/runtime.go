@@ -47,6 +47,8 @@ type HostInfo struct {
 	EnvVars map[string]string `json:"envs"`
 	// Cgroups is a list of cgroup information.
 	Cgroups []*Cgroup `json:"cgroups"`
+	// Mounts is a list of mounted volume information, or error.
+	Mounts []*Mount `json:"mounts"`
 }
 
 // FileInfo contains the metadata for a given file.
@@ -54,15 +56,15 @@ type FileInfo struct {
 	// Name is the full filename.
 	Name string `json:"name"`
 	// Size is the length in bytes for regular files; system-dependent for others.
-	Size *int64 `json:"size",optional`
+	Size *int64 `json:"size,omitempty"`
 	// Mode is the file mode bits.
-	Mode string `json:"mode",optional`
+	Mode string `json:"mode,omitempty"`
 	// ModTime is the file last modified time
-	ModTime time.Time `json:"modTime",optional`
+	ModTime time.Time `json:"modTime,omitempty"`
 	// IsDir is true if the file is a directory.
-	IsDir *bool `json:"isDir",optional`
+	IsDir *bool `json:"isDir,omitempty"`
 	// Error is the String representation of the error returned obtaining the information.
-	Error string `json:"error",optional`
+	Error string `json:"error,omitempty"`
 }
 
 // Cgroup contains the Cgroup value for a given setting.
@@ -70,9 +72,23 @@ type Cgroup struct {
 	// Name is the full path name of the cgroup.
 	Name string `json:"name"`
 	// Value is the integer files in the cgroup file.
-	Value *int `json:"value",optional`
+	Value *int `json:"value,omitempty"`
 	// ReadOnly is true if the cgroup was not writable.
-	ReadOnly *bool `json:"readOnly",optional`
+	ReadOnly *bool `json:"readOnly,omitempty"`
 	// Error is the String representation of the error returned obtaining the information.
-	Error string `json:"error",optional`
+	Error string `json:"error,omitempty"`
+}
+
+// Mount contains information about a given mount.
+type Mount struct {
+	// Device is the device that is mounted
+	Device string `json:"device,omitempty"`
+	// Path is the location where the volume is mounted
+	Path string `json:"path,omitempty"`
+	// Type is the filesystem type (i.e. sysfs, proc, tmpfs, ext4, overlay, etc.)
+	Type string `json:"type,omitempty"`
+	// Options is the mount options set (i.e. rw, nosuid, relatime, etc.)
+	Options []string `json:"options,omitempty"`
+	// Error is the String representation of the error returned obtaining the information.
+	Error string `json:"error,omitempty"`
 }

@@ -14,24 +14,35 @@ limitations under the License.
 package handlers
 
 import (
-	"log"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/knative/serving/test/types"
 )
 
-func runtimeHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Retrieving Runtime Information")
-	w.Header().Set("Content-Type", "application/json")
-
-	k := &types.RuntimeInfo{
-		Request: requestInfo(r),
-		Host: &types.HostInfo{EnvVars: env(),
-			Files:   fileInfo(filePaths...),
-			Cgroups: cgroups(cgroupPaths...),
-			Mounts:  mounts(),
-		},
+func headers(r *http.Request) map[string]string {
+	headerMap := map[string]string{}
+	for name, headers := range r.Header {
+		name = strings.ToLower(name)
+		for i, h := range headers {
+			if len(headers) > 1 {
+				headerMap[fmt.Sprintf("%s[%d]", name, i)] = h
+			} else {
+				headerMap[fmt.Sprintf("%s", name)] = h
+			}
+		}
 	}
+	return headerMap
+}
 
-	writeJSON(w, k)
+func requestInfo(r *http.Request) *types.RequestInfo {
+	return &types.RequestInfo{
+		Ts:      time.Now(),
+		URI:     r.RequestURI,
+		Host:    r.Host,
+		Method:  r.Method,
+		Headers: headers(r),
+	}
 }
