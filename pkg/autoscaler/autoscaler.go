@@ -465,7 +465,7 @@ func (a *Autoscaler) cleanReadyPodsCache(now time.Time, stableWindow time.Durati
 
 	for key := range a.readyPodsCache {
 		if key.Add(stableWindow).Before(now) {
-			// Drop ready pods count after StableWindow
+			// Drop ready pods count after StableWindow.
 			delete(a.readyPodsCache, key)
 		}
 	}
