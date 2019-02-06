@@ -127,7 +127,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Dur
 
 func TestObservedConcurrency(t *testing.T) {
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {

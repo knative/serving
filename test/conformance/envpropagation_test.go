@@ -38,7 +38,7 @@ const (
 
 // TestSecretsFromEnv verifies propagation of Secrets through environment variables.
 func TestSecretsFromEnv(t *testing.T) {
-	logger := logging.GetContextLogger("TestEnvSecrets")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
 	//Creating test secret
@@ -75,7 +75,7 @@ func TestSecretsFromEnv(t *testing.T) {
 
 // TestConfigsFromEnv verifies propagation of configs through environment variables.
 func TestConfigsFromEnv(t *testing.T) {
-	logger := logging.GetContextLogger("TestConfigsFromEnv")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
 	//Creating test configMap

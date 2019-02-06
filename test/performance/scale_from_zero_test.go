@@ -153,7 +153,7 @@ func testGrid(s *stats, tName string) error {
 
 func testScaleFromZero(t *testing.T, count int) {
 	tName := fmt.Sprintf("TestScaleFromZero%d", count)
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 	durs, err := parallelScaleFromZero(logger, count)
 	if err != nil {
 		t.Fatal(err)

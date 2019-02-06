@@ -33,7 +33,7 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestRunLatestServicePostUpgrade")
+	logger := logging.GetContextLogger(t.Name())
 
 	var names test.ResourceNames
 	names.Service = serviceName

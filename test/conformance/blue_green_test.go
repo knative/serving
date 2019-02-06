@@ -48,7 +48,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestBlueGreenRoute")
+	logger := logging.GetContextLogger(t.Name())
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
