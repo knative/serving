@@ -792,6 +792,13 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	}
 }
 
+// WithOwnerReference adds an owner reference to the PA.
+func WithOwnerReferences(refs []metav1.OwnerReference) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.SetOwnerReferences(refs)
+	}
+}
+
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 

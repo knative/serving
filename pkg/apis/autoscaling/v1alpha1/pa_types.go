@@ -205,6 +205,13 @@ func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
+// MarkResourceNotCreated changes the "Active" condition to false to reflect that a
+// critical resource of the given kind and name was unable to be created.
+func (rs *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
+	rs.MarkInactive("FailedCreate",
+		fmt.Sprintf("Failed to create %s %q.", kind, name))
+}
+
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
 func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
