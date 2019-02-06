@@ -240,6 +240,7 @@ function install_knative_serving_gloo_version() {
 
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
+  ko apply -f test/config-gloo/ || return 1
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running gloo-system || return 1
