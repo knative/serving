@@ -460,10 +460,23 @@ func TestReleaseService(t *testing.T) {
 		[]string{"candidate", "latest", "current"},
 		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev})
 
-	// Two Revisions Specified, 50% rollout, candidate != latest.
-	logger.Info("Updating the Service Spec with a new image")
+	// 4. Two Revisions Specified, 50% rollout, candidate != latest.
+	logger.Info("4. Updating the Service Spec with a new image")
 	if _, err := test.PatchServiceImage(logger, clients, objects.Service, releaseImagePath3); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
+	}
+	logger.Info("Since the Service was updated a new Revision will be created")
+	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
+		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
+	}
+	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
+		Name:         "latest",
+		RevisionName: names.Revision,
+	}
+	logger.Debug("dsd")
+	logger.Info("Step 4. Waiting for Service to become ready with the new shape.")
+	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
+		t.Fatal("Service never obtained expected shape")
 	}
 
 	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
