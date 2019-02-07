@@ -61,7 +61,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 		// Trace Headers
 		// See https://github.com/openzipkin/b3-propagation#overall-process
-		// We use the multiple header varient for tracing. We do not validate the single header varient.
+		// We use the multiple header variant for tracing. We do not validate the single header variant.
 		// We expect the value to be a 64-bit hex string
 		"x-b3-spanid": regexp.MustCompile("[0-9a-f]{16}"),
 		// We expect the value to be a 64-bit or 128-bit hex string
