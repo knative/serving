@@ -41,7 +41,6 @@ import (
 )
 
 const (
-	tName       = "TestObservedConcurrency"
 	concurrency = 5
 )
 
@@ -208,16 +207,16 @@ func TestObservedConcurrency(t *testing.T) {
 			logger.Infof("Never scaled to %d\n", i)
 		} else {
 			logger.Infof("Took %v to scale to %d\n", toConcurrency, i)
-			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), tName))
+			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
-	tc = append(tc, CreatePerfTestCase(failedRequests, "failed requests", tName))
+	tc = append(tc, CreatePerfTestCase(failedRequests, "failed requests", t.Name()))
 
 	// TODO: For future, recreate the CreateTestgridXML function so we don't want to repeat the code shown in next 2 lines
 	ts := junit.TestSuites{}
 	ts.AddTestSuite(&junit.TestSuite{Name: "TestObservedLatency", TestCases: tc})
 
-	if err = testgrid.CreateXMLOutput(&ts, tName); err != nil {
+	if err = testgrid.CreateXMLOutput(&ts, t.Name()); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
