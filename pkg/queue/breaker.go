@@ -166,14 +166,14 @@ func (s *Semaphore) Release() error {
 // UpdateCapacity updates the capacity of the semaphore to the desired
 // size.
 func (s *Semaphore) UpdateCapacity(size int32) error {
+	if size < 0 {
+		return ErrReduceCapacity
+	}
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// Effective capacity is the capacity after taking reducers
-	// into account.
-	effectiveCapacity := s.capacity - s.reducers
-
-	if effectiveCapacity == size {
+	if s.effectiveCapacity() == size {
 		return nil
 	}
 
@@ -181,24 +181,41 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 		return ErrAddCapacity
 	}
 
-	if size < 0 {
-		return ErrReduceCapacity
-	}
-
-	if effectiveCapacity < size {
-		for ; s.capacity-s.reducers < size; s.capacity++ {
-			s.queue <- s.token
-		}
-	} else if effectiveCapacity > size {
-		for s.capacity-s.reducers > size {
+	// Add capacity until we reach size, potentially consuming
+	// outstanding reducers first.
+	for s.effectiveCapacity() < size {
+		if s.reducers > 0 {
+			s.reducers--
+		} else {
 			select {
-			case <-s.queue:
-				s.capacity--
+			case s.queue <- s.token:
+				s.capacity++
 			default:
-				s.reducers++
+				// This indicates that we're operating close to
+				// MaxCapacity and returned more tokens than we
+				// acquired.
+				return ErrAddCapacity
 			}
 		}
 	}
 
+	// Reduce capacity until we reach size, potentially adding
+	// new reducers if the queue channel is empty because of
+	// requests in-flight.
+	for s.effectiveCapacity() > size {
+		select {
+		case <-s.queue:
+			s.capacity--
+		default:
+			s.reducers++
+		}
+	}
+
 	return nil
+}
+
+// effectiveCapacity is the capacity after taking reducers into
+// account.
+func (s *Semaphore) effectiveCapacity() int32 {
+	return s.capacity - s.reducers
 }

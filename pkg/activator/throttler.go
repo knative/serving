@@ -107,10 +107,7 @@ func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.B
 		targetCapacity = t.breakerParams.MaxConcurrency
 	}
 
-	if err := breaker.UpdateConcurrency(targetCapacity); err != nil {
-		return err
-	}
-	return nil
+	return breaker.UpdateConcurrency(targetCapacity)
 }
 
 // getOrCreateBreaker retrieves existing breaker or creates a new one.
@@ -139,7 +136,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	if err = t.updateCapacity(revision, breaker, size); err != nil {
+	if err := t.updateCapacity(revision, breaker, size); err != nil {
 		return err
 	}
 	return nil
