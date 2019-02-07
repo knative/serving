@@ -101,7 +101,7 @@ func TestRevisionTimeout(t *testing.T) {
 	clients := setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestRevisionTimeout")
+	logger := logging.GetContextLogger(t.Name())
 
 	var rev2s, rev5s test.ResourceNames
 	names := test.ResourceNames{

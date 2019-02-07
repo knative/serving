@@ -17,14 +17,19 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "v2.2.1"
 
-[[constraint]]
+[[override]]
   name = "github.com/knative/build"
   version = "v0.3.0"
 
+[[constraint]]
+  name = "github.com/knative/build-pipeline"
+  # HEAD as of 2019-01-24
+  revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
+
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-01-30
-  revision = "298debc821c24bef5375b22ff7513079603df4dc"
+  # HEAD as of 2019-02-03
+  revision = "18a6804326211abcff549e2413e8c1729261af01"
 
 [[override]]
   name = "go.uber.org/zap"

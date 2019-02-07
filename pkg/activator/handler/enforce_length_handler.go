@@ -15,6 +15,8 @@ package handler
 
 import (
 	"net/http"
+
+	"github.com/knative/serving/pkg/activator/util"
 )
 
 // EnforceMaxContentLengthHandler prevents uploads larger than `MaxContentLengthBytes`
@@ -24,10 +26,14 @@ type EnforceMaxContentLengthHandler struct {
 }
 
 func (h *EnforceMaxContentLengthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If we have a ContentLength, we can fail early
 	if r.ContentLength > h.MaxContentLengthBytes {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
+
+	// Enforce MaxContentLengthBytes
+	r.Body = util.LimitReadCloser(r.Body, h.MaxContentLengthBytes)
 
 	h.NextHandler.ServeHTTP(w, r)
 }

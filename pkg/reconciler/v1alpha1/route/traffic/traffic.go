@@ -27,10 +27,12 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-// A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
+// A RevisionTarget adds the Active/Inactive state and the transport protocol of a
+// Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1alpha1.TrafficTarget
-	Active bool
+	Active   bool
+	Protocol v1alpha1.RevisionProtocolType
 }
 
 // RevisionTargets is a collection of revision targets.
@@ -208,6 +210,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	target := RevisionTarget{
 		TrafficTarget: *tt,
 		Active:        !rev.Status.IsActivationRequired(),
+		Protocol:      rev.GetProtocol(),
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -225,6 +228,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	target := RevisionTarget{
 		TrafficTarget: *tt,
 		Active:        !rev.Status.IsActivationRequired(),
+		Protocol:      rev.GetProtocol(),
 	}
 	t.revisions[tt.RevisionName] = rev
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {

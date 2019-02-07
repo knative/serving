@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -36,6 +35,13 @@ const (
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.
 	VisibilityClusterLocal = "cluster-local"
+	// DefaultDomain holds the domain that Route's live under by default
+	// when no label selector-based options apply.
+	DefaultDomain = "example.com"
+
+	// The key that holds our example configuration.
+	// TODO(mattmoor): We should get this from knative/pkg/configmap
+	exampleKey = "_example"
 )
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
@@ -74,6 +80,9 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 	c := Domain{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
+		if k == exampleKey {
+			continue
+		}
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {
@@ -85,7 +94,7 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 		}
 	}
 	if !hasDefault {
-		return nil, fmt.Errorf("Config %#v must have a default domain", configMap.Data)
+		c.Domains[DefaultDomain] = &LabelSelector{}
 	}
 	return &c, nil
 }

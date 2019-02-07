@@ -56,6 +56,13 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testRevision, testNamespace),
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithHPAClass, WithPADeletionTimestamp),
+		},
+		Key: key(testRevision, testNamespace),
+	}, {
 		Name:    "delete when pa does not exist",
 		Objects: []runtime.Object{},
 		Key:     key(testRevision, testNamespace),

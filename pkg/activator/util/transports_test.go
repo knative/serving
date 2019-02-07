@@ -22,15 +22,15 @@ import (
 
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func TestHTTPRoundTripper(t *testing.T) {
-	wants := map[string]bool{}
+	wants := sets.NewString()
 	frt := func(key string) http.RoundTripper {
 		return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			wants[key] = true
-
+			wants.Insert(key)
 			return nil, nil
 		})
 	}
@@ -61,13 +61,11 @@ func TestHTTPRoundTripper(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			wants[e.want] = false
-
+			wants.Delete(e.want)
 			r := &http.Request{ProtoMajor: e.protoMajor}
-
 			rt.RoundTrip(r)
 
-			if wants[e.want] != true {
+			if !wants.Has(e.want) {
 				t.Error("Wrong transport selected for request.")
 			}
 		})
@@ -78,7 +76,7 @@ func TestRetryRoundTripper(t *testing.T) {
 	req := &http.Request{Header: http.Header{}}
 
 	resp := func(status int) *http.Response {
-		return &http.Response{StatusCode: status, Body: &spyReadCloser{}}
+		return &http.Response{StatusCode: status, Body: &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(""))}}
 	}
 
 	someErr := errors.New("some error")
@@ -182,13 +180,13 @@ func TestRetryRoundTripper(t *testing.T) {
 }
 
 func TestRetryRoundTripperRewind(t *testing.T) {
-	bodyContent := "request body"
+	const bodyContent = "request body"
 
 	readingCondition := func(res *http.Response) bool {
 		body, _ := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 
-		responseBodyContent := string(body[:])
+		responseBodyContent := string(body)
 
 		if responseBodyContent != bodyContent {
 			t.Errorf("Body was not readable multiple times. Was %s", responseBodyContent)
@@ -203,7 +201,7 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 	}
 
 	transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Body: r.Body}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: r.Body}, nil
 	})
 
 	rt := NewRetryRoundTripper(
@@ -213,11 +211,13 @@ func TestRetryRoundTripperRewind(t *testing.T) {
 		conditions...,
 	)
 
-	spy := &spyReadCloser{Reader: strings.NewReader(bodyContent)}
-	req, _ := http.NewRequest("POST", "http://test.domain", spy)
+	spy := &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(bodyContent))}
+	req, err := http.NewRequest(http.MethodPost, "http://test.domain", spy)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
 
 	rt.RoundTrip(req)
-
 	if spy.ReadAfterClose {
 		t.Fatal("The retry round tripper read the request body more than once")
 	}
@@ -231,7 +231,10 @@ func TestRetryRoundTripperNilBody(t *testing.T) {
 		RetryStatus(http.StatusInternalServerError),
 	)
 
-	req, _ := http.NewRequest("GET", "http://knative.dev/test/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://knative.dev/test/", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
 
 	rt.RoundTrip(req)
 }

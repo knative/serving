@@ -222,7 +222,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-
 	if r.GetDeletionTimestamp() != nil {
 		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
 		return c.reconcileDeletion(ctx, r)

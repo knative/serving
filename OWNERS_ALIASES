@@ -43,6 +43,7 @@ aliases:
   - steuhs
 
   networking-approvers:
+  - markusthoemmes
   - mdemirhan
   - tcnghia
   networking-reviewers:

@@ -44,21 +44,34 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		numRevisions := len(service.Spec.Release.Revisions)
 
 		// Configure the 'current' route.
-		currentRevisionName := service.Spec.Release.Revisions[0]
 		ttCurrent := v1alpha1.TrafficTarget{
-			Name:         "current",
-			Percent:      100 - rolloutPercent,
-			RevisionName: currentRevisionName,
+			Name:    "current",
+			Percent: 100 - rolloutPercent,
+		}
+		currentRevisionName := service.Spec.Release.Revisions[0]
+
+		// If the `current` revision refers to the well known name of the last
+		// known revision, use `Configuration` instead.
+		// Same for the `candidate` below.
+		// Part of #2819.
+		if currentRevisionName == v1alpha1.ReleaseLatestRevisionKeyword {
+			ttCurrent.ConfigurationName = names.Configuration(service)
+		} else {
+			ttCurrent.RevisionName = currentRevisionName
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, ttCurrent)
 
 		// Configure the 'candidate' route.
 		if numRevisions == 2 {
-			candidateRevisionName := service.Spec.Release.Revisions[1]
 			ttCandidate := v1alpha1.TrafficTarget{
-				Name:         "candidate",
-				Percent:      rolloutPercent,
-				RevisionName: candidateRevisionName,
+				Name:    "candidate",
+				Percent: rolloutPercent,
+			}
+			candidateRevisionName := service.Spec.Release.Revisions[1]
+			if candidateRevisionName == v1alpha1.ReleaseLatestRevisionKeyword {
+				ttCandidate.ConfigurationName = names.Configuration(service)
+			} else {
+				ttCandidate.RevisionName = candidateRevisionName
 			}
 			c.Spec.Traffic = append(c.Spec.Traffic, ttCandidate)
 		}

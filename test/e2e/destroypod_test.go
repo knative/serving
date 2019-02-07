@@ -44,7 +44,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestDestroyPodInflight")
+	logger := logging.GetContextLogger(t.Name())
 
 	logger.Info("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, "timeout", &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})

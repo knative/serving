@@ -65,7 +65,7 @@ func ingressAddress(gateway string, addressType string) string {
 
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestHelloWorldFromShell")
+	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")
 
 	logger.Info("Creating manifest")

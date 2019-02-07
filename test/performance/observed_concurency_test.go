@@ -35,6 +35,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
 )
@@ -126,7 +127,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Dur
 
 func TestObservedConcurrency(t *testing.T) {
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -188,7 +189,7 @@ func TestObservedConcurrency(t *testing.T) {
 		return events[i].timestamp.Before(events[j].timestamp)
 	})
 
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	for i := int32(1); i <= concurrency; i++ {
 		toConcurrency, err := timeToScale(events, trafficStart, i)
 		if err != nil {
@@ -198,8 +199,11 @@ func TestObservedConcurrency(t *testing.T) {
 			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d", i), tName))
 		}
 	}
+	// TODO: For future, recreate the CreateTestgridXML function so we don't want to repeat the code shown in next 2 lines
+	ts := junit.TestSuites{}
+	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
 
-	if err = testgrid.CreateTestgridXML(tc, tName); err != nil {
+	if err = testgrid.CreateXMLOutput(&ts, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

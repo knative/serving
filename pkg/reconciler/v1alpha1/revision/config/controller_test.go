@@ -30,10 +30,14 @@ import (
 var noSidecarImage = ""
 
 func TestControllerConfigurationFromFile(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, ControllerConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
 
 	if _, err := NewControllerConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
+		t.Errorf("NewControllerConfigFromConfigMap(actual) = %v", err)
+	}
+
+	if _, err := NewControllerConfigFromConfigMap(example); err != nil {
+		t.Errorf("NewControllerConfigFromConfigMap(example) = %v", err)
 	}
 }
 

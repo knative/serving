@@ -2,11 +2,17 @@
 
 
 [[projects]]
-  digest = "1:5db4f94a0a6d5e4ce827563b1d96902f8777d58ae23cc59f38ae538ffed52c13"
+  digest = "1:6db34685a5216187ec35414e36c3bd0436fa2ac291d47b39f4ab4d68cf1c55f1"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
+    "iam",
+    "internal",
+    "internal/optional",
+    "internal/trace",
+    "internal/version",
     "monitoring/apiv3",
+    "storage",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
@@ -410,6 +416,20 @@
   version = "v0.3.0"
 
 [[projects]]
+  digest = "1:fe6d8bf6d49bbb8a474c1d2cfe053dcd68d9a3b0ac37e4de092b8fe40a97c544"
+  name = "github.com/knative/build-pipeline"
+  packages = [
+    "pkg/apis/pipeline",
+    "pkg/apis/pipeline/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/pipeline/v1alpha1",
+    "pkg/reconciler/v1alpha1/taskrun/list",
+  ]
+  pruneopts = "NUT"
+  revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
+
+[[projects]]
   digest = "1:ad0cca2383dc5678f6711c51cd38594906701e07d713998e3c9240e926f22867"
   name = "github.com/knative/caching"
   packages = [
@@ -430,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:4eeeaf55912485c9a68cf37b119693a58173cd06b41cabf92ba758fc47ca273b"
+  digest = "1:05a9d6a6c37ec51054fc111b93bc440854925388a4f8ab128b6acb0d0d41016d"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -477,21 +497,24 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "298debc821c24bef5375b22ff7513079603df4dc"
+  revision = "18a6804326211abcff549e2413e8c1729261af01"
 
 [[projects]]
   branch = "master"
-  digest = "1:3c42ecb5d8e961b4d4df50b33c4b5fedf56d950ac0a8e51458c9781cb16c5610"
+  digest = "1:bb4a0cc53257bd07bb82b201d3afcf61c6c5ae51e91b2011a7484a91a9bb163a"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/gcs",
+    "shared/junit",
     "shared/loadgenerator",
     "shared/prometheus",
+    "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "8ef3dc1c2ed07e64024bc68c9dbd1a2e10e9e975"
+  revision = "bf7e4dd5a226f5758e0eedd7370b99d33d464910"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -795,13 +818,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9403f312df79a1556f2529adff5718f2b29a0d806c7ab0637fd9e68e635a7f1b"
+  digest = "1:9c89a3b7383528050da687b4cf2947d8cdd2d20b1bc13d833dc4ed6a402a8f1c"
   name = "google.golang.org/api"
   packages = [
+    "gensupport",
+    "googleapi",
+    "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
     "option",
+    "storage/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -834,7 +861,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:57005092fa4440ad8b606ba030326b499f27ab920ca645da114b1c4262bb4502"
+  digest = "1:d2f1ee926ab1fddf817b98d03460c4126a48a32580bdb3eb1373f0b326862178"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -843,7 +870,9 @@
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/v1",
     "googleapis/monitoring/v3",
+    "googleapis/rpc/code",
     "googleapis/rpc/status",
     "protobuf/field_mask",
   ]
@@ -1257,6 +1286,9 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
+    "github.com/knative/build-pipeline/pkg/apis/pipeline/v1alpha1",
+    "github.com/knative/build-pipeline/pkg/client/clientset/versioned",
+    "github.com/knative/build-pipeline/pkg/client/clientset/versioned/typed/pipeline/v1alpha1",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
@@ -1293,6 +1325,7 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/pkg/websocket",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/junit",
     "github.com/knative/test-infra/shared/loadgenerator",
     "github.com/knative/test-infra/shared/prometheus",
     "github.com/knative/test-infra/shared/testgrid",
@@ -1329,6 +1362,7 @@
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
+    "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/apimachinery/pkg/util/sets/types",
     "k8s.io/apimachinery/pkg/util/validation",
     "k8s.io/apimachinery/pkg/util/wait",

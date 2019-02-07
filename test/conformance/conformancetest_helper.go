@@ -21,6 +21,7 @@ limitations under the License.
 package conformance
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -30,9 +31,51 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/types"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
+// RuntimeInfo object.
+func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options *test.Options) (*types.RuntimeInfo, error) {
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("runtime-test-", logger),
+		Image:   runtime,
+	}
+
+	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+
+	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, options)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		objects.Service.Status.Domain,
+		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+			if resp.StatusCode == http.StatusOK {
+				return true, nil
+			}
+
+			return true, errors.New(string(resp.Body))
+		}, http.StatusNotFound),
+		"RuntimeInfo",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return nil, err
+	}
+
+	var ri types.RuntimeInfo
+	err = json.Unmarshal(resp.Body, &ri)
+	if err != nil {
+		return nil, err
+	}
+	return &ri, nil
+}
 
 // fetchEnvInfo creates the service using test_images/environment and fetches environment info defined inside the container dictated by urlPath.
 func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath string, options *test.Options) ([]byte, *test.ResourceNames, error) {
