@@ -314,11 +314,11 @@ func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTa
 				got[tt.Name] = tt
 			}
 			if !cmp.Equal(got, want) {
-				logger.Info("Traffic shape mismatch: (-got, +want)", cmp.Diff(got, want))
+				logger.Info("For service %s traffic shape mismatch: (-got, +want)", sName, cmp.Diff(got, want))
 				return false, nil
 			}
 			return true, nil
-		}, "Verify Service Step 1",
+		}, "Verify Service Trafic Shape",
 	)
 }
 
@@ -385,7 +385,7 @@ func TestReleaseService(t *testing.T) {
 			RevisionName: objects.Config.Status.LatestReadyRevisionName,
 		},
 	}
-	logger.Info("Step 1. Waiting for Service to become ready with the new shape.")
+	logger.Info("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
 		t.Fatal("Service never obtained expected shape")
 	}
@@ -414,7 +414,7 @@ func TestReleaseService(t *testing.T) {
 		Name:         "latest",
 		RevisionName: names.Revision,
 	}
-	logger.Info("Step 2. Waiting for Service to become ready with the new shape.")
+	logger.Info("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
 		t.Fatal("Service never obtained expected shape")
 	}
@@ -448,7 +448,7 @@ func TestReleaseService(t *testing.T) {
 			RevisionName: revisions[1],
 		},
 	}
-	logger.Info("Step 3. Waiting for Service to become ready with the new shape.")
+	logger.Info("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
 		t.Fatal("Service never obtained expected shape")
 	}
@@ -469,12 +469,12 @@ func TestReleaseService(t *testing.T) {
 	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
+
 	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
 		Name:         "latest",
 		RevisionName: names.Revision,
 	}
-	logger.Debug("dsd")
-	logger.Info("Step 4. Waiting for Service to become ready with the new shape.")
+	logger.Info("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
 		t.Fatal("Service never obtained expected shape")
 	}
@@ -487,11 +487,21 @@ func TestReleaseService(t *testing.T) {
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
 
 	// Now update the service to use `@latest` as candidate.
-	fmt.Printf("########## WERE HERE ##########\n")
 	revisions[1] = v1alpha1.ReleaseLatestRevisionKeyword
-	logger.Info("Updating Service to split traffic between two `current` and `@latest`")
+	logger.Info("5. Updating Service to split traffic between two `current` and `@latest`")
 	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+
+	// `candidate` now points to the latest.
+	desiredTrafficShape["candidate"] = v1alpha1.TrafficTarget{
+		Name:         "candidate",
+		RevisionName: names.Revision,
+		Percent:      50,
+	}
+	logger.Info("Waiting for Service to become ready with the new shape.")
+	if err := waitForDesiredTrafficShape(names.Service, desiredTrafficShape, clients, logger); err != nil {
+		t.Fatal("Service never obtained expected shape")
 	}
 
 	validateDomains(t, logger, clients,

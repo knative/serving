@@ -49,7 +49,7 @@ const (
 	printport           = "printport"
 	runtime             = "runtime"
 
-	concurrentRequests = 100
+	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1
@@ -102,14 +102,20 @@ func validateDomains(
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
 	}
 
+	g, _ := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
-	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
-	if err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0]); err != nil {
-		t.Fatalf("Error waiting for route to update %s: %s", subdomains[0], targetsExpected[0])
+	for i, s := range subdomains {
+		i, s := i, s
+		g.Go(func() error {
+			logger.Infof("Waiting for route to update domain: %s", s)
+			return waitForExpectedResponse(logger, clients, s, targetsExpected[i])
+		})
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Error probing domains to be ready: %v", err)
 	}
 
-	g, _ := errgroup.WithContext(context.Background())
 	var minBasePercentage float64
 	if len(baseExpected) == 1 {
 		minBasePercentage = minDirectPercentage
