@@ -448,10 +448,10 @@ container: # v1.Container
   # the container.  Each of the volumes in the RevisionSpec must be mounted here
   # or it is an error.
   volumeMounts:
-  - name: ... # This must match a name from Volumes
-    mountPath: ... # Where to mount the named Volume.
-    readOnly: ... # Must be True, will default to True, so it may be omitted.
-    # All other fields are disallowed.
+    - name: ... # This must match a name from Volumes
+      mountPath: ... # Where to mount the named Volume.
+      readOnly: ... # Must be True, will default to True, so it may be omitted.
+      # All other fields are disallowed.
 
   livenessProbe: ... # Optional
   readinessProbe: ... # Optional
