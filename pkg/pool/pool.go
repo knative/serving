@@ -23,7 +23,6 @@ import (
 type impl struct {
 	wg     sync.WaitGroup
 	workCh chan func() error
-	errCh  chan error
 	doneCh chan interface{}
 
 	// Ensure that we Wait exactly once and memoize
