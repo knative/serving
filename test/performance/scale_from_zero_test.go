@@ -147,7 +147,7 @@ func testGrid(s *stats, tName string) error {
 	val := float32(s.avg.Seconds())
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
 	ts := junit.TestSuites{}
-	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
+	ts.AddTestSuite(&junit.TestSuite{Name: tName, TestCases: tc})
 	return testgrid.CreateXMLOutput(&ts, tName)
 }
 
