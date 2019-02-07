@@ -118,11 +118,9 @@ func validateDomains(
 	}
 
 	g.Go(func() error {
-		var minBasePercentage float64
+		minBasePercentage := minSplitPercentage
 		if len(baseExpected) == 1 {
 			minBasePercentage = minDirectPercentage
-		} else {
-			minBasePercentage = minSplitPercentage
 		}
 		min := int(math.Floor(concurrentRequests * minBasePercentage))
 		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
