@@ -603,12 +603,6 @@ func (a *Autoscaler) recordMetric(test *testing.T, stat Stat) time.Time {
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
-	// In tests, the scale frequency(a few times per second) is much higher than
-	// the actual usage(2 seconds by default). The cache might not get the
-	// newest value. Clean up the cache each time to force it to get the value from
-	// informer.
-	a.cleanReadyPodsCache(now, 0)
-
 	t.Helper()
 	scale, ok := a.Scale(TestContextWithLogger(t), now)
 	if ok != expectOk {
