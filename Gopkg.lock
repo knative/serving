@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:6db34685a5216187ec35414e36c3bd0436fa2ac291d47b39f4ab4d68cf1c55f1"
+  digest = "1:64e792c29b95538b790b188dca0cdecbfdaec851f946f197061706ecb7740d91"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -28,7 +28,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:b73244f6a5ab381f938bfd2d831c57eeea884b0fab333126cc175914ec82dec5"
+  digest = "1:c3524a0c98b9b8ac9ad1b0c4820614f751b29109c11d928fc99bdd9667d2f74b"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
@@ -39,7 +39,7 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:94eff9ba92a0bf4938a2ec911c44b58b5c366a94f5f72b2b3c454629781c506f"
+  digest = "1:5ee00c4f5c97178ae8d560e37d379d44a11a9044e329d914a200787c7b971dcb"
   name = "fortio.org/fortio"
   packages = [
     "fhttp",
@@ -62,7 +62,7 @@
   version = "v11.3.0-beta"
 
 [[projects]]
-  digest = "1:44a1ddb10a1ee66aa8b7625b507829d30a423e555690b8db840f8caf35cb0e79"
+  digest = "1:e78ec6e9b2ad859c5f8fe2d9b4c46d021bfde8eb17bee6932bddc6d47c749942"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -79,7 +79,7 @@
   version = "v11.2.8"
 
 [[projects]]
-  digest = "1:de17997fdba5b694eb3528204adba0f089ebd2ceef54a346ad2313e6ca138df5"
+  digest = "1:f2986bc5f7ff95d4b751f27bd16f4d2512551d5cb556c569526b737155b39373"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -128,7 +128,7 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
-  digest = "1:65b0d980b428a6ad4425f2df4cd5410edd81f044cf527bd1c345368444649e58"
+  digest = "1:7b69ec1477f4beff10335b7da13a3c0329dfdb3141c5653a249760d1ee177a7c"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
     "gen-go/agent/common/v1",
@@ -157,7 +157,7 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:740dc3cccfcdb302c323d17da5f4f2dfa65f7b8c666e0a9ac8bc64f560fb2974"
+  digest = "1:94a5241b0b2f53c672060aae9b0c1e38a2149803a760d7071f6eac568b931c33"
   name = "github.com/docker/docker"
   packages = [
     "api/types",
@@ -216,7 +216,7 @@
   version = "v1.6.5"
 
 [[projects]]
-  digest = "1:93344b9d2c6f6c951d852e753e09c7d433a222e3c0ac952ff86f6e2527873b37"
+  digest = "1:18c58b5b148411098452e586ffe8f4495705ec8980dee717fa670cddbfad3a21"
   name = "github.com/gogo/protobuf"
   packages = [
     "proto",
@@ -243,7 +243,7 @@
   revision = "84a468cf14b4376def5d68c722b139b881c450a4"
 
 [[projects]]
-  digest = "1:4dacf728c83400b3e9d1d3025dd3c1e93e9a1b033726d1b193dc209f3fa9cb7a"
+  digest = "1:f0497278bd70dab9a7e13d5cbc7bf569ef537c4646895d41e4f2e3943cdd4f64"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -269,7 +269,7 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  digest = "1:b787093a6b46cbdb290b2b304d12352eeff1bf7870852c3a0636acf87128c32b"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -283,7 +283,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
+  digest = "1:38f1ed89fe265ac5ff358397bd5e7663ca7d247a3ac080f935b60030dfa7bd25"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -311,7 +311,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0d5e3798bfa2642ac268341c96710b8def1f3cbc3bc803c421d90704d72107d8"
+  digest = "1:70dbc44a90fa82c71d6064b88929b2ad9374f4c438cfed3b4cc7dacd77e0eb73"
   name = "github.com/google/licenseclassifier"
   packages = [
     ".",
@@ -333,7 +333,7 @@
   version = "v2.0.2"
 
 [[projects]]
-  digest = "1:06a7dadb7b760767341ffb6c8d377238d68a1226f2b21b5d497d2e3f6ecf6b4e"
+  digest = "1:add738701bd5b2b985c0c37011092c57218bdc46caf1e682a73dc210ad36b03f"
   name = "github.com/googleapis/gnostic"
   packages = [
     "OpenAPIv2",
@@ -354,7 +354,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7fdf3223c7372d1ced0b98bf53457c5e89d89aecbad9a77ba9fcc6e01f9e5621"
+  digest = "1:a1db0214936912602a7a8cedc09a2e3211f5c097dc89189fb4b3bc86346c9e89"
   name = "github.com/gregjones/httpcache"
   packages = [
     ".",
@@ -405,7 +405,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:faa93f53fef9bca20a58773929a19d15a58623c34752d7c70c4de53ee3380a1d"
+  digest = "1:6bb2ba234fb09857ad68596bee23757cd68cc958060d8eaaba4f13fd7056ceef"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
@@ -416,7 +416,7 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:fe6d8bf6d49bbb8a474c1d2cfe053dcd68d9a3b0ac37e4de092b8fe40a97c544"
+  digest = "1:ef46dfd9b9866f6d3c8bc4938b413b6ddde4cae67c0ccee5dcfd3a40b9a10234"
   name = "github.com/knative/build-pipeline"
   packages = [
     "pkg/apis/pipeline",
@@ -430,7 +430,7 @@
   revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
 
 [[projects]]
-  digest = "1:ad0cca2383dc5678f6711c51cd38594906701e07d713998e3c9240e926f22867"
+  digest = "1:6bee3d8866c8cb21cb2b999c9446f0459d7a362aedd2c8130e2dfe62aec54356"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:05a9d6a6c37ec51054fc111b93bc440854925388a4f8ab128b6acb0d0d41016d"
+  digest = "1:83a8f14f24dadc942279619298c26d1b60edebff648e0041de4f1455c1955c60"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -501,7 +501,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bb4a0cc53257bd07bb82b201d3afcf61c6c5ae51e91b2011a7484a91a9bb163a"
+  digest = "1:eeb702767819dc1a6a60de041f30a7da3796163cb44ef0e8a16b525139bfe688"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -581,7 +581,7 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:e411054f54a332ecadd5fe5a4a68d092f36583e554037587da86da298cffc72d"
+  digest = "1:a6b0f01bc76800f17cb666c82e1dde9f219fa35cd6989a351a9f0ef8a5a7cbd6"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
@@ -596,7 +596,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32d10bdfa8f09ecf13598324dba86ab891f11db3c538b6a34d1c3b5b99d7c36b"
+  digest = "1:53a76eb11bdc815fcf0c757a9648fda0ab6887da13f07587181ff2223b67956c"
   name = "github.com/prometheus/client_model"
   packages = ["go"]
   pruneopts = "NUT"
@@ -604,7 +604,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4a6bb73eb5d7b8e67f25d22d87c84116cc69dfa80299dfd06622b8eee47917a8"
+  digest = "1:4a0536dd1bcd190cd7d973bfe0356056b36827849891c3049c66b484ddbe82d4"
   name = "github.com/prometheus/common"
   packages = [
     "expfmt",
@@ -616,7 +616,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b2f81139ed70ba4358171bc3024a5f2a3a9d2148ccc3fff03e3a011afe9b7543"
+  digest = "1:7b3e2957c4b0f8ce9cdd6de754ea6f31a3d79acf8a3e2ff293e267d0bc604aa7"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
@@ -651,7 +651,7 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:e65b395598ef96d96c1df34e3fd3ec4dabe629edb1511de33a59efd9931df0e8"
+  digest = "1:7a3d4703d1339e607b2e94141326f171f49997f251528de772abcf2cd7397337"
   name = "go.opencensus.io"
   packages = [
     ".",
@@ -693,7 +693,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:5ab79d2a36037de1ab2908733a2cab0c08b12f6956e3e1eab07cd1b2abf7b903"
+  digest = "1:392912ae6b73840e19e12b204b7da48b6cd5b0f820c79c9de4c48d75afc0c074"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -710,7 +710,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e42ddb15b8bc3c5c6c38c96db5c3d3d1b9b5863167267ed9431d9a4012c21f9"
+  digest = "1:af9bf4251d720949903a3b4df089ff2b358d396c7d7323aa823faf3d80e2a1b0"
   name = "golang.org/x/crypto"
   packages = [
     "pkcs12",
@@ -722,7 +722,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:49f31aa4035a0a1a1d13ade03c28d1d5b8c5f94f5c1c8c9bf9cd01c92f6ed885"
+  digest = "1:c5bbb0a312474624dadabe8077958f22e7fd22619c4d6400d1fd28bc149ce0aa"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -740,7 +740,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dcb89c032286a9c3c5118a1496f8e0e237c1437f5356ac9602f6fdef560a5c21"
+  digest = "1:a5c3607f46e1b1dd8ecd4658dc91906b9d6a197ff71b16e1b4faddd3ce6fa814"
   name = "golang.org/x/oauth2"
   packages = [
     ".",
@@ -754,7 +754,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c313aef534e493304f3666fbd24dca5932ebf776a82b7a40f961c9355794a1b1"
+  digest = "1:0b73dbdde5ae9a32872a44fc939182d1e6990ba7447e637896fb6b9d47659b5e"
   name = "golang.org/x/sync"
   packages = [
     "errgroup",
@@ -765,7 +765,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c84eea70554fcd678159b8c088e12bec7255d43f1c25183455cef7198565fcdd"
+  digest = "1:15ca194637676cc39fab241de9fdc30e7ddd0615c6d48d724840d3a781fbdf0b"
   name = "golang.org/x/sys"
   packages = [
     "unix",
@@ -776,7 +776,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e7071ed636b5422cc51c0e3a6cebc229d6c9fffc528814b519a980641422d619"
+  digest = "1:a0f29009397dc27c9dc8440f0945d49e5cbb9b72d0b0fc745474d9bfdea2d9f8"
   name = "golang.org/x/text"
   packages = [
     "collate",
@@ -807,7 +807,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2c57a52b1792fad8b668be56c76a9a4959f7b665b8474cfa188c652ef1a2b82d"
+  digest = "1:c765c0e7646900b1d5f1feecd2d255fcadd04ab9757ef792f5b5a4ffcb633407"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -818,7 +818,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9c89a3b7383528050da687b4cf2947d8cdd2d20b1bc13d833dc4ed6a402a8f1c"
+  digest = "1:b4b625b9fd04ae6fc6cc07a33521ba0e5d98513c7c62df6c4f6048e4bb8b0f3c"
   name = "google.golang.org/api"
   packages = [
     "gensupport",
@@ -839,7 +839,7 @@
   revision = "511bab8e55decfbe784cd2d1868fa5cda62dc6c1"
 
 [[projects]]
-  digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
+  digest = "1:7d91b9c9aaaf74208a8a266d5c8efb134a78afb1547e60c5fb695d49022987ec"
   name = "google.golang.org/appengine"
   packages = [
     ".",
@@ -861,7 +861,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d2f1ee926ab1fddf817b98d03460c4126a48a32580bdb3eb1373f0b326862178"
+  digest = "1:69f0d402bbcc66c3561573637f0c2eb8854960339689d4db6f38a147ca5be5b1"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -880,7 +880,7 @@
   revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
-  digest = "1:f16e8193cfe5fdd5b3d62c2d22f4a6bf0a08c61f99d78b54e16f780a9db4f923"
+  digest = "1:857592442afd0c9d1562decc33ec9a774940576f125c8714689eaa730c21fe66"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -932,7 +932,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:6dd53537a34d9b612e66acd39859953cf7ad70e5b5953937bed5ea998355e7b8"
+  digest = "1:bc54ff998ad910da88b2e6fe6cddb7800ef9125212491fad41cb94f48e8c8ee4"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -971,7 +971,7 @@
   version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:e430de0896db98fb93a75f45ace427a4b6d09028777498b7c6a25d33866efdd6"
+  digest = "1:036e76f034f815baaf9b2ffc0ceac998384b0dd8aca329f422bc09ab1d893cd4"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -1023,7 +1023,7 @@
   version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:11aa1e909f4b89bb9c46227e590fd6661cd6e185b20ef74c9c6a6370f5ff2ddc"
+  digest = "1:fe54815e9b4d7982f597bb2dece3e862f6c1d0572e68dbb425f4736d08ba13c1"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1205,7 +1205,7 @@
   version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:3b9c82e73290987c719062ba514f47cc95a7b1e10d9868b1e083e48044c0820b"
+  digest = "1:e97a3de216110403d31a244dae829652a4cd434430dc823c0f47e258707d909b"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1234,7 +1234,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9b75ec0a523ff9fe3568f4fb14331d4fdc3c261a393bc183073505411fb4725f"
+  digest = "1:b3f897b05af91f6be4c2169984f83ab041c8c4284d49f9200438233fc6ed5a6c"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1258,7 +1258,7 @@
   revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
 [[projects]]
-  digest = "1:58b3a85d2c3d0b49f7d4b7f6a3234d7e9c10cbc364af297adca941b67e5bb2f6"
+  digest = "1:b2b9ec3699acb74aba312f17ebed8b2ec72a9074deb6c53dc13136740f235631"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/cloudprovider/providers/azure/auth",
