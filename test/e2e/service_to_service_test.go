@@ -58,9 +58,9 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 	}
 	// Check that the target Route's Domain matches its cluster local address.
 	if want, got := helloWorldRoute.Status.Address.Hostname, helloWorldRoute.Status.Domain; got != want {
-		t.Errorf("Route.Domain = %v, wanted %v", got, want)
+		t.Errorf("Route.Domain = %v, want %v", got, want)
 	}
-	logger.Infof("helloworld internal domain is %v.", helloWorldRoute.Status.Domain)
+	logger.Infof("helloworld internal domain is %s.", helloWorldRoute.Status.Domain)
 	return []corev1.EnvVar{{
 		Name:  targetHostEnv,
 		Value: helloWorldRoute.Status.Domain,
@@ -170,6 +170,6 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 
 	if got, want := response.StatusCode, http.StatusNotFound; got != want {
-		t.Errorf("Unexpected helloworld response status code = %v, wanted %v", got, want)
+		t.Errorf("helloworld response StatusCode = %v, want %v", got, want)
 	}
 }
