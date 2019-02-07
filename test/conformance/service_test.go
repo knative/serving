@@ -356,12 +356,6 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	// This is just creating the service, so make sure it ready.
-	logger.Info("Waiting for Service to transition to Ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "Verify Service Initial State"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
-	}
-
 	logger.Info("Validating service shape.")
 	if err := validateReleaseServiceShape(objects); err != nil {
 		t.Fatalf("Release shape incorrect: %v", err)
