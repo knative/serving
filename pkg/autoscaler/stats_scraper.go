@@ -31,10 +31,15 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
 	httpClientTimeout = 3 * time.Second
+
+	cacheTimeout = time.Second
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -54,23 +59,36 @@ var cacheDisabledClient = &http.Client{
 	Timeout: httpClientTimeout,
 }
 
+type readyPods struct {
+	time  time.Time
+	count int
+}
+
 // ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
 // pod to be picked up to serve the request is decided by K8S. Please see
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	httpClient *http.Client
-	url        string
-	metricKey  string
+	httpClient      *http.Client
+	endpointsLister corev1listers.EndpointsLister
+	url             string
+	namespace       string
+	revisionService string
+	metricKey       string
+	cachedReadyPods readyPods
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, dynamicConfig, cacheDisabledClient)
+func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig, endpointsInformer corev1informers.EndpointsInformer) (*ServiceScraper, error) {
+	if endpointsInformer == nil {
+		return nil, errors.New("Empty interface of EndpointsInformer")
+	}
+	return newServiceScraperWithClient(metric, dynamicConfig, endpointsInformer, cacheDisabledClient)
 }
 
-func newServiceScraperWithClient(metric *Metric, dynamicConfig *DynamicConfig, httpClient *http.Client) (*ServiceScraper, error) {
+func newServiceScraperWithClient(metric *Metric, dynamicConfig *DynamicConfig,
+	endpointsInformer corev1informers.EndpointsInformer, httpClient *http.Client) (*ServiceScraper, error) {
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
@@ -78,24 +96,67 @@ func newServiceScraperWithClient(metric *Metric, dynamicConfig *DynamicConfig, h
 
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
 	return &ServiceScraper{
-		httpClient: httpClient,
-		url:        fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
-		metricKey:  NewMetricKey(metric.Namespace, metric.Name),
+		httpClient:      httpClient,
+		endpointsLister: endpointsInformer.Lister(),
+		url:             fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
+		metricKey:       NewMetricKey(metric.Namespace, metric.Name),
+		namespace:       metric.Namespace,
+		revisionService: reconciler.GetServingK8SServiceNameForObj(revName),
+		cachedReadyPods: readyPods{},
 	}, nil
 }
 
 // Scrape call the destination service then send it
 // to the given stats chanel
 func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
-	// TODO(yanweiguo): Do not scrape if a revision was scaled to 0.
 	logger := logging.FromContext(ctx)
-	stat, err := s.scrapeViaURL()
+
+	readyPods, err := s.readyPods(time.Now())
 	if err != nil {
-		logger.Debugw("Failed to get metrics", zap.Error(err))
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return
 	}
 
+	if readyPods == 0 {
+		logger.Debug("No ready pods found, not to scrape")
+		return
+	}
+
+	stat, err := s.scrapeViaURL()
+	if err != nil {
+		logger.Errorw("Failed to get metrics", zap.Error(err))
+		return
+	}
+
+	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPods)
+
 	s.sendStatMessage(*stat, statsCh)
+}
+
+// readyPods returns the ready IP count in the K8S Endpoints object for a Revision
+// via K8S Informer. This is same as ready Pod count.
+func (s *ServiceScraper) readyPods(now time.Time) (int, error) {
+	if s.cachedReadyPods.time.Add(cacheTimeout).After(now) {
+		return s.cachedReadyPods.count, nil
+	}
+
+	readyPods := 0
+	endpoints, err := s.endpointsLister.Endpoints(s.namespace).Get(s.revisionService)
+	if apierrors.IsNotFound(err) {
+		// Treat not found as zero endpoints, it either hasn't been created
+		// or it has been torn down.
+	} else if err != nil {
+		return 0, err
+	} else {
+		for _, es := range endpoints.Subsets {
+			readyPods += len(es.Addresses)
+		}
+	}
+
+	s.cachedReadyPods.time = now
+	s.cachedReadyPods.count = readyPods
+
+	return readyPods, nil
 }
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {

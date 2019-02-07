@@ -57,6 +57,10 @@ type Stat struct {
 	// Lameduck indicates this Pod has received a shutdown signal.
 	// Deprecated and no longer used by newly created Pods.
 	LameDuck bool
+
+	// Average number of requests currently being handled by all ready pods of a
+	// revision.
+	AverageRevConcurrency float64
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -89,7 +93,7 @@ type totalAggregation struct {
 }
 
 // Aggregates a given stat to the correct pod-aggregation
-func (agg *totalAggregation) aggregate(stat Stat, readyPods float64) {
+func (agg *totalAggregation) aggregate(stat Stat) {
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
 		current = &perPodAggregation{
@@ -98,7 +102,7 @@ func (agg *totalAggregation) aggregate(stat Stat, readyPods float64) {
 		}
 		agg.perPodAggregations[stat.PodName] = current
 	}
-	current.aggregate(stat, readyPods)
+	current.aggregate(stat)
 	if current.isActivator {
 		agg.activatorsContained[stat.PodName] = struct{}{}
 	}
@@ -144,9 +148,9 @@ type perPodAggregation struct {
 }
 
 // Aggregates the given concurrency
-func (agg *perPodAggregation) aggregate(stat Stat, readyPods float64) {
+func (agg *perPodAggregation) aggregate(stat Stat) {
 	agg.accumulatedPodConcurrency += stat.AverageConcurrentRequests
-	agg.accumulatedRevConcurrency += stat.AverageConcurrentRequests * readyPods
+	agg.accumulatedRevConcurrency += stat.AverageRevConcurrency
 	agg.probeCount++
 	if agg.latestStatTime == nil || agg.latestStatTime.Before(*stat.Time) {
 		agg.latestStatTime = stat.Time
@@ -228,13 +232,6 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		return
 	}
 
-	// Set ready pods count at the second of stat timestamp to cache.
-	if _, err := a.readyPods(*stat.Time); err != nil {
-		logger := logging.FromContext(ctx)
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return
-	}
-
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -249,7 +246,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	readyPods, err := a.readyPods(now)
+	readyPods, err := a.readyPods()
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
@@ -346,20 +343,10 @@ func (a *Autoscaler) aggregateData(
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
-			readyPods, err := a.readyPods(*stat.Time)
-			if err != nil {
-				logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-				continue
-			}
-			panicData.aggregate(stat, readyPods)
+			panicData.aggregate(stat)
 		}
 		if instant.Add(stableWindow).After(now) {
-			readyPods, err := a.readyPods(*stat.Time)
-			if err != nil {
-				logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-				continue
-			}
-			stableData.aggregate(stat, readyPods)
+			stableData.aggregate(stat)
 
 			// If there's no last stat for this pod, set it
 			if _, ok := lastStat[stat.PodName]; !ok {
@@ -388,7 +375,7 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 
 // readyPods returns the ready IP count in the K8S Endpoints object for a Revision
 // via K8S Informer. This is same as ready Pod count.
-func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
+func (a *Autoscaler) readyPods() (float64, error) {
 	readyPods := 0
 	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
 	if apierrors.IsNotFound(err) {
@@ -402,6 +389,7 @@ func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
 		}
 	}
 
+	// Use 1 as minimum for multiplication and division.
 	return math.Max(1, float64(readyPods)), nil
 }
 
