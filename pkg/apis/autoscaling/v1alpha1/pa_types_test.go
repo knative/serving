@@ -381,6 +381,70 @@ func TestTargetAnnotation(t *testing.T) {
 	}
 }
 
+func TestScaleBounds(t *testing.T) {
+	cases := []struct {
+		name    string
+		pa      *PodAutoscaler
+		wantMin int32
+		wantMax int32
+	}{{
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+			autoscaling.MaxScaleAnnotationKey: "100",
+		}),
+		wantMin: 1,
+		wantMax: 100,
+	}, {
+		name:    "absent",
+		pa:      pa(map[string]string{}),
+		wantMin: 0,
+		wantMax: 0,
+	}, {
+		name: "only min",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+		}),
+		wantMin: 1,
+		wantMax: 0,
+	}, {
+		name: "only max",
+		pa: pa(map[string]string{
+			autoscaling.MaxScaleAnnotationKey: "1",
+		}),
+		wantMin: 0,
+		wantMax: 1,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "ham",
+			autoscaling.MaxScaleAnnotationKey: "sandwich",
+		}),
+		wantMin: 0,
+		wantMax: 0,
+	}, {
+		name: "too small",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "-1",
+			autoscaling.MaxScaleAnnotationKey: "-1",
+		}),
+		wantMin: 0,
+		wantMax: 0,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			min, max := tc.pa.ScaleBounds()
+			if min != tc.wantMin {
+				t.Errorf("%q expected min: %v got: %v", tc.name, tc.wantMin, min)
+			}
+			if max != tc.wantMax {
+				t.Errorf("%q expected max: %v got: %v", tc.name, tc.wantMax, max)
+			}
+		})
+	}
+}
+
 func pa(annotations map[string]string) *PodAutoscaler {
 	p := &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{

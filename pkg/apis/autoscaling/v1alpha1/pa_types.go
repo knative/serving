@@ -141,6 +141,9 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation
 		i, _ := strconv.ParseInt(s, 10, 32)
+		if i < 0 {
+			return 0
+		}
 		return int32(i)
 	}
 	return 0
