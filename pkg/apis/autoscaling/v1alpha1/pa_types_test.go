@@ -445,6 +445,30 @@ func TestScaleBounds(t *testing.T) {
 	}
 }
 
+func TestMarkResourceNotOwned(t *testing.T) {
+	pa := pa(map[string]string{})
+	pa.Status.MarkResourceNotOwned("doesn't", "matter")
+	active := pa.Status.GetCondition("Active")
+	if active.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceNotOwned expected active.Status: False got: %v", active.Status)
+	}
+	if active.Reason != "NotOwned" {
+		t.Errorf("TestMarkResourceNotOwned expected active.Reason: NotOwned got: %v", active.Reason)
+	}
+}
+
+func TestMarkResourceFailedCreation(t *testing.T) {
+	pa := pa(map[string]string{})
+	pa.Status.MarkResourceFailedCreation("doesn't", "matter")
+	active := pa.Status.GetCondition("Active")
+	if active.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
+	}
+	if active.Reason != "FailedCreate" {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+	}
+}
+
 func pa(annotations map[string]string) *PodAutoscaler {
 	p := &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
