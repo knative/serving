@@ -17,12 +17,14 @@ limitations under the License.
 package autoscaler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -39,7 +41,7 @@ const (
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint then sends it as a
 	// StatMessage to the given channel.
-	Scrape(statsCh chan<- *StatMessage)
+	Scrape(ctx context.Context, statsCh chan<- *StatMessage)
 }
 
 // cacheDisabledClient is a http client with cache disabled. It is shared by
@@ -60,16 +62,15 @@ type ServiceScraper struct {
 	httpClient *http.Client
 	url        string
 	metricKey  string
-	logger     *zap.SugaredLogger
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, logger *zap.SugaredLogger) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, logger, cacheDisabledClient)
+func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(metric, dynamicConfig, cacheDisabledClient)
 }
 
-func newServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, httpClient *http.Client) (*ServiceScraper, error) {
+func newServiceScraperWithClient(metric *Metric, dynamicConfig *DynamicConfig, httpClient *http.Client) (*ServiceScraper, error) {
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
@@ -80,16 +81,17 @@ func newServiceScraperWithClient(metric *Metric, logger *zap.SugaredLogger, http
 		httpClient: httpClient,
 		url:        fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:  NewMetricKey(metric.Namespace, metric.Name),
-		logger:     logger,
 	}, nil
 }
 
 // Scrape call the destination service then send it
 // to the given stats chanel
-func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
+func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
+	// TODO(yanweiguo): Do not scrape if a revision was scaled to 0.
+	logger := logging.FromContext(ctx)
 	stat, err := s.scrapeViaURL()
 	if err != nil {
-		s.logger.Errorw("Failed to get metrics", zap.Error(err))
+		logger.Debugw("Failed to get metrics", zap.Error(err))
 		return
 	}
 

@@ -121,8 +121,10 @@ func (agg *totalAggregation) observedConcurrency(now time.Time) (float64, float6
 			samplePodCount++
 		}
 	}
-	accumulatedPodConcurrency = accumulatedPodConcurrency / float64(samplePodCount)
-	accumulatedRevConcurrency = accumulatedRevConcurrency / float64(samplePodCount)
+	if samplePodCount != 0 {
+		accumulatedPodConcurrency = accumulatedPodConcurrency / float64(samplePodCount)
+		accumulatedRevConcurrency = accumulatedRevConcurrency / float64(samplePodCount)
+	}
 
 	if accumulatedPodConcurrency < approximateZero {
 		// Activator is the only pod reporting stats.
@@ -238,7 +240,6 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		return
 	}
 
-	a.logger.Infof("podName=%v concurrency=%0.3f", stat.PodName, stat.AverageConcurrentRequests)
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -351,7 +352,7 @@ func (a *Autoscaler) aggregateData(
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
-			readyPods, err := a.readyPods(now)
+			readyPods, err := a.readyPods(*stat.Time)
 			if err != nil {
 				logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 				continue
@@ -359,7 +360,7 @@ func (a *Autoscaler) aggregateData(
 			panicData.aggregate(stat, readyPods)
 		}
 		if instant.Add(stableWindow).After(now) {
-			readyPods, err := a.readyPods(now)
+			readyPods, err := a.readyPods(*stat.Time)
 			if err != nil {
 				logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 				continue

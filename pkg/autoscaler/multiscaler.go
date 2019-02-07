@@ -38,7 +38,7 @@ const (
 
 	// sampleSize is the times to scrape metrics per second.
 	// TODO(yanweiguo): tuning the sample size
-	sampleSize = 5
+	sampleSize = 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -75,6 +75,9 @@ type UniScaler interface {
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
+
+// StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
+type StatsScraperFactory func(*Metric, *DynamicConfig) (StatsScraper, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -117,7 +120,8 @@ type MultiScaler struct {
 
 	dynConfig *DynamicConfig
 
-	uniScalerFactory UniScalerFactory
+	uniScalerFactory    UniScalerFactory
+	statsScraperFactory StatsScraperFactory
 
 	logger *zap.SugaredLogger
 
@@ -131,15 +135,17 @@ func NewMultiScaler(
 	stopCh <-chan struct{},
 	statsCh chan<- *StatMessage,
 	uniScalerFactory UniScalerFactory,
+	statsScraperFactory StatsScraperFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:          make(map[string]*scalerRunner),
-		scalersStopCh:    stopCh,
-		statsCh:          statsCh,
-		dynConfig:        dynConfig,
-		uniScalerFactory: uniScalerFactory,
-		logger:           logger,
+		scalers:             make(map[string]*scalerRunner),
+		scalersStopCh:       stopCh,
+		statsCh:             statsCh,
+		dynConfig:           dynConfig,
+		uniScalerFactory:    uniScalerFactory,
+		statsScraperFactory: statsScraperFactory,
+		logger:              logger,
 	}
 }
 
@@ -262,7 +268,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		}
 	}()
 
-	if scraper, err := NewServiceScraper(metric, m.logger); err == nil {
+	if scraper, err := m.statsScraperFactory(metric, m.dynConfig); err == nil {
 		scraperTicker := time.NewTicker(time.Second / sampleSize)
 		go func() {
 			for {
@@ -274,7 +280,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 					scraperTicker.Stop()
 					return
 				case <-scraperTicker.C:
-					scraper.Scrape(m.statsCh)
+					scraper.Scrape(ctx, m.statsCh)
 				}
 			}
 		}()
