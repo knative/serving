@@ -32,17 +32,17 @@ import (
 type Certificate struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec is the desired state of the Certificate.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 	// +optional
 	Spec CertificateSpec `json:"spec,omitempty"`
 
 	// Status is the current state of the Certificate.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 	// +optional
 	Status CertificateStatus `json:"status,omitempty"`
 }
@@ -53,7 +53,7 @@ type Certificate struct {
 type CertificateList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 
@@ -63,7 +63,6 @@ type CertificateList struct {
 
 // CertificateSpec defines the desired state of Certificate.
 type CertificateSpec struct {
-
 	// DNSNames is a list of DNS names the Certificate could support.
 	DNSNames []string `json:"dnsNames"`
 
@@ -73,7 +72,6 @@ type CertificateSpec struct {
 
 // CertificateStatus defines the observed state of Certificate.
 type CertificateStatus struct {
-
 	// The detailed information related to the provisioned certificate.
 	// +optional
 	CertificateInfo CertificateInfo `json:"certificateInfo,omitempty"`
@@ -119,7 +117,6 @@ const (
 // CertificateInfo defines the detailed information related to the provisioned
 // certificate.
 type CertificateInfo struct {
-
 	// The DNS Names that the certificate actually supported.
 	// SupportedDNSNames could be the super set of the DNSNames in
 	// the CertificateSpec.
