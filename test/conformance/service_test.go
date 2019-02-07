@@ -369,7 +369,7 @@ func TestReleaseService(t *testing.T) {
 	revisions := []string{names.Revision}
 
 	// 1. One Revision Specified, current == latest.
-	logger.Info("Updating Service to ReleaseType using lastCreatedRevision")
+	logger.Info("1. Updating Service to ReleaseType using lastCreatedRevision")
 	objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 0)
 	if err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
