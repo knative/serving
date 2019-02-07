@@ -178,11 +178,11 @@ func TestObservedConcurrency(t *testing.T) {
 
 	// Collect all responses, parse their bodies and create the resulting events.
 	var events []*event
-	var failedEvents float32
+	var failedRequests float32
 	for i := int32(0); i < requestsMade; i++ {
 		response := <-responseChannel
 		if response == nil {
-			failedEvents++
+			failedRequests++
 			continue
 		}
 
@@ -190,7 +190,7 @@ func TestObservedConcurrency(t *testing.T) {
 		start, end, err := parseResponse(body)
 		if err != nil {
 			logger.Error("Failed to parse body, %v", err)
-			failedEvents++
+			failedRequests++
 		} else {
 			events = append(events, start, end)
 		}
@@ -211,7 +211,7 @@ func TestObservedConcurrency(t *testing.T) {
 			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), tName))
 		}
 	}
-	tc = append(tc, CreatePerfTestCase(failedEvents, "failed requests", tName))
+	tc = append(tc, CreatePerfTestCase(failedRequests, "failed requests", tName))
 
 	// TODO: For future, recreate the CreateTestgridXML function so we don't want to repeat the code shown in next 2 lines
 	ts := junit.TestSuites{}
