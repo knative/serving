@@ -19,7 +19,9 @@ limitations under the License.
 package conformance
 
 import (
+	"net"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -55,14 +57,15 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 	expectedHeaders := map[string]*regexp.Regexp{
 		// We expect the protocol to be http for our test image.
-		"x-forwarded-proto": regexp.MustCompile("http"),
-		// We expect the value to be a list of at least one comma separated IP addresses.
-		"x-forwarded-for": regexp.MustCompile("(\\d{1,3}\\.){3}\\d{1,3}(, (\\d{1,3}\\.){3}\\d{1,3})*"),
+		"x-forwarded-proto": regexp.MustCompile("https?"),
+		// We expect the value to be a list of at least one comma separated IP addresses (IPv4 or IPv6).
+		// We do additional validation of the IP addresses below.
+		"x-forwarded-for": regexp.MustCompile("[0-9a-f.:]*(, [0-9a-f.:]*)*"),
 
 		// Trace Headers
 		// See https://github.com/openzipkin/b3-propagation#overall-process
 		// We use the multiple header variant for tracing. We do not validate the single header variant.
-		// We expect the value to be a 64-bit hex string
+		// We expect the value to be a 64-bit hex stringgg
 		"x-b3-spanid": regexp.MustCompile("[0-9a-f]{16}"),
 		// We expect the value to be a 64-bit or 128-bit hex string
 		"x-b3-traceid": regexp.MustCompile("[0-9a-f]{16}|[0-9a-f]{32}"),
@@ -86,6 +89,17 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		}
 		if !regex.MatchString(hv) {
 			t.Errorf("%s = %s; want: %s", header, hv, regex.String())
+		}
+
+		// Additional validation for x-forwarded-for
+		if header == "x-forwarded-for" {
+			ips := strings.Split(hv, ",")
+			for _, ip := range ips {
+				ok := net.ParseIP(strings.TrimSpace(ip))
+				if ok == nil {
+					t.Errorf("Header %s has invalid IP: %s", header, ip)
+				}
+			}
 		}
 	}
 }
