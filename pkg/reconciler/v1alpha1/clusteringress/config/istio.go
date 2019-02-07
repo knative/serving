@@ -21,9 +21,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
-        "github.com/knative/serving/pkg/utils"
 )
 
 const (
@@ -92,7 +92,7 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-        
+
 	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
 	if err != nil {
 		return nil, err
