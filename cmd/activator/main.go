@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/knative/serving/pkg/http/health"
 	"log"
 	"net/http"
 	"time"
