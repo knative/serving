@@ -321,7 +321,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
-	logger.Infof("desiredPodCount=%v observedPanicConcurrencyPerPod=%0.3f observedStableConcurrencyPerPod=%0.3f", desiredPodCount, observedPanicConcurrencyPerPod, observedStableConcurrencyPerPod)
+	logger.Infof("desiredPodCount=%v observedPanicConcurrencyPerPod=%0.3f observedStableConcurrency=%0.3f", desiredPodCount, observedPanicConcurrencyPerPod, observedStableConcurrency)
 	return desiredPodCount, true
 }
 

@@ -23,10 +23,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 )
 
 const (
@@ -48,9 +50,8 @@ queue_operations_per_second{destination_namespace="test-namespace",destination_r
 )
 
 func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
-	metric := getTestMetric()
 	client := newTestClient(nil, nil)
-	if scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
+	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	} else {
 		if scraper.url != testURL {
@@ -62,11 +63,28 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
+func TestNewServiceScraperWithClient_ReturnErrorIfInformerIsEmpty(t *testing.T) {
+	metric := getTestMetric()
+	dynConfig := &DynamicConfig{}
+	client := newTestClient(nil, nil)
+	var endpointsInformer corev1informers.EndpointsInformer
+	if _, err := newServiceScraperWithClient(&metric, dynConfig, endpointsInformer, client); err != nil {
+		got := err.Error()
+		want := "Empty interface of EndpointsInformer"
+		if got != want {
+			t.Errorf("Got error message: %v. Want: %v", got, want)
+		}
+	} else {
+		t.Errorf("Expected error from CreateNewServiceScraper, got nil")
+	}
+}
+
 func TestNewServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *testing.T) {
 	metric := getTestMetric()
+	dynConfig := &DynamicConfig{}
 	metric.Labels = map[string]string{}
 	client := newTestClient(nil, nil)
-	if _, err := newServiceScraperWithClient(&metric, TestLogger(t), client); err != nil {
+	if _, err := newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), client); err != nil {
 		got := err.Error()
 		want := fmt.Sprintf("no Revision label found for Metric %s", testRevision)
 		if got != want {
@@ -78,9 +96,8 @@ func TestNewServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *test
 }
 
 func TestScrapeViaURL_HappyCase(t *testing.T) {
-	metric := getTestMetric()
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
-	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	}
@@ -132,10 +149,9 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		expectedErr:     "Could not find value for queue_operations_per_second in response",
 	}}
 
-	metric := getTestMetric()
 	for _, test := range testCases {
 		client := newTestClient(getHTTPResponse(test.responseCode, test.responseContext), test.responseErr)
-		scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
+		scraper, err := serviceScraperForTest(client)
 		if err != nil {
 			t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 		}
@@ -149,28 +165,61 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestSendStatMessage(t *testing.T) {
-	metric := getTestMetric()
+func TestScrape_HappyCase(t *testing.T) {
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
-	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
 	}
 
-	wantConcurrency := 2.1
-	stat := Stat{AverageConcurrentRequests: wantConcurrency}
+	// Make an Endpoints with 2 pods.
+	createEndpoints(addIps(makeEndpoints(), 2))
+
 	statsCh := make(chan *StatMessage, 1)
 	defer close(statsCh)
-	scraper.sendStatMessage(stat, statsCh)
+	scraper.Scrape(TestContextWithLogger(t), statsCh)
 
 	got := <-statsCh
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
-	if got.Stat.AverageConcurrentRequests != wantConcurrency {
+	if got.Stat.AverageConcurrentRequests != 2.0 {
 		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, wantConcurrency)
+			got.Stat.AverageConcurrentRequests, 2.0)
 	}
+	// 2 pods times 2.0
+	if got.Stat.AverageRevConcurrency != 4.0 {
+		t.Errorf("StatMessage.Stat.AverageRevConcurrency=%v, want %v",
+			got.Stat.AverageRevConcurrency, 4.0)
+	}
+}
+
+func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
+	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
+	}
+
+	// Override the Endpoints with 0 pods.
+	createEndpoints(addIps(makeEndpoints(), 0))
+
+	statsCh := make(chan *StatMessage, 1)
+	defer close(statsCh)
+	scraper.Scrape(TestContextWithLogger(t), statsCh)
+
+	select {
+	case <-statsCh:
+		t.Error("Received unexpected StatMessage.")
+	case <-time.After(300 * time.Millisecond):
+		// We got nothing!
+	}
+}
+
+func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
+	metric := getTestMetric()
+	dynConfig := &DynamicConfig{}
+	return newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), httpClient)
 }
 
 func getTestMetric() Metric {

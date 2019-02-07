@@ -87,11 +87,17 @@ func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig, endpointsIn
 	return newServiceScraperWithClient(metric, dynamicConfig, endpointsInformer, cacheDisabledClient)
 }
 
-func newServiceScraperWithClient(metric *Metric, dynamicConfig *DynamicConfig,
-	endpointsInformer corev1informers.EndpointsInformer, httpClient *http.Client) (*ServiceScraper, error) {
+func newServiceScraperWithClient(
+	metric *Metric,
+	dynamicConfig *DynamicConfig,
+	endpointsInformer corev1informers.EndpointsInformer,
+	httpClient *http.Client) (*ServiceScraper, error) {
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
+	}
+	if endpointsInformer == nil {
+		return nil, errors.New("Empty interface of EndpointsInformer")
 	}
 
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
@@ -118,7 +124,7 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	}
 
 	if readyPods == 0 {
-		logger.Debug("No ready pods found, not to scrape")
+		logger.Debug("No ready pods found, not to scrape.")
 		return
 	}
 
@@ -128,6 +134,8 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 		return
 	}
 
+	// Assume traffics are route to pods evenly. A particular pod can stand for
+	// other pods, i.e. other pods have similar concurrency.
 	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPods)
 
 	s.sendStatMessage(*stat, statsCh)

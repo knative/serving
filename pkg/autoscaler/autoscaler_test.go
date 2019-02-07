@@ -276,22 +276,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
-func TestAutoscaler_NoScaleOnLessThanOnePod(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			durationSeconds:  10, // 10 seconds of 2 pods
-			podCount:         2,
-		})
-	now = now.Add(50 * time.Second)
-	a.expectScale(t, now, 0, false)
-}
-
-func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
+func TestAutoscaler_PodsNumberChangedDuringScalingWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
@@ -302,8 +287,21 @@ func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
 			durationSeconds:  30,
 			podCount:         10,
 		})
-	now = now.Add(30 * time.Second)
-	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
+	now = a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 10,
+			endConcurrency:   10,
+			durationSeconds:  30,
+			podCount:         20,
+		})
+	// 10 pods report 10*10 revision concurrency for first half time and 10*20 revision
+	// concurrency for second half time.
+	// Other 10 pods do not exist for first harf time and report 10*20 revision concurrency
+	// for second half time
+	// ( 10*(10*10 + 10*20)/2 + 10*10*20 ) / 20 = 17.5
+	a.expectScale(t, now, 18, true)
 }
 
 func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
@@ -587,6 +585,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
+				AverageRevConcurrency:     float64(point) * float64(s.podCount),
 			}
 			a.Record(TestContextWithLogger(test), stat)
 		}

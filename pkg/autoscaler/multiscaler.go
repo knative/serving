@@ -38,7 +38,7 @@ const (
 
 	// sampleSize is the times to scrape metrics per second.
 	// TODO(yanweiguo): tuning the sample size
-	sampleSize = 3
+	SampleSize = 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -269,7 +269,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 	}()
 
 	if scraper, err := m.statsScraperFactory(metric, m.dynConfig); err == nil {
-		scraperTicker := time.NewTicker(time.Second / sampleSize)
+		scraperTicker := time.NewTicker(time.Second / SampleSize)
 		go func() {
 			for {
 				select {

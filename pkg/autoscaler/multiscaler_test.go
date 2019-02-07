@@ -36,12 +36,17 @@ const (
 	testKPAKey    = "test-namespace/test-revision"
 )
 
+var testStatMessage = autoscaler.StatMessage{
+	Key: testKPAKey,
+}
+
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
@@ -95,6 +100,13 @@ func TestMultiScalerScaling(t *testing.T) {
 		// We got nothing!
 	}
 
+	select {
+	case <-statCh:
+		// We got the StatMessage!
+	case <-time.After(time.Second / autoscaler.SampleSize):
+		t.Fatalf("Did not get expected StatMessage")
+	}
+
 	err = ms.Delete(ctx, metric.Namespace, metric.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
@@ -111,11 +123,12 @@ func TestMultiScalerScaling(t *testing.T) {
 
 func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
@@ -176,11 +189,12 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: false,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 
@@ -228,11 +242,12 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond * 1,
 		EnableScaleToZero: true,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 
@@ -280,10 +295,11 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval: time.Millisecond * 1,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 
@@ -323,11 +339,12 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 
 func TestMultiScalerUpdate(t *testing.T) {
 	ctx := context.TODO()
-	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
 		TickInterval:      time.Millisecond,
 		EnableScaleToZero: false,
 	})
 	defer close(stopCh)
+	defer close(statCh)
 
 	metric := newMetric()
 	metric.Spec.TargetConcurrency = 1.0
@@ -360,16 +377,17 @@ func TestMultiScalerUpdate(t *testing.T) {
 	}
 }
 
-func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, *fakeUniScaler) {
+func createMultiScaler(t *testing.T, config *autoscaler.Config) (*autoscaler.MultiScaler, chan<- struct{}, chan *autoscaler.StatMessage, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
+	statsScraper := &fakeStatsScraper{}
 
 	stopChan := make(chan struct{})
-	statsChan := make(chan *autoscaler.StatMessage)
+	statChan := make(chan *autoscaler.StatMessage)
 	ms := autoscaler.NewMultiScaler(autoscaler.NewDynamicConfig(config, logger),
-		stopChan, statsChan, uniscaler.fakeUniScalerFactory, logger)
+		stopChan, statChan, uniscaler.fakeUniScalerFactory, statsScraper.fakeStatsScraperFactory, logger)
 
-	return ms, stopChan, uniscaler
+	return ms, stopChan, statChan, uniscaler
 }
 
 type fakeUniScaler struct {
@@ -434,4 +452,16 @@ func newMetric() *autoscaler.Metric {
 		},
 		Status: autoscaler.MetricStatus{},
 	}
+}
+
+type fakeStatsScraper struct {
+}
+
+func (s *fakeStatsScraper) fakeStatsScraperFactory(*autoscaler.Metric, *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
+	return s, nil
+}
+
+// Scrape always sends the same test StatMessage.
+func (s *fakeStatsScraper) Scrape(ctx context.Context, statsCh chan<- *autoscaler.StatMessage) {
+	statsCh <- &testStatMessage
 }

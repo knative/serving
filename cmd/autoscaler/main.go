@@ -140,7 +140,8 @@ func main() {
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactory, logger)
+	multiScaler := autoscaler.NewMultiScaler(
+		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
@@ -236,8 +237,10 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 	}
 }
 
-func statsScraperFactory(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
-	return autoscaler.NewServiceScraper(metric, config)
+func statsScraperFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
+	return func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(metric, config, endpointsInformer)
+	}
 }
 
 func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
