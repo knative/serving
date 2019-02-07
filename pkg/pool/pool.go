@@ -28,8 +28,12 @@ type impl struct {
 
 	// Ensure that we Wait exactly once and memoize
 	// the result.
-	once   sync.Once
-	result error
+	waitOnce sync.Once
+
+	// We're only interested in the first result so
+	// only set it once.
+	resultOnce sync.Once
+	result     error
 }
 
 // impl implements Interface
@@ -49,7 +53,6 @@ func New(workers int) Interface {
 func NewWithCapacity(workers, capacity int) Interface {
 	i := &impl{
 		workCh: make(chan func() error, capacity),
-		errCh:  make(chan error, capacity),
 		doneCh: make(chan interface{}),
 	}
 
@@ -63,7 +66,9 @@ func NewWithCapacity(workers, capacity int) Interface {
 				func() {
 					defer i.wg.Done()
 					if err := work(); err != nil {
-						i.errCh <- err
+						i.resultOnce.Do(func() {
+							i.result = err
+						})
 					}
 				}()
 			}
@@ -90,37 +95,15 @@ func (i *impl) Go(w func() error) {
 
 // Wait implements Interface.
 func (i *impl) Wait() error {
-	i.once.Do(func() {
+	i.waitOnce.Do(func() {
 		// Stop accepting new work.
 		close(i.doneCh)
 
-		// Wait until outstanding work has completed and close the
-		// error channel.  The logic below will drain the error
-		// channel in parallel, looking for the close before returning
-		// the first error seen.
-		go func() {
-			// Wait for queued work to complete.
-			i.wg.Wait()
+		// Wait for queued work to complete.
+		i.wg.Wait()
 
-			// Now we know there are definitely no new items arriving.
-			close(i.workCh)
-
-			// Close the channel, so that the receive below
-			// completes in the non-error case.
-			close(i.errCh)
-		}()
-
-		for {
-			// When we drain all of the errors and see the error
-			// channel close, then return the first error we saw.
-			if err, ok := <-i.errCh; !ok {
-				return
-			} else if i.result == nil {
-				// The first time we see an error, squirrel it
-				// away to return when the channel closes.
-				i.result = err
-			}
-		}
+		// Now we know there are definitely no new items arriving.
+		close(i.workCh)
 	})
 
 	return i.result
