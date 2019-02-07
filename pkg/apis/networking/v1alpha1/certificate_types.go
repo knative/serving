@@ -49,7 +49,7 @@ type Certificate struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CertificateList is a collection of Certificate.
+// CertificateList is a collection of `Certificate`.
 type CertificateList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -57,7 +57,7 @@ type CertificateList struct {
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	// Items is the list of Certificate.
+	// Items is the list of `Certificate`.
 	Items []Certificate `json:"items"`
 }
 
