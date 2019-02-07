@@ -31,7 +31,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 	logger := logging.FromContext(ctx)
 
 	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
-	if mt, ok := pa.MetricTarget(); ok {
+	if mt, ok := pa.Target(); ok {
 		annotationTarget := float64(mt)
 		if target != 0 && annotationTarget > target {
 			// If the annotation target would cause the autoscaler to maintain
