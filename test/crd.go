@@ -187,7 +187,7 @@ func ReleaseLatestService(namespace string, names ResourceNames, options *Option
 		},
 		Spec: v1alpha1.ServiceSpec{
 			Release: &v1alpha1.ReleaseType{
-				Revisions: []string{v1alpha1.ReleaseLatestRevisionKeyword},
+				Revisions:     []string{v1alpha1.ReleaseLatestRevisionKeyword},
 				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
 			},
 		},

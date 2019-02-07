@@ -201,7 +201,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 	// TODO: For future, recreate the CreateTestgridXML function so we don't want to repeat the code shown in next 2 lines
 	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
 
 	if err = testgrid.CreateXMLOutput(&ts, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)

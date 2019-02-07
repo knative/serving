@@ -43,8 +43,8 @@ func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error
 	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
 		// It is ok if registries are missing
 		nc.RegistriesSkippingTagResolving = map[string]struct{}{
-			"ko.local":  struct{}{},
-			"dev.local": struct{}{},
+			"ko.local":  {},
+			"dev.local": {},
 		}
 	} else {
 		nc.RegistriesSkippingTagResolving = toStringSet(registries, ",")
