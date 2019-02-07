@@ -136,10 +136,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	if err := t.updateCapacity(revision, breaker, size); err != nil {
-		return err
-	}
-	return nil
+	return t.updateCapacity(revision, breaker, size)
 }
 
 // UpdateEndpoints is a handler function to be used by the Endpoints informer.
@@ -151,12 +148,7 @@ func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
-		_, err := throttler.getRevision(revID)
-		if err != nil {
-			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
-			return
-		}
-		if err = throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
+		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
 			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
 		}
 	}
