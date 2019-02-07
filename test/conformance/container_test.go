@@ -37,7 +37,7 @@ func withLifecycle(s *v1alpha1.Service) {
 	}
 }
 
-// TestShouldNotHaveHooks validates that we recieve an error back when attempting to create a Service that
+// TestShouldNotHaveHooks validates that we receive an error back when attempting to create a Service that
 // specifies lifecycle hooks.
 func TestShouldNotHaveHooks(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
