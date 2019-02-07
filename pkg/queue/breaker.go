@@ -106,6 +106,11 @@ func (b *Breaker) UpdateConcurrency(size int32) error {
 	return b.sem.UpdateCapacity(size)
 }
 
+// Capacity returns the number of allow in-flight requests on this breaker.
+func (b *Breaker) Capacity() int32 {
+	return b.sem.Capacity()
+}
+
 // NewSemaphore creates a semaphore with the desired maximal and initial capacity.
 // Maximal capacity is the size of the buffered channel, it defines maximum number of tokens
 // in the rotation. Attempting to add more capacity then the max will result in error.
@@ -173,7 +178,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if s.effectiveCapacity() == size {
+	if s.Capacity() == size {
 		return nil
 	}
 
@@ -183,7 +188,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 
 	// Add capacity until we reach size, potentially consuming
 	// outstanding reducers first.
-	for s.effectiveCapacity() < size {
+	for s.Capacity() < size {
 		if s.reducers > 0 {
 			s.reducers--
 		} else {
@@ -202,7 +207,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	// Reduce capacity until we reach size, potentially adding
 	// new reducers if the queue channel is empty because of
 	// requests in-flight.
-	for s.effectiveCapacity() > size {
+	for s.Capacity() > size {
 		select {
 		case <-s.queue:
 			s.capacity--
@@ -214,8 +219,8 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	return nil
 }
 
-// effectiveCapacity is the capacity after taking reducers into
+// Capacity is the effective capacity after taking reducers into
 // account.
-func (s *Semaphore) effectiveCapacity() int32 {
+func (s *Semaphore) Capacity() int32 {
 	return s.capacity - s.reducers
 }

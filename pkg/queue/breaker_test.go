@@ -162,10 +162,10 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	b.UpdateConcurrency(int32(1))
-	assertEqual(int32(1), b.sem.capacity, t)
+	assertEqual(int32(1), b.Capacity(), t)
 
 	b.UpdateConcurrency(int32(0))
-	assertEqual(int32(0), b.sem.capacity, t)
+	assertEqual(int32(0), b.Capacity(), t)
 
 	err := b.UpdateConcurrency(int32(-2))
 	assertEqual(ErrReduceCapacity, err, t)
@@ -236,20 +236,20 @@ func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
 	sem.Acquire()
 	sem.UpdateCapacity(int32(0))
 	sem.Release()
-	assertEqual(wantAfterFirstRelease, sem.capacity, t)
+	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
 	assertEqual(wantAfterFirstRelease, sem.reducers, t)
 	sem.Release()
-	assertEqual(wantAfterSecondRelease, sem.capacity, t)
+	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
 	assertEqual(wantAfterSecondRelease, sem.reducers, t)
 }
 
 func TestSemaphore_AddCapacity(t *testing.T) {
 	initialCapacity := int32(1)
 	sem := NewSemaphore(3, initialCapacity)
-	assertEqual(int32(1), sem.capacity, t)
+	assertEqual(int32(1), sem.Capacity(), t)
 	sem.Acquire()
 	sem.UpdateCapacity(initialCapacity + 2)
-	assertEqual(int32(3), sem.capacity, t)
+	assertEqual(int32(3), sem.Capacity(), t)
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
