@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"github.com/knative/pkg/logging"
 	"go.opencensus.io/stats/view"
@@ -59,9 +58,9 @@ type BaseLogger struct {
 // ExportView will emit the view data vd (i.e. the stats that have been
 // recorded) to the zap logger.
 func (e *zapMetricExporter) ExportView(vd *view.Data) {
-	// We are not currently consuming these metrics, so for now we'll juse
+	// We are not curretnly consuming these metrics, so for now we'll juse
 	// dump the view.Data object as is.
-	e.logger.Debug(spew.Sdump(vd))
+	e.logger.Info(vd)
 }
 
 // ExportSpan will emit the trace data to the zap logger.
