@@ -260,13 +260,6 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		return
 	}
 
-	// Set ready pods count at the second of stat timestamp to cache.
-	if _, err := a.readyPods(*stat.Time); err != nil {
-		logger := logging.FromContext(ctx)
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return
-	}
-
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -281,7 +274,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	readyPods, err := a.readyPods(now)
+	readyPods, err := a.readyPods()
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
@@ -411,7 +404,7 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) f
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
 }
 
-func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
+func (a *Autoscaler) readyPods() (float64, error) {
 	readyPods := 0
 	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
 	if apierrors.IsNotFound(err) {
@@ -425,6 +418,7 @@ func (a *Autoscaler) readyPods(now time.Time) (float64, error) {
 		}
 	}
 
+	// Use 1 as minimum for multiplication and division.
 	return math.Max(1, float64(readyPods)), nil
 }
 
