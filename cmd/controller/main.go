@@ -31,6 +31,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
+	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
@@ -45,6 +47,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/certificate"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
@@ -114,6 +117,11 @@ func main() {
 		logger.Fatalw("Error building caching clientset", zap.Error(err))
 	}
 
+	certManagerClient, err := certmanagerclientset.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building cert manager clientset: %v", err)
+	}
+
 	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 		logger.Fatalf("Version check failed: %v", err)
 	}
@@ -137,6 +145,7 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
+	cmCertInformerFactory := certmanagerinformers.NewSharedInformerFactory(certManagerClient, opt.ResyncPeriod)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
@@ -151,6 +160,8 @@ func main() {
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
+	knCertInformer := servingInformerFactory.Networking().V1alpha1().Certificates()
+	cmCertInformer := cmCertInformerFactory.Certmanager().V1alpha1().Certificates()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
@@ -197,6 +208,12 @@ func main() {
 			virtualServiceInformer,
 			gatewayInformer,
 		),
+		certificate.NewController(
+			opt,
+			knCertInformer,
+			cmCertInformer,
+			certManagerClient,
+		),
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
@@ -209,6 +226,7 @@ func main() {
 	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 	cachingInformerFactory.Start(stopCh)
+	cmCertInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("failed to start configuration manager", zap.Error(err))
 	}
@@ -228,6 +246,8 @@ func main() {
 		endpointsInformer.Informer().HasSynced,
 		configMapInformer.Informer().HasSynced,
 		virtualServiceInformer.Informer().HasSynced,
+		knCertInformer.Informer().HasSynced,
+		cmCertInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("Failed to wait for cache at index %d to sync", i)
