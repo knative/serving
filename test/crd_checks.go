@@ -210,5 +210,5 @@ func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 
 // DeploymentScaledToZeroFunc returns a func that evaluates if a deployment has scaled to 0 pods.
 func DeploymentScaledToZeroFunc(d *apiv1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas == 0, nil
+	return d.Status.ReadyReplicas == 0, nil
 }

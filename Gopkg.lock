@@ -283,7 +283,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:123b7cdc7237276bd6509f75b073f0d534d180e8449628e59be5eab26cdbecef"
+  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -299,7 +299,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "15b751c1c044fd2c31a13c46d9e97600a88eb8cb"
+  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
 
 [[projects]]
   branch = "master"
@@ -1276,6 +1276,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
