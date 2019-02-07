@@ -94,9 +94,8 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 }
 
 func validateDomains(
-	t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
-	baseExpected, trafficTargets, targetsExpected []string) {
-	t.Helper()
+	logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
+	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
 	for _, target := range trafficTargets {
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
@@ -110,28 +109,25 @@ func validateDomains(
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
-	var minBasePercentage float64
-	if len(baseExpected) == 1 {
-		minBasePercentage = minDirectPercentage
-	} else {
-		minBasePercentage = minSplitPercentage
-	}
 	g.Go(func() error {
+		var minBasePercentage float64
+		if len(baseExpected) == 1 {
+			minBasePercentage = minDirectPercentage
+		} else {
+			minBasePercentage = minSplitPercentage
+		}
 		min := int(math.Floor(concurrentRequests * minBasePercentage))
 		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
 	})
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
-	}
 	for i, subdomain := range subdomains {
+		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(concurrentRequests * minDirectPercentage))
 			return checkDistribution(logger, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
 		})
-		// Wait before going to the next domain as to not mutate subdomain and i
-		if err := g.Wait(); err != nil {
-			t.Fatalf("Error sending requests: %v", err)
-		}
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Error sending requests: %v", err)
 	}
 }
 
@@ -210,7 +206,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 		logger.Infof("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
-		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
