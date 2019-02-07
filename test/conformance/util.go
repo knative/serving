@@ -105,6 +105,7 @@ func validateDomains(
 	g, _ := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
+	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
