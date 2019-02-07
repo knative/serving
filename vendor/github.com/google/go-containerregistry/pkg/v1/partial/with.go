@@ -50,8 +50,6 @@ func ConfigName(i WithRawConfigFile) (v1.Hash, error) {
 	return h, err
 }
 
-// configLayer implements v1.Layer from the raw config bytes.
-// This is so that clients (e.g. remote) can access the config as a blob.
 type configLayer struct {
 	hash    v1.Hash
 	content []byte
@@ -84,6 +82,8 @@ func (cl *configLayer) Size() (int64, error) {
 
 var _ v1.Layer = (*configLayer)(nil)
 
+// ConfigLayer implements v1.Layer from the raw config bytes.
+// This is so that clients (e.g. remote) can access the config as a blob.
 func ConfigLayer(i WithRawConfigFile) (v1.Layer, error) {
 	h, err := ConfigName(i)
 	if err != nil {
