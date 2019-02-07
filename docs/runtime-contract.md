@@ -155,8 +155,8 @@ or platform providers MAY use hooks to implement their own lifecycle controls.
 
 #### File descriptors
 
-The `stdin` file descriptor on the container SHOULD be redirected to
-`/dev/null`. The `stdout` and `stderr` file descriptors on the container SHOULD
+A read from the `stdin` file descriptor on the container SHOULD always result in
+`EOF`. The `stdout` and `stderr` file descriptors on the container SHOULD
 be collected and retained in a developer-accessible logging repository. (See
 also operability contract being specified in
 https://github.com/knative/serving/pull/727).

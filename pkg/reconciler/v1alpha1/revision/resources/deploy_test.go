@@ -49,6 +49,8 @@ var (
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Stdin:                    false,
+		TTY:                      false,
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
