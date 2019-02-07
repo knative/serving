@@ -76,6 +76,9 @@ func Image(byteSize, layers int64) (v1.Image, error) {
 
 	cfg := &v1.ConfigFile{}
 
+	// Some clients check this.
+	cfg.RootFS.Type = "layers"
+
 	// It is ok that iteration order is random in Go, because this is the random image anyways.
 	for k := range layerz {
 		cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, k)
