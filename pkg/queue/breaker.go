@@ -178,7 +178,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if s.Capacity() == size {
+	if s.effectiveCapacity() == size {
 		return nil
 	}
 
@@ -188,7 +188,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 
 	// Add capacity until we reach size, potentially consuming
 	// outstanding reducers first.
-	for s.Capacity() < size {
+	for s.effectiveCapacity() < size {
 		if s.reducers > 0 {
 			s.reducers--
 		} else {
@@ -207,7 +207,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	// Reduce capacity until we reach size, potentially adding
 	// new reducers if the queue channel is empty because of
 	// requests in-flight.
-	for s.Capacity() > size {
+	for s.effectiveCapacity() > size {
 		select {
 		case <-s.queue:
 			s.capacity--
@@ -219,8 +219,17 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 	return nil
 }
 
+// effectiveCapacity is the capacity with reducers taken into account.
+// `mux` must be held to call it.
+func (s *Semaphore) effectiveCapacity() int32 {
+	return s.capacity - s.reducers
+}
+
 // Capacity is the effective capacity after taking reducers into
 // account.
 func (s *Semaphore) Capacity() int32 {
-	return s.capacity - s.reducers
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.effectiveCapacity()
 }
