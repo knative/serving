@@ -469,6 +469,45 @@ func TestMarkResourceFailedCreation(t *testing.T) {
 	}
 }
 
+func TestClass(t *testing.T) {
+	cases := []struct {
+		name string
+		pa   *PodAutoscaler
+		want string
+	}{{
+		name: "kpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.KPA,
+		}),
+		want: "kpa.autoscaling.knative.dev",
+	}, {
+		name: "hpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.HPA,
+		}),
+		want: "hpa.autoscaling.knative.dev",
+	}, {
+		name: "default class",
+		pa:   pa(map[string]string{}),
+		want: "kpa.autoscaling.knative.dev",
+	}, {
+		name: "custom class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: "yolo.sandwich.com",
+		}),
+		want: "yolo.sandwich.com",
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.pa.Class()
+			if got != tc.want {
+				t.Errorf("%q expected class: %q got: %q", tc.name, tc.want, got)
+			}
+		})
+	}
+}
+
 func pa(annotations map[string]string) *PodAutoscaler {
 	p := &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
