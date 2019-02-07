@@ -52,41 +52,8 @@ const (
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
-	//   autoscaling.knative.dev/target: "75"   # target 75% cpu utilization
+	//   autoscaling.knative.dev/target: 75   # target 75% cpu utilization
 	TargetAnnotationKey = GroupName + "/target"
-
-	// WindowAnnotationKey is the annotation to specify the time
-	// interval over which to calculate the average metric.  Larger
-	// values result in more smoothing. For example,
-	//   autoscaling.knative.dev/metric: concurrency
-	//   autoscaling.knative.dev/window: "2m"
-	// Only the kpa.autoscaling.knative.dev class autoscaler supports
-	// the window annotation.
-	WindowAnnotationKey = GroupName + "/window"
-
-	// WindowPanicPercentageAnnotationKey is the annotation to
-	// specify the time interval over which to calculate the average
-	// metric during a spike. Where a spike is defined as the metric
-	// reaching panic level within the panic window (e.g. panic
-	// mode). Lower values make panic mode more sensitive. Note:
-	// Panic level can be overridden with the
-	// TargetPanicPercentageAnnotationKey. For example,
-	//   autoscaling.knative.dev/windowPanicPercentage: "5.0"
-	//   autoscaling.knative.dev/targetPanicPercentage: "150.0"
-	// Only the kpa.autoscaling.knative.dev class autoscaler supports
-	// the windowPanicPercentage annotation.
-	WindowPanicPercentageAnnotationKey = GroupName + "/windowPanicPercentage"
-
-	// TargetPanicPercentageAnnotationKey is the annotation to specify
-	// the level at what level panic mode will engage when reached within
-	// in the panic window. The level is defined as a percentage of
-	// the metric target. Lower values make panic mode more
-	// sensitive. For example,
-	//   autoscaling.knative.dev/windowPanicPercentage: "5.0"
-	//   autoscaling.knative.dev/targetPanicPercentage: "150.0"
-	// Only the kpa.autoscaling.knative.dev class autoscaler supports
-	// the windowPanicPercentage annotation
-	TargetPanicPercentageAnnotationKey = GroupName + "/targetPanicPercentage"
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
