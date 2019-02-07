@@ -202,7 +202,7 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 
 // Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
 // it then delegates validation to apis.Validatable on "new".
-func Validate(ctx context.Context) ResourceCallback {
+func Validate(_ context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 		if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
 			// Copy the old object and set defaults so that we don't reject our own
@@ -227,7 +227,7 @@ func Validate(ctx context.Context) ResourceCallback {
 }
 
 // SetDefaults simply leverages apis.Defaultable to set defaults.
-func SetDefaults(ctx context.Context) ResourceDefaulter {
+func SetDefaults(_ context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
 		before, after := crd.DeepCopyObject(), crd
 		after.SetDefaults()
@@ -527,9 +527,17 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 
 	var patches []jsonpatch.JsonPatchOperation
 
-	err := updateGeneration(ctx, &patches, oldObj, newObj)
+	// Add these before defaulting fields, otherwise defaulting may cause an illegal patch because
+	// it expects the round tripped through Golang fields to be present already.
+	rtp, err := roundTripPatch(newBytes, newObj)
 	if err != nil {
-		logger.Error("Failed to update generation", zap.Error(err))
+		return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
+	}
+	patches = append(patches, rtp...)
+
+	err = updateGeneration(ctx, &patches, oldObj, newObj)
+	if err != nil {
+		logger.Errorw("Failed to update generation", zap.Error(err))
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
@@ -592,6 +600,24 @@ func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperati
 	return nil
 }
 
+// roundTripPatch generates the JSONPatch that corresponds to round tripping the given bytes through
+// the Golang type (JSON -> Golang type -> JSON). Because it is not always true that
+// bytes == json.Marshal(json.Unmarshal(bytes)).
+//
+// For example, if bytes did not contain a 'spec' field and the Golang type specifies its 'spec'
+// field without omitempty, then by round tripping through the Golang type, we would have added
+// `'spec': {}`.
+func roundTripPatch(bytes []byte, unmarshalled interface{}) (duck.JSONPatch, error) {
+	if unmarshalled == nil {
+		return duck.JSONPatch{}, nil
+	}
+	marshaledBytes, err := json.Marshal(unmarshalled)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal interface: %v", err)
+	}
+	return jsonpatch.CreatePatch(bytes, marshaledBytes)
+}
+
 // Not worth fully duck typing since there's no shared schema.
 type hasSpec struct {
 	Spec json.RawMessage `json:"spec"`
@@ -643,7 +669,7 @@ func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
 	return true, nil
 }
 
-func asGenerational(ctx context.Context, crd GenericCRD) (*duckv1alpha1.Generational, error) {
+func asGenerational(_ context.Context, crd GenericCRD) (*duckv1alpha1.Generational, error) {
 	raw, err := json.Marshal(crd)
 	if err != nil {
 		return nil, err

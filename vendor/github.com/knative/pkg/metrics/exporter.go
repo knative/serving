@@ -82,7 +82,7 @@ func getKnativeRevisionMonitoredResource(gm *gcpMetadata) func(v *view.View, tag
 		var newTags []tag.Tag
 		for _, t := range tags {
 			// Keep the metrics labels that are not resource labels
-			if _, ok := metricskey.KnativeRevisionLabels[t.Key.Name()]; !ok {
+			if !metricskey.KnativeRevisionLabels.Has(t.Key.Name()) {
 				newTags = append(newTags, t)
 			}
 		}
@@ -173,7 +173,7 @@ func setMonitoredResourceFunc(config *metricsConfig, logger *zap.SugaredLogger) 
 		gm := retrieveGCPMetadata()
 		metricsPrefix := config.domain + "/" + config.component
 		logger.Infof("metrics prefix: %s", metricsPrefix)
-		if _, ok := metricskey.KnativeRevisionMetricsPrefixes[metricsPrefix]; ok {
+		if metricskey.KnativeRevisionMetricsPrefixes.Has(metricsPrefix) {
 			getMonitoredResourceFunc = getKnativeRevisionMonitoredResource(gm)
 		} else {
 			getMonitoredResourceFunc = getGlobalMonitoredResource()
