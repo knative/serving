@@ -14,6 +14,8 @@ cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
 
 # Create a custom cluster local gateway, based on the Istio custom-gateway template.
 helm template --namespace=istio-system \
+  --set gateways.custom-gateway.autoscaleMin=1 \
+  --set gateways.custom-gateway.autoscaleMax=1 \
   --set gateways.custom-gateway.cpu.targetAverageUtilization=60 \
   --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
   --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
@@ -45,7 +47,7 @@ helm template --namespace=istio-system \
   install/kubernetes/helm/istio > ../istio.yaml
 cat cluster-local-gateway.yaml >> ../istio.yaml
 
-# A liter template, with no sidecar injection.  We could probably remove
+# A lighter template, with no sidecar injection.  We could probably remove
 # more from this template.
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=false \
