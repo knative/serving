@@ -143,6 +143,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // It updates the endpoints in the Throttler if the number of hosts changed and
 // the revision already exists (we don't want to create/update throttlers for the endpoints
 // that do not belong to any revision).
+//
+// This function must not be called in parallel to not induce a wrong order of events.
 func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
 	return func(_, newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
