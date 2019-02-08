@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	capacityUpdateFailure = "updating capacity failed"
 	// OverloadMessage indicates that throttler has no free slots to buffer the request.
 	OverloadMessage = "activator overload"
 )
@@ -151,7 +150,7 @@ func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
 		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
-			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
+			throttler.logger.Errorw("updating capacity failed", zap.Error(err))
 		}
 	}
 }
