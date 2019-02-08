@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/scale"
@@ -123,8 +125,6 @@ func main() {
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactory, logger)
-
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
@@ -138,6 +138,8 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
+	// uniScalerFactory depends endpointsInformer to be set.
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
@@ -215,15 +217,24 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 	return rm
 }
 
-func uniScalerFactory(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-	reporter, err := autoscaler.NewStatsReporter(metric.Namespace,
-		labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
-	if err != nil {
-		return nil, err
-	}
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	return func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+		reporter, err := autoscaler.NewStatsReporter(metric.Namespace,
+			labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
+		if err != nil {
+			return nil, err
+		}
 
-	return autoscaler.New(dynamicConfig, metric.Spec.TargetConcurrency, reporter), nil
+		revName := metric.Labels[serving.RevisionLabelKey]
+		if revName == "" {
+			return nil, fmt.Errorf("No Revision label found in Metric: %v", metric)
+		}
+
+		return autoscaler.New(dynamicConfig, metric.Namespace,
+			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
+			metric.Spec.TargetConcurrency, reporter)
+	}
 }
 
 func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
