@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -33,7 +34,7 @@ import (
 )
 
 func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
-	configs := make(map[string]struct{})
+	configs := sets.NewString()
 	// Walk the revisions in Route's .status.traffic and build a list
 	// of Configurations to label from their OwnerReferences.
 	for _, tt := range r.Status.Traffic {
@@ -43,7 +44,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
 		}
 		owner := metav1.GetControllerOf(rev)
 		if owner != nil && owner.Kind == "Configuration" {
-			configs[owner.Name] = struct{}{}
+			configs.Insert(owner.Name)
 		}
 	}
 
@@ -56,8 +57,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
 func (c *Reconciler) setLabelForGivenConfigurations(
 	ctx context.Context,
 	route *v1alpha1.Route,
-	configs map[string]struct{},
-) error {
+	configs sets.String) error {
 	logger := logging.FromContext(ctx)
 
 	// The ordered collection of Configurations to which we
@@ -108,7 +108,7 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context,
 	routeNamespace, routeName string,
-	configs map[string]struct{},
+	configs sets.String,
 ) error {
 
 	logger := logging.FromContext(ctx)
@@ -124,7 +124,7 @@ func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 	// Delete label for newly removed configurations as traffic target.
 	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(routeNamespace)
 	for _, config := range oldConfigsList {
-		if _, ok := configs[config.Name]; ok {
+		if configs.Has(config.Name) {
 			continue
 		}
 
