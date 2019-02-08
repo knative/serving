@@ -66,7 +66,8 @@ func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error 
 	})
 }
 
-func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects, error) {
+// GetResourceObjects obtains the services resources from the k8s API server.
+func GetResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects, error) {
 	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -130,7 +131,7 @@ func CreateReleaseServiceWithLatest(
 	}
 
 	logger.Info("Getting latest objects Created by Service.")
-	return getResourceObjects(clients, *names)
+	return GetResourceObjects(clients, *names)
 }
 
 // CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
@@ -163,7 +164,7 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 	}
 
 	logger.Info("Getting latest objects Created by Service.")
-	return getResourceObjects(clients, *names)
+	return GetResourceObjects(clients, *names)
 }
 
 // CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
