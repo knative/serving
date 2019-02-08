@@ -21,21 +21,12 @@ package conformance
 import (
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 )
-
-func withLifecycle(s *v1alpha1.Service) {
-	lifecycleHandler := &corev1.ExecAction{
-		Command: []string{"/bin/sh", "-c", "echo Hello from the lifecycle handler > /usr/share/message"},
-	}
-	s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
-		PostStart: &corev1.Handler{Exec: lifecycleHandler},
-		PreStop:   &corev1.Handler{Exec: lifecycleHandler},
-	}
-}
 
 // TestShouldNotHaveHooks validates that we receive an error back when attempting to create a Service that
 // specifies lifecycle hooks.
@@ -47,8 +38,30 @@ func TestShouldNotHaveHooks(t *testing.T) {
 		Image:   pizzaPlanet1,
 	}
 
-	svc, err := test.CreateLatestService(logger, clients, names, &test.Options{}, withLifecycle)
-	if err == nil {
-		t.Errorf("CreateLatestService = %v, want: error", svc)
+	hooks := []func(s *v1alpha1.Service){
+		func(s *v1alpha1.Service) {
+			lifecycleHandler := &corev1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
+			}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
+				PostStart: &corev1.Handler{Exec: lifecycleHandler},
+			}
+		},
+
+		func(s *v1alpha1.Service) {
+			lifecycleHandler := &corev1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
+			}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
+				PreStop: &corev1.Handler{Exec: lifecycleHandler},
+			}
+		},
+	}
+
+	for _, hook := range hooks {
+		svc, err := test.CreateLatestService(logger, clients, names, &test.Options{}, hook)
+		if err == nil {
+			t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
+		}
 	}
 }
