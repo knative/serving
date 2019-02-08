@@ -33,7 +33,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
 	if mt, ok := pa.Target(); ok {
 		annotationTarget := float64(mt)
-		if target != 0 && annotationTarget > target {
+		if annotationTarget > target {
 			// If the annotation target would cause the autoscaler to maintain
 			// more requests per pod than the container can handle, we ignore
 			// the annotation and use a containerConcurrency based target instead.
