@@ -95,8 +95,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		if header == "x-forwarded-for" {
 			ips := strings.Split(hv, ",")
 			for _, ip := range ips {
-				ok := net.ParseIP(strings.TrimSpace(ip))
-				if ok == nil {
+				if net.ParseIP(strings.TrimSpace(ip)) == nil {
 					t.Errorf("Header %s has invalid IP: %s", header, ip)
 				}
 			}
