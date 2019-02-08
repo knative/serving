@@ -127,7 +127,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Dur
 
 func TestObservedConcurrency(t *testing.T) {
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -201,7 +201,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 	// TODO: For future, recreate the CreateTestgridXML function so we don't want to repeat the code shown in next 2 lines
 	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
 
 	if err = testgrid.CreateXMLOutput(&ts, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)

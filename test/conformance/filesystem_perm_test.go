@@ -44,7 +44,7 @@ func verifyPermString(resp string, expected string) error {
 }
 
 func TestMustFileSystemPermissions(t *testing.T) {
-	logger := logging.GetContextLogger("TestFileSystemPermissions")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	for key, value := range MustFilePathSpecs {
 		resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})

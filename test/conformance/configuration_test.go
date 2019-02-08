@@ -31,7 +31,7 @@ import (
 func TestUpdateConfigurationMetadata(t *testing.T) {
 	clients := setup(t)
 
-	logger := logging.GetContextLogger("TestUpdateConfigurationMetadata")
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("test-update-configuration-meta-", logger),

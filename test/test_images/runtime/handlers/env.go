@@ -14,24 +14,15 @@ limitations under the License.
 package handlers
 
 import (
-	"log"
-	"net/http"
-
-	"github.com/knative/serving/test/types"
+	"os"
+	"strings"
 )
 
-func runtimeHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Retrieving Runtime Information")
-	w.Header().Set("Content-Type", "application/json")
-
-	k := &types.RuntimeInfo{
-		Request: requestInfo(r),
-		Host: &types.HostInfo{EnvVars: env(),
-			Files:   fileInfo(filePaths...),
-			Cgroups: cgroups(cgroupPaths...),
-			Mounts:  mounts(),
-		},
+func env() map[string]string {
+	envMap := map[string]string{}
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		envMap[pair[0]] = pair[1]
 	}
-
-	writeJSON(w, k)
+	return envMap
 }

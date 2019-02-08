@@ -161,7 +161,7 @@ func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestRunLatestService")
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("test-run-latest-service-", logger),
@@ -334,7 +334,7 @@ func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTa
 func TestReleaseService(t *testing.T) {
 	// Create Initial Service
 	clients := setup(t)
-	logger := logging.GetContextLogger("TestReleaseService")
+	logger := logging.GetContextLogger(t.Name())
 	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
 	releaseImagePath3 := test.ImagePath(helloworld)
 	names := test.ResourceNames{

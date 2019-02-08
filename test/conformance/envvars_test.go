@@ -29,7 +29,7 @@ import (
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
-	logger := logging.GetContextLogger("TestShouldEnvVars")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	resp, names, err := fetchEnvInfo(clients, logger, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {
@@ -53,7 +53,7 @@ func TestShouldEnvVars(t *testing.T) {
 
 // TestMustEnvVars verifies environment variables that are declared as "MUST be set" in runtime-contract
 func TestMustEnvVars(t *testing.T) {
-	logger := logging.GetContextLogger("TestMustEnvVars")
+	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {

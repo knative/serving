@@ -79,7 +79,7 @@ func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) 
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
-	logger = logging.GetContextLogger("TestServiceToServiceCall")
+	logger = logging.GetContextLogger(t.Name())
 	clients = Setup(t)
 
 	// Set up helloworld app.
