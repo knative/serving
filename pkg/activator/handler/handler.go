@@ -51,17 +51,16 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, ar.Status)
 		return
 	}
+	target := &url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
+	}
 
 	err := a.Throttler.Try(revID, func() {
-		capture := &statusCapture{
-			ResponseWriter: w,
-			statusCode:     http.StatusOK,
-		}
-		attempts := a.proxyRequest(w, r, capture, ar)
+		attempts, httpStatus := a.proxyRequest(w, r, target)
 
 		// Report the metrics
-		httpStatus := capture.statusCode
-		duration := time.Now().Sub(start)
+		duration := time.Since(start)
 
 		a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
 		a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
@@ -75,10 +74,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, capture *statusCapture, ar activator.ActivationResult) int {
-	target := &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) (int, int) {
+	capture := &statusCapture{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
@@ -103,7 +102,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(capture, r)
-	return attempts
+	return attempts, capture.statusCode
 }
 
 type statusCapture struct {
