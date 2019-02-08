@@ -385,11 +385,13 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
-	validateDomains(t, logger, clients,
+	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
-		[]string{expectedFirstRev, expectedFirstRev})
+		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
+		t.Fatal(err)
+	}
 
 	// 2. One Revision Specified, current != latest.
 	logger.Info("2. Updating the Service Spec with a new image")
@@ -414,11 +416,13 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
-	validateDomains(t, logger, clients,
+	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
-		[]string{expectedSecondRev, expectedFirstRev})
+		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
+		t.Fatal(err)
+	}
 
 	// 3. Two Revisions Specified, 50% rollout, candidate == latest.
 	logger.Info("3. Updating Service to split traffic between two revisions using Release mode")
@@ -448,11 +452,13 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
-	validateDomains(t, logger, clients,
+	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"candidate", "latest", "current"},
-		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev})
+		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		t.Fatal(err)
+	}
 
 	// 4. Two Revisions Specified, 50% rollout, candidate != latest.
 	logger.Info("4. Updating the Service Spec with a new image")
@@ -474,11 +480,13 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	logger.Info("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
-	validateDomains(t, logger, clients,
+	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev})
+		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		t.Fatal(err)
+	}
 
 	// Now update the service to use `@latest` as candidate.
 	revisions[1] = v1alpha1.ReleaseLatestRevisionKeyword
@@ -498,11 +506,13 @@ func TestReleaseService(t *testing.T) {
 		t.Fatal("Service never obtained expected shape")
 	}
 
-	validateDomains(t, logger, clients,
+	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev})
+		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // TODO(jonjohnsonjr): Examples of deploying from source.

@@ -32,6 +32,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -94,16 +95,15 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 }
 
 func validateDomains(
-	t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
-	baseExpected, trafficTargets, targetsExpected []string) {
-	t.Helper()
+	logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
+	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
 	for _, target := range trafficTargets {
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
-	// We don't have a good way to check if the route is updated so we will wait until all subdomains have
+	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
 	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
 	for i, s := range subdomains {
@@ -114,32 +114,28 @@ func validateDomains(
 		})
 	}
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Error probing domains to be ready: %v", err)
+		return errors.Wrap(err, "error with initial domain probing")
 	}
 
-	var minBasePercentage float64
-	if len(baseExpected) == 1 {
-		minBasePercentage = minDirectPercentage
-	} else {
-		minBasePercentage = minSplitPercentage
-	}
 	g.Go(func() error {
+		minBasePercentage := minSplitPercentage
+		if len(baseExpected) == 1 {
+			minBasePercentage = minDirectPercentage
+		}
 		min := int(math.Floor(concurrentRequests * minBasePercentage))
 		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
 	})
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
-	}
 	for i, subdomain := range subdomains {
+		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(concurrentRequests * minDirectPercentage))
 			return checkDistribution(logger, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
 		})
-		// Wait before going to the next domain as to not mutate subdomain and i
-		if err := g.Wait(); err != nil {
-			t.Fatalf("Error sending requests: %v", err)
-		}
 	}
+	if err := g.Wait(); err != nil {
+		return errors.Wrap(err, "error checking routing distribution")
+	}
+	return nil
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
@@ -217,7 +213,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 		logger.Infof("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
-		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil

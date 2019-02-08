@@ -83,6 +83,8 @@ type Build struct {
 	StoragePath string
 	BuildID	    int
 	Bucket      string // optional
+	StartTime   *int64
+	FinishTime  *int64
 }
 
 // Started holds the started.json values of the build.
@@ -149,16 +151,6 @@ func NewJob(jobName, jobType, repoName string, pullID int) *Job {
 	return &job
 }
 
-// NewBuild creates new build struct
-func NewBuild(jobName, storagePath string, buildID int) *Build {
-	return &Build{
-		Bucket: BucketName,
-		JobName: jobName,
-		StoragePath: storagePath,
-		BuildID: buildID,
-	}
-}
-
 // GetLatestBuildNumber gets the latest build number for job
 func (j *Job) GetLatestBuildNumber() (int, error) {
 	logFilePath := path.Join(j.StoragePath, Latest)
@@ -176,12 +168,20 @@ func (j *Job) GetLatestBuildNumber() (int, error) {
 // NewBuild gets build struct based on job info
 // No gcs operation is performed by this function
 func (j *Job) NewBuild(buildID int) *Build {
-	return &Build{
+	build := Build{
 		Bucket: BucketName,
 		JobName: j.Name,
 		StoragePath: path.Join(j.StoragePath, strconv.Itoa(buildID)),
 		BuildID: buildID,
 	}
+
+	if startTime, err := build.GetStartTime(); nil == err {
+		build.StartTime = &startTime
+	}
+	if finishTime, err := build.GetFinishTime(); nil == err {
+		build.FinishTime = &finishTime
+	}
+	return &build
 }
 
 // GetFinishedBuilds gets all builds that have finished,
@@ -211,22 +211,21 @@ func (j *Job) GetBuilds() []Build {
 	return builds
 }
 
-// GetLatestBuilds get latest builds from gcs
+// GetLatestBuilds get latest builds from gcs, sort by start time from newest to oldest,
+// will return count number of builds
 func (j *Job) GetLatestBuilds(count int) []Build {
 	// The timestamp of gcs directories are not usable, 
 	// as they are all set to '0001-01-01 00:00:00 +0000 UTC',
 	// so use 'started.json' creation date for latest builds
 	builds := j.GetFinishedBuilds()
 	sort.Slice(builds, func(i, j int) bool {
-		startedTime1, err1 := builds[i].GetStartedTime()
-		if nil != err1 {
+		if nil == builds[i].StartTime {
 			return false
 		}
-		startedTime2, err2 := builds[j].GetStartedTime()
-		if nil != err2 {
+		if nil == builds[j].StartTime {
 			return true
 		}
-		return startedTime1 > startedTime2
+		return *builds[i].StartTime > *builds[j].StartTime
 	})
 	if len(builds) < count {
 		return builds
@@ -244,19 +243,19 @@ func (b *Build) IsFinished() bool {
 	return gcs.Exists(ctx, BucketName, path.Join(b.StoragePath, FinishedJSON))
 }
 
-// GetStartedTime gets started timestamp of a build,
+// GetStartTime gets started timestamp of a build,
 // returning -1 if the build didn't start or if it failed to get the timestamp
-func (b *Build) GetStartedTime() (int64, error) {
+func (b *Build) GetStartTime() (int64, error) {
 	var started Started
-	if err := unmarshalJSONFile(path.Join(b.StoragePath, FinishedJSON), &started); nil != err {
+	if err := unmarshalJSONFile(path.Join(b.StoragePath, StartedJSON), &started); nil != err {
 		return -1, err
 	}
 	return started.Timestamp, nil
 }
 
-// GetFinishedTime gets finished timestamp of a build,
+// GetFinishTime gets finished timestamp of a build,
 // returning -1 if the build didn't finish or if it failed to get the timestamp
-func (b *Build) GetFinishedTime() (int64, error) {
+func (b *Build) GetFinishTime() (int64, error) {
 	var finished Finished
 	if err := unmarshalJSONFile(path.Join(b.StoragePath, FinishedJSON), &finished); nil != err {
 		return -1, err
