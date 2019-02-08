@@ -104,6 +104,14 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
+		options.ContainerResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
+			},
+		}
+	}
+
 	spec := &v1alpha1.ConfigurationSpec{
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
@@ -123,14 +131,6 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 	if options.EnvVars != nil {
 		spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
-	}
-
-	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
-		spec.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
-			},
-		}
 	}
 
 	return spec
