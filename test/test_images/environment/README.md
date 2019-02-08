@@ -6,7 +6,7 @@ Knative [run-time contract](/docs/runtime-contract.md)
 
 The image contains a simple Go webserver, `environment.go`, which by default,
 listens on port defined in the constant
-[EnvImageServerPort](/test/conformance/constants.go).
+[EnvImageServerPort](/test/image_constants.go).
 
 Currently the server exposes:
 

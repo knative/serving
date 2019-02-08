@@ -123,8 +123,7 @@ This is subject to change as the Knative Serving implementation changes.
 - [Autoscaler Library](../../pkg/autoscaler/autoscaler.go)
 - [Autoscaler Binary](../../cmd/autoscaler/main.go)
 - [Queue Proxy Binary](../../cmd/queue/main.go)
-- [Autoscaling Controller](../../pkg/controller/autoscaling/autoscaling.go)
-- [Statistics Server](../../pkg/server/stats/server.go)
+- [Statistics Server](../../pkg/autoscaler/statserver/server.go)
 
 ### Autoscaler
 
@@ -140,7 +139,7 @@ pushes a gob serialized struct with the observed number of concurrent requests
 at that moment.
 
 The Autoscaler runs a controller which monitors
-["KPA"](../../pkg/apis/autoscaling/v1alpha1/kpa_types.go) resources and monitors
+["KPA"](../../pkg/apis/autoscaling/v1alpha1/pa_types.go) resources and monitors
 and scales the embedded object reference via the `/scale` sub-resource.
 
 The Autoscaler provides a websocket-enabled Statistics Server. Queue proxies

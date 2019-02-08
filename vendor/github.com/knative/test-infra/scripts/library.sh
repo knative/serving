@@ -357,10 +357,11 @@ function run_lint_tool() {
 # Check links in the given markdown files.
 # Parameters: $1...$n - files to inspect
 function check_links_in_markdown() {
-  # https://github.com/tcort/markdown-link-check
-  local config="${REPO_ROOT_DIR}/test/markdown-link-check-config.json"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-link-check-config.json"
-  run_lint_tool markdown-link-check "checking links in markdown files" "-c ${config} -q" $@
+  # https://github.com/raviqqe/liche
+  local config="${REPO_ROOT_DIR}/test/markdown-link-check-config.rc"
+  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-link-check-config.rc"
+  local options="$(grep '^-' ${config} | tr \"\n\" ' ')"
+  run_lint_tool liche "checking links in markdown files" "-d ${REPO_ROOT_DIR} ${options}" $@
 }
 
 # Check format of the given markdown files.

@@ -4,7 +4,7 @@ This is what we hope to accomplish in 2018.
 
 ## References
 
-[Autoscaling Design Goals](README.md#design-goals):
+[Autoscaling Design Goals](../scaling/DEVELOPMENT.md#design-goals):
 
 1. _Make it fast_
 2. _Make it light_
@@ -20,7 +20,7 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
 2. **Performance**. When scaling from 1-to-N and back down, autoscaling must
    maintain reasonable latency. The Knative Serving implementation of
    autoscaling must be competitive in its ability to serve variable load.
-3. **Scale to zero**. Idle ([Reserve](README.md#behavior)) Revisions must cost
+3. **Scale to zero**. Idle ([Reserve](../scaling/DEVELOPMENT.md#behavior)) Revisions must cost
    nothing. Reserve Revisions must serve the first request in 1 second or less.
 4. **Development**. Autoscaler development must follow a clear roadmap. Getting
    started as a developer must be easy and the team must scale horizontally.
@@ -102,8 +102,8 @@ to Design Goal #3: _make everything better_.
    common, Knative Serving metrics pipeline. This could mean polling the Pods to
    get the same metrics as are reported to Prometheus. Or going to Prometheus to
    get the metrics it has aggregated. It means removing the metrics push from
-   the [Queue Proxy to the Autoscaler](README.md#context).
-3. **[Slow Brain](README.md#slow-brain--fast-brain) implementation** to
+   the [Queue Proxy to the Autoscaler](../scaling/DEVELOPMENT.md#context).
+3. **[Slow Brain](../scaling/DEVELOPMENT.md#slow-brain--fast-brain) implementation** to
    automatically adjust target concurrency to the application's behavior.
    Instead, we can rely on vertical pod autoscaling for now to size the pod to
    an average of one request at a time.
