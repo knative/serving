@@ -433,7 +433,7 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, respCh c
 	t.Helper()
 	var succeeded int
 	var failed int
-	wantedOverflowMessage := activator.OverloadMessage.Error() + "\n"
+	wantedOverflowMessage := activator.ErrActivatorOverload.Error() + "\n"
 	for i := 0; i < overallRequests; i++ {
 		resp := <-respCh
 		switch resp.Code {

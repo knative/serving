@@ -45,29 +45,29 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// ActiveEndpoint() will block until the first endpoint is available.
 	ar := a.Activator.ActiveEndpoint(namespace, name)
 
+	if ar.Error != nil {
+		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
+		a.Logger.Error(msg)
+		http.Error(w, msg, ar.Status)
+		return
+	}
+
 	err := a.Throttler.Try(revID, func() {
-		a.sendRequest(w, r, namespace, name, start, ar)
+		a.proxyRequest(w, r, namespace, name, start, ar)
 	})
 	if err != nil {
-		if err == activator.OverloadMessage {
-			http.Error(w, activator.OverloadMessage.Error(), http.StatusServiceUnavailable)
+		if err == activator.ErrActivatorOverload {
+			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
 }
 
-func (a *ActivationHandler) sendRequest(w http.ResponseWriter, r *http.Request, namespace, name string, start time.Time, ar activator.ActivationResult) {
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, namespace, name string, start time.Time, ar activator.ActivationResult) {
 	capture := &statusCapture{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
-	}
-
-	if ar.Error != nil {
-		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
-		a.Logger.Error(msg)
-		http.Error(w, msg, ar.Status)
-		return
 	}
 
 	target := &url.URL{
