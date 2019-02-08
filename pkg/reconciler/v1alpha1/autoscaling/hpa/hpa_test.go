@@ -63,18 +63,12 @@ func TestControllerCanReconcile(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(podAutoscaler)
 
-	reconcileDone := make(chan struct{})
-	go func() {
-		defer close(reconcileDone)
-		err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
-		if err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	}()
+	err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	if err != nil {
+		t.Errorf("Reconcile() = %v", err)
+	}
 
-	_ = <-reconcileDone
-
-	_, err := kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting hpa: %v", err)
 	}
