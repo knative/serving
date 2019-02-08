@@ -366,16 +366,30 @@ func TestTargetAnnotation(t *testing.T) {
 		}),
 		wantTarget: 0,
 		wantOk:     false,
+	}, {
+		name: "invalid negative",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "-1",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid overflow int32",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "100000000000000000000",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			gotTarget, gotOk := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantTarget, gotTarget)
+				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOk != tc.wantOk {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+				t.Errorf("got ok: %v wanted %v", gotOk, tc.wantOk)
 			}
 		})
 	}
@@ -436,10 +450,10 @@ func TestScaleBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			min, max := tc.pa.ScaleBounds()
 			if min != tc.wantMin {
-				t.Errorf("%q expected min: %v got: %v", tc.name, tc.wantMin, min)
+				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
 			}
 			if max != tc.wantMax {
-				t.Errorf("%q expected max: %v got: %v", tc.name, tc.wantMax, max)
+				t.Errorf("got max: %v wanted: %v", max, tc.wantMax)
 			}
 		})
 	}
@@ -502,7 +516,7 @@ func TestClass(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.pa.Class()
 			if got != tc.want {
-				t.Errorf("%q expected class: %q got: %q", tc.name, tc.want, got)
+				t.Errorf("got class: %q wanted: %q", got, tc.want)
 			}
 		})
 	}
