@@ -10,7 +10,7 @@ following format:
 ```
 {
   'protoMajor': 1 # 2 if HTTP/2
-  'protoMinor': 1 # 0 if HTTP/1
+  'protoMinor': 1 # 0 if HTTP/2
 }
 ```
 
