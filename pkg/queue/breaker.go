@@ -25,10 +25,8 @@ import (
 )
 
 var (
-	// ErrAddCapacity indicates that not all capacity could be added to the breaker.
-	ErrAddCapacity = errors.New("failed to add all capacity to the breaker")
-	// ErrReduceCapacity indicates that there's not enough capacity to be reduced.
-	ErrReduceCapacity = errors.New("the capacity that is released must be <= to added capacity")
+	// ErrUpdateCapacity the the capacity could not be updated as wished.
+	ErrUpdateCapacity = errors.New("failed to add all capacity to the breaker")
 	// ErrRelease indicates that Release was called more often than Acquire.
 	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 )
@@ -103,13 +101,10 @@ func (b *Breaker) Maybe(thunk func()) bool {
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
 func (b *Breaker) UpdateConcurrency(size int32) error {
-	if size > 0 {
-		return b.sem.AddCapacity(size)
-	}
-	return b.sem.ReduceCapacity(-size)
+	return b.sem.UpdateCapacity(size)
 }
 
-// Capacity retrieves the capacity of the breaker.
+// Capacity returns the number of allowed in-flight requests on this breaker.
 func (b *Breaker) Capacity() int32 {
 	return b.sem.Capacity()
 }
@@ -125,7 +120,7 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 	queue := make(chan token, maxCapacity)
 	sem := Semaphore{queue: queue}
 	if initialCapacity > 0 {
-		sem.AddCapacity(initialCapacity)
+		sem.UpdateCapacity(initialCapacity)
 	}
 	return &sem
 }
@@ -170,38 +165,42 @@ func (s *Semaphore) Release() error {
 	}
 }
 
-// AddCapacity increases the number of tokens in the rotation.
-// Increases only if the size is positive, does nothing otherwise.
-// An error is returned if not all capacity could be added to the semaphore.
-// This error could happen when the number of tokens exceeds the semaphore's queue size.
-func (s *Semaphore) AddCapacity(size int32) error {
+// UpdateCapacity updates the capacity of the semaphore to the desired
+// size.
+func (s *Semaphore) UpdateCapacity(size int32) error {
+	if size < 0 || size > int32(cap(s.queue)) {
+		return ErrUpdateCapacity
+	}
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i := int32(0); i < size; i++ {
-		select {
-		case s.queue <- s.token:
-			s.capacity++
-		default:
-			return ErrAddCapacity
+	if s.effectiveCapacity() == size {
+		return nil
+	}
+
+	// Add capacity until we reach size, potentially consuming
+	// outstanding reducers first.
+	for s.effectiveCapacity() < size {
+		if s.reducers > 0 {
+			s.reducers--
+		} else {
+			select {
+			case s.queue <- s.token:
+				s.capacity++
+			default:
+				// This indicates that we're operating close to
+				// MaxCapacity and returned more tokens than we
+				// acquired.
+				return ErrUpdateCapacity
+			}
 		}
 	}
-	return nil
-}
 
-// ReduceCapacity removes tokens from the rotation.
-// It tries to acquire as many tokens as possible. If there are not enough tokens in the queue,
-// it postpones the operation for the future by increasing the `reducers` counter.
-// We return an error when attempting to reduce more capacity than was originally added.
-func (s *Semaphore) ReduceCapacity(size int32) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if size+s.reducers > s.capacity {
-		return ErrReduceCapacity
-	}
-
-	for i := int32(0); i < size; i++ {
+	// Reduce capacity until we reach size, potentially adding
+	// new reducers if the queue channel is empty because of
+	// requests in-flight.
+	for s.effectiveCapacity() > size {
 		select {
 		case <-s.queue:
 			s.capacity--
@@ -209,13 +208,21 @@ func (s *Semaphore) ReduceCapacity(size int32) error {
 			s.reducers++
 		}
 	}
+
 	return nil
 }
 
-// Capacity returns the current capacity of the semaphore.
+// effectiveCapacity is the capacity with reducers taken into account.
+// `mux` must be held to call it.
+func (s *Semaphore) effectiveCapacity() int32 {
+	return s.capacity - s.reducers
+}
+
+// Capacity is the effective capacity after taking reducers into
+// account.
 func (s *Semaphore) Capacity() int32 {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	return s.capacity
+	return s.effectiveCapacity()
 }

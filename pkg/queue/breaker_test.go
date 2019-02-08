@@ -164,22 +164,22 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	b.UpdateConcurrency(int32(1))
 	assertEqual(int32(1), b.Capacity(), t)
 
-	b.UpdateConcurrency(int32(-1))
+	b.UpdateConcurrency(int32(0))
 	assertEqual(int32(0), b.Capacity(), t)
 
 	err := b.UpdateConcurrency(int32(-2))
-	assertEqual(ErrReduceCapacity, err, t)
+	assertEqual(ErrUpdateCapacity, err, t)
 }
 
-func TestBreaker_UpdateConcurrencyOverlow(t *testing.T) {
+func TestBreaker_UpdateConcurrency_Overlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	err := b.UpdateConcurrency(int32(2))
-	assertEqual(ErrAddCapacity, err, t)
+	assertEqual(ErrUpdateCapacity, err, t)
 }
 
 // Test empty semaphore, token cannot be acquired
-func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
+func TestSemaphore_Acquire_HasNoCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	sem := NewSemaphore(1, 0)
@@ -188,13 +188,13 @@ func TestSemaphore_Get_HasNoCapacity(t *testing.T) {
 	select {
 	case <-gotChan:
 		t.Error("Token was acquired but shouldn't have been")
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(semNoChangeTimeout):
 		// Test succeeds, semaphore didn't change in configured time
 	}
 }
 
 // Test empty semaphore, add capacity, token can be acquired
-func TestSemaphore_Get_HasCapacity(t *testing.T) {
+func TestSemaphore_Acquire_HasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	sem := NewSemaphore(1, 0)
@@ -202,21 +202,6 @@ func TestSemaphore_Get_HasCapacity(t *testing.T) {
 	sem.Release() // Allows 1 acquire
 
 	assertAcquired(1, gotChan, t)
-}
-
-//Test all put items can be consumed
-func TestSemaphore_Put(t *testing.T) {
-	gotChan := make(chan struct{}, 1)
-
-	requests := 3
-	sem := NewSemaphore(2, 0)
-	for i := 0; i < requests; i++ {
-		tryAcquire(sem, gotChan)
-	}
-	sem.Release()
-	sem.Release() // Allows 2 acquires
-
-	assertAcquired(2, gotChan, t)
 }
 
 func TestSemaphore_Release(t *testing.T) {
@@ -234,29 +219,31 @@ func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
 	sem := NewSemaphore(2, 2)
 	sem.Acquire()
 	sem.Acquire()
-	sem.ReduceCapacity(int32(2))
+	sem.UpdateCapacity(int32(0))
 	sem.Release()
-	assertEqual(wantAfterFirstRelease, sem.Capacity(), t)
+	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
 	assertEqual(wantAfterFirstRelease, sem.reducers, t)
 	sem.Release()
 	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
 	assertEqual(wantAfterSecondRelease, sem.reducers, t)
 }
 
-func TestSemaphore_AddCapacity(t *testing.T) {
-	sem := NewSemaphore(2, 1)
+func TestSemaphore_UpdateCapacity(t *testing.T) {
+	initialCapacity := int32(1)
+	sem := NewSemaphore(3, initialCapacity)
 	assertEqual(int32(1), sem.Capacity(), t)
 	sem.Acquire()
-	sem.AddCapacity(2)
+	sem.UpdateCapacity(initialCapacity + 2)
 	assertEqual(int32(3), sem.Capacity(), t)
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
-func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
-	sem := NewSemaphore(2, 2)
+func TestSemaphore_UpdateCapacity_LessThenReducers(t *testing.T) {
+	initialCapacity := int32(2)
+	sem := NewSemaphore(2, initialCapacity)
 	sem.Acquire()
 	sem.Acquire()
-	sem.ReduceCapacity(2)
+	sem.UpdateCapacity(initialCapacity - 2)
 	assertEqual(int32(2), sem.reducers, t)
 	sem.Release()
 	sem.Release()
@@ -264,40 +251,42 @@ func TestSemaphore_AddCapacityLessThenReducers(t *testing.T) {
 	assertEqual(int32(0), sem.reducers, t)
 }
 
-func TestSemaphore_AddCapacityOverflow(t *testing.T) {
-	sem := NewSemaphore(2, 2)
+func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
+	initialCapacity := int32(2)
+	sem := NewSemaphore(2, initialCapacity)
 	sem.Acquire()
 	sem.Acquire()
-	// Add capacity until max capacity and then return an error
-	response := sem.AddCapacity(2)
-	assertEqual(nil, response, t)
-	response = sem.AddCapacity(1)
-	assertEqual(ErrAddCapacity, response, t)
-}
+	sem.UpdateCapacity(initialCapacity - 2)
+	assertEqual(int32(2), sem.reducers, t)
 
-func TestSemaphore_ReduceCapacity(t *testing.T) {
-	want := int32(0)
-	sem := NewSemaphore(1, 0)
-	sem.AddCapacity(int32(1))
-	sem.ReduceCapacity(1)
-	assertEqual(want, sem.Capacity(), t)
-}
-
-func TestSemaphore_ReduceCapacity_NoCapacity(t *testing.T) {
-	sem := NewSemaphore(1, 1)
-	sem.Acquire()
-	sem.ReduceCapacity(1)
-	assertEqual(int32(1), sem.reducers, t)
-	sem.Release()
+	sem.UpdateCapacity(initialCapacity)
 	assertEqual(int32(0), sem.reducers, t)
-	assertEqual(int32(0), sem.Capacity(), t)
 }
 
-func TestSemaphore_ReduceCapacity_OutOfBound(t *testing.T) {
+func TestSemaphore_UpdateCapacity_Overflow(t *testing.T) {
+	sem := NewSemaphore(2, 0)
+	err := sem.UpdateCapacity(int32(3))
+	assertEqual(err, ErrUpdateCapacity, t)
+}
+
+func TestSemaphore_UpdateCapacity_OutOfBound(t *testing.T) {
 	sem := NewSemaphore(1, 1)
 	sem.Acquire()
-	err := sem.ReduceCapacity(2)
-	assertEqual(err, ErrReduceCapacity, t)
+	err := sem.UpdateCapacity(-1)
+	assertEqual(err, ErrUpdateCapacity, t)
+}
+
+func TestSemaphore_UpdateCapacity_BrokenState(t *testing.T) {
+	sem := NewSemaphore(1, 0)
+	sem.Release() // This Release is not paired with an Acquire
+	err := sem.UpdateCapacity(1)
+	assertEqual(err, ErrUpdateCapacity, t)
+}
+
+func TestSemaphore_UpdateCapacity_DoNothing(t *testing.T) {
+	sem := NewSemaphore(1, 1)
+	err := sem.UpdateCapacity(1)
+	assertEqual(err, nil, t)
 }
 
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {
