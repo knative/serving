@@ -142,8 +142,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // that do not belong to any revision).
 //
 // This function must not be called in parallel to not induce a wrong order of events.
-func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
-	return func(_, newObj interface{}) {
+func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
+	return func(newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}

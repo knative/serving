@@ -53,7 +53,18 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := a.Throttler.Try(revID, func() {
-		a.proxyRequest(w, r, namespace, name, start, ar)
+		capture := &statusCapture{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+		attempts := a.proxyRequest(w, r, capture, ar)
+
+		// Report the metrics
+		httpStatus := capture.statusCode
+		duration := time.Now().Sub(start)
+
+		a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
+		a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
 	})
 	if err != nil {
 		if err == activator.ErrActivatorOverload {
@@ -64,12 +75,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, namespace, name string, start time.Time, ar activator.ActivationResult) {
-	capture := &statusCapture{
-		ResponseWriter: w,
-		statusCode:     http.StatusOK,
-	}
-
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, capture *statusCapture, ar activator.ActivationResult) int {
 	target := &url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
@@ -97,13 +103,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(capture, r)
-
-	// Report the metrics
-	httpStatus := capture.statusCode
-	duration := time.Now().Sub(start)
-
-	a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
-	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
+	return attempts
 }
 
 type statusCapture struct {

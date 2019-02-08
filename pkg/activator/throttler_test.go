@@ -241,10 +241,8 @@ func TestUpdateEndpoints(t *testing.T) {
 		throttler := getThrottler(s.concurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), s.initCapacity)
 		throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
 		updater := UpdateEndpoints(throttler)
-
-		endpointsBefore := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointBefore, 1)}
-		endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
-		updater(&endpointsBefore, &endpointsAfter)
+		endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter-s.endpointBefore, 1)}
+		updater(&endpointsAfter)
 
 		breaker, _ := throttler.breakers[revID]
 		got := breaker.Capacity()

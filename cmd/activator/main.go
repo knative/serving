@@ -52,6 +52,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/pkg/controller"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -164,6 +166,9 @@ func main() {
 	// Return the number of endpoints, 0 if no endpoints are found.
 	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
 		endpoints, err := endpointInformer.Lister().Endpoints(revID.Namespace).Get(revID.Name)
+		if errors.IsNotFound(err) {
+			return 0, nil
+		}
 		if err != nil {
 			return 0, err
 		}
@@ -185,7 +190,8 @@ func main() {
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
 	endpointInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: activator.UpdateEndpoints(throttler),
+		AddFunc:    activator.UpdateEndpoints(throttler),
+		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
 	})
 
 	// Remove the breaker if the revision was deleted.
