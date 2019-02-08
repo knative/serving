@@ -45,7 +45,7 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
    and guide development. We need to establish the code to run, the request load
    to generate, and the performance expected. This will tell us where we need to
    improve.
-1. **Reproducable load tests** which can be run by anyone with minimal setup.
+1. **Reproducible load tests** which can be run by anyone with minimal setup.
    These must be transparent and easy to run. They must be meaningful tests
    which prove autoscaler performance.
    ([#424](https://github.com/knative/serving/pull/424))
