@@ -374,7 +374,7 @@ func assertEqual(want, got interface{}, t *testing.T) {
 	}
 }
 
-func tryAcquire(sem *Semaphore, gotChan chan struct{}) {
+func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
 		sem.Acquire()
