@@ -70,6 +70,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
+			a.Logger.Errorw("Error processing request in the activator", zap.Error(err))
 		}
 	}
 }
