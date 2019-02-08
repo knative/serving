@@ -40,33 +40,20 @@ function patch_network_config_gke() {
     ${K8S_CLUSTER_ZONE:+--zone="${K8S_CLUSTER_ZONE}"} --format="value(servicesIpv4Cidr)")
   ip_ranges+="$svc_cidr"
 
-  echo "Patching configmap 'config-network' with servicesIpv4Cidr..."
-  # Fetch configmap `config-network` as a temp yaml file.
-  local tmp_config_file=$(mktemp /tmp/config-network-XXXX.yaml)
-  kubectl get configmap config-network -n knative-serving -o yaml > \
-    "${tmp_config_file}"
-  # Patch the temp yaml file.
-  local source_line_regex="^  istio.sidecar.includeOutboundIPRanges:.*$"
-  local target_line="\ \ istio.sidecar.includeOutboundIPRanges: \"${ip_ranges?}\""
-  if grep -q "${source_line_regex}" "${tmp_config_file}"; then
-    sed -i "s#${source_line_regex}#${target_line}#g" "${tmp_config_file}"
-  else
-    data_start="^data:$"
-    sed -i "/${data_start}/a${target_line}" "${tmp_config_file}"
-  fi
-
   echo "The following configuration will be applied:"
-  echo
-  cat "${tmp_config_file}"
-  echo
+  property="istio.sidecar.includeOutboundIPRanges"
+  patch="{\"data\":{\"${property}\":\"${ip_ranges}\"}}"
+  printf "  ${property}: "
+  kubectl patch configmap config-network -n knative-serving -p "${patch}" --dry-run -o go-template="{{index .data \"${property}\"}}"
+  printf "\n\n"
   read -p "Do you want to apply the changes (y/N)? " -n 1 -r
   echo
   if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-    kubectl apply -f "${tmp_config_file}"
+    kubectl patch configmap config-network -n knative-serving -p "${patch}"
+  echo
   else
     echo "No changes applied"
   fi
-  rm -f "${tmp_config_file}"
 }
 
 patch_network_config_gke
