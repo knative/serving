@@ -254,7 +254,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	config := a.Current()
 
-	stableData, panicData, lastStat := a.aggregateData(now, config.StableWindow, config.PanicWindow, logger)
+	stableData, panicData, lastStat := a.aggregateData(now, config.StableWindow, config.PanicWindow)
 	// Do nothing when we have no data.
 	if stableData.probeCount < 1 {
 		logger.Debug("No data to scale on.")
@@ -325,8 +325,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
-func (a *Autoscaler) aggregateData(
-	now time.Time, stableWindow, panicWindow time.Duration, logger *zap.SugaredLogger) (*totalAggregation, *totalAggregation, map[string]Stat) {
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (*totalAggregation, *totalAggregation, map[string]Stat) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -347,7 +346,6 @@ func (a *Autoscaler) aggregateData(
 		}
 		if instant.Add(stableWindow).After(now) {
 			stableData.aggregate(stat)
-
 			// If there's no last stat for this pod, set it
 			if _, ok := lastStat[stat.PodName]; !ok {
 				lastStat[stat.PodName] = stat

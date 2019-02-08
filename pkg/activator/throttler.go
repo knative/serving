@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	capacityUpdateFailure = "updating capacity failed"
 	// OverloadMessage indicates that throttler has no free slots to buffer the request.
 	OverloadMessage = "activator overload"
 )
@@ -97,23 +96,17 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 	return nil
 }
 
-// This method updates Breaker's concurrency and requires external synchronization, `updateCapacity` requires `mux` to be held.
+// This method updates Breaker's concurrency.
 func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int32) (err error) {
 	cc := int32(revision.Spec.ContainerConcurrency)
-	// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
-	if cc == 0 {
-		cc = t.breakerParams.MaxConcurrency
+
+	targetCapacity := cc * size
+	if targetCapacity == 0 {
+		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
+		targetCapacity = t.breakerParams.MaxConcurrency
 	}
-	delta := size*cc - breaker.Capacity()
-	// Do not update throttler's concurrency if the same number of endpoints is received
-	// or the number is negative.
-	if delta <= 0 {
-		return nil
-	}
-	if err := breaker.UpdateConcurrency(delta); err != nil {
-		return err
-	}
-	return nil
+
+	return breaker.UpdateConcurrency(targetCapacity)
 }
 
 // getOrCreateBreaker retrieves existing breaker or creates a new one.
@@ -142,28 +135,22 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	if err = t.updateCapacity(revision, breaker, size); err != nil {
-		return err
-	}
-	return nil
+	return t.updateCapacity(revision, breaker, size)
 }
 
 // UpdateEndpoints is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the Throttler if the number of hosts changed and
 // the revision already exists (we don't want to create/update throttlers for the endpoints
 // that do not belong to any revision).
-func UpdateEndpoints(throttler *Throttler) func(oldObj, newObj interface{}) {
-	return func(oldObj, newObj interface{}) {
+//
+// This function must not be called in parallel to not induce a wrong order of events.
+func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
+	return func(_, newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
-		_, err := throttler.getRevision(revID)
-		if err != nil {
-			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
-			return
-		}
-		if err = throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
-			throttler.logger.Errorw(capacityUpdateFailure, zap.Error(err))
+		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
+			throttler.logger.Errorw("updating capacity failed", zap.Error(err))
 		}
 	}
 }

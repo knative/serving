@@ -341,7 +341,6 @@ func withOwnerReference(name string) revisionOption {
 	}
 }
 
-
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
@@ -383,8 +382,8 @@ func TestMakePodSpec(t *testing.T) {
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.Container.Ports = []corev1.ContainerPort{{
-                                        ContainerPort: 8888,
-                                }}
+					ContainerPort: 8888,
+				}}
 				revision.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
 					Name:      "asdf",
 					MountPath: "/asdf",

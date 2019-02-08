@@ -122,7 +122,7 @@ func CheckConfigurationState(client *ServingClients, name string, inState func(r
 }
 
 // WaitForRevisionState polls the status of the Revision called name
-// from client every interval until inState returns `true` indicating it
+// from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForRevisionState(client *ServingClients, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
@@ -163,7 +163,7 @@ func CheckRevisionState(client *ServingClients, name string, inState func(r *v1a
 }
 
 // WaitForServiceState polls the status of the Service called name
-// from client every interval until inState returns `true` indicating it
+// from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForServiceState(client *ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
@@ -210,5 +210,5 @@ func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 
 // DeploymentScaledToZeroFunc returns a func that evaluates if a deployment has scaled to 0 pods.
 func DeploymentScaledToZeroFunc(d *apiv1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas == 0, nil
+	return d.Status.ReadyReplicas == 0, nil
 }

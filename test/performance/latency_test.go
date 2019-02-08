@@ -28,9 +28,9 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
-	"github.com/knative/test-infra/shared/junit"
 )
 
 func TestTimeToServeLatency(t *testing.T) {
@@ -87,7 +87,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
 
 	if err = testgrid.CreateXMLOutput(&ts, testName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)

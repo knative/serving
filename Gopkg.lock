@@ -283,7 +283,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:123b7cdc7237276bd6509f75b073f0d534d180e8449628e59be5eab26cdbecef"
+  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -299,7 +299,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "15b751c1c044fd2c31a13c46d9e97600a88eb8cb"
+  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
 
 [[projects]]
   branch = "master"
@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:05a9d6a6c37ec51054fc111b93bc440854925388a4f8ab128b6acb0d0d41016d"
+  digest = "1:70c50242c56483a6ffea756afadbabfd3e08106cd928dd87986814b173076f34"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -497,11 +497,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "18a6804326211abcff549e2413e8c1729261af01"
+  revision = "bd5a391c649d72b4ba1d66ff7e2d5e7a839098d3"
 
 [[projects]]
   branch = "master"
-  digest = "1:bb4a0cc53257bd07bb82b201d3afcf61c6c5ae51e91b2011a7484a91a9bb163a"
+  digest = "1:e10292ca31f337970056e5c3900ccc664385053baddff7fddc5f77b96c4114c5"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +514,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "bf7e4dd5a226f5758e0eedd7370b99d33d464910"
+  revision = "425d36b7c2477efe7c8981dbdf76d2eb10c1d4e1"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1276,6 +1276,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",

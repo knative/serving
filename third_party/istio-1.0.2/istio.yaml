@@ -4451,7 +4451,7 @@ metadata:
     name: cluster-local-gateway
     namespace: istio-system
 spec:
-    maxReplicas: 5
+    maxReplicas: 1
     minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1beta1

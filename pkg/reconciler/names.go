@@ -19,8 +19,9 @@ package reconciler
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/utils"
 	"strings"
+
+	"github.com/knative/serving/pkg/utils"
 )
 
 const suffix = "-service"

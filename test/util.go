@@ -31,7 +31,7 @@ const (
 
 // LogResourceObject logs the resource object with the resource name and value
 func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
-	logger.Infof("resource %s", spew.Sdump(value))
+	logger.Debugf("resource %s", spew.Sdump(value))
 }
 
 // ImagePath is a helper function to prefix image name with repo and suffix with tag
