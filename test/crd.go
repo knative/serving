@@ -24,12 +24,17 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
+
+// Default for user containers in e2e tests. This value is lower than the general
+// Knative's default so as to run more effectively in CI with limited resources.
+const defaultRequestCPU = "100m"
 
 // ResourceNames holds names of various resources.
 type ResourceNames struct {
@@ -99,6 +104,14 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
+		options.ContainerResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
+			},
+		}
+	}
+
 	spec := &v1alpha1.ConfigurationSpec{
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{

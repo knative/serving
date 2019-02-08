@@ -38,6 +38,9 @@ func (nl *nopLatencies) Add(metric string, start time.Time) {
 	nl.logger.Infof("%q took %v", metric, duration)
 }
 
+// Limit for scale in -short mode
+const shortModeMaxScale = 10
+
 // While redundant, we run two versions of this by default:
 // 1. TestScaleToN/size-10: a developer smoke test that's useful when changing this to assess whether
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
@@ -58,6 +61,9 @@ func TestScaleToN(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("scale-%d", test.size), func(t *testing.T) {
+			if testing.Short() && test.size > shortModeMaxScale {
+				t.Skip("Skipping test in short mode")
+			}
 			// Add test case specific name to its own logger
 			logger := logging.GetContextLogger(t.Name())
 
