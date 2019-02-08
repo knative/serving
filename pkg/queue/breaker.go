@@ -25,10 +25,8 @@ import (
 )
 
 var (
-	// ErrAddCapacity indicates that not all capacity could be added to the breaker.
-	ErrAddCapacity = errors.New("failed to add all capacity to the breaker")
-	// ErrReduceCapacity indicates that there's not enough capacity to be reduced.
-	ErrReduceCapacity = errors.New("the capacity that is released must be <= to added capacity")
+	// ErrUpdateCapacity the the capacity could not be updated as wished.
+	ErrUpdateCapacity = errors.New("failed to add all capacity to the breaker")
 	// ErrRelease indicates that Release was called more often than Acquire.
 	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 )
@@ -106,7 +104,7 @@ func (b *Breaker) UpdateConcurrency(size int32) error {
 	return b.sem.UpdateCapacity(size)
 }
 
-// Capacity returns the number of allow in-flight requests on this breaker.
+// Capacity returns the number of allowed in-flight requests on this breaker.
 func (b *Breaker) Capacity() int32 {
 	return b.sem.Capacity()
 }
@@ -120,7 +118,7 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
 	queue := make(chan token, maxCapacity)
-	sem := Semaphore{queue: queue, maxCapacity: maxCapacity}
+	sem := Semaphore{queue: queue}
 	if initialCapacity > 0 {
 		sem.UpdateCapacity(initialCapacity)
 	}
@@ -132,12 +130,11 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *Semaphore {
 // Hence the max number of tokens to hand out equals to the size of the channel.
 // `capacity` defines the current number of tokens in the rotation.
 type Semaphore struct {
-	queue       chan token
-	token       token
-	reducers    int32
-	capacity    int32
-	maxCapacity int32
-	mux         sync.Mutex
+	queue    chan token
+	token    token
+	reducers int32
+	capacity int32
+	mux      sync.Mutex
 }
 
 // Acquire receives the token from the semaphore, potentially blocking.
@@ -171,8 +168,8 @@ func (s *Semaphore) Release() error {
 // UpdateCapacity updates the capacity of the semaphore to the desired
 // size.
 func (s *Semaphore) UpdateCapacity(size int32) error {
-	if size < 0 {
-		return ErrReduceCapacity
+	if size < 0 || size > int32(cap(s.queue)) {
+		return ErrUpdateCapacity
 	}
 
 	s.mux.Lock()
@@ -180,10 +177,6 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 
 	if s.effectiveCapacity() == size {
 		return nil
-	}
-
-	if size > s.maxCapacity {
-		return ErrAddCapacity
 	}
 
 	// Add capacity until we reach size, potentially consuming
@@ -199,7 +192,7 @@ func (s *Semaphore) UpdateCapacity(size int32) error {
 				// This indicates that we're operating close to
 				// MaxCapacity and returned more tokens than we
 				// acquired.
-				return ErrAddCapacity
+				return ErrUpdateCapacity
 			}
 		}
 	}

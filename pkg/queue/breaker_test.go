@@ -168,14 +168,14 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	assertEqual(int32(0), b.Capacity(), t)
 
 	err := b.UpdateConcurrency(int32(-2))
-	assertEqual(ErrReduceCapacity, err, t)
+	assertEqual(ErrUpdateCapacity, err, t)
 }
 
 func TestBreaker_UpdateConcurrency_Overlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	err := b.UpdateConcurrency(int32(2))
-	assertEqual(ErrAddCapacity, err, t)
+	assertEqual(ErrUpdateCapacity, err, t)
 }
 
 // Test empty semaphore, token cannot be acquired
@@ -265,22 +265,22 @@ func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
 
 func TestSemaphore_UpdateCapacity_Overflow(t *testing.T) {
 	sem := NewSemaphore(2, 0)
-	response := sem.UpdateCapacity(int32(3))
-	assertEqual(ErrAddCapacity, response, t)
+	err := sem.UpdateCapacity(int32(3))
+	assertEqual(err, ErrUpdateCapacity, t)
 }
 
 func TestSemaphore_UpdateCapacity_OutOfBound(t *testing.T) {
 	sem := NewSemaphore(1, 1)
 	sem.Acquire()
 	err := sem.UpdateCapacity(-1)
-	assertEqual(err, ErrReduceCapacity, t)
+	assertEqual(err, ErrUpdateCapacity, t)
 }
 
 func TestSemaphore_UpdateCapacity_BrokenState(t *testing.T) {
 	sem := NewSemaphore(1, 0)
 	sem.Release() // This Release is not paired with an Acquire
 	err := sem.UpdateCapacity(1)
-	assertEqual(err, ErrAddCapacity, t)
+	assertEqual(err, ErrUpdateCapacity, t)
 }
 
 func TestSemaphore_UpdateCapacity_DoNothing(t *testing.T) {
