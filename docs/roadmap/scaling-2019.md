@@ -25,7 +25,7 @@ We've poked at this problem in 2018 ([#1297](https://github.com/knative/serving/
 
 Knative Serving provides concurrency controls to limit the number of requests a container must handle simultaneously. Additionally, each pod has a queue for holding requests when the container concurrency limit has been reached. When the pod-level queue overflows, subsequent request are rejected with 503 "overload".
 
-This is desireable to protect the Pod from being overloaded. But in the aggregate the behavior is not ideal for situations when autoscaling needs some time to react to sudden increases in request load (e.g. scale-from-zero).
+This is desirable to protect the Pod from being overloaded. But in the aggregate the behavior is not ideal for situations when autoscaling needs some time to react to sudden increases in request load (e.g. scale-from-zero).
 
 The goal of Overload Handling is to enqueue requests at a revision-level. Scale-from-zero should not overload if autoscaling can react in a reasonable amount of time to provide additional pods. When new pods come online, they should be able to take load for the existing pods. Even when scaled above zero, brief spikes of overload should be handled by enqueuing requests at a revision-level. The depth of the revision-level queue should also be configurable because even the Revision as a whole needs to guard against overload.
 
