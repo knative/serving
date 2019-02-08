@@ -175,8 +175,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
-	var cms []*corev1.ConfigMap
-	cms = append(cms, &corev1.ConfigMap{
+	cms := []*corev1.ConfigMap{&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      config.NetworkConfigName,
@@ -213,9 +212,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	},
-		getTestControllerConfigMap(),
-	)
+	}, getTestControllerConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -609,18 +606,18 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 }
 
 func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
-
+	defer ClearAllLoggers()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// deployment and revision.
 	tests := []struct {
 		name              string
 		expected          string
-		configMapToUpdate corev1.ConfigMap
+		configMapToUpdate *corev1.ConfigMap
 		wasUpdated        func(string, *v1alpha1.Revision, *appsv1.Deployment) (string, bool)
 	}{{
 		name:     "Update Istio Outbound IP Ranges", // Should update metadata on Deployment
 		expected: "10.0.0.1/24",
-		configMapToUpdate: corev1.ConfigMap{
+		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.NetworkConfigName,
 				Namespace: system.Namespace(),
@@ -637,7 +634,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}, {
 		name:     "Disable Fluentd", // Should remove fluentd from Deployment
 		expected: "",
-		configMapToUpdate: corev1.ConfigMap{
+		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
@@ -657,7 +654,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}, {
 		name:     "Update LoggingURL", // Should update LogURL on revision
 		expected: "http://log-here.test.com?filter=",
-		configMapToUpdate: corev1.ConfigMap{
+		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
@@ -676,7 +673,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}, {
 		name:     "Update Fluentd Image", // Should Fluentd to Deployment
 		expected: "newFluentdImage",
-		configMapToUpdate: corev1.ConfigMap{
+		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
@@ -702,7 +699,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}, {
 		name:     "Update QueueProxy Image", // Should update queueSidecarImage
 		expected: "myAwesomeQueueImage",
-		configMapToUpdate: corev1.ConfigMap{
+		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      config.ControllerConfigName,
@@ -726,7 +723,6 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestControllerConfig()
 			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
@@ -756,11 +752,9 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 				got, wasUpdated := test.wasUpdated(test.expected, updatedRev, updatedDeployment)
 
 				if !wasUpdated {
-					t.Logf("No update occurred. expected: %s got: %s", test.expected, got)
+					t.Logf("No update occurred; expected: %s got: %s", test.expected, got)
 					return HookIncomplete
 				}
-
-				//Look for expected change
 				return HookComplete
 			})
 
@@ -773,14 +767,14 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 			cachingInformer.WaitForCacheSync(stopCh)
 
 			if err := watcher.Start(stopCh); err != nil {
-				t.Fatalf("Failed to start configuration manager: %v", err)
+				t.Fatalf("Failed to start config map watcher: %v", err)
 			}
 
 			grp.Go(func() error { return controller.Run(1, stopCh) })
 
 			revClient.Create(rev)
 
-			watcher.OnChange(&test.configMapToUpdate)
+			watcher.OnChange(test.configMapToUpdate)
 
 			if err := h.WaitForHooks(time.Second); err != nil {
 				t.Errorf("%s Global Resync Failed: %v", test.name, err)
