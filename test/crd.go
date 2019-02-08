@@ -52,8 +52,8 @@ type ResourceObjects struct {
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(namespace string, names ResourceNames) *v1alpha1.Route {
-	return &v1alpha1.Route{
+func Route(namespace string, names ResourceNames, fopt ...testing.RouteOption) *v1alpha1.Route {
+	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Route,
@@ -66,6 +66,12 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 			}},
 		},
 	}
+
+	for _, opt := range fopt {
+		opt(route)
+	}
+
+	return route
 }
 
 // BlueGreenRoute returns a Route object in namespace using the route and configuration
@@ -119,7 +125,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(namespace string, names ResourceNames, options *Options) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, options *Options, fopt ...testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -130,6 +136,11 @@ func Configuration(namespace string, names ResourceNames, options *Options) *v1a
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
 	}
+
+	for _, opt := range fopt {
+		opt(config)
+	}
+
 	return config
 }
 
