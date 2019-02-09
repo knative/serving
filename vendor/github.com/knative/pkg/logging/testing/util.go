@@ -54,7 +54,6 @@ func TestLogger(t *testing.T) *zap.SugaredLogger {
 	return logger
 }
 
-
 // ClearAll removes all the testing loggers.
 // `go test -count=X` executes runs in the same process, thus the map
 // persists between the runs, but the `t` will no longer be valid and will
