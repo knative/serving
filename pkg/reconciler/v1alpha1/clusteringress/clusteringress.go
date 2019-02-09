@@ -17,6 +17,7 @@ limitations under the License.
 package clusteringress
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	"context"
 	"fmt"
 	"reflect"
@@ -245,11 +246,12 @@ func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) [
 }
 
 func dedup(strs []string) []string {
-	existed := make(map[string]struct{})
+	existed := sets.NewString()
 	unique := []string{}
+	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
 	for _, s := range strs {
-		if _, ok := existed[s]; !ok {
-			existed[s] = struct{}{}
+		if !existed.Has(s) {
+			existed.Insert(s)
 			unique = append(unique, s)
 		}
 	}
