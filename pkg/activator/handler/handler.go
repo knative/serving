@@ -30,11 +30,11 @@ import (
 // ActivationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type ActivationHandler struct {
-	Activator activator.Activator
-	Logger    *zap.SugaredLogger
-	Transport http.RoundTripper
-	Reporter  activator.StatsReporter
-	Throttler *activator.Throttler
+	Logger              *zap.SugaredLogger
+	Transport           http.RoundTripper
+	Reporter            activator.StatsReporter
+	Throttler           *activator.Throttler
+	GetActivationResult func(revID activator.RevisionID) *activator.ActivationResult
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +43,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	revID := activator.RevisionID{namespace, name}
 
-	// ActiveEndpoint() will block until the first endpoint is available.
-	ar := a.Activator.ActiveEndpoint(namespace, name)
+	ar := a.GetActivationResult(revID)
 
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)

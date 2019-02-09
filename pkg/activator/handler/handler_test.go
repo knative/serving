@@ -43,36 +43,24 @@ var stubRevisionGetter = func(activator.RevisionID) (*v1alpha1.Revision, error) 
 	return revision, nil
 }
 
-type stubActivator struct {
-	endpoint  activator.Endpoint
-	namespace string
-	name      string
-}
+func stubActivationResult(namespace string, name string) func(revID activator.RevisionID) *activator.ActivationResult {
 
-func newStubActivator(namespace string, name string) activator.Activator {
-	return &stubActivator{
-		endpoint:  activator.Endpoint{FQDN: "example.com", Port: int32(8080)},
-		namespace: namespace,
-		name:      name,
-	}
-}
+	return func(revID activator.RevisionID) *activator.ActivationResult {
+		endpoint := activator.Endpoint{FQDN: "example.com", Port: int32(8080)}
 
-func (fa *stubActivator) ActiveEndpoint(namespace, name string) activator.ActivationResult {
-	if namespace == fa.namespace && name == fa.name {
-		return activator.ActivationResult{
-			Status:            http.StatusOK,
-			Endpoint:          fa.endpoint,
-			ServiceName:       "service-" + fa.name,
-			ConfigurationName: "config-" + fa.name,
+		if revID.Namespace == namespace && revID.Name == name {
+			return &activator.ActivationResult{
+				Status:            http.StatusOK,
+				Endpoint:          endpoint,
+				ServiceName:       "service-" + name,
+				ConfigurationName: "config-" + name,
+			}
+		}
+		return &activator.ActivationResult{
+			Status: http.StatusNotFound,
+			Error:  errors.New("not found"),
 		}
 	}
-	return activator.ActivationResult{
-		Status: http.StatusNotFound,
-		Error:  errors.New("not found"),
-	}
-}
-
-func (fa *stubActivator) Shutdown() {
 }
 
 func TestActivationHandler(t *testing.T) {
@@ -86,7 +74,7 @@ func TestActivationHandler(t *testing.T) {
 		return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
 	}
 
-	act := newStubActivator(testNamespace, testRevName)
+	activationResult := stubActivationResult("real-namespace", "real-name")
 
 	examples := []struct {
 		label           string
@@ -244,11 +232,11 @@ func TestActivationHandler(t *testing.T) {
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 			throttlerParams := activator.ThrottlerParams{BreakerParams: params, Logger: TestLogger(t), GetRevision: stubRevisionGetter, GetEndpoints: e.endpointsGetter}
 			handler := ActivationHandler{
-				Activator: act,
-				Transport: rt,
-				Logger:    TestLogger(t),
-				Reporter:  reporter,
-				Throttler: activator.NewThrottler(throttlerParams),
+				Transport:           rt,
+				Logger:              TestLogger(t),
+				Reporter:            reporter,
+				Throttler:           activator.NewThrottler(throttlerParams),
+				GetActivationResult: activationResult,
 			}
 
 			resp := httptest.NewRecorder()
@@ -295,7 +283,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 
 	throttler := getThrottler(breakerParams, t)
 
-	act := newStubActivator(namespace, revName)
+	act := stubActivationResult(namespace, revName)
 	lockerCh := make(chan struct{})
 	handler := getHandler(throttler, act, lockerCh, t)
 	sendRequests(requests, namespace, revName, respCh, handler)
@@ -321,7 +309,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 		namespace := fmt.Sprintf("real-namespace-%d", rev)
 		revName := testRevName
 
-		act := newStubActivator(namespace, revName)
+		act := stubActivationResult(namespace, revName)
 		handler := getHandler(throttler, act, lockerCh, t)
 
 		requestCount := overallRequests / revisions
@@ -359,7 +347,7 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 
 // getHandler returns an already setup ActivationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
-func getHandler(throttler *activator.Throttler, act activator.Activator, lockerCh chan struct{}, t *testing.T) ActivationHandler {
+func getHandler(throttler *activator.Throttler, act func(revID activator.RevisionID) *activator.ActivationResult, lockerCh chan struct{}, t *testing.T) ActivationHandler {
 	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// Allows only one request at a time until read from.
 		lockerCh <- struct{}{}
@@ -371,11 +359,11 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 		return fake.Result(), nil
 	})
 	handler := ActivationHandler{
-		Activator: act,
-		Transport: rt,
-		Logger:    TestLogger(t),
-		Reporter:  &fakeReporter{},
-		Throttler: throttler,
+		Transport:           rt,
+		Logger:              TestLogger(t),
+		Reporter:            &fakeReporter{},
+		Throttler:           throttler,
+		GetActivationResult: act,
 	}
 	return handler
 }

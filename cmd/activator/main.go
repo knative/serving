@@ -33,29 +33,33 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/pkg/system"
-	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/pkg/controller"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"errors"
+	"github.com/knative/pkg/version"
+	"github.com/knative/pkg/system"
 )
 
 const (
@@ -158,17 +162,20 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	go revisionInformer.Informer().Run(stopCh)
 	go endpointInformer.Informer().Run(stopCh)
+	go serviceInformer.Informer().Run(stopCh)
 
 	logger.Info("Waiting for informer caches to sync")
 
 	informerSyncs := []cache.InformerSynced{
 		endpointInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
+		serviceInformer.Informer().HasSynced,
 	}
 	// Make sure the caches are in sync before we add the actual handler.
 	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
@@ -184,7 +191,7 @@ func main() {
 	// Return the number of endpoints, 0 if no endpoints are found.
 	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
 		endpoints, err := endpointInformer.Lister().Endpoints(revID.Namespace).Get(revID.Name)
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return 0, nil
 		}
 		if err != nil {
@@ -199,12 +206,52 @@ func main() {
 		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
 	}
 
+	activationResultGetter := func(revID activator.RevisionID) *activator.ActivationResult {
+		rev, err := revisionGetter(revID)
+		if err != nil {
+			return getActivationResultFromError(err)
+		}
+		serviceName, configurationName := getLabels(rev)
+
+		name := revisionresourcenames.K8sService(rev)
+		svc, err := serviceInformer.Lister().Services(revID.Namespace).Get(name)
+		if err != nil {
+			return getActivationResultFromError(err)
+		}
+
+		fqdn := fmt.Sprintf("%s.%s.svc.%s", name, rev.Namespace, utils.GetClusterDomainName())
+
+		// Search for the correct port in all the service ports.
+		port := int32(-1)
+		for _, p := range svc.Spec.Ports {
+			if p.Name == revisionresources.ServicePortName(rev) {
+				port = p.Port
+				break
+			}
+		}
+		if port == -1 {
+			return &activator.ActivationResult{
+				Status: http.StatusInternalServerError,
+				Error:  errors.New("revision needs external HTTP port"),
+			}
+		}
+
+		endpoint := activator.Endpoint{fqdn, port}
+
+		return &activator.ActivationResult{
+			Endpoint:          endpoint,
+			ServiceName:       serviceName,
+			ConfigurationName: configurationName,
+		}
+	}
+
 	throttlerParams := activator.ThrottlerParams{
 		BreakerParams: params,
 		Logger:        logger,
 		GetEndpoints:  endpointsGetter,
 		GetRevision:   revisionGetter,
 	}
+
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
@@ -219,9 +266,6 @@ func main() {
 		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
 		Handler:    handler,
 	})
-
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
-	a = activator.NewDedupingActivator(a)
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
@@ -251,11 +295,11 @@ func main() {
 			&activatorhandler.EnforceMaxContentLengthHandler{
 				MaxContentLengthBytes: maxUploadBytes,
 				NextHandler: &activatorhandler.ActivationHandler{
-					Activator: a,
-					Transport: rt,
-					Logger:    logger,
-					Reporter:  reporter,
-					Throttler: throttler,
+					Transport:           rt,
+					Logger:              logger,
+					Reporter:            reporter,
+					Throttler:           throttler,
+					GetActivationResult: activationResultGetter,
 				},
 			},
 		),
@@ -285,7 +329,26 @@ func main() {
 	}()
 
 	<-stopCh
-	a.Shutdown()
 	http1Srv.Shutdown(context.TODO())
 	h2cSrv.Shutdown(context.TODO())
+}
+
+func getLabels(rev *v1alpha1.Revision) (string, string) {
+	if rev.Labels == nil {
+		return "", ""
+	}
+	return rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey]
+}
+
+func getActivationResultFromError(err error) *activator.ActivationResult {
+	if k8serrors.IsNotFound(err) {
+		return &activator.ActivationResult{
+			Status: http.StatusNotFound,
+			Error:  err,
+		}
+	}
+	return &activator.ActivationResult{
+		Status: http.StatusInternalServerError,
+		Error:  err,
+	}
 }
