@@ -36,7 +36,7 @@ const (
 	// second.
 	scaleBufferSize = 10
 
-	// sampleSize is the times to scrape metrics per second.
+	// SampleSize is the times to scrape metrics per second.
 	// TODO(yanweiguo): tuning the sample size
 	SampleSize = 3
 )

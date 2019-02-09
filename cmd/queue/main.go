@@ -119,14 +119,6 @@ func statReporter() {
 	}
 }
 
-// sendStat sends a single StatMessage to the autoscaler.
-func sendStat(s *autoscaler.Stat) error {
-	return reporter.Report(
-		float64(s.RequestCount),
-		float64(s.AverageConcurrentRequests),
-	)
-}
-
 func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
 	if req.ProtoMajor == 2 {
 		return h2cProxy
