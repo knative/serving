@@ -12,3 +12,4 @@
 /pkg/**/testing/** coverage-excluded=true
 /vendor/** coverage-excluded=true
 /test/** coverage-excluded=true
+/cmd/**/main.go coverage-excluded=true

@@ -295,9 +295,9 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
 	gotReplicas := deployment.Status.Replicas
-	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	ctx.logger.Infof("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
-		return errors.Errorf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
+		return errors.Errorf("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	}
 	return nil
 }
@@ -318,7 +318,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 		ctx.t.Fatalf("Error during scale up: %v", err)
 	}
 
-	if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+	if err := assertNumberOfPods(ctx, numPods, maxPods); err != nil {
 		errChan <- err
 	}
 
@@ -337,13 +337,13 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
 
-	// increase workload for 2 replicas for 30s
-	// assert the number of wanted replicas is between 1-3 during the 30s
-	// assert the number of wanted replicas is 1-3 after 30s
+	// Increase workload for 2 replicas for 30s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
+	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
-	// scale to 3 replicas, assert 2-4 during scale up, assert 2-4 after scaleup
+	// Increase workload Scale to 3 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 3)
-	// scale to 4 replicas, assert 3-5 during scale up, assert 3-5 after scaleup
+	// Increase workload Scale to 4 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 4)
 
 }
