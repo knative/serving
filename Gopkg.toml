@@ -29,7 +29,6 @@ required = [
 [[override]]
   # WAIT FOR MERGE
   branch = "clean-test-loggers"
-  name = "github.com/knative/pkg"
   source = "https://github.com/vagababov/pkg.git"
   # HEAD as of 2019-02-07
   revision = "3d1183695201ec2f45ddc68c452fcc04cc394f47"
