@@ -113,7 +113,7 @@ function markdown_build_tests() {
   # Get changed markdown files (ignore /vendor and deleted files)
   local mdfiles=""
   for file in $(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/); do
-    [[ -f "{file}" ]] && mdfiles="${mdfiles} ${file}"
+    [[ -f "${file}" ]] && mdfiles="${mdfiles} ${file}"
   done
   [[ -z "${mdfiles}" ]] && return 0
   local failed=0
