@@ -27,11 +27,9 @@ required = [
   revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
 
 [[override]]
-  # WAIT FOR MERGE
-  branch = "clean-test-loggers"
-  source = "https://github.com/vagababov/pkg.git"
-  # HEAD as of 2019-02-07
-  revision = "3d1183695201ec2f45ddc68c452fcc04cc394f47"
+  name = "github.com/knative/pkg"
+  # HEAD as of 2019-02-10
+  revision = "5db4e8e38e5682fd28c4849ffa3135da7787edb6"
 
 [[override]]
   name = "go.uber.org/zap"
