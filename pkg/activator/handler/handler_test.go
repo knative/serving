@@ -297,7 +297,7 @@ func TestActivationHandler(t *testing.T) {
 
 			gotBody, _ := ioutil.ReadAll(resp.Body)
 			if string(gotBody) != e.wantBody {
-				t.Errorf("Unexpected response body. Want %q, got %q", e.wantBody, gotBody)
+				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, e.wantBody)
 			}
 
 			if diff := cmp.Diff(e.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
@@ -416,6 +416,9 @@ func getHandler(throttler *activator.Throttler, t *testing.T, act activator.Acti
 		if err != nil {
 			return resp, err
 		}
+		// Simulate a real request round trip to avoid race condition.
+		// If sending N requests that equals to the number of slots, we need to make sure that
+		// N+1 won't get a slot that is freed up by one of the "speedy" responses.
 		time.Sleep(50 * time.Millisecond)
 		return resp, nil
 	})
