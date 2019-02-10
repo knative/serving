@@ -310,9 +310,11 @@ func TestActivationHandler(t *testing.T) {
 
 // Make sure we return http internal server error when the Breaker is overflowed
 func TestActivationHandler_Overflow(t *testing.T) {
-	wantedSuccess := 20
-	wantedFailure := 1
-	requests := 21
+	const (
+		wantedSuccess = 20
+		wantedFailure = 1
+		requests      = 21
+	)
 	respCh := make(chan *httptest.ResponseRecorder, requests)
 	// overall max 20 requests in the Breaker
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
@@ -333,10 +335,13 @@ func TestActivationHandler_Overflow(t *testing.T) {
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
 func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
-	wantedSuccess := 40
-	wantedFailure := 2
-	overallRequests := 42
-	revisions := 2
+	const (
+		wantedSuccess   = 40
+		wantedFailure   = 2
+		overallRequests = 42
+		revisions       = 2
+	)
+
 	respCh := make(chan *httptest.ResponseRecorder, overallRequests)
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
