@@ -56,6 +56,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -346,7 +347,7 @@ type fixedResolver struct {
 	digest string
 }
 
-func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return r.digest, nil
 }
 
@@ -354,7 +355,7 @@ type errorResolver struct {
 	error string
 }
 
-func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", errors.New(r.error)
 }
 

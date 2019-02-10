@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", nil
 }
 

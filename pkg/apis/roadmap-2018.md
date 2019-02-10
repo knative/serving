@@ -20,7 +20,7 @@ resource specification.
    Knative Serving API.
 1. **Schema**. [The Knative Serving API schema](../../docs/spec/spec.md) matches
    [our implementation.](./serving/).
-1. **Semantics**. The [semantics](../controller/) of Knative Serving API
+1. **Semantics**. The [semantics](../../cmd/controller/) of Knative Serving API
    interactions match
    [our specification](../../docs/spec/normative_examples.md), and are well
    covered by [conformance testing](../../test/conformance/README.md).
