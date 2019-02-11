@@ -153,7 +153,7 @@ func main() {
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(stopCh)
 
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)

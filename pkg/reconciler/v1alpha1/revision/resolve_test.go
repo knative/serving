@@ -38,10 +38,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
 )
 
-var emptyRegistrySet = map[string]struct{}{}
+var emptyRegistrySet = sets.NewString()
 
 func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	h, err := img.Digest()
@@ -346,9 +347,7 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		transport: http.DefaultTransport,
 	}
 
-	registriesToSkip := map[string]struct{}{
-		"localhost:5000": {},
-	}
+	registriesToSkip := sets.NewString("localhost:5000")
 
 	opt := k8schain.Options{
 		Namespace:          ns,

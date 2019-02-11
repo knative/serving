@@ -576,7 +576,7 @@ func WithLogURL(r *v1alpha1.Revision) {
 // but unfortunately Go's type system cannot support that.
 func WithCreationTimestamp(t time.Time) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.ObjectMeta.CreationTimestamp = metav1.Time{t}
+		rev.ObjectMeta.CreationTimestamp = metav1.Time{Time: t}
 	}
 }
 

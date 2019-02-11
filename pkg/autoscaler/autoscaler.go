@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -80,7 +81,7 @@ func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
 		window:              window,
 		perPodAggregations:  make(map[string]*perPodAggregation),
-		activatorsContained: make(map[string]struct{}),
+		activatorsContained: sets.NewString(),
 	}
 }
 
@@ -89,7 +90,7 @@ type totalAggregation struct {
 	window              time.Duration
 	perPodAggregations  map[string]*perPodAggregation
 	probeCount          int32
-	activatorsContained map[string]struct{}
+	activatorsContained sets.String
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -104,7 +105,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 	}
 	current.aggregate(stat)
 	if current.isActivator {
-		agg.activatorsContained[stat.PodName] = struct{}{}
+		agg.activatorsContained.Insert(stat.PodName)
 	}
 	agg.probeCount++
 }

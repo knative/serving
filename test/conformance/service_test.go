@@ -318,7 +318,7 @@ func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTa
 				return false, nil
 			}
 			return true, nil
-		}, "Verify Service Trafic Shape",
+		}, "Verify Service Traffic Shape",
 	)
 }
 
@@ -369,12 +369,12 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
-		"current": v1alpha1.TrafficTarget{
+		"current": {
 			Name:         "current",
 			RevisionName: objects.Config.Status.LatestReadyRevisionName,
 			Percent:      100,
 		},
-		"latest": v1alpha1.TrafficTarget{
+		"latest": {
 			Name:         "latest",
 			RevisionName: objects.Config.Status.LatestReadyRevisionName,
 		},
@@ -431,17 +431,17 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
-		"current": v1alpha1.TrafficTarget{
+		"current": {
 			Name:         "current",
 			RevisionName: revisions[0],
 			Percent:      50,
 		},
-		"candidate": v1alpha1.TrafficTarget{
+		"candidate": {
 			Name:         "candidate",
 			RevisionName: revisions[1],
 			Percent:      50,
 		},
-		"latest": v1alpha1.TrafficTarget{
+		"latest": {
 			Name:         "latest",
 			RevisionName: revisions[1],
 		},

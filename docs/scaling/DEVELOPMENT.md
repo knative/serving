@@ -28,8 +28,8 @@ incoming traffic.
 Revisions have three autoscaling states which are:
 
 1. **Active** when they are actively serving requests,
-2. **Reserve** when they are scaled down to 0 Pods but is still in service, and
-3. **Retired** when they will no longer receive traffic.
+1. **Reserve** when they are scaled down to 0 Pods but is still in service, and
+1. **Retired** when they will no longer receive traffic.
 
 When a Revision is actively serving requests it will increase and decrease the
 number of Pods to maintain the desired average concurrent requests per Pod. When
@@ -95,9 +95,9 @@ The following diagram illustrates the mechanics of the autoscaler:
 
 1. **Make it fast**. Revisions should be able to scale from 0 to 1000 concurrent
    requests in 30 seconds or less.
-2. **Make it light**. Wherever possible the system should be able to figure out
+1. **Make it light**. Wherever possible the system should be able to figure out
    the right thing to do without the user's intervention or configuration.
-3. **Make everything better**. Creating custom components is a short-term
+1. **Make everything better**. Creating custom components is a short-term
    strategy to get something working now. The long-term strategy is to make the
    underlying components better so that custom code can be replaced with
    configuration. E.g. Autoscaler should be replaced with the K8s
@@ -111,7 +111,7 @@ The Knative Serving Autoscaler is split into two parts:
 
 1. **Fast Brain** that maintains the desired level of concurrent requests per
    Pod (satisfying [Design Goal #1](#design-goals)), and the
-2. **Slow Brain** that comes up with the desired level based on CPU, memory and
+1. **Slow Brain** that comes up with the desired level based on CPU, memory and
    latency statistics (satisfying [Design Goal #2](#design-goals)).
 
 ## Fast Brain Implementation
@@ -123,8 +123,7 @@ This is subject to change as the Knative Serving implementation changes.
 - [Autoscaler Library](../../pkg/autoscaler/autoscaler.go)
 - [Autoscaler Binary](../../cmd/autoscaler/main.go)
 - [Queue Proxy Binary](../../cmd/queue/main.go)
-- [Autoscaling Controller](../../pkg/controller/autoscaling/autoscaling.go)
-- [Statistics Server](../../pkg/server/stats/server.go)
+- [Statistics Server](../../pkg/autoscaler/statserver/server.go)
 
 ### Autoscaler
 
@@ -140,7 +139,7 @@ pushes a gob serialized struct with the observed number of concurrent requests
 at that moment.
 
 The Autoscaler runs a controller which monitors
-["KPA"](../../pkg/apis/autoscaling/v1alpha1/kpa_types.go) resources and monitors
+["KPA"](../../pkg/apis/autoscaling/v1alpha1/pa_types.go) resources and monitors
 and scales the embedded object reference via the `/scale` sub-resource.
 
 The Autoscaler provides a websocket-enabled Statistics Server. Queue proxies
