@@ -80,16 +80,17 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 
 ### Running tests in short mode
 
-Running tests in short mode excludes some large-scale E2E tests 
-and saves time/resources required for running the test suite. To run the tests in
-short mode, use [the `-short` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags)
+Running tests in short mode excludes some large-scale E2E tests and saves
+time/resources required for running the test suite. To run the tests in short
+mode, use
+[the `-short` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags)
 
 ```bash
 go test -v -tags=e2e -count=1 -short ./test/e2e
 ```
 
-To get a better idea where the flag is used, search for `testing.Short()` throughout the test
-source code.
+To get a better idea where the flag is used, search for `testing.Short()`
+throughout the test source code.
 
 ### Environment requirements
 

@@ -9,17 +9,18 @@ which they form.
 
 ## Dependencies
 
-Knative Serving depends on [Istio](https://istio.io/) in order to function. Istio is responsible for
-setting up the network routing both inside the cluster and ingress into the cluster.
+Knative Serving depends on [Istio](https://istio.io/) in order to function.
+Istio is responsible for setting up the network routing both inside the cluster
+and ingress into the cluster.
 
 ## Components
 
 There are four primary components to the Knative Serving system. The first is
-the _Controller_ which is responsible for updating the state of the cluster based on
-user input. The second is the _Webhook_ component which handles validation of the
-objects and actions performed. The third is an _Activator_ component which brings
-back scaled-to-zero pods and forwards requests. The fourth is the _Autoscaler_
-which scales pods are requests come in.
+the _Controller_ which is responsible for updating the state of the cluster
+based on user input. The second is the _Webhook_ component which handles
+validation of the objects and actions performed. The third is an _Activator_
+component which brings back scaled-to-zero pods and forwards requests. The
+fourth is the _Autoscaler_ which scales pods are requests come in.
 
 The controller processes a series of state changes in order to move the system
 from its current, actual state to the state desired by the user.
@@ -32,13 +33,13 @@ To see only objects of a specific type, for example to see the webhook and
 controller deployments inside Knative Serving, you can run
 `kubectl -n knative-serving get deployments`.
 
-The Knative Serving controller creates Kubernetes and Istio
-resources when Knative Serving resources are created and updated. It will also
-create Build resources when provided in the Configuration spec. These
-sub-resources will be created in the same namespace as their parent Knative
-Serving resource, _not_ the `knative-serving` namespace. For example, if you
-create a Knative Serivce in namespace 'foo' the cooresponding Istio resources
-will also be in namespace 'foo'.
+The Knative Serving controller creates Kubernetes and Istio resources when
+Knative Serving resources are created and updated. It will also create Build
+resources when provided in the Configuration spec. These sub-resources will be
+created in the same namespace as their parent Knative Serving resource, _not_
+the `knative-serving` namespace. For example, if you create a Knative Serivce in
+namespace 'foo' the cooresponding Istio resources will also be in namespace
+'foo'.
 
 ## Kubernetes Resource Configs
 
@@ -98,8 +99,9 @@ controller-699fb46bb5-xhlkg   1/1       Running   0          5d
 webhook-76b87b8459-tzj6r      1/1       Running   0          5d
 ```
 
-Similarly, you can run the same commands in the istio (`istio-system`) namespaces
-to view the running deployments. To view all namespaces, run `kubectl get namespaces`.
+Similarly, you can run the same commands in the istio (`istio-system`)
+namespaces to view the running deployments. To view all namespaces, run
+`kubectl get namespaces`.
 
 ### Service Accounts and RBAC policies
 
