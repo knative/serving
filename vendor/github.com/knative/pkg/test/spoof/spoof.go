@@ -26,11 +26,12 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
-	zipkin "github.com/knative/pkg/test/zipkin"
-	v1 "k8s.io/api/core/v1"
+	"github.com/knative/pkg/test/zipkin"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -44,8 +45,8 @@ const (
 	requestInterval = 1 * time.Second
 	requestTimeout  = 5 * time.Minute
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
-	ingressNamespace = "istio-system"
-	ingressName      = "istio-ingressgateway"
+	istioIngressNamespace = "istio-system"
+	istioIngressName      = "istio-ingressgateway"
 )
 
 // Response is a stripped down subset of http.Response. The is primarily useful
@@ -92,7 +93,7 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
@@ -101,12 +102,16 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 	}
 
 	if !resolvable {
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
-		// spoof the Host in our requests.
-		e, err := GetServiceEndpoint(kubeClientset)
-		if err != nil {
-			return nil, err
+		e := &endpointOverride
+		if endpointOverride == "" {
+			var err error
+			// If the domain that the Route controller is configured to assign to Route.Status.Domain
+			// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
+			// spoof the Host in our requests.
+			e, err = GetServiceEndpoint(kubeClientset)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		sc.endpoint = *e
@@ -121,6 +126,15 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 
 // GetServiceEndpoint gets the endpoint IP or hostname to use for the service.
 func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
+	ingressName := istioIngressName
+	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
+		ingressName = gatewayOverride
+	}
+	ingressNamespace := istioIngressNamespace
+	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
+		ingressNamespace = gatewayNsOverride
+	}
+
 	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
