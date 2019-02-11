@@ -36,9 +36,10 @@ const (
 	// second.
 	scaleBufferSize = 10
 
-	// SampleSize is the times to scrape metrics per second.
-	// TODO(yanweiguo): tuning the sample size
-	SampleSize = 3
+	// SamplesPerSecond is the times to scrape metrics per second across all pods
+	// of a revision.
+	// TODO(yanweiguo): tuning this value. To be based on pod population?
+	SamplesPerSecond = 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -272,7 +273,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a stats scraper for metric %q: %v", metric.Name, err)
 	}
-	scraperTicker := time.NewTicker(time.Second / SampleSize)
+	scraperTicker := time.NewTicker(time.Second / SamplesPerSecond)
 	go func() {
 		for {
 			select {

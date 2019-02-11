@@ -51,7 +51,7 @@ queue_operations_per_second{destination_namespace="test-namespace",destination_r
 func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	client := newTestClient(nil, nil)
 	if scraper, err := serviceScraperForTest(client); err != nil {
-		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
 	} else {
 		if scraper.url != testURL {
 			t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
@@ -81,32 +81,32 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 		dynConfig:   dynConfig,
 		client:      client,
 		informer:    informer,
-		expectedErr: "Empty point of Metric",
+		expectedErr: "empty point of Metric",
 	}, {
 		name:        "Missing revision label in Metric",
 		metric:      &invalidMetric,
 		dynConfig:   dynConfig,
 		client:      client,
 		informer:    informer,
-		expectedErr: "No Revision label found for Metric test-revision",
+		expectedErr: "no Revision label found for Metric test-revision",
 	}, {
 		name:        "Empty DynamicConfig",
 		metric:      &metric,
 		client:      client,
 		informer:    informer,
-		expectedErr: "Empty point of DynamicConfig",
+		expectedErr: "empty point of DynamicConfig",
 	}, {
 		name:        "Empty HTTP client",
 		metric:      &metric,
 		dynConfig:   dynConfig,
 		informer:    informer,
-		expectedErr: "Empty point of HTTP client",
+		expectedErr: "empty point of HTTP client",
 	}, {
 		name:        "Empty informer",
 		metric:      &metric,
 		dynConfig:   dynConfig,
 		client:      client,
-		expectedErr: "Empty interface of EndpointsInformer",
+		expectedErr: "empty interface of EndpointsInformer",
 	}}
 
 	for _, test := range testCases {
@@ -126,7 +126,7 @@ func TestScrapeViaURL_HappyCase(t *testing.T) {
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
 	}
 	stat, err := scraper.scrapeViaURL()
 	if err != nil {
@@ -196,7 +196,7 @@ func TestScrape_HappyCase(t *testing.T) {
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
 	}
 
 	// Make an Endpoints with 2 pods.
@@ -225,7 +225,7 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
 	}
 
 	// Override the Endpoints with 0 pods.

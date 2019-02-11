@@ -89,20 +89,20 @@ func newServiceScraperWithClient(
 	endpointsInformer corev1informers.EndpointsInformer,
 	httpClient *http.Client) (*ServiceScraper, error) {
 	if metric == nil {
-		return nil, errors.New("Empty point of Metric")
+		return nil, errors.New("empty point of Metric")
 	}
 	if dynamicConfig == nil {
-		return nil, errors.New("Empty point of DynamicConfig")
+		return nil, errors.New("empty point of DynamicConfig")
 	}
 	if endpointsInformer == nil {
-		return nil, errors.New("Empty interface of EndpointsInformer")
+		return nil, errors.New("empty interface of EndpointsInformer")
 	}
 	if httpClient == nil {
-		return nil, errors.New("Empty point of HTTP client")
+		return nil, errors.New("empty point of HTTP client")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
-		return nil, fmt.Errorf("No Revision label found for Metric %s", metric.Name)
+		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
@@ -122,13 +122,13 @@ func newServiceScraperWithClient(
 func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
 	logger := logging.FromContext(ctx)
 
-	readyPods, err := s.readyPods(time.Now())
+	readyPodsCount, err := s.readyPodsCount(time.Now())
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return
 	}
 
-	if readyPods == 0 {
+	if readyPodsCount == 0 {
 		logger.Debug("No ready pods found, not to scrape.")
 		return
 	}
@@ -141,19 +141,19 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 
 	// Assume traffic is route to pods evenly. A particular pod can stand for
 	// other pods, i.e. other pods have similar concurrency.
-	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPods)
+	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPodsCount)
 
 	s.sendStatMessage(*stat, statsCh)
 }
 
-// readyPods returns the ready IP count in the K8S Endpoints object for a Revision
+// readyPodsCount returns the ready IP count in the K8S Endpoints object for a Revision
 // via K8S Informer. This is same as ready Pod count.
-func (s *ServiceScraper) readyPods(now time.Time) (int, error) {
+func (s *ServiceScraper) readyPodsCount(now time.Time) (int, error) {
 	if s.cachedReadyPods.time.Add(cacheTimeout).After(now) {
 		return s.cachedReadyPods.count, nil
 	}
 
-	readyPods, err := readyPodsOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
+	readyPods, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
 	if err != nil {
 		return 0, err
 	}

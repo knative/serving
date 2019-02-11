@@ -115,6 +115,8 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 func (agg *totalAggregation) observedConcurrency() (float64, float64) {
 	accumulatedPodConcurrency := 0.0
 	accumulatedRevConcurrency := 0.0
+	averagePodConcurrency := 0.0
+	averageRevConcurrency := 0.0
 	activatorConcurrency := 0.0
 	accumulatedProbeCount := int32(0)
 	for _, perPod := range agg.perPodAggregations {
@@ -127,15 +129,15 @@ func (agg *totalAggregation) observedConcurrency() (float64, float64) {
 		}
 	}
 	if accumulatedProbeCount != 0 {
-		accumulatedPodConcurrency = accumulatedPodConcurrency / float64(accumulatedProbeCount)
-		accumulatedRevConcurrency = accumulatedRevConcurrency / float64(accumulatedProbeCount)
+		averagePodConcurrency = accumulatedPodConcurrency / float64(accumulatedProbeCount)
+		averageRevConcurrency = accumulatedRevConcurrency / float64(accumulatedProbeCount)
 	}
 
 	if accumulatedPodConcurrency < approximateZero {
 		// Activator is the only pod reporting stats.
 		return activatorConcurrency, activatorConcurrency
 	}
-	return accumulatedRevConcurrency, accumulatedPodConcurrency
+	return averageRevConcurrency, averagePodConcurrency
 }
 
 // Holds an aggregation per pod
@@ -239,7 +241,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	readyPods, err := readyPodsOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
+	readyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
@@ -269,8 +271,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/target, readyPods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/target, readyPods)
+	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/target, readyPodsCount)
+	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/target, readyPodsCount)
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrencyPerPod)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrencyPerPod)
@@ -302,7 +304,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		logger.Debug("Operating in panic mode.")
 		a.reporter.ReportPanic(1)
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", readyPods, int(desiredPanicPodCount))
+			logger.Infof("Increasing pods from %v to %v.", readyPodsCount, int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
@@ -377,9 +379,9 @@ func divide(a, b float64) float64 {
 	return a / b
 }
 
-// readyPodsOfEndpoints returns the ready IP count in the K8S Endpoints object returned by
+// readyPodsCountOfEndpoints returns the ready IP count in the K8S Endpoints object returned by
 // the given K8S Informer with given namespace and name. This is same as ready Pod count.
-func readyPodsOfEndpoints(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
+func readyPodsCountOfEndpoints(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
 	readyPods := 0
 	endpoints, err := lister.Endpoints(ns).Get(name)
 	if apierrors.IsNotFound(err) {

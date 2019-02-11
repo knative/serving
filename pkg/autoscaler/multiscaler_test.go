@@ -103,7 +103,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	select {
 	case <-statCh:
 		// We got the StatMessage!
-	case <-time.After(time.Second / autoscaler.SampleSize):
+	case <-time.After(time.Second / autoscaler.SamplesPerSecond):
 		t.Fatalf("Did not get expected StatMessage")
 	}
 
