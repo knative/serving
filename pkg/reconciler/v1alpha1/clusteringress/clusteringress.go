@@ -17,10 +17,11 @@ limitations under the License.
 package clusteringress
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"context"
 	"fmt"
 	"reflect"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
