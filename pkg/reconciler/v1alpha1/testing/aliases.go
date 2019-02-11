@@ -43,6 +43,9 @@ var (
 	Eventf                    = testing.Eventf
 
 	TestLogger = logtesting.TestLogger
+
+	// ClearAllLoggers removes all the registered test loggers.
+	ClearAllLoggers = logtesting.ClearAll
 )
 
 const (

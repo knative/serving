@@ -280,7 +280,7 @@ func main() {
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, autoscalerNamespace, utils.GetClusterDomainName(), servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
+	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter()
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
@@ -330,7 +330,7 @@ func main() {
 		}
 
 		if statSink != nil {
-			if err := statSink.Close(); err != nil {
+			if err := statSink.Shutdown(); err != nil {
 				logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
 			}
 		}
