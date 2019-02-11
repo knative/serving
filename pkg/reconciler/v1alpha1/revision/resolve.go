@@ -17,13 +17,14 @@ limitations under the License.
 package revision
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -85,7 +86,7 @@ func (r *digestResolver) Resolve(
 		return "", err
 	}
 
-	if registriesToSkip.Has(tag.Registry.RegistryStr()){
+	if registriesToSkip.Has(tag.Registry.RegistryStr()) {
 		return "", nil
 	}
 

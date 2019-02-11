@@ -17,9 +17,10 @@ limitations under the License.
 package revision
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
