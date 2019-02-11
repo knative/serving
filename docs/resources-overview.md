@@ -38,7 +38,7 @@ Knative Serving resources are created and updated. It will also create Build
 resources when provided in the Configuration spec. These sub-resources will be
 created in the same namespace as their parent Knative Serving resource, _not_
 the `knative-serving` namespace. For example, if you create a Knative Serivce in
-namespace 'foo' the cooresponding Istio resources will also be in namespace
+namespace 'foo' the corresponding Istio resources will also be in namespace
 'foo'.
 
 ## Kubernetes Resource Configs
