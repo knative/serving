@@ -81,9 +81,6 @@ type ServiceScraper struct {
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig, endpointsInformer corev1informers.EndpointsInformer) (*ServiceScraper, error) {
-	if endpointsInformer == nil {
-		return nil, errors.New("Empty interface of EndpointsInformer")
-	}
 	return newServiceScraperWithClient(metric, dynamicConfig, endpointsInformer, cacheDisabledClient)
 }
 
@@ -92,12 +89,21 @@ func newServiceScraperWithClient(
 	dynamicConfig *DynamicConfig,
 	endpointsInformer corev1informers.EndpointsInformer,
 	httpClient *http.Client) (*ServiceScraper, error) {
-	revName := metric.Labels[serving.RevisionLabelKey]
-	if revName == "" {
-		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
+	if metric == nil {
+		return nil, errors.New("Empty point of Metric")
+	}
+	if dynamicConfig == nil {
+		return nil, errors.New("Empty point of DynamicConfig")
 	}
 	if endpointsInformer == nil {
 		return nil, errors.New("Empty interface of EndpointsInformer")
+	}
+	if httpClient == nil {
+		return nil, errors.New("Empty point of HTTP client")
+	}
+	revName := metric.Labels[serving.RevisionLabelKey]
+	if revName == "" {
+		return nil, fmt.Errorf("No Revision label found for Metric %s", metric.Name)
 	}
 
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
@@ -134,7 +140,7 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 		return
 	}
 
-	// Assume traffics are route to pods evenly. A particular pod can stand for
+	// Assume traffic is route to pods evenly. A particular pod can stand for
 	// other pods, i.e. other pods have similar concurrency.
 	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPods)
 

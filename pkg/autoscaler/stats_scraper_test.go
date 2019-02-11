@@ -19,7 +19,6 @@ package autoscaler
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -63,35 +62,63 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
-func TestNewServiceScraperWithClient_ReturnErrorIfInformerIsEmpty(t *testing.T) {
+func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	metric := getTestMetric()
+	invalidMetric := getTestMetric()
+	invalidMetric.Labels = map[string]string{}
 	dynConfig := &DynamicConfig{}
 	client := newTestClient(nil, nil)
-	var endpointsInformer corev1informers.EndpointsInformer
-	if _, err := newServiceScraperWithClient(&metric, dynConfig, endpointsInformer, client); err != nil {
-		got := err.Error()
-		want := "Empty interface of EndpointsInformer"
-		if got != want {
-			t.Errorf("Got error message: %v. Want: %v", got, want)
-		}
-	} else {
-		t.Errorf("Expected error from CreateNewServiceScraper, got nil")
-	}
-}
+	informer := kubeInformer.Core().V1().Endpoints()
+	testCases := []struct {
+		name        string
+		metric      *Metric
+		dynConfig   *DynamicConfig
+		client      *http.Client
+		informer    corev1informers.EndpointsInformer
+		expectedErr string
+	}{{
+		name:        "Empty Metric",
+		dynConfig:   dynConfig,
+		client:      client,
+		informer:    informer,
+		expectedErr: "Empty point of Metric",
+	}, {
+		name:        "Missing revision label in Metric",
+		metric:      &invalidMetric,
+		dynConfig:   dynConfig,
+		client:      client,
+		informer:    informer,
+		expectedErr: "No Revision label found for Metric test-revision",
+	}, {
+		name:        "Empty DynamicConfig",
+		metric:      &metric,
+		client:      client,
+		informer:    informer,
+		expectedErr: "Empty point of DynamicConfig",
+	}, {
+		name:        "Empty HTTP client",
+		metric:      &metric,
+		dynConfig:   dynConfig,
+		informer:    informer,
+		expectedErr: "Empty point of HTTP client",
+	}, {
+		name:        "Empty informer",
+		metric:      &metric,
+		dynConfig:   dynConfig,
+		client:      client,
+		expectedErr: "Empty interface of EndpointsInformer",
+	}}
 
-func TestNewServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *testing.T) {
-	metric := getTestMetric()
-	dynConfig := &DynamicConfig{}
-	metric.Labels = map[string]string{}
-	client := newTestClient(nil, nil)
-	if _, err := newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), client); err != nil {
-		got := err.Error()
-		want := fmt.Sprintf("no Revision label found for Metric %s", testRevision)
-		if got != want {
-			t.Errorf("Got error message: %v. Want: %v", got, want)
+	for _, test := range testCases {
+		if _, err := newServiceScraperWithClient(test.metric, test.dynConfig, test.informer, test.client); err != nil {
+			got := err.Error()
+			want := test.expectedErr
+			if got != want {
+				t.Errorf("Got error message: %v. Want: %v", got, want)
+			}
+		} else {
+			t.Errorf("Expected error from CreateNewServiceScraper, got nil")
 		}
-	} else {
-		t.Errorf("Expected error from CreateNewServiceScraper, got nil")
 	}
 }
 

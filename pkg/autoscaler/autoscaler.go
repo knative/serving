@@ -112,22 +112,22 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 // The observed concurrency of a revision and the observed concurrency per pod.
 // Ignores activator sent metrics if its not the only pod reporting stats.
 func (agg *totalAggregation) observedConcurrency() (float64, float64) {
-	accumulatedPodConcurrency := float64(0)
-	accumulatedRevConcurrency := float64(0)
-	activatorConcurrency := float64(0)
-	samplePodCount := 0
+	accumulatedPodConcurrency := 0.0
+	accumulatedRevConcurrency := 0.0
+	activatorConcurrency := 0.0
+	accumulatedProbeCount := int32(0)
 	for _, perPod := range agg.perPodAggregations {
 		if perPod.isActivator {
 			activatorConcurrency += perPod.averagePodConcurrency()
 		} else {
-			accumulatedPodConcurrency += perPod.averagePodConcurrency()
-			accumulatedRevConcurrency += perPod.averageRevConcurrency()
-			samplePodCount++
+			accumulatedPodConcurrency += perPod.accumulatedPodConcurrency
+			accumulatedRevConcurrency += perPod.accumulatedRevConcurrency
+			accumulatedProbeCount += perPod.probeCount
 		}
 	}
-	if samplePodCount != 0 {
-		accumulatedPodConcurrency = accumulatedPodConcurrency / float64(samplePodCount)
-		accumulatedRevConcurrency = accumulatedRevConcurrency / float64(samplePodCount)
+	if accumulatedProbeCount != 0 {
+		accumulatedPodConcurrency = accumulatedPodConcurrency / float64(accumulatedProbeCount)
+		accumulatedRevConcurrency = accumulatedRevConcurrency / float64(accumulatedProbeCount)
 	}
 
 	if accumulatedPodConcurrency < approximateZero {
@@ -163,14 +163,6 @@ func (agg *perPodAggregation) averagePodConcurrency() float64 {
 		return 0.0
 	}
 	return agg.accumulatedPodConcurrency / float64(agg.probeCount)
-}
-
-// Calculates the average concurrency on revision level over all values given.
-func (agg *perPodAggregation) averageRevConcurrency() float64 {
-	if agg.probeCount == 0 {
-		return 0.0
-	}
-	return agg.accumulatedRevConcurrency / float64(agg.probeCount)
 }
 
 // Autoscaler stores current state of an instance of an autoscaler

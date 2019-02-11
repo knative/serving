@@ -268,25 +268,25 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		}
 	}()
 
-	if scraper, err := m.statsScraperFactory(metric, m.dynConfig); err == nil {
-		scraperTicker := time.NewTicker(time.Second / SampleSize)
-		go func() {
-			for {
-				select {
-				case <-m.scalersStopCh:
-					scraperTicker.Stop()
-					return
-				case <-stopCh:
-					scraperTicker.Stop()
-					return
-				case <-scraperTicker.C:
-					scraper.Scrape(ctx, m.statsCh)
-				}
-			}
-		}()
-	} else {
-		m.logger.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
+	scraper, err := m.statsScraperFactory(metric, m.dynConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create a stats scraper for metric %q: %v", metric.Name, err)
 	}
+	scraperTicker := time.NewTicker(time.Second / SampleSize)
+	go func() {
+		for {
+			select {
+			case <-m.scalersStopCh:
+				scraperTicker.Stop()
+				return
+			case <-stopCh:
+				scraperTicker.Stop()
+				return
+			case <-scraperTicker.C:
+				scraper.Scrape(ctx, m.statsCh)
+			}
+		}
+	}()
 
 	metricKey := NewMetricKey(metric.Namespace, metric.Name)
 	go func() {

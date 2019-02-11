@@ -110,7 +110,7 @@ func initEnv() {
 	reporter = _reporter
 }
 
-func statReporter() {
+func reportStats() {
 	for {
 		s := <-statChan
 		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
@@ -246,7 +246,7 @@ func main() {
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
-	go statReporter()
+	go reportStats()
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
 	queue.NewStats(podName, queue.Channels{
