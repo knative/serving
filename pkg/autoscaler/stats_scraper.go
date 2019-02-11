@@ -31,7 +31,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -154,17 +153,9 @@ func (s *ServiceScraper) readyPods(now time.Time) (int, error) {
 		return s.cachedReadyPods.count, nil
 	}
 
-	readyPods := 0
-	endpoints, err := s.endpointsLister.Endpoints(s.namespace).Get(s.revisionService)
-	if apierrors.IsNotFound(err) {
-		// Treat not found as zero endpoints, it either hasn't been created
-		// or it has been torn down.
-	} else if err != nil {
+	readyPods, err := readyPodsOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
+	if err != nil {
 		return 0, err
-	} else {
-		for _, es := range endpoints.Subsets {
-			readyPods += len(es.Addresses)
-		}
 	}
 
 	s.cachedReadyPods.time = now
