@@ -783,7 +783,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 
 			watcher.OnChange(&test.configMapToUpdate)
 
-			if err := h.WaitForHooks(time.Second); err != nil {
+			if err := h.WaitForHooks(3 * time.Second); err != nil {
 				t.Errorf("%s Global Resync Failed: %v", test.name, err)
 			}
 		})
