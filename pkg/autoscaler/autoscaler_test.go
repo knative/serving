@@ -46,7 +46,7 @@ func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
 
 	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when EndpointsInformer interface is emtpy, but got none.")
+		t.Error("Expected error when EndpointsInformer interface is empty, but got none.")
 	}
 }
 

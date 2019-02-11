@@ -318,7 +318,7 @@ func waitForDesiredTrafficShape(sName string, want map[string]v1alpha1.TrafficTa
 				return false, nil
 			}
 			return true, nil
-		}, "Verify Service Trafic Shape",
+		}, "Verify Service Traffic Shape",
 	)
 }
 
