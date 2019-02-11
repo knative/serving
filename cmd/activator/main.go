@@ -39,7 +39,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
-	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -54,6 +54,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/pkg/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 const (
@@ -158,9 +160,6 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
-	go endpointInformer.Informer().Run(stopCh)
-	go revisionInformer.Informer().Run(stopCh)
-
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
@@ -177,21 +176,35 @@ func main() {
 	}
 
 	// Return the revision from the observer.
-	revisionGetter := func(revID activator.RevisionID) (*v1alpha12.Revision, error) {
-		rev, err := revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
-		if err != nil {
-			return nil, err
-		}
-		return rev, err
+	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
+		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
 	}
 
-	throttlerParams := activator.ThrottlerParams{BreakerParams: params, Logger: logger, GetEndpoints: endpointsGetter, GetRevision: revisionGetter}
+	throttlerParams := activator.ThrottlerParams{
+		BreakerParams: params,
+		Logger:        logger,
+		GetEndpoints:  endpointsGetter,
+		GetRevision:   revisionGetter,
+	}
 	throttler := activator.NewThrottler(throttlerParams)
 
-	// Update/create the breaker in the throttler when the number of endpoints changes.
-	endpointInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    activator.UpdateEndpoints(throttler),
 		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
+	}
+
+	filter := func(obj interface{}) bool {
+		endpoints := obj.(*corev1.Endpoints)
+		// Pass only the endpoints created by revisions.
+		revisionID := serving.RevisionUID
+		_, ok := endpoints.Labels[revisionID]
+		return ok
+	}
+
+	// Update/create the breaker in the throttler when the number of endpoints changes.
+	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: filter,
+		Handler:    handler,
 	})
 
 	// Remove the breaker if the revision was deleted.

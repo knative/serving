@@ -30,7 +30,7 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
-	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 )
 
@@ -40,8 +40,8 @@ const (
 	failureCode = http.StatusServiceUnavailable
 )
 
-var stubRevisionGetter = func(activator.RevisionID) (*v1alpha12.Revision, error) {
-	revision := &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: 1}}
+var stubRevisionGetter = func(activator.RevisionID) (*v1alpha1.Revision, error) {
+	revision := &v1alpha1.Revision{Spec: v1alpha1.RevisionSpec{ContainerConcurrency: 1}}
 	return revision, nil
 }
 
@@ -111,146 +111,128 @@ func TestActivationHandler(t *testing.T) {
 		attempts        string
 		endpointsGetter func(activator.RevisionID) (int32, error)
 		reporterCalls   []reporterCall
-	}{
-		{
-			label:           "active endpoint",
-			namespace:       "real-namespace",
-			name:            "real-name",
-			wantBody:        "everything good!",
-			wantCode:        http.StatusOK,
-			wantErr:         nil,
-			attempts:        "123",
-			endpointsGetter: goodEndpointsGetter,
-			reporterCalls: []reporterCall{
-				{
-					Op:         "ReportRequestCount",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-					Attempts:   123,
-					Value:      1,
-				},
-				{
-					Op:         "ReportResponseTime",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-				},
-			},
-		},
-		{
-			label:           "active endpoint with missing count header",
-			namespace:       "real-namespace",
-			name:            "real-name",
-			wantBody:        "everything good!",
-			wantCode:        http.StatusOK,
-			wantErr:         nil,
-			endpointsGetter: goodEndpointsGetter,
-			reporterCalls: []reporterCall{
-				{
-					Op:         "ReportRequestCount",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-					Attempts:   1,
-					Value:      1,
-				},
-				{
-					Op:         "ReportResponseTime",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-				},
-			},
-		},
-		{
-			label:           "no active endpoint",
-			namespace:       "fake-namespace",
-			name:            "fake-name",
-			wantBody:        errMsg("not found"),
-			wantCode:        http.StatusNotFound,
-			wantErr:         nil,
-			endpointsGetter: goodEndpointsGetter,
-			reporterCalls:   nil,
-		},
-		{
-			label:           "request error",
-			namespace:       "real-namespace",
-			name:            "real-name",
-			wantBody:        "",
-			wantCode:        http.StatusBadGateway,
-			wantErr:         errors.New("request error"),
-			endpointsGetter: goodEndpointsGetter,
-			reporterCalls: []reporterCall{
-				{
-					Op:         "ReportRequestCount",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusBadGateway,
-					Attempts:   1,
-					Value:      1,
-				},
-				{
-					Op:         "ReportResponseTime",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusBadGateway,
-				},
-			},
-		},
-		{
-			label:           "invalid number of attempts",
-			namespace:       "real-namespace",
-			name:            "real-name",
-			wantBody:        "everything good!",
-			wantCode:        http.StatusOK,
-			wantErr:         nil,
-			attempts:        "hi there",
-			endpointsGetter: goodEndpointsGetter,
-			reporterCalls: []reporterCall{
-				{
-					Op:         "ReportRequestCount",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-					Attempts:   1,
-					Value:      1,
-				},
-				{
-					Op:         "ReportResponseTime",
-					Namespace:  "real-namespace",
-					Revision:   "real-name",
-					Service:    "service-real-name",
-					Config:     "config-real-name",
-					StatusCode: http.StatusOK,
-				},
-			},
-		},
-		{
-			label:           "broken GetEndpoints",
-			namespace:       "real-namespace",
-			name:            "real-name",
-			wantBody:        "",
-			wantCode:        http.StatusInternalServerError,
-			wantErr:         nil,
-			attempts:        "hi there",
-			endpointsGetter: brokenEndpointGetter,
-			reporterCalls:   nil,
-		},
+	}{{
+		label:           "active endpoint",
+		namespace:       "real-namespace",
+		name:            "real-name",
+		wantBody:        "everything good!",
+		wantCode:        http.StatusOK,
+		wantErr:         nil,
+		attempts:        "123",
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   123,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+		},},
+	}, {
+		label:           "active endpoint with missing count header",
+		namespace:       "real-namespace",
+		name:            "real-name",
+		wantBody:        "everything good!",
+		wantCode:        http.StatusOK,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   1,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+		},},
+	}, {
+		label:           "no active endpoint",
+		namespace:       "fake-namespace",
+		name:            "fake-name",
+		wantBody:        errMsg("not found"),
+		wantCode:        http.StatusNotFound,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls:   nil,
+	}, {
+		label:           "request error",
+		namespace:       "real-namespace",
+		name:            "real-name",
+		wantBody:        "",
+		wantCode:        http.StatusBadGateway,
+		wantErr:         errors.New("request error"),
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusBadGateway,
+			Attempts:   1,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusBadGateway,
+		},},
+	}, {
+		label:           "invalid number of attempts",
+		namespace:       "real-namespace",
+		name:            "real-name",
+		wantBody:        "everything good!",
+		wantCode:        http.StatusOK,
+		wantErr:         nil,
+		attempts:        "hi there",
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   1,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  "real-namespace",
+			Revision:   "real-name",
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+		},},
+	}, {
+		label:           "broken GetEndpoints",
+		namespace:       "real-namespace",
+		name:            "real-name",
+		wantBody:        "",
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		attempts:        "hi there",
+		endpointsGetter: brokenEndpointGetter,
+		reporterCalls:   nil,
+	},
 	}
 
 	for _, e := range examples {

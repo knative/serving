@@ -191,7 +191,7 @@ func TestThrottler_TryOverload(t *testing.T) {
 	// `err` must be non-nil here, since `t.Fatal()` above would ensure we
 	// don't reach here on success.
 	if got := err; got != ErrActivatorOverload {
-		t.Errorf("Error message = %q, want: %q", got, ErrActivatorOverload.Error())
+		t.Errorf("Error message = %v, want: %v", got, ErrActivatorOverload)
 	}
 	close(done)
 	if err := g.Wait(); err != nil {
