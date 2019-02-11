@@ -41,16 +41,15 @@ function patch_network_config_gke() {
   ip_ranges+="$svc_cidr"
 
   echo "The following configuration will be applied:"
-  property="istio.sidecar.includeOutboundIPRanges"
-  patch="{\"data\":{\"${property}\":\"${ip_ranges}\"}}"
-  printf "  ${property}: "
+  readonly property="istio.sidecar.includeOutboundIPRanges"
+  readonly patch="{\"data\":{\"${property}\":\"${ip_ranges}\"}}"
+  echo -n "  ${property}: "
   kubectl patch configmap config-network -n knative-serving -p "${patch}" --dry-run -o go-template="{{index .data \"${property}\"}}"
-  printf "\n\n"
+  echo -e "\n"
   read -p "Do you want to apply the changes (y/N)? " -n 1 -r
   echo
   if [[ "$REPLY" =~ ^[Yy]$ ]]; then
     kubectl patch configmap config-network -n knative-serving -p "${patch}"
-  echo
   else
     echo "No changes applied"
   fi
