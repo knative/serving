@@ -191,6 +191,7 @@ func main() {
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    activator.UpdateEndpoints(throttler),
 		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
+		DeleteFunc: activator.DeleteBreaker(throttler),
 	}
 
 	filter := func(obj interface{}) bool {
@@ -205,11 +206,6 @@ func main() {
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filter,
 		Handler:    handler,
-	})
-
-	// Remove the breaker if the revision was deleted.
-	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: activator.DeleteBreaker(throttler),
 	})
 
 	kubeInformerFactory.Start(stopCh)
