@@ -357,7 +357,7 @@ func TestNoEndpoints(t *testing.T) {
 	})
 
 	// Wait for the Reconcile to complete.
-	_ = <-createdCh
+	<-createdCh
 	if err := reconcileGrp.Wait(); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
@@ -418,7 +418,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	})
 
 	// Wait for the Reconcile to complete.
-	_ = <-createdCh
+	<-createdCh
 	if err := reconcileGrp.Wait(); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
