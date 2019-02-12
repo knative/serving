@@ -1,0 +1,161 @@
+// +build e2e
+
+/*
+Copyright 2019 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package e2e
+
+import (
+	"context"
+	"crypto/rand"
+	"io"
+	"net/http"
+	"testing"
+	"time"
+
+	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/spoof"
+	"github.com/knative/serving/test"
+	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
+	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+func TestGRPC(t *testing.T) {
+	// Setup
+	clients := Setup(t)
+	logger := logging.GetContextLogger(t.Name())
+
+	logger.Info("Creating route and configuration for grpc-ping")
+
+	options := &test.Options{
+		ContainerPorts: []corev1.ContainerPort{
+			{Name: "h2c", ContainerPort: 8080},
+		},
+	}
+	names, err := CreateRouteAndConfig(clients, logger, "grpc-ping", options)
+	if err != nil {
+		t.Fatalf("Failed to create Route and Configuration: %v", err)
+	}
+
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer TearDown(clients, names, logger)
+
+	logger.Info("Waiting for route to be ready")
+
+	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	}
+
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+	}
+	domain := route.Status.Domain
+
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		domain,
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
+		"gRPCPingReadyToServe",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("The endpoint for Route %s at domain %s didn't return success: %v", names.Route, domain, err)
+	}
+
+	host := &domain
+	if !test.ServingFlags.ResolvableDomain {
+		host, err = spoof.GetServiceEndpoint(clients.KubeClient.Kube)
+		if err != nil {
+			t.Fatalf("Could not get service endpoint: %v", err)
+		}
+	}
+
+	logger.Infof("Connecting to grpc-ping using host %q and authority %q", *host, domain)
+
+	conn, err := grpc.Dial(
+		*host+":80",
+		grpc.WithAuthority(domain),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+
+	pc := ping.NewPingServiceClient(conn)
+
+	// Unary
+	logger.Info("Testing unary Ping")
+
+	resp, err := pc.Ping(context.TODO(), &ping.Request{Msg: "Hello!"})
+	if err != nil {
+		t.Fatalf("Couldn't send request: %v", err)
+	}
+
+	if resp.Msg != "Hello!" {
+		t.Errorf("Unexpected response. Want %q, got %q", "Hello!", resp.Msg)
+	}
+
+	// Stream
+	logger.Info("Testing streaming Ping")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stream, err := pc.PingStream(ctx)
+	if err != nil {
+		t.Fatalf("Error creating stream: %v", err)
+	}
+
+	count := 10
+	for i := 0; i < count; i++ {
+		logger.Infof("Sending stream %d of %d", i+1, count)
+
+		payload := make([]byte, 4096)
+		_, err = rand.Read(payload)
+		if err != nil {
+			t.Fatalf("Error generating payload: %v", err)
+		}
+		want := string(payload)
+
+		err = stream.Send(&ping.Request{Msg: want})
+		if err != nil {
+			t.Fatalf("Error sending request: %v", err)
+		}
+
+		resp, err = stream.Recv()
+		if err != nil {
+			t.Fatalf("Error receiving response: %v", err)
+		}
+
+		got := resp.Msg
+
+		if want != got {
+			t.Errorf("Unexpected response. Want %q, got %q", want, got)
+		}
+	}
+
+	stream.CloseSend()
+
+	_, err = stream.Recv()
+	if err != io.EOF {
+		t.Errorf("Expected EOF, got %v", err)
+	}
+}
