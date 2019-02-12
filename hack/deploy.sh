@@ -39,11 +39,11 @@ echo "Using project ${PROJECT_ID} and user ${PROJECT_USER}"
 gcloud config set project ${PROJECT_ID}
 
 existing_cluster=$(gcloud container clusters list \
-    --zone=${K8S_CLUSTER_ZONE} --filter="name=${K8S_CLUSTER_NAME}")
+    --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} --filter="name=${K8S_CLUSTER_NAME}")
 if [[ -n "${existing_cluster}" ]]; then
   header "Deleting previous cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
   gcloud -q container clusters delete \
-    --zone=${K8S_CLUSTER_ZONE} ${K8S_CLUSTER_NAME}
+    --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} ${K8S_CLUSTER_NAME}
 fi
 
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
