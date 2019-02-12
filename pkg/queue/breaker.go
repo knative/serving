@@ -152,7 +152,7 @@ func (s *semaphore) Release() error {
 	case s.queue <- struct{}{}:
 		return nil
 	default:
-		// This should never happen.
+		// This only happens if Release is called more often than Acquire.
 		return ErrRelease
 	}
 }
