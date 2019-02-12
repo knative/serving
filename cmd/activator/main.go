@@ -160,6 +160,7 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
+	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	go revisionInformer.Informer().Run(stopCh)
 	go endpointInformer.Informer().Run(stopCh)
 
