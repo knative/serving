@@ -735,7 +735,6 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		// Controller.Run never returns an error.
 		eg.Wait()
 	}()
-	eg.Go(func() error { return controller.Run(1, stopCh) })
 
 	servingInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
@@ -747,6 +746,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	if err := watcher.Start(stopCh); err != nil {
 		t.Fatalf("Failed to start configuration manager: %v", err)
 	}
+	eg.Go(func() error { return controller.Run(1, stopCh) })
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	deploymentsClient := kubeClient.Apps().Deployments(testNamespace)
 	logger := &tlogging.BaseLogger{Logger: TestLogger(t)}
@@ -772,7 +772,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 					t.Logf("No update occurred; got: %s, want: %s", got, test.expected)
 					return HookIncomplete
 				}
-				//Look for expected change.
+				// Look for expected change.
 				return HookComplete
 			})
 
