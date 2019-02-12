@@ -21,7 +21,8 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 : ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
 readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster name."}
-readonly K8S_CLUSTER_ZONE=us-central1-a
+readonly K8S_CLUSTER_REGION=us-central1
+readonly K8S_CLUSTER_ZONE=a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
 readonly PROJECT_USER=$(gcloud config get-value core/account)
@@ -38,11 +39,11 @@ echo "Using project ${PROJECT_ID} and user ${PROJECT_USER}"
 gcloud config set project ${PROJECT_ID}
 
 existing_cluster=$(gcloud container clusters list \
-    --zone=${K8S_CLUSTER_ZONE} --filter="name=${K8S_CLUSTER_NAME}")
+    --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} --filter="name=${K8S_CLUSTER_NAME}")
 if [[ -n "${existing_cluster}" ]]; then
   header "Deleting previous cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
   gcloud -q container clusters delete \
-    --zone=${K8S_CLUSTER_ZONE} ${K8S_CLUSTER_NAME}
+    --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} ${K8S_CLUSTER_NAME}
 fi
 
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
@@ -52,7 +53,7 @@ gcloud --project=${PROJECT_ID} container clusters create \
   --no-enable-autoupgrade \
   --cluster-version=${SERVING_GKE_VERSION} \
   --image-type=${SERVING_GKE_IMAGE} \
-  --zone=${K8S_CLUSTER_ZONE} \
+  --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
   --enable-autoscaling \
@@ -61,7 +62,7 @@ gcloud --project=${PROJECT_ID} container clusters create \
   ${K8S_CLUSTER_NAME}
 
 header "Setting cluster admin"
-acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
+acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_REGION} ${K8S_CLUSTER_ZONE}
 
 kubectl config set-context $(kubectl config current-context) --namespace=default
 start_latest_knative_serving

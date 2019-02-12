@@ -18,12 +18,18 @@ package autoscaler
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/knative/pkg/logging"
+	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -79,7 +85,7 @@ func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
 		window:              window,
 		perPodAggregations:  make(map[string]*perPodAggregation),
-		activatorsContained: make(map[string]struct{}),
+		activatorsContained: sets.NewString(),
 	}
 }
 
@@ -88,7 +94,7 @@ type totalAggregation struct {
 	window              time.Duration
 	perPodAggregations  map[string]*perPodAggregation
 	probeCount          int32
-	activatorsContained map[string]struct{}
+	activatorsContained sets.String
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -103,7 +109,7 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 	}
 	current.aggregate(stat)
 	if current.isActivator {
-		agg.activatorsContained[stat.PodName] = struct{}{}
+		agg.activatorsContained.Insert(stat.PodName)
 	}
 	agg.probeCount++
 }
@@ -199,25 +205,44 @@ func (agg *perPodAggregation) podWeight(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	key          string
-	target       float64
-	stats        map[statKey]Stat
-	statsMutex   sync.Mutex
-	panicking    bool
-	panicTime    *time.Time
-	maxPanicPods float64
-	reporter     StatsReporter
-	targetMutex  sync.RWMutex
+	key             string
+	namespace       string
+	revisionService string
+	endpointsLister corev1listers.EndpointsLister
+	panicking       bool
+	panicTime       *time.Time
+	maxPanicPods    float64
+	reporter        StatsReporter
+
+	// targetMutex guards the elements in the block below.
+	targetMutex sync.RWMutex
+	target      float64
+
+	// statsMutex guards the elements in the block below.
+	statsMutex sync.Mutex
+	stats      map[statKey]Stat
 }
 
 // New creates a new instance of autoscaler
-func New(dynamicConfig *DynamicConfig, target float64, reporter StatsReporter) *Autoscaler {
-	return &Autoscaler{
-		DynamicConfig: dynamicConfig,
-		target:        target,
-		stats:         make(map[statKey]Stat),
-		reporter:      reporter,
+func New(
+	dynamicConfig *DynamicConfig,
+	namespace string,
+	revisionService string,
+	endpointsInformer corev1informers.EndpointsInformer,
+	target float64,
+	reporter StatsReporter) (*Autoscaler, error) {
+	if endpointsInformer == nil {
+		return nil, errors.New("Empty interface of EndpointsInformer")
 	}
+	return &Autoscaler{
+		DynamicConfig:   dynamicConfig,
+		namespace:       namespace,
+		revisionService: revisionService,
+		endpointsLister: endpointsInformer.Lister(),
+		target:          target,
+		stats:           make(map[statKey]Stat),
+		reporter:        reporter,
+	}, nil
 }
 
 // Update reconfigures the UniScaler according to the MetricSpec.
@@ -235,6 +260,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		logger.Errorf("Missing time from stat: %+v", stat)
 		return
 	}
+
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -249,46 +275,15 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	a.targetMutex.RLock()
-	defer a.targetMutex.RUnlock()
-
-	a.statsMutex.Lock()
-	defer a.statsMutex.Unlock()
+	readyPods, err := a.readyPods()
+	if err != nil {
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return 0, false
+	}
 
 	config := a.Current()
 
-	// 60 second window
-	stableData := newTotalAggregation(config.StableWindow)
-
-	// 6 second window
-	panicData := newTotalAggregation(config.PanicWindow)
-
-	// Last stat per Pod
-	lastStat := make(map[string]Stat)
-
-	// accumulate stats into their respective buckets
-	for key, stat := range a.stats {
-		instant := key.time
-		if instant.Add(config.PanicWindow).After(now) {
-			panicData.aggregate(stat)
-		}
-		if instant.Add(config.StableWindow).After(now) {
-			stableData.aggregate(stat)
-
-			// If there's no last stat for this pod, set it
-			if _, ok := lastStat[stat.PodName]; !ok {
-				lastStat[stat.PodName] = stat
-			}
-			// If the current last stat is older than the new one, override
-			if lastStat[stat.PodName].Time.Before(*stat.Time) {
-				lastStat[stat.PodName] = stat
-			}
-		} else {
-			// Drop metrics after 60 seconds
-			delete(a.stats, key)
-		}
-	}
-
+	stableData, panicData, lastStat := a.aggregateData(now, config.StableWindow, config.PanicWindow)
 	observedStablePods := stableData.observedPods(now)
 	// Do nothing when we have no data.
 	if observedStablePods < 1.0 {
@@ -310,15 +305,17 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedPanicConcurrency := panicData.observedConcurrency(now)
 	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod(now)
 	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod(now)
+
+	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/a.target, observedStablePods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/a.target, observedStablePods)
+	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/target, readyPods)
+	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/target, readyPods)
 
 	a.reporter.ReportObservedPodCount(observedStablePods)
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrencyPerPod)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrencyPerPod)
-	a.reporter.ReportTargetRequestConcurrency(a.target)
+	a.reporter.ReportTargetRequestConcurrency(target)
 
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrencyPerPod, config.StableWindow, stableData.probeCount, observedStablePods)
@@ -334,7 +331,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && observedPanicPods > 0.0 && observedPanicConcurrencyPerPod >= (a.target*2) {
+	if !a.panicking && observedPanicPods > 0.0 && observedPanicConcurrencyPerPod >= (target*2) {
 		logger.Info("PANICKING")
 		a.panicking = true
 		a.panicTime = &now
@@ -361,8 +358,69 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (*totalAggregation, *totalAggregation, map[string]Stat) {
+	a.statsMutex.Lock()
+	defer a.statsMutex.Unlock()
+
+	// 60 second window
+	stableData := newTotalAggregation(stableWindow)
+
+	// 6 second window
+	panicData := newTotalAggregation(panicWindow)
+
+	// Last stat per Pod
+	lastStat := make(map[string]Stat)
+
+	// Accumulate stats into their respective buckets
+	for key, stat := range a.stats {
+		instant := key.time
+		if instant.Add(panicWindow).After(now) {
+			panicData.aggregate(stat)
+		}
+		if instant.Add(stableWindow).After(now) {
+			stableData.aggregate(stat)
+
+			// If there's no last stat for this pod, set it
+			if _, ok := lastStat[stat.PodName]; !ok {
+				lastStat[stat.PodName] = stat
+			} else if lastStat[stat.PodName].Time.Before(*stat.Time) {
+				// If the current last stat is older than the new one, override
+				lastStat[stat.PodName] = stat
+			}
+		} else {
+			// Drop metrics after 60 seconds
+			delete(a.stats, key)
+		}
+	}
+	return stableData, panicData, lastStat
+}
+
+func (a *Autoscaler) targetConcurrency() float64 {
+	a.targetMutex.RLock()
+	defer a.targetMutex.RUnlock()
+	return a.target
+}
+
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) float64 {
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
+}
+
+func (a *Autoscaler) readyPods() (float64, error) {
+	readyPods := 0
+	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
+	if apierrors.IsNotFound(err) {
+		// Treat not found as zero endpoints, it either hasn't been created
+		// or it has been torn down.
+	} else if err != nil {
+		return 0, err
+	} else {
+		for _, es := range endpoints.Subsets {
+			readyPods += len(es.Addresses)
+		}
+	}
+
+	// Use 1 as minimum for multiplication and division.
+	return math.Max(1, float64(readyPods)), nil
 }
 
 func isActivator(podName string) bool {

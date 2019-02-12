@@ -100,9 +100,8 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 		// interpret as 100%.
 		if len(h.Splits) == 1 && totalPct == 0 {
 			totalPct = 100
-		}
-		// Total traffic split percentage must sum up to 100%.
-		if totalPct != 100 {
+		} else if totalPct != 100 {
+			// Total traffic split percentage must sum up to 100%.
 			all = all.Also(&apis.FieldError{
 				Message: "Traffic split percentage must total to 100, but was " + strconv.Itoa(totalPct),
 				Paths:   []string{"splits"},

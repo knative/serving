@@ -28,6 +28,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/autoscaler"
 	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
@@ -35,6 +36,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -134,18 +137,13 @@ func setup(t *testing.T) *testContext {
 	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
-	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
+	cm := ConfigMapFromTestFile(t, autoscaler.ConfigName)
+	cfg, err := autoscaler.NewConfigFromConfigMap(cm)
 	if err != nil {
-		t.Fatalf("Unable to get autoscaler config map: %v", err)
+		t.Fatalf("NewConfigFromConfigMap() = %v", err)
 	}
-	scaleToZeroGrace, err = time.ParseDuration(configMap.Data["scale-to-zero-grace-period"])
-	if err != nil {
-		t.Fatalf("Unable to parse scale-to-zero-grace as duration: %v", err)
-	}
-	stableWindow, err = time.ParseDuration(configMap.Data["stable-window"])
-	if err != nil {
-		t.Fatalf("Unable to parse stable-window as duration: %v", err)
-	}
+	stableWindow = cfg.StableWindow
+	scaleToZeroGrace = cfg.ScaleToZeroGracePeriod
 
 	logger.Info("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
@@ -227,7 +225,7 @@ func assertScaleDown(ctx *testContext) {
 	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
-		test.DeploymentScaledToZeroFunc(),
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)
@@ -297,9 +295,9 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
 	gotReplicas := deployment.Status.Replicas
-	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	ctx.logger.Infof("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
-		return errors.Errorf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
+		return errors.Errorf("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	}
 	return nil
 }
@@ -320,7 +318,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 		ctx.t.Fatalf("Error during scale up: %v", err)
 	}
 
-	if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+	if err := assertNumberOfPods(ctx, numPods, maxPods); err != nil {
 		errChan <- err
 	}
 
@@ -339,13 +337,13 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
 
-	// increase workload for 2 replicas for 30s
-	// assert the number of wanted replicas is between 1-3 during the 30s
-	// assert the number of wanted replicas is 1-3 after 30s
+	// Increase workload for 2 replicas for 30s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
+	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
-	// scale to 3 replicas, assert 2-4 during scale up, assert 2-4 after scaleup
+	// Increase workload Scale to 3 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 3)
-	// scale to 4 replicas, assert 3-5 during scale up, assert 3-5 after scaleup
+	// Increase workload Scale to 4 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 4)
 
 }

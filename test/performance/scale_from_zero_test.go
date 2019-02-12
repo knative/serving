@@ -54,7 +54,7 @@ func runScaleFromZero(clients *test.Clients, logger *logging.BaseLogger, ro *tes
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		test.DeploymentScaledToZeroFunc(),
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		2*time.Minute); err != nil {
@@ -144,16 +144,16 @@ func getStats(durations []time.Duration) *stats {
 
 func testGrid(s *stats, tName string) error {
 	var tc []junit.TestCase
-	val := float32(s.avg.Seconds() / 1000)
+	val := float32(s.avg.Seconds())
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
 	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
+	ts.AddTestSuite(&junit.TestSuite{Name: tName, TestCases: tc})
 	return testgrid.CreateXMLOutput(&ts, tName)
 }
 
 func testScaleFromZero(t *testing.T, count int) {
 	tName := fmt.Sprintf("TestScaleFromZero%d", count)
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 	durs, err := parallelScaleFromZero(logger, count)
 	if err != nil {
 		t.Fatal(err)

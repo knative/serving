@@ -167,11 +167,11 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 
 	// Wait for all of the service creations to complete (possibly in failure),
 	// and signal the done channel.
-	doneCh := make(chan struct{})
+	doneCh := make(chan error)
 	go func() {
 		defer close(doneCh)
 		if err := wg.Wait(); err != nil {
-			t.Fatalf("hmm, this go routine never returns errors: %v", err)
+			doneCh <- err
 		}
 	}()
 
@@ -186,7 +186,11 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 			defer TearDown(clients, names, logger)
 
-		case <-doneCh:
+		case err := <-doneCh:
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
 			// This ProberManager implementation waits for minProbes before actually stopping.
 			if err := pm.Stop(); err != nil {
 				t.Fatalf("Stop() = %v", err)

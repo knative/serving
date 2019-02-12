@@ -71,6 +71,7 @@ func NewNetworkFromConfigMap(configMap *corev1.ConfigMap) (*Network, error) {
 	nc := &Network{}
 	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
 		// It is OK for this to be absent, we will elide the annotation.
+		nc.IstioOutboundIPRanges = "*"
 	} else if normalizedIpr, err := validateAndNormalizeOutboundIPRanges(ipr); err != nil {
 		return nil, err
 	} else {

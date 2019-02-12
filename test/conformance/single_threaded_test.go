@@ -39,7 +39,7 @@ func TestSingleConcurrency(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestSingleConcurrency")
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("prod", logger),

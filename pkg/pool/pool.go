@@ -23,12 +23,16 @@ import (
 type impl struct {
 	wg     sync.WaitGroup
 	workCh chan func() error
-	errCh  chan error
+	doneCh chan interface{}
 
 	// Ensure that we Wait exactly once and memoize
 	// the result.
-	once   sync.Once
-	result error
+	waitOnce sync.Once
+
+	// We're only interested in the first result so
+	// only set it once.
+	resultOnce sync.Once
+	result     error
 }
 
 // impl implements Interface
@@ -48,7 +52,7 @@ func New(workers int) Interface {
 func NewWithCapacity(workers, capacity int) Interface {
 	i := &impl{
 		workCh: make(chan func() error, capacity),
-		errCh:  make(chan error, capacity),
+		doneCh: make(chan interface{}),
 	}
 
 	// Start a go routine for each worker, which:
@@ -61,7 +65,9 @@ func NewWithCapacity(workers, capacity int) Interface {
 				func() {
 					defer i.wg.Done()
 					if err := work(); err != nil {
-						i.errCh <- err
+						i.resultOnce.Do(func() {
+							i.result = err
+						})
 					}
 				}()
 			}
@@ -73,6 +79,13 @@ func NewWithCapacity(workers, capacity int) Interface {
 
 // Go implements Interface.
 func (i *impl) Go(w func() error) {
+	select {
+	// This means, we no longer accept new work.
+	// This prevents racy client from panicing.
+	case <-i.doneCh:
+		return
+	default:
+	}
 	// Increment the amount of outstanding work we're waiting on.
 	i.wg.Add(1)
 	// Send the work along the queue.
@@ -81,34 +94,15 @@ func (i *impl) Go(w func() error) {
 
 // Wait implements Interface.
 func (i *impl) Wait() error {
-	i.once.Do(func() {
+	i.waitOnce.Do(func() {
 		// Stop accepting new work.
+		close(i.doneCh)
+
+		// Wait for queued work to complete.
+		i.wg.Wait()
+
+		// Now we know there are definitely no new items arriving.
 		close(i.workCh)
-
-		// Wait until outstanding work has completed and close the
-		// error channel.  The logic below will drain the error
-		// channel in parallel, looking for the close before returning
-		// the first error seen.
-		go func() {
-			// Wait for queued work to complete.
-			i.wg.Wait()
-
-			// Close the channel, so that the receive below
-			// completes in the non-error case.
-			close(i.errCh)
-		}()
-
-		for {
-			// When we drain all of the errors and see the error
-			// channel close, then return the first error we saw.
-			if err, ok := <-i.errCh; !ok {
-				return
-			} else if i.result == nil {
-				// The first time we see an error, squirrel it
-				// away to return when the channel closes.
-				i.result = err
-			}
-		}
 	})
 
 	return i.result

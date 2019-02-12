@@ -87,6 +87,7 @@ const (
 	UnsupportedErrorCode         ErrorCode = "UNSUPPORTED"
 )
 
+// CheckError returns a structured error if the response status is not in codes.
 func CheckError(resp *http.Response, codes ...int) error {
 	for _, code := range codes {
 		if resp.StatusCode == code {

@@ -25,13 +25,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// RoundTripperFunc implementation roundtrips a request.
 type RoundTripperFunc func(*http.Request) (*http.Response, error)
 
+// RoundTrip implements http.RoundTripper.
 func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// NewHttpTransport will use the appropriate transport for the request's HTTP protocol version
+// NewHTTPTransport will use the appropriate transport for the request's HTTP protocol version
 func NewHTTPTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		t := v1
@@ -46,9 +48,10 @@ func NewHTTPTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
 var AutoTransport = NewHTTPTransport(http.DefaultTransport, h2cutil.DefaultTransport)
 
+// RetryCond implementationr returns true if the request is to be retried.
 type RetryCond func(*http.Response) bool
 
-// RetryStatus will filter responses matching `status`
+// RetryStatus will filter responses matching `status`.
 func RetryStatus(status int) RetryCond {
 	return func(resp *http.Response) bool {
 		return resp.StatusCode == status
@@ -62,7 +65,7 @@ type retryRoundTripper struct {
 	retryConditions []RetryCond
 }
 
-// RetryRoundTripper retries a request on error or retry condition, using the given `retry` strategy
+// NewRetryRoundTripper retries a request on error or retry condition, using the given `retry` strategy
 func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, b wait.Backoff, conditions ...RetryCond) http.RoundTripper {
 	return &retryRoundTripper{
 		logger:          l,

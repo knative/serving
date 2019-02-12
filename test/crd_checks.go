@@ -59,7 +59,7 @@ func WaitForRouteState(client *ServingClients, name string, inState func(r *v1al
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "route %q is not in desired state: %+v", name, lastState)
+		return errors.Wrapf(waitErr, "route %q is not in desired state, got: %+v", name, lastState)
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func CheckRouteState(client *ServingClients, name string, inState func(r *v1alph
 	if done, err := inState(r); err != nil {
 		return err
 	} else if !done {
-		return fmt.Errorf("route %q is not in desired state: %+v", name, r)
+		return fmt.Errorf("route %q is not in desired state, got: %+v", name, r)
 	}
 	return nil
 }
@@ -100,7 +100,7 @@ func WaitForConfigurationState(client *ServingClients, name string, inState func
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "configuration %q is not in desired state: %+v", name, lastState)
+		return errors.Wrapf(waitErr, "configuration %q is not in desired state, got: %+v", name, lastState)
 	}
 	return nil
 }
@@ -116,13 +116,13 @@ func CheckConfigurationState(client *ServingClients, name string, inState func(r
 	if done, err := inState(c); err != nil {
 		return err
 	} else if !done {
-		return fmt.Errorf("configuration %q is not in desired state: %+v", name, c)
+		return fmt.Errorf("configuration %q is not in desired state, got: %+v", name, c)
 	}
 	return nil
 }
 
 // WaitForRevisionState polls the status of the Revision called name
-// from client every interval until inState returns `true` indicating it
+// from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForRevisionState(client *ServingClients, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
@@ -141,7 +141,7 @@ func WaitForRevisionState(client *ServingClients, name string, inState func(r *v
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "revision %q is not in desired state: %+v", name, lastState)
+		return errors.Wrapf(waitErr, "revision %q is not in desired state, got: %+v", name, lastState)
 	}
 	return nil
 }
@@ -157,13 +157,13 @@ func CheckRevisionState(client *ServingClients, name string, inState func(r *v1a
 	if done, err := inState(r); err != nil {
 		return err
 	} else if !done {
-		return fmt.Errorf("revision %q is not in desired state: %+v", name, r)
+		return fmt.Errorf("revision %q is not in desired state, got: %+v", name, r)
 	}
 	return nil
 }
 
 // WaitForServiceState polls the status of the Service called name
-// from client every interval until inState returns `true` indicating it
+// from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForServiceState(client *ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
@@ -182,14 +182,14 @@ func WaitForServiceState(client *ServingClients, name string, inState func(s *v1
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "service %q is not in desired state: %+v", name, lastState)
+		return errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", name, lastState)
 	}
 	return nil
 }
 
 // CheckServiceState verifies the status of the Service called name from client
 // is in a particular state by calling `inState` and expecting `true`.
-// This is the non-polling variety of WaitForServiceState
+// This is the non-polling variety of WaitForServiceState.
 func CheckServiceState(client *ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
 	s, err := client.Services.Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -198,7 +198,7 @@ func CheckServiceState(client *ServingClients, name string, inState func(s *v1al
 	if done, err := inState(s); err != nil {
 		return err
 	} else if !done {
-		return fmt.Errorf("service %q is not in desired state: %+v", name, s)
+		return fmt.Errorf("service %q is not in desired state, got: %+v", name, s)
 	}
 	return nil
 }
@@ -208,9 +208,7 @@ func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 	return client.Kube.CoreV1().ConfigMaps("knative-serving")
 }
 
-// Returns a func that evaluates if a deployment has scaled to 0 pods
-func DeploymentScaledToZeroFunc() func(d *apiv1beta1.Deployment) (bool, error) {
-	return func(d *apiv1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas == 0, nil
-	}
+// DeploymentScaledToZeroFunc returns a func that evaluates if a deployment has scaled to 0 pods.
+func DeploymentScaledToZeroFunc(d *apiv1beta1.Deployment) (bool, error) {
+	return d.Status.ReadyReplicas == 0, nil
 }

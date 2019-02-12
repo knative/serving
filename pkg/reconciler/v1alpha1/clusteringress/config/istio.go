@@ -17,11 +17,11 @@ limitations under the License.
 package config
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -36,6 +36,17 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
+)
+
+var (
+	defaultGateway = Gateway{
+		GatewayName: "knative-ingress-gateway",
+		ServiceURL:  fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s", utils.GetClusterDomainName()),
+	}
+	defaultLocalGateway = Gateway{
+		GatewayName: "cluster-local-gateway",
+		ServiceURL:  fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s", utils.GetClusterDomainName()),
+	}
 )
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
@@ -81,17 +92,20 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
+
 	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
 	if err != nil {
 		return nil, err
 	}
 	if len(gateways) == 0 {
-		// TODO(nghia): Relax this so that users can disallowed public Gateways altogether.
-		return nil, errors.New("at least one gateway is required")
+		gateways = append(gateways, defaultGateway)
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
 	if err != nil {
 		return nil, err
+	}
+	if len(localGateways) == 0 {
+		localGateways = append(localGateways, defaultLocalGateway)
 	}
 	return &Istio{
 		IngressGateways: gateways,

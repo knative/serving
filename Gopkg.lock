@@ -283,7 +283,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:123b7cdc7237276bd6509f75b073f0d534d180e8449628e59be5eab26cdbecef"
+  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -299,7 +299,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "15b751c1c044fd2c31a13c46d9e97600a88eb8cb"
+  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
 
 [[projects]]
   branch = "master"
@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:5939611dfe85d04bec3c8dc6947ea3acc699e8c9127c0a1438e2e4878f20dbff"
+  digest = "1:e7616ef642758549870638e204b48d6270fcb65fb73c9904cf3e0b7b795f0bd6"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -497,11 +497,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "819ebda80ca60ec95e67d8db23dec3f67828ccb5"
+  revision = "5db4e8e38e5682fd28c4849ffa3135da7787edb6"
 
 [[projects]]
   branch = "master"
-  digest = "1:79fb69e99d06c5afc94c4470e041490724b77747696706bdc2755bd9cfe23210"
+  digest = "1:c4f98ad943675d137b7829ab807de3a43a6de0e14c089d9076ad844a30a26462"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +514,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "e15222dc039e4fe569a35f9a068b54ba2da9bfd2"
+  revision = "036c35039cf88c9ca4e8609de5fe0592d4e8067a"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1276,6 +1276,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
@@ -1325,6 +1326,7 @@
     "github.com/knative/pkg/webhook",
     "github.com/knative/pkg/websocket",
     "github.com/knative/test-infra/scripts",
+    "github.com/knative/test-infra/shared/junit",
     "github.com/knative/test-infra/shared/loadgenerator",
     "github.com/knative/test-infra/shared/prometheus",
     "github.com/knative/test-infra/shared/testgrid",

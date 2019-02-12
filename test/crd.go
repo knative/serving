@@ -24,13 +24,17 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
+
+// Default for user containers in e2e tests. This value is lower than the general
+// Knative's default so as to run more effectively in CI with limited resources.
+const defaultRequestCPU = "100m"
 
 // ResourceNames holds names of various resources.
 type ResourceNames struct {
@@ -53,8 +57,8 @@ type ResourceObjects struct {
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(namespace string, names ResourceNames) *v1alpha1.Route {
-	return &v1alpha1.Route{
+func Route(namespace string, names ResourceNames, fopt ...testing.RouteOption) *v1alpha1.Route {
+	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Route,
@@ -67,6 +71,12 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 			}},
 		},
 	}
+
+	for _, opt := range fopt {
+		opt(route)
+	}
+
+	return route
 }
 
 // BlueGreenRoute returns a Route object in namespace using the route and configuration
@@ -94,6 +104,14 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
+		options.ContainerResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
+			},
+		}
+	}
+
 	spec := &v1alpha1.ConfigurationSpec{
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
@@ -120,7 +138,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(namespace string, names ResourceNames, options *Options) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, options *Options, fopt ...testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -131,6 +149,11 @@ func Configuration(namespace string, names ResourceNames, options *Options) *v1a
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
 	}
+
+	for _, opt := range fopt {
+		opt(config)
+	}
+
 	return config
 }
 
@@ -166,6 +189,29 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 		},
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{
+				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
+			},
+		},
+	}
+
+	// Apply any mutations we have been provided.
+	for _, opt := range fopt {
+		opt(svc)
+	}
+	return svc
+}
+
+// ReleaseLatestService returns a Release Service object in namespace with the name names.Service
+// that uses the image specified by names.Image and `@latest` as the only revision.
+func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+	svc := &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      names.Service,
+		},
+		Spec: v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:     []string{v1alpha1.ReleaseLatestRevisionKeyword},
 				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
 			},
 		},
@@ -244,9 +290,9 @@ func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
 	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
 	rndMutex.Lock()
+	defer rndMutex.Unlock()
 	for i := range suffix {
 		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
 	}
-	rndMutex.Unlock()
 	return prefix + string(suffix)
 }

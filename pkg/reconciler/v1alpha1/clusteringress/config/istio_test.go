@@ -28,10 +28,14 @@ import (
 )
 
 func TestIstio(t *testing.T) {
-	cm := ConfigMapFromTestFile(t, IstioConfigName)
+	cm, example := ConfigMapsFromTestFile(t, IstioConfigName)
 
 	if _, err := NewIstioFromConfigMap(cm); err != nil {
-		t.Errorf("NewIstioFromConfigMap() = %v", err)
+		t.Errorf("NewIstioFromConfigMap(actual) = %v", err)
+	}
+
+	if _, err := NewIstioFromConfigMap(example); err != nil {
+		t.Errorf("NewIstioFromConfigMap(example) = %v", err)
 	}
 }
 
@@ -42,15 +46,18 @@ func TestGatewayConfiguration(t *testing.T) {
 		wantIstio interface{}
 		config    *corev1.ConfigMap
 	}{{
-		name:      "gateway configuration with no network input",
-		wantErr:   true,
-		wantIstio: (*Istio)(nil),
+		name: "gateway configuration with no network input",
+		wantIstio: &Istio{
+			IngressGateways: []Gateway{defaultGateway},
+			LocalGateways:   []Gateway{defaultLocalGateway},
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      IstioConfigName,
 			},
-		}}, {
+		},
+	}, {
 		name:      "gateway configuration with invalid url",
 		wantErr:   true,
 		wantIstio: (*Istio)(nil),
@@ -62,15 +69,16 @@ func TestGatewayConfiguration(t *testing.T) {
 			Data: map[string]string{
 				"gateway.invalid": "_invalid",
 			},
-		}}, {
+		},
+	}, {
 		name:    "gateway configuration with valid url",
 		wantErr: false,
 		wantIstio: &Istio{
 			IngressGateways: []Gateway{{
-				GatewayName: "knative-ingress-gateway",
-				ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+				GatewayName: "knative-ingress-freeway",
+				ServiceURL:  "istio-ingressfreeway.istio-system.svc.cluster.local",
 			}},
-			LocalGateways: []Gateway{},
+			LocalGateways: []Gateway{defaultLocalGateway},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -78,10 +86,29 @@ func TestGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				"gateway.knative-ingress-gateway": "istio-ingressgateway.istio-system.svc.cluster.local",
+				"gateway.knative-ingress-freeway": "istio-ingressfreeway.istio-system.svc.cluster.local",
 			},
-		}},
-	}
+		},
+	}, {
+		name:    "local gateway configuration with valid url",
+		wantErr: false,
+		wantIstio: &Istio{
+			IngressGateways: []Gateway{defaultGateway},
+			LocalGateways: []Gateway{{
+				GatewayName: "knative-ingress-backroad",
+				ServiceURL:  "istio-ingressbackroad.istio-system.svc.cluster.local",
+			}},
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"local-gateway.knative-ingress-backroad": "istio-ingressbackroad.istio-system.svc.cluster.local",
+			},
+		},
+	}}
 
 	for _, tt := range gatewayConfigTests {
 		t.Run(tt.name, func(t *testing.T) {

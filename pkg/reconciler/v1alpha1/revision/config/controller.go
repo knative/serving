@@ -21,9 +21,11 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
+	// ControllerConfigName is the name of config map for the controller.
 	ControllerConfigName = "config-controller"
 
 	queueSidecarImageKey           = "queueSidecarImage"
@@ -41,10 +43,10 @@ func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error
 	}
 
 	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
-		// It is ok if registries are missing
-		nc.RegistriesSkippingTagResolving = make(map[string]struct{})
+		// It is ok if registries are missing.
+		nc.RegistriesSkippingTagResolving = sets.NewString("ko.local", "dev.local")
 	} else {
-		nc.RegistriesSkippingTagResolving = toStringSet(registries, ",")
+		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
 	}
 	return nc, nil
 }
@@ -54,16 +56,6 @@ func NewControllerConfigFromConfigMap(config *corev1.ConfigMap) (*Controller, er
 	return NewControllerConfigFromMap(config.Data)
 }
 
-func toStringSet(arg, delimiter string) map[string]struct{} {
-	keys := strings.Split(arg, delimiter)
-
-	set := make(map[string]struct{}, len(keys))
-	for _, key := range keys {
-		set[key] = struct{}{}
-	}
-	return set
-}
-
 // Controller includes the configurations for the controller.
 type Controller struct {
 	// QueueSidecarImage is the name of the image used for the queue sidecar
@@ -71,5 +63,5 @@ type Controller struct {
 	QueueSidecarImage string
 
 	// Repositories for which tag to digest resolving should be skipped
-	RegistriesSkippingTagResolving map[string]struct{}
+	RegistriesSkippingTagResolving sets.String
 }
