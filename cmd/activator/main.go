@@ -54,8 +54,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/pkg/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
-	corev1 "k8s.io/api/core/v1"
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -207,21 +207,15 @@ func main() {
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.AddEndpoints(throttler),
+		AddFunc:    activator.UpdateEndpoints(throttler),
 		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
 		DeleteFunc: activator.DeleteBreaker(throttler),
 	}
 
-	filter := func(obj interface{}) bool {
-		endpoints := obj.(*corev1.Endpoints)
-		// Pass only the endpoints created by revisions.
-		revisionID := serving.RevisionUID
-		_, ok := endpoints.Labels[revisionID]
-		return ok
-	}
 	// Update/create the breaker in the throttler when the number of endpoints changes.
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: filter,
+		// Pass only the endpoints created by revisions.
+		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
 		Handler:    handler,
 	})
 
