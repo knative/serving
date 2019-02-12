@@ -38,6 +38,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	tlogging "github.com/knative/pkg/test/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -51,6 +52,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/pkg/system"
+	ktest "github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -539,7 +541,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	want := "10.10.10.0/24"
 	annotations = getPodAnnotationsForConfig(t, in, "")
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
+		t.Fatalf("%v annotation = %v, want: %v.", resources.IstioOutboundIPRangeAnnotation, got, want)
 	}
 
 	// Multiple valid ranges with whitespaces
@@ -547,7 +549,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	want = "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16"
 	annotations = getPodAnnotationsForConfig(t, in, "")
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
+		t.Fatalf("%v annotation = %v, want: %v", resources.IstioOutboundIPRangeAnnotation, got, want)
 	}
 
 	// An invalid IP range
@@ -561,11 +563,11 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+		t.Fatalf("%v annotation = %v; want: %v", resources.IstioOutboundIPRangeAnnotation, got, want)
 	}
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+		t.Fatalf("%v annotation = %v; want %v", resources.IstioOutboundIPRangeAnnotation, got, want)
 	}
 }
 
@@ -724,23 +726,38 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		},
 	}}
 
+	// Setup the API machinery.
+	controllerConfig := getTestControllerConfig()
+	kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+	stopCh := make(chan struct{})
+	var eg errgroup.Group
+	defer func() {
+		close(stopCh)
+		// Controller.Run never returns an error.
+		eg.Wait()
+	}()
+
+	servingInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	cachingInformer.Start(stopCh)
+
+	servingInformer.WaitForCacheSync(stopCh)
+	kubeInformer.WaitForCacheSync(stopCh)
+	cachingInformer.WaitForCacheSync(stopCh)
+	if err := watcher.Start(stopCh); err != nil {
+		t.Fatalf("Failed to start configuration manager: %v", err)
+	}
+	eg.Go(func() error { return controller.Run(1, stopCh) })
+	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
+	deploymentsClient := kubeClient.Apps().Deployments(testNamespace)
+	logger := &tlogging.BaseLogger{Logger: TestLogger(t)}
+
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestControllerConfig()
-			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
-
-			stopCh := make(chan struct{})
-			grp := errgroup.Group{}
-			defer func() {
-				close(stopCh)
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-			}()
-
 			rev := getTestRevision()
-			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
-			deploymentsClient := kubeClient.Apps().Deployments(rev.Namespace)
+			rev.ObjectMeta.Name = ktest.AppendRandomString("my-revision-", logger)
+			revClient.Create(rev)
 			h := NewHooks()
 
 			h.OnUpdate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
@@ -752,34 +769,18 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 				}
 
 				got, wasUpdated := test.wasUpdated(test.expected, updatedRev, updatedDeployment)
-
 				if !wasUpdated {
-					t.Logf("No update occurred; expected: %s got: %s", test.expected, got)
+					t.Logf("No update occurred; got: %s, want: %s", got, test.expected)
 					return HookIncomplete
 				}
+				// Look for expected change.
 				return HookComplete
 			})
-
-			servingInformer.Start(stopCh)
-			kubeInformer.Start(stopCh)
-			cachingInformer.Start(stopCh)
-
-			servingInformer.WaitForCacheSync(stopCh)
-			kubeInformer.WaitForCacheSync(stopCh)
-			cachingInformer.WaitForCacheSync(stopCh)
-
-			if err := watcher.Start(stopCh); err != nil {
-				t.Fatalf("Failed to start config map watcher: %v", err)
-			}
-
-			grp.Go(func() error { return controller.Run(1, stopCh) })
-
-			revClient.Create(rev)
 
 			watcher.OnChange(test.configMapToUpdate)
 
 			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+				t.Error("Global Resync Failed: ", err)
 			}
 		})
 	}
