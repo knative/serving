@@ -14,6 +14,7 @@ package util
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -25,6 +26,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+type spyReadCloser struct {
+	io.ReadCloser
+	Closed         bool
+	ReadAfterClose bool
+}
+
+func (s *spyReadCloser) Read(b []byte) (n int, err error) {
+	if s.Closed {
+		s.ReadAfterClose = true
+	}
+
+	return s.ReadCloser.Read(b)
+}
+
+func (s *spyReadCloser) Close() error {
+	s.Closed = true
+
+	return s.ReadCloser.Close()
+}
 
 func TestHTTPRoundTripper(t *testing.T) {
 	wants := sets.NewString()
