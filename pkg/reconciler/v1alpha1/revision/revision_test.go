@@ -451,7 +451,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h := NewHooks()
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	expectedMessage := "Revision becomes ready upon endpoint \"test-rev-service\" becoming ready"
+	expectedMessage := "Revision becomes ready upon all resources being ready"
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
