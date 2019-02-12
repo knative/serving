@@ -366,6 +366,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
+	readyBeforeReconcile := rev.Status.IsReady()
+
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err
 	}
@@ -401,6 +403,12 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 				return err
 			}
 		}
+	}
+
+	readyAfterReconcile := rev.Status.IsReady()
+	if !readyBeforeReconcile && readyAfterReconcile {
+		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
+			"Revision becomes ready upon all resources being ready")
 	}
 
 	rev.Status.ObservedGeneration = rev.Generation

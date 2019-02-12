@@ -248,10 +248,6 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"stable-deactivation-service"),
-		},
 		Key: "foo/stable-deactivation",
 	}, {
 		Name: "endpoint is created (not ready)",
@@ -325,8 +321,7 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"endpoint-ready-service"),
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/endpoint-ready",
 	}, {
@@ -349,10 +344,6 @@ func TestReconcile(t *testing.T) {
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-not-ready-service"),
-		},
 		Key: "foo/kpa-not-ready",
 	}, {
 		Name: "kpa inactive",
@@ -374,10 +365,6 @@ func TestReconcile(t *testing.T) {
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-inactive-service"),
-		},
 		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
@@ -602,19 +589,21 @@ func TestReconcile(t *testing.T) {
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
-			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
-				// When the endpoint and KPA are ready, then we will see the
-				// Revision become ready.
-				MarkRevisionReady),
+			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL),
 			kpa("foo", "steady-ready", WithTraffic),
 			deploy("foo", "steady-ready"),
 			svc("foo", "steady-ready"),
 			endpoints("foo", "steady-ready", WithSubsets),
 			image("foo", "steady-ready"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
+				// All resources are ready to go, we should see the revision being
+				// marked ready
+				MarkRevisionReady),
+		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"steady-ready-service"),
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/steady-ready",
 	}, {
@@ -654,11 +643,6 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
-		// TODO(#2900): This should not fire, we're not ready!
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"missing-owners-service"),
-		},
 		Key: "foo/missing-owners",
 	}, {
 		Name:    "lost deployment owner ref",
