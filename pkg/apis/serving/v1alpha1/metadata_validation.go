@@ -30,11 +30,22 @@ import (
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
+	generateName := meta.GetGenerateName()
 
-	msgs := validation.IsDNS1035Label(name)
-	if len(msgs) > 0 {
+	if name != "" {
+		msgs := validation.IsDNS1035Label(name)
+
+		if len(msgs) > 0 {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				Paths:   []string{"name"},
+			}
+		}
+	}
+
+	if generateName == "" && name == "" {
 		return &apis.FieldError{
-			Message: fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+			Message: "name or generateName is required",
 			Paths:   []string{"name"},
 		}
 	}
