@@ -79,8 +79,8 @@ func TestBuilds(t *testing.T) {
 			"apiVersion": "build.knative.dev/v1alpha1",
 			"kind":       "Build",
 			"metadata": map[string]interface{}{
-				"namespace": "simple",
-				"name":      "build-00031",
+				"namespace":    "simple",
+				"generateName": "build-",
 				"ownerReferences": []interface{}{map[string]interface{}{
 					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
 					"kind":               "Configuration",
@@ -136,8 +136,8 @@ func TestBuilds(t *testing.T) {
 			"apiVersion": "build.knative.dev/v1alpha1",
 			"kind":       "Build",
 			"metadata": map[string]interface{}{
-				"namespace": "simple",
-				"name":      "build-template-00042",
+				"namespace":    "simple",
+				"generateName": "build-template-",
 				"ownerReferences": []interface{}{map[string]interface{}{
 					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
 					"kind":               "Configuration",
