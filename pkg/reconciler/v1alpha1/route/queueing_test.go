@@ -27,6 +27,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/system"
@@ -70,6 +71,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,

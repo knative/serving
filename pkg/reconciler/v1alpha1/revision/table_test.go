@@ -28,6 +28,7 @@ import (
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
@@ -1023,7 +1024,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
-		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &config.Observability{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

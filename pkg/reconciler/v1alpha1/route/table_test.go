@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
@@ -40,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 )
+
+const TestIngressClass = "ingress-class-foo"
 
 var fakeCurTime = time.Unix(1e9, 0)
 
@@ -124,6 +127,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -132,6 +136,52 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "custom ingress route becomes ready, ingress unknown",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready",
+				WithConfigTarget("config"), WithRouteUID("12-34"), WithIngressClass("custom-ingress-class")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+				"custom-ingress-class",
+			),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"), WithIngressClass("custom-ingress-class"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
@@ -172,6 +222,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -315,6 +366,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1024,6 +1076,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1107,6 +1160,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1484,7 +1538,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 }
 
 func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
-	ci := resources.MakeClusterIngress(r, tc)
+	ci := resources.MakeClusterIngress(r, tc, TestIngressClass)
 	ci.Status = status
 
 	return ci
@@ -1589,6 +1643,9 @@ func ReconcilerTestConfig() *config.Config {
 					Selector: map[string]string{"app": "prod"},
 				},
 			},
+		},
+		Network: &network.Config{
+			DefaultClusterIngressClass: TestIngressClass,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

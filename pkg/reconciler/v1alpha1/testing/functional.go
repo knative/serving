@@ -25,6 +25,7 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
@@ -422,6 +423,16 @@ func WithRouteLabel(key, value string) RouteOption {
 			r.Labels = make(map[string]string)
 		}
 		r.Labels[key] = value
+	}
+}
+
+// WithIngressClass sets the ingress class annotation on the Route.
+func WithIngressClass(ingressClass string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
 }
 

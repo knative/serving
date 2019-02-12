@@ -26,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/system"
 	_ "github.com/knative/serving/pkg/system/testing"
@@ -679,7 +680,7 @@ func TestMakeDeployment(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		nc   *config.Network
+		nc   *network.Config
 		oc   *config.Observability
 		ac   *autoscaler.Config
 		cc   *config.Controller
@@ -691,7 +692,7 @@ func TestMakeDeployment(t *testing.T) {
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
-		nc:   &config.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -703,7 +704,7 @@ func TestMakeDeployment(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
-		nc:   &config.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -712,7 +713,7 @@ func TestMakeDeployment(t *testing.T) {
 		name: "simple concurrency=multi with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
-		nc: &config.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},
@@ -732,7 +733,7 @@ func TestMakeDeployment(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		nc: &config.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -43,7 +44,7 @@ func isClusterLocal(r *servingv1alpha1.Route) bool {
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.ClusterIngress {
+func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, ingressClass string) *v1alpha1.ClusterIngress {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
@@ -57,6 +58,11 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
+	// Set the ingress class annotation.
+	if ci.ObjectMeta.Annotations == nil {
+		ci.ObjectMeta.Annotations = make(map[string]string)
+	}
+	ci.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	return ci
 }
 
