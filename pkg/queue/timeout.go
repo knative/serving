@@ -17,8 +17,11 @@ limitations under the License.
 package queue
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -119,6 +122,17 @@ type timeoutWriter struct {
 }
 
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
+
+// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
+// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
+// to handle connection upgrade/switching protocol.  Otherwise returns an error.
+func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := tw.w.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("Wrapped writer type %T can't be hijacked", tw.w)
+	}
+	return hj.Hijack()
+}
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
 

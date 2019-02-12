@@ -14,7 +14,9 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -115,4 +117,15 @@ type statusCapture struct {
 func (s *statusCapture) WriteHeader(statusCode int) {
 	s.statusCode = statusCode
 	s.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
+// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
+// to handle connection upgrade/switching protocol.  Otherwise returns an error.
+func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := s.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("Wrapped writer type %T can't be hijacked", s.ResponseWriter)
+	}
+	return hj.Hijack()
 }
