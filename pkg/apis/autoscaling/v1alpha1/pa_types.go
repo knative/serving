@@ -113,6 +113,12 @@ type PodAutoscalerStatus struct {
 	// state of the world.
 	// +optional
 	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the 'Generation' of the PodAutoscaler that
+	// was last processed by the controller. The observed generation is updated
+	// even if the controller failed to process the spec.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

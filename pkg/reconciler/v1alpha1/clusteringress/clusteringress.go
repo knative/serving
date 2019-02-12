@@ -201,6 +201,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
+	ci.Status.ObservedGeneration = ci.Generation
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }

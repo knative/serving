@@ -274,6 +274,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
+	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }
