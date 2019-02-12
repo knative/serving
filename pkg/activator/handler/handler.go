@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
@@ -34,29 +33,52 @@ type ActivationHandler struct {
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
+	Throttler *activator.Throttler
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-
 	start := time.Now()
-	capture := &statusCapture{
-		ResponseWriter: w,
-		statusCode:     http.StatusOK,
-	}
+	revID := activator.RevisionID{namespace, name}
 
+	// ActiveEndpoint() will block until the first endpoint is available.
 	ar := a.Activator.ActiveEndpoint(namespace, name)
+
 	if ar.Error != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
 		a.Logger.Error(msg)
 		http.Error(w, msg, ar.Status)
 		return
 	}
-
 	target := &url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
+	}
+
+	err := a.Throttler.Try(revID, func() {
+		attempts, httpStatus := a.proxyRequest(w, r, target)
+
+		// Report the metrics
+		duration := time.Since(start)
+
+		a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
+		a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
+	})
+	if err != nil {
+		if err == activator.ErrActivatorOverload {
+			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			a.Logger.Errorw("Error processing request in the activator", zap.Error(err))
+		}
+	}
+}
+
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) (int, int) {
+	capture := &statusCapture{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
@@ -81,13 +103,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(capture, r)
-
-	// Report the metrics
-	httpStatus := capture.statusCode
-	duration := time.Now().Sub(start)
-
-	a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
-	a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
+	return attempts, capture.statusCode
 }
 
 type statusCapture struct {

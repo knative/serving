@@ -27,10 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	// OverloadMessage indicates that throttler has no free slots to buffer the request.
-	OverloadMessage = "activator overload"
-)
+// ErrActivatorOverload indicates that throttler has no free slots to buffer the request.
+var ErrActivatorOverload = errors.New("activator overload")
 
 // ThrottlerParams defines the parameters of the Throttler.
 type ThrottlerParams struct {
@@ -91,7 +89,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 		}
 	}
 	if !breaker.Maybe(function) {
-		return errors.New(OverloadMessage)
+		return ErrActivatorOverload
 	}
 	return nil
 }
@@ -144,8 +142,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // that do not belong to any revision).
 //
 // This function must not be called in parallel to not induce a wrong order of events.
-func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
-	return func(_, newObj interface{}) {
+func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
+	return func(newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
@@ -159,8 +157,9 @@ func UpdateEndpoints(throttler *Throttler) func(_, newObj interface{}) {
 // It removes the Breaker from the Throttler bookkeeping.
 func DeleteBreaker(throttler *Throttler) func(obj interface{}) {
 	return func(obj interface{}) {
-		rev := obj.(*v1alpha1.Revision)
-		revID := RevisionID{rev.Namespace, rev.Name}
+		ep := obj.(*corev1.Endpoints)
+		name := reconciler.GetServingRevisionNameForK8sService(ep.Name)
+		revID := RevisionID{ep.Namespace, name}
 		throttler.Remove(revID)
 	}
 }
