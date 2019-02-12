@@ -17,10 +17,11 @@ limitations under the License.
 package queue
 
 import (
-	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -84,7 +85,9 @@ func TestBreakerOverload(t *testing.T) {
 
 	unlockAll(locks)
 
-	assertEqual(want, accepted(locks), t)
+	if diff := cmp.Diff(accepted(locks), want); diff != "" {
+		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+	}
 }
 
 func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
@@ -97,7 +100,9 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 
 	unlockAll(locks)
 
-	assertEqual(want, accepted(locks), t)
+	if diff := cmp.Diff(accepted(locks), want); diff != "" {
+		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+	}
 }
 
 func TestBreakerNoOverload(t *testing.T) {
@@ -113,7 +118,9 @@ func TestBreakerNoOverload(t *testing.T) {
 	locks[3] = b.concurrentRequest()
 	unlockAll(locks[2:])
 
-	assertEqual(want, accepted(locks), t)
+	if diff := cmp.Diff(accepted(locks), want); diff != "" {
+		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+	}
 }
 
 func TestBreakerRecover(t *testing.T) {
@@ -127,7 +134,9 @@ func TestBreakerRecover(t *testing.T) {
 	moreLocks := b.concurrentRequests(2)
 	unlockAll(moreLocks)
 
-	assertEqual(want, accepted(append(locks, moreLocks...)), t)
+	if diff := cmp.Diff(accepted(append(locks, moreLocks...)), want); diff != "" {
+		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+	}
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
@@ -155,27 +164,35 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	}
 	unlockAll(locks[50:])
 
-	assertEqual(want, accepted(locks), t)
+	if diff := cmp.Diff(accepted(locks), want); diff != "" {
+		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+	}
 }
 
 func TestBreaker_UpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	b.UpdateConcurrency(int32(1))
-	assertEqual(int32(1), b.Capacity(), t)
+	if got, want := b.Capacity(), int32(1); got != want {
+		t.Errorf("Capacity() = %d, want: %d", got, want)
+	}
 
 	b.UpdateConcurrency(int32(0))
-	assertEqual(int32(0), b.Capacity(), t)
+	if got, want := b.Capacity(), int32(0); got != want {
+		t.Errorf("Capacity() = %d, want: %d", got, want)
+	}
 
-	err := b.UpdateConcurrency(int32(-2))
-	assertEqual(ErrUpdateCapacity, err, t)
+	if err := b.UpdateConcurrency(int32(-2)); err != ErrUpdateCapacity {
+		t.Errorf("UpdateConcurrency = %v, want: %v", err, ErrUpdateCapacity)
+	}
 }
 
 func TestBreaker_UpdateConcurrency_Overlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
-	err := b.UpdateConcurrency(int32(2))
-	assertEqual(ErrUpdateCapacity, err, t)
+	if err := b.UpdateConcurrency(int32(2)); err != ErrUpdateCapacity {
+		t.Errorf("UpdateConcurrency = %v, want: %v", err, ErrUpdateCapacity)
+	}
 }
 
 // Test empty semaphore, token cannot be acquired
@@ -196,21 +213,38 @@ func TestSemaphore_Acquire_HasNoCapacity(t *testing.T) {
 // Test empty semaphore, add capacity, token can be acquired
 func TestSemaphore_Acquire_HasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
+	want := 1
 
 	sem := newSemaphore(1, 0)
 	tryAcquire(sem, gotChan)
 	sem.Release() // Allows 1 acquire
 
-	assertAcquired(1, gotChan, t)
+	for i := 0; i < want; i++ {
+		select {
+		case <-gotChan:
+			// Successfully acquired a token.
+		case <-time.After(semAcquireTimeout):
+			t.Error("Was not able to acquire token before timeout")
+		}
+	}
+
+	select {
+	case <-gotChan:
+		t.Errorf("Got more acquires than wanted, want = %d, got at least %d", want, want+1)
+	case <-time.After(semNoChangeTimeout):
+		// No change happened, success.
+	}
 }
 
 func TestSemaphore_Release(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.Acquire()
-	err := sem.Release()
-	assertEqual(nil, err, t)
-	err = sem.Release()
-	assertEqual(ErrRelease, err, t)
+	if err := sem.Release(); err != nil {
+		t.Errorf("Release = %v; want: %v", err, nil)
+	}
+	if err := sem.Release(); err != ErrRelease {
+		t.Errorf("Release = %v; want: %v", err, ErrRelease)
+	}
 }
 
 func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
@@ -221,20 +255,33 @@ func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
 	sem.Acquire()
 	sem.UpdateCapacity(int32(0))
 	sem.Release()
-	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
-	assertEqual(wantAfterFirstRelease, sem.reducers, t)
+	if got := sem.Capacity(); got != wantAfterSecondRelease {
+		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondRelease)
+	}
+	if sem.reducers != wantAfterFirstRelease {
+		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterFirstRelease)
+	}
+
 	sem.Release()
-	assertEqual(wantAfterSecondRelease, sem.Capacity(), t)
-	assertEqual(wantAfterSecondRelease, sem.reducers, t)
+	if got := sem.Capacity(); got != wantAfterSecondRelease {
+		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondRelease)
+	}
+	if sem.reducers != wantAfterSecondRelease {
+		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterSecondRelease)
+	}
 }
 
 func TestSemaphore_UpdateCapacity(t *testing.T) {
 	initialCapacity := int32(1)
 	sem := newSemaphore(3, initialCapacity)
-	assertEqual(int32(1), sem.Capacity(), t)
+	if got, want := sem.Capacity(), int32(1); got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
 	sem.Acquire()
 	sem.UpdateCapacity(initialCapacity + 2)
-	assertEqual(int32(3), sem.Capacity(), t)
+	if got, want := sem.Capacity(), int32(3); got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
@@ -244,11 +291,15 @@ func TestSemaphore_UpdateCapacity_LessThenReducers(t *testing.T) {
 	sem.Acquire()
 	sem.Acquire()
 	sem.UpdateCapacity(initialCapacity - 2)
-	assertEqual(int32(2), sem.reducers, t)
+	if got, want := sem.reducers, int32(2); got != want {
+		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	}
 	sem.Release()
 	sem.Release()
 	sem.Release()
-	assertEqual(int32(0), sem.reducers, t)
+	if got, want := sem.reducers, int32(0); got != want {
+		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	}
 }
 
 func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
@@ -257,36 +308,44 @@ func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
 	sem.Acquire()
 	sem.Acquire()
 	sem.UpdateCapacity(initialCapacity - 2)
-	assertEqual(int32(2), sem.reducers, t)
+	if got, want := sem.reducers, int32(2); got != want {
+		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	}
 
 	sem.UpdateCapacity(initialCapacity)
-	assertEqual(int32(0), sem.reducers, t)
+	if got, want := sem.reducers, int32(0); got != want {
+		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	}
 }
 
 func TestSemaphore_UpdateCapacity_Overflow(t *testing.T) {
 	sem := newSemaphore(2, 0)
-	err := sem.UpdateCapacity(int32(3))
-	assertEqual(err, ErrUpdateCapacity, t)
+	if err := sem.UpdateCapacity(3); err != ErrUpdateCapacity {
+		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	}
 }
 
 func TestSemaphore_UpdateCapacity_OutOfBound(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.Acquire()
-	err := sem.UpdateCapacity(-1)
-	assertEqual(err, ErrUpdateCapacity, t)
+	if err := sem.UpdateCapacity(-1); err != ErrUpdateCapacity {
+		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	}
 }
 
 func TestSemaphore_UpdateCapacity_BrokenState(t *testing.T) {
 	sem := newSemaphore(1, 0)
 	sem.Release() // This Release is not paired with an Acquire
-	err := sem.UpdateCapacity(1)
-	assertEqual(err, ErrUpdateCapacity, t)
+	if err := sem.UpdateCapacity(1); err != ErrUpdateCapacity {
+		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	}
 }
 
 func TestSemaphore_UpdateCapacity_DoNothing(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	err := sem.UpdateCapacity(1)
-	assertEqual(err, nil, t)
+	if err := sem.UpdateCapacity(1); err != nil {
+		t.Errorf("UpdateCapacity = %v, want: %v", err, nil)
+	}
 }
 
 func TestSemaphore_WrongInitialCapacity(t *testing.T) {
@@ -295,7 +354,7 @@ func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 			t.Error("The code did not panic")
 		}
 	}()
-	_ = newSemaphore(1, 2)
+	newSemaphore(1, 2)
 }
 
 // Attempts to perform a concurrent request against the specified breaker.
@@ -368,37 +427,10 @@ func unlockAll(requests []request) {
 	}
 }
 
-func assertEqual(want, got interface{}, t *testing.T) {
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
 func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
 		sem.Acquire()
 		gotChan <- struct{}{}
 	}()
-}
-
-// assertAcquired waits for gotChan to contain the wanted number of elements.
-// After these elements have arrived, we wait for a little longer to see if
-// unexpected elements arrive.
-func assertAcquired(want int, gotChan chan struct{}, t *testing.T) {
-	for i := 0; i < want; i++ {
-		select {
-		case <-gotChan:
-			// Successfully acquired a token.
-		case <-time.After(semAcquireTimeout):
-			t.Error("Was not able to acquire token before timeout")
-		}
-	}
-
-	select {
-	case <-gotChan:
-		t.Errorf("Got more acquires than wanted, want = %d, got at least %d", want, want+1)
-	case <-time.After(semNoChangeTimeout):
-		// No change happened, success.
-	}
 }
