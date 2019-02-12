@@ -52,6 +52,7 @@ import (
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/pkg/system"
 	ktest "github.com/knative/serving/test"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -728,8 +729,13 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 	stopCh := make(chan struct{})
-	defer close(stopCh)
-	go controller.Run(1, stopCh)
+	var eg errgroup.Group
+	defer func() {
+		close(stopCh)
+		// Controller.Run never returns an error.
+		eg.Wait()
+	}()
+	eg.Go(func() error { return controller.Run(1, stopCh) })
 
 	servingInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
