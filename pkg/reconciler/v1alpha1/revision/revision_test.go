@@ -176,12 +176,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
-	cms := []*corev1.ConfigMap{&corev1.ConfigMap{
+	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      config.NetworkConfigName,
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      logging.ConfigName,
@@ -190,7 +190,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 			"loglevel.queueproxy": "info",
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
@@ -200,7 +200,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"logging.fluentd-sidecar-image":         testFluentdImage,
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
