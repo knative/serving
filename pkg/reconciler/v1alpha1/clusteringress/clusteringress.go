@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
@@ -45,10 +46,6 @@ import (
 )
 
 const (
-	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
-	IstioIngressClassName = "istio.ingress.networking.knative.dev"
-
 	controllerAgentName = "clusteringress-controller"
 )
 
@@ -86,7 +83,7 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, IstioIngressClassName, true)
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{

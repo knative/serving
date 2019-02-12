@@ -20,7 +20,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,6 +35,10 @@ const (
 	// DefaultClusterIngressClassKey is the name of the configuration entry
 	// that specifies the default ClusterIngress.
 	DefaultClusterIngressClassKey = "clusteringress.class"
+
+	// IstioIngressClassName value for specifying knative's Istio
+	// ClusterIngress reconciler.
+	IstioIngressClassName = "istio.ingress.networking.knative.dev"
 )
 
 // Config contains the networking configuration defined in the
@@ -86,7 +89,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
-		nc.DefaultClusterIngressClass = clusteringress.IstioIngressClassName
+		nc.DefaultClusterIngressClass = IstioIngressClassName
 	} else {
 		nc.DefaultClusterIngressClass = ingressClass
 	}
