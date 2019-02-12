@@ -174,32 +174,28 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := []*corev1.ConfigMap{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.DomainConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{
-				defaultDomainSuffix: "",
-				prodDomainSuffix:    "selector:\n  app: prod",
-			},
+	cms := []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DomainConfigName,
+			Namespace: system.Namespace(),
 		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      network.NetworkConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
 		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      gc.ConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.NetworkConfigName,
+			Namespace: system.Namespace(),
 		},
-	}
+		Data: map[string]string{},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}}
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}
