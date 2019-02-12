@@ -160,6 +160,24 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
+	go revisionInformer.Informer().Run(stopCh)
+	go endpointInformer.Informer().Run(stopCh)
+
+	logger.Info("Waiting for informer caches to sync")
+
+	informerSyncs := []cache.InformerSynced{
+		endpointInformer.Informer().HasSynced,
+		revisionInformer.Informer().HasSynced,
+	}
+	// Make sure the caches are in sync before we add the actual handler.
+	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
+	// is already in sync and it could not perform it because of
+	// revision informer still being synchronized.
+	for i, synced := range informerSyncs {
+		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
+			logger.Fatalf("failed to wait for cache at index %d to sync", i)
+		}
+	}
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
@@ -189,7 +207,7 @@ func main() {
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.UpdateEndpoints(throttler),
+		AddFunc:    activator.AddEndpoints(throttler),
 		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
 		DeleteFunc: activator.DeleteBreaker(throttler),
 	}
@@ -201,27 +219,11 @@ func main() {
 		_, ok := endpoints.Labels[revisionID]
 		return ok
 	}
-
 	// Update/create the breaker in the throttler when the number of endpoints changes.
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filter,
 		Handler:    handler,
 	})
-
-	kubeInformerFactory.Start(stopCh)
-	servingInformerFactory.Start(stopCh)
-
-	logger.Info("Waiting for informer caches to sync")
-
-	informerSyncs := []cache.InformerSynced{
-		endpointInformer.Informer().HasSynced,
-		revisionInformer.Informer().HasSynced,
-	}
-	for i, synced := range informerSyncs {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
-	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
