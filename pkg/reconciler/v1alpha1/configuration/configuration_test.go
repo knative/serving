@@ -185,28 +185,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/matching-revision-done",
 	}, {
-		Name: "reconcile a ready revision without the config metadata generation label",
-		Objects: []runtime.Object{
-			cfg("legacy-revision-ready", "foo", 5555,
-				WithObservedGen,
-				WithLatestCreated("legacy-revision-ready-05555"),
-				WithLatestReady("legacy-revision-ready-05555")),
-			rev("legacy-revision-ready", "foo", 5555,
-				WithCreationTimestamp(now),
-				MarkRevisionReady,
-				WithoutConfigurationMetadataGenerationLabel,
-				WithRevName("legacy-revision-ready-05555"),
-			),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("legacy-revision-ready", "foo", 5555,
-				WithRevName("legacy-revision-ready-05555"),
-				WithCreationTimestamp(now),
-				MarkRevisionReady,
-			),
-		}},
-		Key: "foo/legacy-revision-ready",
-	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,

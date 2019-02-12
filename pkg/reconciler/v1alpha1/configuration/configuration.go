@@ -33,7 +33,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	errutil "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -246,26 +245,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1a
 		return list[0], nil
 	}
 
-	// This is a legacy path for older revisions that don't have
-	// the configuration metadata generation label.
-	//
-	// We will update these revisions with the label.
-	revName := resourcenames.DeprecatedRevision(config)
-
-	rev, err := lister.Get(revName)
-	if err != nil {
-		return rev, err
-	}
-
-	rev = rev.DeepCopy()
-	resources.UpdateRevisionLabels(rev, config)
-
-	rev, err = c.ServingClientSet.Serving().Revisions(config.Namespace).Update(rev)
-	if err != nil {
-		return nil, fmt.Errorf("error migrating revision metadata generation label: %v", err)
-	}
-
-	return rev, nil
+	return nil, errors.NewNotFound(v1alpha1.Resource("revisions"), fmt.Sprintf("revision for %s", config.Name))
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
