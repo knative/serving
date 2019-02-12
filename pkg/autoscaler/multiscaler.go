@@ -271,7 +271,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 
 	scraper, err := m.statsScraperFactory(metric, m.dynConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a stats scraper for metric %q: %v", metric.Name, err)
+		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
 	}
 	scraperTicker := time.NewTicker(time.Second / SamplesPerSecond)
 	go func() {

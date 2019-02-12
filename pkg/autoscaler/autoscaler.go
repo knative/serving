@@ -162,10 +162,7 @@ func (agg *perPodAggregation) aggregate(stat Stat) {
 
 // Calculates the average concurrency on pod level over all values given.
 func (agg *perPodAggregation) averagePodConcurrency() float64 {
-	if agg.probeCount == 0 {
-		return 0.0
-	}
-	return agg.accumulatedPodConcurrency / float64(agg.probeCount)
+	return divide(agg.accumulatedPodConcurrency, float64(agg.probeCount))
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -363,7 +360,7 @@ func (a *Autoscaler) targetConcurrency() float64 {
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount float64, currentPodCount int) float64 {
-	// Use 1 as minimum for current pods.
+	// Use 1 if there are zero current pods.
 	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*math.Max(1, float64(currentPodCount)))
 }
 
