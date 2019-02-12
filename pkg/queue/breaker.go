@@ -63,7 +63,7 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity)
+	sem := newSemaphore(params.MaxConcurrency, params.InitialCapacity)
 	return &Breaker{
 		pendingRequests: make(chan token, params.QueueDepth+params.MaxConcurrency),
 		sem:             sem,
@@ -109,11 +109,11 @@ func (b *Breaker) Capacity() int32 {
 	return b.sem.Capacity()
 }
 
-// NewSemaphore creates a semaphore with the desired maximal and initial capacity.
+// newSemaphore creates a semaphore with the desired maximal and initial capacity.
 // Maximal capacity is the size of the buffered channel, it defines maximum number of tokens
 // in the rotation. Attempting to add more capacity then the max will result in error.
 // Initial capacity is the initial number of free tokens.
-func NewSemaphore(maxCapacity, initialCapacity int32) *semaphore {
+func newSemaphore(maxCapacity, initialCapacity int32) *semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
