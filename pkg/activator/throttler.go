@@ -157,8 +157,9 @@ func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
 // It removes the Breaker from the Throttler bookkeeping.
 func DeleteBreaker(throttler *Throttler) func(obj interface{}) {
 	return func(obj interface{}) {
-		rev := obj.(*v1alpha1.Revision)
-		revID := RevisionID{rev.Namespace, rev.Name}
+		ep := obj.(*corev1.Endpoints)
+		name := reconciler.GetServingRevisionNameForK8sService(ep.Name)
+		revID := RevisionID{ep.Namespace, name}
 		throttler.Remove(revID)
 	}
 }
