@@ -32,9 +32,11 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
+	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
 
 	store.OnConfigChanged(domainConfig)
 	store.OnConfigChanged(gcConfig)
+	store.OnConfigChanged(networkConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -56,6 +58,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(TestLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, NetworkConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
 
 	config := store.Load()

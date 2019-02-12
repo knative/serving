@@ -186,6 +186,13 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.NetworkConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      gc.ConfigName,
 				Namespace: system.Namespace(),
 			},

@@ -24,7 +24,6 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/system"
 	_ "github.com/knative/serving/pkg/system/testing"
@@ -34,14 +33,12 @@ import (
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
+	ingressClass := "foo-ingress"
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
 			UID:       "1234-5678",
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
-			},
 		},
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
@@ -52,10 +49,10 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			serving.RouteNamespaceLabelKey: "test-ns",
 		},
 		Annotations: map[string]string{
-			networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
+			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}).ObjectMeta
+	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}, ingressClass).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
 		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
 	}

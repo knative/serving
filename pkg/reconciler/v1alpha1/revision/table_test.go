@@ -32,6 +32,7 @@ import (
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1023,7 +1024,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
-		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Network:    &netcfg.Network{IstioOutboundIPRanges: "*"},
 		Observability: &config.Observability{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

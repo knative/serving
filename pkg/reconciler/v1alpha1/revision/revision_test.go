@@ -49,6 +49,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/system"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
@@ -179,7 +180,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cms := []*corev1.ConfigMap{&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      config.NetworkConfigName,
+			Name:      netcfg.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -578,11 +579,11 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.NetworkConfigName,
+			Name:      netcfg.NetworkConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			config.IstioOutboundIPRangesKey: configMapValue,
+			netcfg.IstioOutboundIPRangesKey: configMapValue,
 		}})
 
 	rev := getTestRevision()
@@ -620,7 +621,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "10.0.0.1/24",
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.NetworkConfigName,
+				Name:      netcfg.NetworkConfigName,
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{

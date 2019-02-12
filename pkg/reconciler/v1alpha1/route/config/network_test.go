@@ -48,7 +48,8 @@ func TestNetworkConfiguration(t *testing.T) {
 		name:    "network configuration with no network input",
 		wantErr: false,
 		wantController: &Network{
-			IstioOutboundIPRanges: "*",
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -68,9 +69,11 @@ func TestNetworkConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey: "10.10.10.10/33",
 			},
 		}}, {
-		name:           "network configuration with empty network",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with empty network",
+		wantErr: false,
+		wantController: &Network{
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -140,9 +143,11 @@ func TestNetworkConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey: "*,",
 			},
 		}}, {
-		name:           "network configuration with invalid network string",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with invalid network string",
+		wantErr: false,
+		wantController: &Network{
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -152,9 +157,11 @@ func TestNetworkConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey: ", ,",
 			},
 		}}, {
-		name:           "network configuration with invalid network string",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with invalid network string",
+		wantErr: false,
+		wantController: &Network{
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -164,9 +171,11 @@ func TestNetworkConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey: ",,",
 			},
 		}}, {
-		name:           "network configuration with invalid network range",
-		wantErr:        false,
-		wantController: &Network{},
+		name:    "network configuration with invalid network range",
+		wantErr: false,
+		wantController: &Network{
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -179,7 +188,8 @@ func TestNetworkConfiguration(t *testing.T) {
 		name:    "network configuration with valid CIDR network range",
 		wantErr: false,
 		wantController: &Network{
-			IstioOutboundIPRanges: "10.10.10.0/24",
+			IstioOutboundIPRanges:      "10.10.10.0/24",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -193,7 +203,8 @@ func TestNetworkConfiguration(t *testing.T) {
 		name:    "network configuration with multiple valid network ranges",
 		wantErr: false,
 		wantController: &Network{
-			IstioOutboundIPRanges: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -207,7 +218,8 @@ func TestNetworkConfiguration(t *testing.T) {
 		name:    "network configuration with valid network",
 		wantErr: false,
 		wantController: &Network{
-			IstioOutboundIPRanges: "*",
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -216,6 +228,22 @@ func TestNetworkConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*",
+			},
+		}}, {
+		name:    "network configuration with non-Istio ingress type",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "foo-ingress",
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
 			},
 		}},
 	}

@@ -27,8 +27,9 @@ type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Domain *Domain
-	GC     *gc.Config
+	Domain  *Domain
+	GC      *gc.Config
+	Network *Network
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -62,8 +63,9 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"route",
 			logger,
 			configmap.Constructors{
-				DomainConfigName: NewDomainFromConfigMap,
-				gc.ConfigName:    gc.NewConfigFromConfigMap,
+				DomainConfigName:  NewDomainFromConfigMap,
+				gc.ConfigName:     gc.NewConfigFromConfigMap,
+				NetworkConfigName: NewNetworkFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -78,7 +80,8 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 func (s *Store) Load() *Config {
 	return &Config{
-		Domain: s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
-		GC:     s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+		Domain:  s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
+		GC:      s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+		Network: s.UntypedLoad(NetworkConfigName).(*Network).DeepCopy(),
 	}
 }

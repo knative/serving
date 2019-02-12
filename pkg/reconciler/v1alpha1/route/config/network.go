@@ -20,6 +20,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -31,6 +32,10 @@ const (
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
+
+	// DefaultClusterIngressClassKey is the name of the configuration entry
+	// that specifies the default ClusterIngress.
+	DefaultClusterIngressClassKey = "clusteringress.class"
 )
 
 // Network contains the networking configuration defined in the
@@ -39,6 +44,9 @@ type Network struct {
 	// IstioOutboundIPRange specifies the IP ranges to intercept
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
+
+	// DefaultClusterIngressClass specifies the default ClusterIngress class.
+	DefaultClusterIngressClass string
 }
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
@@ -76,6 +84,11 @@ func NewNetworkFromConfigMap(configMap *corev1.ConfigMap) (*Network, error) {
 		return nil, err
 	} else {
 		nc.IstioOutboundIPRanges = normalizedIpr
+	}
+	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
+		nc.DefaultClusterIngressClass = clusteringress.IstioIngressClassName
+	} else {
+		nc.DefaultClusterIngressClass = ingressClass
 	}
 	return nc, nil
 }

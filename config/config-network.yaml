@@ -73,3 +73,7 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
+    # clusteringress.class specifies the default cluster ingress class
+    # to use when not dictated by Route annotation.
+    # If not specified, will use the Istio ingress.
+    clusteringress.class: "istio.ingress.networking.knative.dev"

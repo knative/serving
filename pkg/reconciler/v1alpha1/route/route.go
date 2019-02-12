@@ -37,6 +37,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/tracker"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -165,10 +166,14 @@ func NewControllerWithClock(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncRoutesOnConfigDomainChange := configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+	configsToResync := []interface{}{
+		&config.Network{},
+		&config.Domain{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncRoutesOnConfigDomainChange)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
@@ -220,6 +225,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
+func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
+	if ingressClass, _ := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
+		return ingressClass
+	}
+	return config.FromContext(ctx).Network.DefaultClusterIngressClass
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 	if r.GetDeletionTimestamp() != nil {
@@ -263,7 +275,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	logger.Info("Creating ClusterIngress.")
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, traffic))
+	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
