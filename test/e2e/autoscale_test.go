@@ -147,7 +147,8 @@ func setup(t *testing.T) *testContext {
 
 	logger.Info("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
-		ContainerConcurrency: 10,
+		ContainerConcurrency:   10,
+		RevisionTimeoutSeconds: 10,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
