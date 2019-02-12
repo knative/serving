@@ -325,7 +325,13 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 			}
 		}
 	}()
-	<-done
+
+	select {
+	case err := <-errChan:
+		ctx.t.Error(err.Error())
+	case <-done:
+		// Success!
+	}
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
