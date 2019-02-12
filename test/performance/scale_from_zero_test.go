@@ -146,9 +146,7 @@ func testGrid(s *stats, tName string) error {
 	var tc []junit.TestCase
 	val := float32(s.avg.Seconds())
 	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
-	ts := junit.TestSuites{}
-	ts.AddTestSuite(&junit.TestSuite{Name: tName, TestCases: tc})
-	return testgrid.CreateXMLOutput(&ts, tName)
+	return testgrid.CreateXMLOutput(tc, tName)
 }
 
 func testScaleFromZero(t *testing.T, count int) {

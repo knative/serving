@@ -86,10 +86,7 @@ func TestTimeToServeLatency(t *testing.T) {
 		tc = append(tc, CreatePerfTestCase(val, name, testName))
 	}
 
-	ts := junit.TestSuites{}
-	ts.AddTestSuite(&junit.TestSuite{Name: "TestPerformanceLatency", TestCases: tc})
-
-	if err = testgrid.CreateXMLOutput(&ts, testName); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, testName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

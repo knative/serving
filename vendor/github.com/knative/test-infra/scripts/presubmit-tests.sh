@@ -100,7 +100,7 @@ function run_build_tests() {
     fi
   fi
   # Don't run post-build tests if pre/build tests failed
-  if function_exists post_build_tests; then
+  if (( ! failed )) && function_exists post_build_tests; then
     post_build_tests || failed=1
   fi
   results_banner "Build" ${failed}
@@ -177,7 +177,7 @@ function run_unit_tests() {
     fi
   fi
   # Don't run post-unit tests if pre/unit tests failed
-  if function_exists post_unit_tests; then
+  if (( ! failed )) && function_exists post_unit_tests; then
     post_unit_tests || failed=1
   fi
   results_banner "Unit" ${failed}

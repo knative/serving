@@ -161,11 +161,7 @@ func TestScaleToN(t *testing.T) {
 		})
 	}
 
-	// We do this once here because it doesn't like table test names (with '/')
-	ts := junit.TestSuites{}
-	ts.AddTestSuite(&junit.TestSuite{Name: t.Name(), TestCases: results})
-
-	if err := testgrid.CreateXMLOutput(&ts, t.Name()); err != nil {
+	if err := testgrid.CreateXMLOutput(results, t.Name()); err != nil {
 		t.Errorf("Cannot create output xml: %v", err)
 	}
 }
