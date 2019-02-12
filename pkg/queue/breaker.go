@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 var (
@@ -36,7 +34,6 @@ type BreakerParams struct {
 	QueueDepth      int32
 	MaxConcurrency  int32
 	InitialCapacity int32
-	Logger          *zap.SugaredLogger
 }
 
 type token struct{}
@@ -48,7 +45,6 @@ type token struct{}
 type Breaker struct {
 	pendingRequests chan token
 	sem             *semaphore
-	logger          *zap.SugaredLogger
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -67,7 +63,6 @@ func NewBreaker(params BreakerParams) *Breaker {
 	return &Breaker{
 		pendingRequests: make(chan token, params.QueueDepth+params.MaxConcurrency),
 		sem:             sem,
-		logger:          params.Logger,
 	}
 }
 
@@ -87,9 +82,10 @@ func (b *Breaker) Maybe(thunk func()) bool {
 		b.sem.Acquire()
 		// Defer releasing capacity in the active and pending request queue.
 		defer func() {
-			if err := b.sem.Release(); err != nil {
-				b.logger.Errorw("Error while releasing a semaphore:", zap.Error(err))
-			}
+			// It's safe to ignore the error returned by Release since we
+			// make sure the semaphore is only manipulated here and Acquire
+			// + Release calls are equally paired.
+			b.sem.Release()
 			<-b.pendingRequests
 		}()
 		// Do the thing.
