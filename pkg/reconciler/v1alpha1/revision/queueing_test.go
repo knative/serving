@@ -34,9 +34,9 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -190,7 +190,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      netcfg.NetworkConfigName,
+				Name:      network.NetworkConfigName,
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

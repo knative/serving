@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 
 	. "github.com/knative/pkg/logging/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing"
@@ -32,7 +33,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
-	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
+	networkConfig := ConfigMapFromTestFile(t, network.NetworkConfigName)
 
 	store.OnConfigChanged(domainConfig)
 	store.OnConfigChanged(gcConfig)
@@ -58,7 +59,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(TestLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, NetworkConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, network.NetworkConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
 
 	config := store.Load()

@@ -23,10 +23,10 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -182,7 +182,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *netcfg.Network, observabilityConfig *config.Observability,
+	loggingConfig *logging.Config, networkConfig *network.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	podTemplateAnnotations := makeAnnotations(rev)

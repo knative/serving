@@ -44,6 +44,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -167,7 +168,7 @@ func NewControllerWithClock(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
-		&config.Network{},
+		&network.Network{},
 		&config.Domain{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

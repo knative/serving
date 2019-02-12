@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
@@ -1643,7 +1644,7 @@ func ReconcilerTestConfig() *config.Config {
 				},
 			},
 		},
-		Network: &config.Network{
+		Network: &network.Network{
 			DefaultClusterIngressClass: TestIngressClass,
 		},
 		GC: &gc.Config{

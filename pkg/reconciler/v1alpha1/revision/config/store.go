@@ -23,7 +23,7 @@ import (
 	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
+	"github.com/knative/serving/pkg/network"
 )
 
 type cfgKey struct{}
@@ -31,7 +31,7 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Controller    *Controller
-	Network       *netcfg.Network
+	Network       *network.Network
 	Observability *Observability
 	Logging       *pkglogging.Config
 	Autoscaler    *autoscaler.Config
@@ -57,11 +57,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				ControllerConfigName:     NewControllerConfigFromConfigMap,
-				netcfg.NetworkConfigName: netcfg.NewNetworkFromConfigMap,
-				ObservabilityConfigName:  NewObservabilityFromConfigMap,
-				autoscaler.ConfigName:    autoscaler.NewConfigFromConfigMap,
-				logging.ConfigName:       logging.NewConfigFromConfigMap,
+				ControllerConfigName:      NewControllerConfigFromConfigMap,
+				network.NetworkConfigName: network.NewNetworkFromConfigMap,
+				ObservabilityConfigName:   NewObservabilityFromConfigMap,
+				autoscaler.ConfigName:     autoscaler.NewConfigFromConfigMap,
+				logging.ConfigName:        logging.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -77,7 +77,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		Controller:    s.UntypedLoad(ControllerConfigName).(*Controller).DeepCopy(),
-		Network:       s.UntypedLoad(netcfg.NetworkConfigName).(*netcfg.Network).DeepCopy(),
+		Network:       s.UntypedLoad(network.NetworkConfigName).(*network.Network).DeepCopy(),
 		Observability: s.UntypedLoad(ObservabilityConfigName).(*Observability).DeepCopy(),
 		Logging:       s.UntypedLoad(logging.ConfigName).(*pkglogging.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),

@@ -49,9 +49,9 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	netcfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 
 	"go.uber.org/zap"
 )
@@ -196,7 +196,7 @@ func NewController(
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
 	configsToResync := []interface{}{
-		&netcfg.Network{},
+		&network.Network{},
 		&config.Observability{},
 		&config.Controller{},
 	}

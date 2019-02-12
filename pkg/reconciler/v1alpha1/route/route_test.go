@@ -35,6 +35,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -186,7 +187,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.NetworkConfigName,
+				Name:      network.NetworkConfigName,
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{},
