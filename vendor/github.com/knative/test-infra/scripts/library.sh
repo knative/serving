@@ -358,15 +358,11 @@ function start_latest_knative_serving() {
   subheader "Installing Knative Serving"
   kubectl apply -f ${KNATIVE_SERVING_RELEASE} || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running knative-build || return 1
 }
 
 # Install the latest stable Knative/build in the current cluster.
 function start_latest_knative_build() {
   header "Starting Knative Build"
-  subheader "Installing Istio"
-  kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
-  wait_until_pods_running istio-system || return 1
   subheader "Installing Knative Build"
   kubectl apply -f ${KNATIVE_BUILD_RELEASE} || return 1
   wait_until_pods_running knative-build || return 1
