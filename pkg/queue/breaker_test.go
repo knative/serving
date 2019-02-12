@@ -339,7 +339,7 @@ func (b *Breaker) concurrentRequests(n int) []request {
 	return requests
 }
 
-func waitForQueue(queue chan token, size int) {
+func waitForQueue(queue chan struct{}, size int) {
 	err := wait.PollImmediate(1*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		return len(queue) == size, nil
 	})
