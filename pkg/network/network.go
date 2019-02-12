@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	// NetworkConfigName is the name of the configmap containing all
+	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
-	NetworkConfigName = "config-network"
+	ConfigName = "config-network"
 
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
@@ -38,9 +38,9 @@ const (
 	DefaultClusterIngressClassKey = "clusteringress.class"
 )
 
-// Network contains the networking configuration defined in the
+// Config contains the networking configuration defined in the
 // network config map.
-type Network struct {
+type Config struct {
 	// IstioOutboundIPRange specifies the IP ranges to intercept
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
@@ -74,9 +74,9 @@ func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
 	return strings.Join(normalized, ","), nil
 }
 
-// NewNetworkFromConfigMap creates a Network from the supplied ConfigMap
-func NewNetworkFromConfigMap(configMap *corev1.ConfigMap) (*Network, error) {
-	nc := &Network{}
+// NewConfigFromConfigMap creates a Config from the supplied ConfigMap
+func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
+	nc := &Config{}
 	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
 		// It is OK for this to be absent, we will elide the annotation.
 		nc.IstioOutboundIPRanges = "*"

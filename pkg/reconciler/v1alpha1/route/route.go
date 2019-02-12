@@ -168,7 +168,7 @@ func NewControllerWithClock(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
-		&network.Network{},
+		&network.Config{},
 		&config.Domain{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

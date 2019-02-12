@@ -180,7 +180,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cms := []*corev1.ConfigMap{&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      network.NetworkConfigName,
+			Name:      network.ConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -579,7 +579,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.NetworkConfigName,
+			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -621,7 +621,7 @@ func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
 		expected: "10.0.0.1/24",
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      network.NetworkConfigName,
+				Name:      network.ConfigName,
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{

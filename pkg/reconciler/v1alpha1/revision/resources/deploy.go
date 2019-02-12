@@ -182,7 +182,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 func MakeDeployment(rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *network.Network, observabilityConfig *config.Observability,
+	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	podTemplateAnnotations := makeAnnotations(rev)

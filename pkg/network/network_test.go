@@ -27,18 +27,18 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
-func TestOurNetwork(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, NetworkConfigName)
+func TestOurConfig(t *testing.T) {
+	cm, example := ConfigMapsFromTestFile(t, ConfigName)
 
-	if _, err := NewNetworkFromConfigMap(cm); err != nil {
-		t.Errorf("NewNetworkFromConfigMap(actual) = %v", err)
+	if _, err := NewConfigFromConfigMap(cm); err != nil {
+		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
 	}
-	if _, err := NewNetworkFromConfigMap(example); err != nil {
-		t.Errorf("NewNetworkFromConfigMap(example) = %v", err)
+	if _, err := NewConfigFromConfigMap(example); err != nil {
+		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
 	}
 }
 
-func TestNetworkConfiguration(t *testing.T) {
+func TestConfiguration(t *testing.T) {
 	networkConfigTests := []struct {
 		name           string
 		wantErr        bool
@@ -47,23 +47,23 @@ func TestNetworkConfiguration(t *testing.T) {
 	}{{
 		name:    "network configuration with no network input",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 		}}, {
 		name:           "network configuration with invalid outbound IP range",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/33",
@@ -71,13 +71,13 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with empty network",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "",
@@ -85,11 +85,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:           "network configuration with both valid and some invalid range",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/12,invalid",
@@ -97,11 +97,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:           "network configuration with invalid network range",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/12,-1.1.1.1/10",
@@ -109,11 +109,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:           "network configuration with invalid network key",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "this is not an IP range",
@@ -121,11 +121,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:           "network configuration with invalid network",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*,*",
@@ -133,11 +133,11 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:           "network configuration with incomplete network array",
 		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantController: (*Config)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*,",
@@ -145,13 +145,13 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ", ,",
@@ -159,13 +159,13 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ",,",
@@ -173,13 +173,13 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with invalid network range",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ",",
@@ -187,14 +187,14 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with valid CIDR network range",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.0/24",
@@ -202,14 +202,14 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with multiple valid network ranges",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
@@ -217,14 +217,14 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with valid network",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*",
@@ -232,14 +232,14 @@ func TestNetworkConfiguration(t *testing.T) {
 		}}, {
 		name:    "network configuration with non-Istio ingress type",
 		wantErr: false,
-		wantController: &Network{
+		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      NetworkConfigName,
+				Name:      ConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey:      "*",
@@ -249,10 +249,10 @@ func TestNetworkConfiguration(t *testing.T) {
 	}
 
 	for _, tt := range networkConfigTests {
-		actualController, err := NewNetworkFromConfigMap(tt.config)
+		actualController, err := NewConfigFromConfigMap(tt.config)
 
 		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewNetworkFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 		}
 
 		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {

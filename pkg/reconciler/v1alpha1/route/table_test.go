@@ -1644,7 +1644,7 @@ func ReconcilerTestConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Network{
+		Network: &network.Config{
 			DefaultClusterIngressClass: TestIngressClass,
 		},
 		GC: &gc.Config{

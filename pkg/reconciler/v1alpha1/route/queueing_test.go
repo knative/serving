@@ -73,7 +73,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.NetworkConfigName,
+			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},

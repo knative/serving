@@ -680,7 +680,7 @@ func TestMakeDeployment(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		nc   *network.Network
+		nc   *network.Config
 		oc   *config.Observability
 		ac   *autoscaler.Config
 		cc   *config.Controller
@@ -692,7 +692,7 @@ func TestMakeDeployment(t *testing.T) {
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
-		nc:   &network.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -704,7 +704,7 @@ func TestMakeDeployment(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
-		nc:   &network.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -713,7 +713,7 @@ func TestMakeDeployment(t *testing.T) {
 		name: "simple concurrency=multi with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
-		nc: &network.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},
@@ -733,7 +733,7 @@ func TestMakeDeployment(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		nc: &network.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},

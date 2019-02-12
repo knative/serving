@@ -1024,7 +1024,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
-		Network:    &network.Network{IstioOutboundIPRanges: "*"},
+		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &config.Observability{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

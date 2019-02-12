@@ -196,7 +196,7 @@ func NewController(
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
 	configsToResync := []interface{}{
-		&network.Network{},
+		&network.Config{},
 		&config.Observability{},
 		&config.Controller{},
 	}

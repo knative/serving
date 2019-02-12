@@ -33,7 +33,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
 	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
-	networkConfig := ConfigMapFromTestFile(t, network.NetworkConfigName)
+	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	observabilityConfig := ConfigMapFromTestFile(t, ObservabilityConfigName)
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
@@ -54,7 +54,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("network", func(t *testing.T) {
-		expected, _ := network.NewNetworkFromConfigMap(networkConfig)
+		expected, _ := network.NewConfigFromConfigMap(networkConfig)
 		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
@@ -86,7 +86,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, network.NetworkConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ObservabilityConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))

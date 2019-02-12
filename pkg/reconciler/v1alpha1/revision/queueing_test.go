@@ -190,7 +190,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      network.NetworkConfigName,
+				Name:      network.ConfigName,
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
