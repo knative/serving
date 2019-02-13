@@ -33,10 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 )
 

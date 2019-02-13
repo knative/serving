@@ -28,9 +28,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
-	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
