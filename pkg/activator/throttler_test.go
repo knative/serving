@@ -38,8 +38,7 @@ var (
 
 	existingRevisionGetter = func(concurrency v1alpha1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha12.Revision, error) {
 		return func(RevisionID) (*v1alpha12.Revision, error) {
-			revision := &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: concurrency}}
-			return revision, nil
+			return &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: concurrency}}, nil
 		}
 	}
 	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
@@ -54,7 +53,7 @@ var (
 )
 
 const (
-	defaultMaxConcurrency = int32(10)
+	defaultMaxConcurrency = int32(1000)
 	initCapacity          = int32(0)
 	sampleError           = "some error"
 )
@@ -168,7 +167,7 @@ func TestThrottler_Try(t *testing.T) {
 
 func TestThrottler_TryOverload(t *testing.T) {
 	th := getThrottler(
-		1 /*maxConcurrency*/ , existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
+		1 /*maxConcurrency*/, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
 		1 /*initial capacity*/)
 	done := make(chan struct{})
 
@@ -202,53 +201,39 @@ func TestThrottler_TryOverload(t *testing.T) {
 func TestUpdateEndpoints(t *testing.T) {
 	samples := []struct {
 		label          string
-		concurrency    int32
-		endpointBefore int
 		endpointsAfter int
 		wantCapacity   int32
 		initCapacity   int32
 	}{{
-		label:          "delta > 0, add single endpoint",
-		concurrency:    defaultMaxConcurrency,
-		endpointBefore: 0,
+		label:          "add single endpoint",
 		endpointsAfter: 1,
 		wantCapacity:   10,
 		initCapacity:   0,
 	}, {
-		label:          "delta > 0, add several endpoints",
-		concurrency:    20,
-		endpointBefore: 0,
+		label:          "add several endpoints",
 		endpointsAfter: 2,
 		wantCapacity:   20,
 		initCapacity:   0,
 	}, {
-		label:          "delta = 0",
-		concurrency:    10,
-		endpointBefore: 1,
-		endpointsAfter: 1,
-		wantCapacity:   10,
-		initCapacity:   10,
-	}, {
-		label:          "delta < 0",
-		concurrency:    10,
-		endpointBefore: 2,
+		label:          "do nothing",
 		endpointsAfter: 1,
 		wantCapacity:   10,
 		initCapacity:   10,
 	}}
 
 	for _, s := range samples {
-		throttler := getThrottler(s.concurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), s.initCapacity)
-		throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-		updater := UpdateEndpoints(throttler)
-		endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter-s.endpointBefore, 1)}
-		updater(&endpointsAfter)
+		t.Run(s.label, func(t *testing.T) {
+			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), s.initCapacity)
+			breaker := queue.NewBreaker(throttler.breakerParams)
+			throttler.breakers[revID] = breaker
+			updater := UpdateEndpoints(throttler)
+			endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
+			updater(&endpointsAfter)
 
-		breaker, _ := throttler.breakers[revID]
-		got := breaker.Capacity()
-		if got != s.wantCapacity {
-			t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
-		}
+			if got := breaker.Capacity(); got != s.wantCapacity {
+				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
+			}
+		})
 	}
 }
 
