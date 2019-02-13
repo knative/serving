@@ -24,7 +24,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"

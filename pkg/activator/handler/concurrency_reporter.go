@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.

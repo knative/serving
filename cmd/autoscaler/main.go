@@ -35,7 +35,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"

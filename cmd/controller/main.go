@@ -50,7 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"go.uber.org/zap"
 )
 

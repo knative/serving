@@ -33,7 +33,7 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )

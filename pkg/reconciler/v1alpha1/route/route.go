@@ -50,7 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 )
 
 const (

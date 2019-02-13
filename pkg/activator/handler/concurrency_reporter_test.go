@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 )
 
 const (
