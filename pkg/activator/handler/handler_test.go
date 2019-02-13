@@ -298,7 +298,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 		wantedFailure = 1
 		requests      = wantedSuccess + wantedFailure
 	)
-	respCh := make(chan *httptest.ResponseRecorder)
+	respCh := make(chan *httptest.ResponseRecorder, requests)
 	// overall max 20 requests in the Breaker
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 
@@ -306,14 +306,12 @@ func TestActivationHandler_Overflow(t *testing.T) {
 	revName := testRevName
 
 	throttler := getThrottler(breakerParams, t)
-	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, wantBody)
-		}),
-	)
-	defer server.Close()
 
-	act := newStubActivator(namespace, revName, server)
+	act := &stubActivator{
+		endpoint:  activator.Endpoint{FQDN: "test.com", Port: int32(8080)},
+		namespace: namespace,
+		name:      revName,
+	}
 	lockerCh := make(chan struct{})
 	handler := getHandler(throttler, act, lockerCh, t)
 	sendRequests(requests, namespace, revName, respCh, handler)
@@ -330,23 +328,20 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 		revisions       = 2
 	)
 
-	respCh := make(chan *httptest.ResponseRecorder)
+	respCh := make(chan *httptest.ResponseRecorder, overallRequests)
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	throttler := getThrottler(breakerParams, t)
-
-	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, wantBody)
-		}),
-	)
-	defer server.Close()
-
 	lockerCh := make(chan struct{})
+
 	for rev := 0; rev < revisions; rev++ {
 		namespace := fmt.Sprintf("real-namespace-%d", rev)
 		revName := testRevName
 
-		act := newStubActivator(namespace, revName, server)
+		act := &stubActivator{
+			endpoint:  activator.Endpoint{FQDN: "test.com", Port: int32(8080)},
+			namespace: namespace,
+			name:      revName,
+		}
 		handler := getHandler(throttler, act, lockerCh, t)
 
 		requestCount := overallRequests / revisions
@@ -389,11 +384,11 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 		// Allows only one request at a time until read from.
 		lockerCh <- struct{}{}
 
-		resp, err := http.DefaultTransport.RoundTrip(r)
-		if err != nil {
-			return resp, err
-		}
-		return resp, nil
+		fake := httptest.NewRecorder()
+		fake.WriteHeader(200)
+		fake.WriteString(wantBody)
+
+		return fake.Result(), nil
 	})
 	handler := ActivationHandler{
 		Activator: act,
@@ -417,17 +412,7 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh
 		failed    int
 	)
 
-	for i := 0; i < overallRequests; i++ {
-		if i < wantedSuccess {
-			// Only those requests should ever reach the RoundTripper
-			select {
-			case <-lockerCh:
-				// All good.
-			case <-time.After(channelTimeout):
-				t.Fatalf("Timed out waiting for a request to reach the RoundTripper")
-			}
-		}
-
+	processResponse := func(chan *httptest.ResponseRecorder) {
 		select {
 		case resp := <-respCh:
 			bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -453,6 +438,22 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh
 		case <-time.After(channelTimeout):
 			t.Fatalf("Timed out waiting for a request to be returned")
 		}
+	}
+
+	// The failures will arrive first, because we block other requests from being executed
+	for i := 0; i < wantedFailure; i++ {
+		processResponse(respCh)
+	}
+
+	for i := 0; i < wantedSuccess; i++ {
+		// All of the success requests are locked via the lockerCh.
+		select {
+		case <-lockerCh:
+			// All good.
+		case <-time.After(channelTimeout):
+			t.Fatalf("Timed out waiting for a request to reach the RoundTripper")
+		}
+		processResponse(respCh)
 	}
 
 	if wantedFailure != failed {
