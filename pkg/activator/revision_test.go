@@ -40,13 +40,9 @@ const (
 	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
-var defaultRevisionLabels map[string]string
-
-func init() {
-	defaultRevisionLabels = map[string]string{
-		serving.ServiceLabelKey:       "test-service",
-		serving.ConfigurationLabelKey: "test-config",
-	}
+var defaultRevisionLabels = map[string]string{
+	serving.ServiceLabelKey:       "test-service",
+	serving.ConfigurationLabelKey: "test-config",
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
@@ -63,11 +59,12 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
-	default:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(1200 * time.Millisecond):
+		// Wait long enough, so that ActiveEndpoint Go routine sets up the Watch.
+		// It does not fire any events internally, so we have to "sleep".
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
@@ -76,10 +73,9 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	rev.Status.MarkResourcesAvailable()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
-	time.Sleep(3 * time.Second)
 	select {
 	case ar := <-ch:
-		want := Endpoint{testServiceFQDN, 8080}
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
 		if ar.Endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
 		}
@@ -95,9 +91,134 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		if ar.Error != nil {
 			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
 		}
-	default:
-		t.Errorf("Expected result after revision ready.")
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready.")
 	}
+}
+
+func TestActiveEndpoint_Reserve_WaitsForReady2Step(t *testing.T) {
+	// This generates two updates, so that the inner loop of the `Watch` can be exercised.
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	ch := make(chan ActivationResult)
+	go func() {
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
+	}()
+
+	select {
+	case <-ch:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(1000 * time.Millisecond):
+		// Wait long enough, so that `ActiveEndpoint()` Go routine above
+		// sets up the `Watch` on the revisions. We need to sleep long enough
+		// for this to happen reliably, otherwise the test will flake.
+	}
+
+	// Partially update the service, to trigger a watch,
+	// which would not finish the loop.
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkResourcesAvailable()
+	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+
+	// ... and then finally make revision ready after a timeout.
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+		rev.Status.MarkActive()
+		rev.Status.MarkContainerHealthy()
+		kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+	}()
+
+	select {
+	case ar := <-ch:
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
+		if ar.Endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
+		}
+		if ar.Status != http.StatusOK {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
+		}
+		if ar.ServiceName != "test-service" {
+			t.Errorf("Unexpected service name. Want test-service. Got %v.", ar.ServiceName)
+		}
+		if ar.ConfigurationName != "test-config" {
+			t.Errorf("Unexpected configuration name. Want test-config. Got %v.", ar.ConfigurationName)
+		}
+		if ar.Error != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready.")
+	}
+}
+
+func TestActiveEndpoint_Reserve_AlreadyReady(t *testing.T) {
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkActive()
+	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailable()
+	_, err := kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+	if err != nil {
+		t.Fatalf("Error updating the revision %s: %v", testRevision, err)
+	}
+
+	ch := make(chan ActivationResult)
+	go func() {
+		ch <- a.ActiveEndpoint(testNamespace, testRevision)
+	}()
+
+	select {
+	case ar := <-ch:
+		want := Endpoint{testServiceFQDN, v1alpha1.DefaultUserPort}
+		if ar.Endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, ar.Endpoint)
+		}
+		if ar.Status != http.StatusOK {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", ar.Status)
+		}
+		if ar.ServiceName != "test-service" {
+			t.Errorf("Unexpected service name. Want test-service. Got %v.", ar.ServiceName)
+		}
+		if ar.ConfigurationName != "test-config" {
+			t.Errorf("Unexpected configuration name. Want test-config. Got %v.", ar.ConfigurationName)
+		}
+		if ar.Error != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", ar.Error)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after revision ready @", time.Now())
+	}
+}
+
+func TestActivateEndpoint_NotFound(t *testing.T) {
+	// Tests when revision can't be found.
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder(defaultRevisionLabels).
+			withReady(false).
+			build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+
+	ae := a.ActiveEndpoint(testNamespace, testRevision+"dne")
+	if got, want := ae.Status, http.StatusInternalServerError; got != want {
+		t.Errorf("NotFound revision status: got: %v, want: %v", got, want)
+	}
+
 }
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
@@ -115,41 +236,39 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 		ch <- a.ActiveEndpoint(testNamespace, testRevision)
 	}()
 
-	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
-		t.Errorf("Unexpected result before revision is ready.")
-	default:
+		t.Error("Unexpected result before revision is ready.")
+	case <-time.After(100 * time.Millisecond):
+		break
 	}
 
-	time.Sleep(3 * time.Second)
 	select {
 	case ar := <-ch:
 		if got, want := ar.Endpoint, (Endpoint{}); got != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
+			t.Errorf("Unexpected endpoint = %+v, want: %+v.", got, want)
 		}
 		if got, want := ar.Status, http.StatusInternalServerError; got != want {
-			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
+			t.Errorf("Unexpected error state = %v, want: %v.", got, want)
 		}
 		if ar.ServiceName != "" {
-			t.Errorf("Unexpected service name. Want empty. Got %v.", ar.ServiceName)
+			t.Errorf("ServiceName = %s, expected empty.", ar.ServiceName)
 		}
 		if ar.ConfigurationName != "" {
-			t.Errorf("Unexpected configuration name. Want empty. Got %v.", ar.ConfigurationName)
+			t.Errorf("ConfigurationName = %s, expected empty.", ar.ConfigurationName)
 		}
 		if ar.Error == nil {
-			t.Errorf("Expected error. Want error. Got nil.")
+			t.Error("Expected error.")
 		}
-	default:
-		t.Errorf("Expected result after timeout.")
+	case <-time.After(3 * time.Second):
+		t.Error("Expected result after timeout.")
 	}
 }
 
 func fakeClients() (kubernetes.Interface, clientset.Interface) {
 	nsObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testNamespace,
-			Namespace: "",
+			Name: testNamespace,
 		},
 	}
 	return fakeK8s.NewSimpleClientset(nsObj), fakeKna.NewSimpleClientset()
@@ -170,6 +289,7 @@ func newRevisionBuilder(labels map[string]string) *revisionBuilder {
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
 					Image: "gcr.io/repo/image",
+					Ports: []corev1.ContainerPort{{Name: "h2c"}},
 				},
 			},
 			Status: v1alpha1.RevisionStatus{
@@ -216,8 +336,8 @@ func newServiceBuilder() *serviceBuilder {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name: revisionresources.ServicePortName,
-					Port: 8080,
+					Name: revisionresources.ServicePortNameH2C,
+					Port: v1alpha1.DefaultUserPort,
 				}, {
 					Name: "anotherport",
 					Port: 9090,

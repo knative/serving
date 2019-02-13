@@ -25,14 +25,15 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
 
+	"github.com/knative/serving/pkg/network"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName)
-	networkConfig := ConfigMapFromTestFile(t, NetworkConfigName)
+	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
+	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	observabilityConfig := ConfigMapFromTestFile(t, ObservabilityConfigName)
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
@@ -53,7 +54,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("network", func(t *testing.T) {
-		expected, _ := NewNetworkFromConfigMap(networkConfig)
+		expected, _ := network.NewConfigFromConfigMap(networkConfig)
 		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
@@ -84,8 +85,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, NetworkConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ObservabilityConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))

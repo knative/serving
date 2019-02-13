@@ -26,6 +26,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,7 +67,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -106,6 +108,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
 			}},
 		},
 	}, {
@@ -132,7 +137,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -174,6 +179,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
 			}},
 		},
 	}, {
@@ -205,7 +213,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -246,6 +254,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
 			}},
 		},
 	}, {
@@ -275,7 +286,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -316,6 +327,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
 			}},
 		},
 	}, {
@@ -340,7 +354,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           queueContainerName,
+			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -381,6 +395,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
 			}},
 		},
 	}}

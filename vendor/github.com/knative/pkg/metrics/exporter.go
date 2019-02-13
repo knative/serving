@@ -1,12 +1,9 @@
 /*
 Copyright 2018 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,17 +19,20 @@ import (
 	"sync"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
+	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
+	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.uber.org/zap"
-	monitoredrespb "google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 var (
-	curMetricsExporter view.Exporter
-	curMetricsConfig   *metricsConfig
-	curPromSrv         *http.Server
-	metricsMux         sync.Mutex
+	curMetricsExporter       view.Exporter
+	curMetricsConfig         *metricsConfig
+	curPromSrv               *http.Server
+	getMonitoredResourceFunc func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface)
+	metricsMux               sync.Mutex
 )
 
 // newMetricsExporter gets a metrics exporter based on the config.
@@ -64,17 +64,64 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) error 
 	return nil
 }
 
+func getKnativeRevisionMonitoredResource(gm *gcpMetadata) func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface) {
+	return func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface) {
+		tagsMap := getTagsMap(tags)
+		kr := &KnativeRevision{
+			// The first three resource labels are from metadata.
+			Project:     gm.project,
+			Location:    gm.location,
+			ClusterName: gm.cluster,
+			// The rest resource labels are from metrics labels.
+			NamespaceName:     valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
+			ServiceName:       valueOrUnknown(metricskey.LabelServiceName, tagsMap),
+			ConfigurationName: valueOrUnknown(metricskey.LabelConfigurationName, tagsMap),
+			RevisionName:      valueOrUnknown(metricskey.LabelRevisionName, tagsMap),
+		}
+
+		var newTags []tag.Tag
+		for _, t := range tags {
+			// Keep the metrics labels that are not resource labels
+			if !metricskey.KnativeRevisionLabels.Has(t.Key.Name()) {
+				newTags = append(newTags, t)
+			}
+		}
+
+		return newTags, kr
+	}
+}
+
+func getTagsMap(tags []tag.Tag) map[string]string {
+	tagsMap := map[string]string{}
+	for _, t := range tags {
+		tagsMap[t.Key.Name()] = t.Value
+	}
+	return tagsMap
+}
+
+func valueOrUnknown(key string, tagsMap map[string]string) string {
+	if value, ok := tagsMap[key]; ok {
+		return value
+	}
+	return metricskey.ValueUnknown
+}
+
+func getGlobalMonitoredResource() func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface) {
+	return func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface) {
+		return tags, &Global{}
+	}
+}
+
 func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
+	setMonitoredResourceFunc(config, logger)
 	e, err := stackdriver.NewExporter(stackdriver.Options{
-		ProjectID:    config.stackdriverProjectID,
-		MetricPrefix: config.domain + "/" + config.component,
-		Resource: &monitoredrespb.MonitoredResource{
-			Type: "global",
-		},
+		ProjectID:               config.stackdriverProjectID,
+		MetricPrefix:            config.domain + "/" + config.component,
+		GetMonitoredResource:    getMonitoredResourceFunc,
 		DefaultMonitoringLabels: &stackdriver.Labels{},
 	})
 	if err != nil {
-		logger.Error("Failed to create the Stackdriver exporter.", zap.Error(err))
+		logger.Error("Failed to create the Stackdriver exporter: ", zap.Error(err))
 		return nil, err
 	}
 	logger.Infof("Created Opencensus Stackdriver exporter with config %v", config)
@@ -108,6 +155,29 @@ func resetCurPromSrv() {
 	if curPromSrv != nil {
 		curPromSrv.Close()
 		curPromSrv = nil
+	}
+}
+
+func resetMonitoredResourceFunc() {
+	metricsMux.Lock()
+	defer metricsMux.Unlock()
+	if getMonitoredResourceFunc != nil {
+		getMonitoredResourceFunc = nil
+	}
+}
+
+func setMonitoredResourceFunc(config *metricsConfig, logger *zap.SugaredLogger) {
+	metricsMux.Lock()
+	defer metricsMux.Unlock()
+	if getMonitoredResourceFunc == nil {
+		gm := retrieveGCPMetadata()
+		metricsPrefix := config.domain + "/" + config.component
+		logger.Infof("metrics prefix: %s", metricsPrefix)
+		if metricskey.KnativeRevisionMetricsPrefixes.Has(metricsPrefix) {
+			getMonitoredResourceFunc = getKnativeRevisionMonitoredResource(gm)
+		} else {
+			getMonitoredResourceFunc = getGlobalMonitoredResource()
+		}
 	}
 }
 

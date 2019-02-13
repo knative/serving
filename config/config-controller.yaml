@@ -17,12 +17,28 @@ kind: ConfigMap
 metadata:
   name: config-controller
   namespace: knative-serving
-data:
-  # CONTROLLER CONFIGURATION
+  labels:
+    serving.knative.dev/release: devel
 
+data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
   queueSidecarImage: github.com/knative/serving/cmd/queue
 
-  # List of repositories for which tag to digest resolving should be skipped
-  registriesSkippingTagResolving: "ko.local,dev.local"
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this block and unindented to actually change the configuration.
+
+    # List of repositories for which tag to digest resolving should be skipped
+    registriesSkippingTagResolving: "ko.local,dev.local"

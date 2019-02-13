@@ -28,7 +28,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			// TODO(grantr): This is a workaround for generation initialization
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
@@ -101,7 +101,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})

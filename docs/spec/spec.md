@@ -155,6 +155,14 @@ spec:
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container: ... # See the Container section below
 
+      # is a heavily restricted []core.v1.Volume; only the secret and configMap
+      # types are allowed.
+      volumes:
+      - name: foo
+        secret: ...
+      - name: bar
+        configMap: ...
+
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
       concurrencyModel: ...
@@ -217,6 +225,14 @@ spec:
 
   container: ... # See the Container section below
 
+  # is a heavily restricted []core.v1.Volume; only the secret and configMap
+  # types are allowed.
+  volumes:
+  - name: foo
+    secret: ...
+  - name: bar
+    configMap: ...
+
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
@@ -236,7 +252,6 @@ spec:
   # Deprecated in favor of containerConcurrency
   concurrencyModel: Single | Multi
 
-  # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
@@ -303,8 +318,9 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -316,14 +332,16 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
     # Ordered list of 1 or 2 revisions. First revision is traffic target
     # "current" and second revision is traffic target "candidate".
+    # It is possible to specify `"@latest"` string as a shortcut to the lastest available revision.
     revisions: ["myservice-00013", "myservice-00015"]
     rolloutPercent: 50 # Percent [0-99] of traffic to route to "candidate" revision
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
@@ -332,8 +350,9 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -388,10 +407,12 @@ status:
 
 ## Container
 
-This is a [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
-Some fields are not allowed, such as name and volumeMounts.
+This is a
+[core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
+Some fields are not allowed, such as name and lifecycle.
 
-This type is not used on its own but is found composed inside [Service](#service), [Configuration](#configuration), and [Revision](#revision).
+This type is not used on its own but is found composed inside
+[Service](#service), [Configuration](#configuration), and [Revision](#revision).
 
 ```yaml
 container: # v1.Container
@@ -401,15 +422,15 @@ container: # v1.Container
   # If buildRef is provided, it is expected that this image will be
   # present when the referenced build is complete.
   image: gcr.io/...
-  command: ['run']
+  command: ["run"]
   args: []
   env:
-  # list of environment vars
-  - name: FOO
-    value: bar
-  - name: HELLO
-    value: world
-  - ...
+    # list of environment vars
+    - name: FOO
+      value: bar
+    - name: HELLO
+      value: world
+    - ...
 
   # Optional, only a single containerPort may be specified.
   # This can be specified to select a specific port for incoming traffic.
@@ -419,11 +440,20 @@ container: # v1.Container
   ports: # core.v1.ContainerPort array
     # Valid range is [1-65535], except 8012 (RequestQueuePort)
     # and 8022 (RequestQueueAdminPort).
-  - containerPort: ... 
-    name: ... # Optional, one of "http1", "h2c"
-    protocol: ... # Optional, one of "", "tcp"
+    - containerPort: ...
+      name: ... # Optional, one of "http1", "h2c"
+      protocol: ... # Optional, one of "", "tcp"
 
-  livenessProbe: ...  # Optional
-  readinessProbe: ...  # Optional
-  resources: ...  # Optional
+  # This specifies where the volumes present in the RevisionSpec will be mounted into
+  # the container.  Each of the volumes in the RevisionSpec must be mounted here
+  # or it is an error.
+  volumeMounts:
+    - name: ... # This must match a name from Volumes
+      mountPath: ... # Where to mount the named Volume.
+      readOnly: ... # Must be True, will default to True, so it may be omitted.
+      # All other fields are disallowed.
+
+  livenessProbe: ... # Optional
+  readinessProbe: ... # Optional
+  resources: ... # Optional
 ```

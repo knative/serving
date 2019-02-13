@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	_ "github.com/knative/pkg/system/testing" // Setup system.Namespace()
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,8 +56,15 @@ type TableRow struct {
 	// WantUpdates holds the set of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
+	// WantStatusUpdates holds the set of Update calls, with `status` subresource set,
+	// that we expect during reconciliation.
+	WantStatusUpdates []clientgotesting.UpdateActionImpl
+
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
+
+	// WantDeleteCollections holds the set of DeleteCollection calls we expect during reconciliation.
+	WantDeleteCollections []clientgotesting.DeleteCollectionActionImpl
 
 	// WantPatches holds the set of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
@@ -125,7 +133,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 
 		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected create (-want +got): %s", diff)
+			t.Errorf("Unexpected create (-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
@@ -134,8 +142,9 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
+	updates := filterUpdatesWithSubresource("", actions.Updates)
 	for i, want := range r.WantUpdates {
-		if i >= len(actions.Updates) {
+		if i >= len(updates) {
 			wo := want.GetObject()
 			key := objKey(wo)
 			oldObj, ok := objPrevState[key]
@@ -147,19 +156,67 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
-		got := actions.Updates[i].GetObject()
+
+		if want.GetSubresource() != "" {
+			t.Errorf("Expectation was invalid - it should not include a subresource: %#v", want)
+		}
+
+		got := updates[i].GetObject()
 
 		// Update the object state.
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected update (-want +got): %s", diff)
+			t.Errorf("Unexpected update (-want, +got): %s", diff)
 		}
 	}
-	if got, want := len(actions.Updates), len(r.WantUpdates); got > want {
-		for _, extra := range actions.Updates[want:] {
+	if got, want := len(updates), len(r.WantUpdates); got > want {
+		for _, extra := range updates[want:] {
 			t.Errorf("Extra update: %#v", extra)
 		}
+	}
+
+	// TODO(#2843): refactor.
+	statusUpdates := filterUpdatesWithSubresource("status", actions.Updates)
+	for i, want := range r.WantStatusUpdates {
+		if i >= len(statusUpdates) {
+			wo := want.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Missing status update for %s (-want, +prevState): %s", key,
+				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+			continue
+		}
+
+		got := statusUpdates[i].GetObject()
+
+		// Update the object state.
+		objPrevState[objKey(got)] = got
+
+		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("Unexpected status update (-want, +got): %s", diff)
+		}
+	}
+	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
+		for _, extra := range statusUpdates[want:] {
+			t.Errorf("Extra status update: %#v", extra)
+		}
+	}
+
+	if len(statusUpdates)+len(updates) != len(actions.Updates) {
+		var unexpected []clientgotesting.UpdateAction
+
+		for _, update := range actions.Updates {
+			if update.GetSubresource() != "status" && update.GetSubresource() != "" {
+				unexpected = append(unexpected, update)
+			}
+		}
+
+		t.Errorf("Unexpected subresource updates occurred %#v", unexpected)
 	}
 
 	for i, want := range r.WantDeletes {
@@ -181,9 +238,32 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
+	for i, want := range r.WantDeleteCollections {
+		if i >= len(actions.DeleteCollections) {
+			t.Errorf("Missing delete-collection: %#v", want)
+			continue
+		}
+		got := actions.DeleteCollections[i]
+		if got, want := got.GetListRestrictions().Labels, want.GetListRestrictions().Labels; (got != nil) != (want != nil) || got.String() != want.String() {
+			t.Errorf("Unexpected delete-collection[%d].Labels = %v, wanted %v", i, got, want)
+		}
+		// TODO(mattmoor): Add this if/when we need support.
+		if got := got.GetListRestrictions().Fields; got.String() != "" {
+			t.Errorf("Unexpected delete-collection[%d].Fields = %v, wanted ''", i, got)
+		}
+		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
+			t.Errorf("Unexpected delete-collection[%d]: %#v, wanted %s", i, got, expectedNamespace)
+		}
+	}
+	if got, want := len(actions.DeleteCollections), len(r.WantDeleteCollections); got > want {
+		for _, extra := range actions.DeleteCollections[want:] {
+			t.Errorf("Extra delete-collection: %#v", extra)
+		}
+	}
+
 	for i, want := range r.WantPatches {
 		if i >= len(actions.Patches) {
-			t.Errorf("Missing patch: %#v", want)
+			t.Errorf("Missing patch: %#v; raw: %s", want, string(want.GetPatch()))
 			continue
 		}
 
@@ -195,12 +275,12 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("Unexpected patch[%d]: %#v", i, got)
 		}
 		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
-			t.Errorf("Unexpected patch(-want +got): %s", diff)
+			t.Errorf("Unexpected patch(-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(actions.Patches), len(r.WantPatches); got > want {
 		for _, extra := range actions.Patches[want:] {
-			t.Errorf("Extra patch: %#v", extra)
+			t.Errorf("Extra patch: %#v; raw: %s", extra, string(extra.GetPatch()))
 		}
 	}
 
@@ -212,7 +292,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 
 		if diff := cmp.Diff(want, gotEvents[i]); diff != "" {
-			t.Errorf("unexpected event(-want +got): %s", diff)
+			t.Errorf("unexpected event(-want, +got): %s", diff)
 		}
 	}
 	if got, want := len(gotEvents), len(r.WantEvents); got > want {
@@ -223,8 +303,19 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 
 	gotStats := statsReporter.GetServiceReadyStats()
 	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
-		t.Errorf("Unexpected service ready stats (-want +got): %s", diff)
+		t.Errorf("Unexpected service ready stats (-want, +got): %s", diff)
 	}
+}
+
+func filterUpdatesWithSubresource(
+	subresource string,
+	actions []clientgotesting.UpdateAction) (result []clientgotesting.UpdateAction) {
+	for _, action := range actions {
+		if action.GetSubresource() == subresource {
+			result = append(result, action)
+		}
+	}
+	return
 }
 
 // TableTest represents a list of TableRow tests instances.
@@ -243,7 +334,7 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 		})
 		// Validate cached objects do not get soiled after controller loops
 		if diff := cmp.Diff(originObjects, test.Objects, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected objects in test %s (-want +got): %v", test.Name, diff)
+			t.Errorf("Unexpected objects in test %s (-want, +got): %v", test.Name, diff)
 		}
 	}
 }

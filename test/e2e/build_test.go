@@ -36,6 +36,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 )
 
@@ -45,14 +46,13 @@ func TestBuildSpecAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildSpecAndServe")
+	logger := logging.GetContextLogger(t.Name())
+	logger.Info("Creating a new Route and Configuration with build")
 
-	imagePath := test.ImagePath("helloworld")
-
-	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
+		Image:  "helloworld",
 	}
 
 	build := &v1alpha1.RawExtension{
@@ -64,7 +64,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
@@ -74,7 +74,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -91,7 +91,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Infof("Revision is ready and serving, checking Build status.")
+	logger.Info("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -101,8 +101,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest ready Revision is %q; its build is: %q", rev.Name, buildName)
 	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
 		Group:    buildv1alpha1.SchemeGroupVersion.Group,
 		Version:  buildv1alpha1.SchemeGroupVersion.Version,
@@ -150,14 +149,13 @@ func TestBuildAndServe(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildAndServe")
+	logger := logging.GetContextLogger(t.Name())
+	logger.Info("Creating a new Route and Configuration with build")
 
-	imagePath := test.ImagePath("helloworld")
-
-	logger.Infof("Creating a new Route and Configuration with build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
 		Route:  test.AppendRandomString(routeName, logger),
+		Image:  "helloworld",
 	}
 
 	build := &v1alpha1.RawExtension{
@@ -169,7 +167,7 @@ func TestBuildAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
@@ -179,7 +177,7 @@ func TestBuildAndServe(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -196,7 +194,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Infof("Revision is ready and serving, checking Build status.")
+	logger.Info("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -207,8 +205,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	names.Revision = rev.Name
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest ready Revision is %q, its build is: ", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
@@ -271,11 +268,12 @@ func TestBuildFailure(t *testing.T) {
 	clients := Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestBuildFailure")
+	logger := logging.GetContextLogger(t.Name())
 
-	logger.Infof("Creating a new Configuration with failing build")
+	logger.Info("Creating a new Configuration with failing build")
 	names := test.ResourceNames{
 		Config: test.AppendRandomString(configName, logger),
+		Image:  "helloworld",
 	}
 
 	// Request a build that doesn't succeed.
@@ -294,8 +292,7 @@ func TestBuildFailure(t *testing.T) {
 		},
 	}
 
-	imagePath := test.ImagePath("helloworld")
-	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build, imagePath))
+	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}
@@ -322,8 +319,7 @@ func TestBuildFailure(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest created Revision is %q", rev.Name)
-	logger.Infof("Revision's Build is %q", buildName)
+	logger.Infof("Latest created Revision is %q; it's build is: %q", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)

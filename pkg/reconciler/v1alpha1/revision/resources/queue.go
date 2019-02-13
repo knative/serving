@@ -24,6 +24,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,19 +37,22 @@ var (
 		},
 	}
 	queuePorts = []corev1.ContainerPort{{
-		Name:          queue.RequestQueuePortName,
-		ContainerPort: int32(queue.RequestQueuePort),
+		Name:          v1alpha1.RequestQueuePortName,
+		ContainerPort: int32(v1alpha1.RequestQueuePort),
 	}, {
 		// Provides health checks and lifecycle hooks.
-		Name:          queue.RequestQueueAdminPortName,
-		ContainerPort: int32(queue.RequestQueueAdminPort),
+		Name:          v1alpha1.RequestQueueAdminPortName,
+		ContainerPort: int32(v1alpha1.RequestQueueAdminPort),
+	}, {
+		Name:          v1alpha1.RequestQueueMetricsPortName,
+		ContainerPort: int32(v1alpha1.RequestQueueMetricsPort),
 	}}
 	// This handler (1) marks the service as not ready and (2)
 	// adds a small delay before the container is killed.
 	queueLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
 				Path: queue.RequestQueueQuitPath,
 			},
 		},
@@ -56,7 +60,7 @@ var (
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
 				Path: queue.RequestQueueHealthPath,
 			},
 		},
@@ -65,6 +69,10 @@ var (
 		// bit more often than the default.  It is a small
 		// sacrifice for a low rate of 503s.
 		PeriodSeconds: 1,
+		// We keep the connection open for a while because we're
+		// actively probing the user-container on that endpoint and
+		// thus don't want to be limited by K8s granularity here.
+		TimeoutSeconds: 10,
 	}
 )
 
@@ -85,7 +93,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	}
 
 	return &corev1.Container{
-		Name:           queueContainerName,
+		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          queuePorts,
@@ -128,6 +136,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
+		}, {
+			Name:  system.NamespaceEnvKey,
+			Value: system.Namespace(),
 		}},
 	}
 }

@@ -305,6 +305,13 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		}
 	}
 	in.Container.DeepCopyInto(&out.Container)
+	if in.Volumes != nil {
+		in, out := &in.Volumes, &out.Volumes
+		*out = make([]v1.Volume, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
@@ -572,8 +579,8 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
-	if in.Pinned != nil {
-		in, out := &in.Pinned, &out.Pinned
+	if in.DeprecatedPinned != nil {
+		in, out := &in.DeprecatedPinned, &out.DeprecatedPinned
 		if *in == nil {
 			*out = nil
 		} else {

@@ -34,3 +34,15 @@ func AnnotationFilterFunc(key string, value string, allowUnset bool) func(interf
 		return false
 	}
 }
+
+// LabelExistsFilterFunc creates a FilterFunc only accepting objects which have a given label.
+func LabelExistsFilterFunc(label string) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		if mo, ok := obj.(metav1.Object); ok {
+			labels := mo.GetLabels()
+			_, ok := labels[label]
+			return ok
+		}
+		return false
+	}
+}

@@ -24,6 +24,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -68,8 +70,7 @@ func newResolverTransport(path string) (*http.Transport, error) {
 func (r *digestResolver) Resolve(
 	image string,
 	opt k8schain.Options,
-	registriesToSkip map[string]struct{},
-) (string, error) {
+	registriesToSkip sets.String) (string, error) {
 	kc, err := k8schain.New(r.client, opt)
 	if err != nil {
 		return "", err
@@ -85,7 +86,7 @@ func (r *digestResolver) Resolve(
 		return "", err
 	}
 
-	if _, ok := registriesToSkip[tag.Registry.RegistryStr()]; ok {
+	if registriesToSkip.Has(tag.Registry.RegistryStr()) {
 		return "", nil
 	}
 

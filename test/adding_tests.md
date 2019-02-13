@@ -1,16 +1,17 @@
 # Adding tests
 
-If you are [developing knative](/DEVELOPMENT.md) you may need to add or change:
+If you are [developing knative](../DEVELOPMENT.md) you may need to add or
+change:
 
 - [e2e tests](./e2e)
 - [Conformance tests](./conformance)
 
 Both tests can use our [test library](#test-library).
 
-Reviewers of conformance and e2e tests (i.e. [OWNERS](/test/OWNERS)) are
-responsible for the style and quality of the resulting tests. In order to not
-discourage contributions, when style change are required, the reviewers can make
-the changes themselves.
+Reviewers of conformance and e2e tests (i.e. [OWNERS](./OWNERS)) are responsible
+for the style and quality of the resulting tests. In order to not discourage
+contributions, when style change are required, the reviewers can make the
+changes themselves.
 
 All e2e and conformance tests _must_ be marked with the `e2e`
 [build constraint](https://golang.org/pkg/go/build/) so that `go test ./...` can
@@ -22,8 +23,8 @@ be used to run only [the unit tests](README.md#running-unit-tests), i.e.:
 
 ## Test library
 
-In the [`test`](/test/) dir you will find several libraries in the `test`
-package you can use in your tests.
+In the [`test`](.) dir you will find several libraries in the `test` package you
+can use in your tests.
 
 This library exists partially in this directory and partially in
 [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test).
@@ -46,11 +47,11 @@ See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 ### Use common test flags
 
 These flags are useful for running against an existing cluster, making use of
-your existing [environment setup](/DEVELOPMENT.md#environment-setup).
+your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
 By importing `github.com/knative/serving/test` you get access to a global
 variable called `test.Flags` which holds the values of
-[the command line flags](/test/README.md#flags).
+[the command line flags](./README.md#flags).
 
 ```go
 imagePath := strings.Join([]string{test.ServingFlags.DockerRepo, image}, "/"))
@@ -123,7 +124,7 @@ This function makes use of [the environment flag `resolvableDomain`](#use-flags)
 to determine if the ingress should be used or the domain should be used
 directly.
 
-_See [request.go](./request.go)._
+_See [request.go](https://github.com/knative/pkg/blob/master/test/request.go)._
 
 If you need more low-level access to the http request or response against a
 deployed service, you can directly use the `SpoofingClient` that
@@ -141,7 +142,8 @@ resp, err := client.Do(req)
 resp, err := client.Poll(req, test.BodyMatches(expectedText))
 ```
 
-_See [spoof.go](./spoof/spoof.go)._
+_See
+[spoof.go](https://github.com/knative/pkg/blob/master/test/spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
@@ -190,13 +192,14 @@ err := test.CheckConfigurationState(clients.ServingClient, configName, func(c *v
 })
 ```
 
-_See [crd_checks.go](./crd_checks.go) and [kube_checks.go](./kube_checks.go)._
+_See [crd_checks.go](./crd_checks.go) and
+[kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
 To use the [check functions](#check-knative-serving-resources) you must provide
 a function to check the state. Some of the expected transition states (as
-defined in [the Knative Serving spec](/docs/spec/spec.md)) are expressed in
+defined in [the Knative Serving spec](../docs/spec/spec.md)) are expressed in
 functions in [states.go](./states.go).
 
 For example when a `Revision` has been created, the system will start the

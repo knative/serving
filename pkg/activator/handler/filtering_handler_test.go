@@ -63,9 +63,9 @@ func TestFilteringHandler(t *testing.T) {
 
 			if wasPassed != e.passed {
 				if !e.passed {
-					t.Errorf("Request got passed to the next handler unexpectedly")
+					t.Error("Request got passed to the next handler unexpectedly")
 				} else {
-					t.Errorf("Request was not passed to the next handler as expected")
+					t.Error("Request was not passed to the next handler as expected")
 				}
 			}
 

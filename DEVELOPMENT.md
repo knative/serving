@@ -8,7 +8,7 @@ to `Knative Serving`. Also take a look at:
 - [How to add and run tests](./test/README.md)
 - [Iterating](#iterating)
 
-## Prerequisites <a name="getting-started"></a>
+## Prerequisites
 
 Follow the instructions below to set up your development environment. Once you
 meet these requirements, you can make changes and
@@ -21,7 +21,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 Start by creating [a GitHub account](https://github.com/join), then setup
 [GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
-### Install requirements <a name="requirements"></a>
+### Install requirements
 
 You must install these tools:
 
@@ -44,7 +44,7 @@ You must install these tools:
    redeploy over them, below.
 1. [Set up a docker repository you can push to](./docs/setting-up-a-docker-registry.md)
 
-### Setup your environment <a name="environment-setup"></a>
+### Setup your environment
 
 To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
@@ -55,10 +55,11 @@ recommend adding them to your `.bashrc`):
    work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
    developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-   - **Note**: if you are using docker hub to store your images your
-     `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
-   - **Note**: Currently Docker Hub doesn't let you create subdirs under your
-     username.
+
+- **Note**: if you are using docker hub to store your images your
+  `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+- **Note**: Currently Docker Hub doesn't let you create subdirs under your
+  username.
 
 `.bashrc` example:
 
@@ -114,7 +115,7 @@ described below.
 
 ## Starting Knative Serving
 
-Once you've [setup your development environment](#getting-started), stand up
+Once you've [setup your development environment](#prerequisites), stand up
 `Knative Serving`. Note that if you already installed Knative to your cluster,
 redeploying the new version should work fine, but if you run into trouble, you
 can easily [clean your cluster up](#clean-up) and try again.
@@ -149,7 +150,8 @@ done
 kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
+Follow the
+[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md) if you need to
 set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
@@ -160,21 +162,29 @@ images and deploying them to your Kubernetes cluster.
 First, edit [config-network.yaml](config/config-network.yaml) as instructed
 within the file. If this file is edited and deployed after Knative Serving
 installation, the changes in it will be effective only for newly created
-revisions.
+revisions. Alternatively, if you are developing on GKE, you can skip the editing
+and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
+knative.
 
 Next, run:
 
 ```shell
 ko apply -f config/
+./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
 ```
+
+The above step is equivalent to applying the `serving.yaml` for released versions of
+Knative Serving.
 
 You can see things running with:
 
-```shell
+```console
 kubectl -n knative-serving get pods
-NAME                                READY     STATUS    RESTARTS   AGE
-controller-77897cc687-vp27q   1/1       Running   0          16s
-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
+NAME                          READY     STATUS    RESTARTS   AGE
+activator-c8495dc9-z7xpz      2/2       Running   0          6d
+autoscaler-66897845df-t5cwg   2/2       Running   0          6d
+controller-699fb46bb5-xhlkg   1/1       Running   0          6d
+webhook-76b87b8459-tzj6r      1/1       Running   0          6d
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -249,4 +259,11 @@ ko delete --ignore-not-found=true \
 
 ## Telemetry
 
-See [telemetry documentation](./docs/telemetry.md).
+To access Telemetry see:
+
+- [Accessing
+Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
+- [Accessing
+Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
+- [Accessing
+Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)

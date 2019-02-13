@@ -23,6 +23,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // Options are test setup parameters.
@@ -36,10 +38,9 @@ type Options struct {
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
-// that uses the image specified by imagePath.
-// TODO(dangerd): Update to use names.Image instead of imagePath to match Service. Requires some refactoring test/e2e.
-func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string, options *Options) (*v1alpha1.Configuration, error) {
-	config := Configuration(ServingNamespace, names, imagePath, options)
+// that uses the image specified by names.Image.
+func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options, fopt ...testing.ConfigOption) (*v1alpha1.Configuration, error) {
+	config := Configuration(ServingNamespace, names, options, fopt...)
 	LogResourceObject(logger, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }

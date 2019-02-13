@@ -22,6 +22,18 @@ import (
 	"reflect"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -37,19 +49,11 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
+
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1informers "k8s.io/client-go/informers/apps/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -71,7 +75,7 @@ const (
 )
 
 type resolver interface {
-	Resolve(string, k8schain.Options, map[string]struct{}) (string, error)
+	Resolve(string, k8schain.Options, sets.String) (string, error)
 }
 
 type configStore interface {
@@ -191,10 +195,19 @@ func NewController(
 
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
-	// TODO(mattmoor): When we support reconciling Deployment differences,
-	// we should consider triggering a global reconciliation here to the
-	// logging configuration changes are rolled out to active revisions.
-	c.configStore = config.NewStore(c.Logger.Named("config-store"))
+	configsToResync := []interface{}{
+		&network.Config{},
+		&config.Observability{},
+		&config.Controller{},
+	}
+
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		// Triggers syncs on all revisions when configuration
+		// changes
+		impl.GlobalResync(revisionInformer.Informer())
+	})
+
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
@@ -341,6 +354,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := commonlogging.FromContext(ctx)
+	if rev.GetDeletionTimestamp() != nil {
+		return nil
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -350,6 +366,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
+
+	readyBeforeReconcile := rev.Status.IsReady()
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err
@@ -388,6 +406,13 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}
 	}
 
+	readyAfterReconcile := rev.Status.IsReady()
+	if !readyBeforeReconcile && readyAfterReconcile {
+		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
+			"Revision becomes ready upon all resources being ready")
+	}
+
+	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 
@@ -420,6 +445,5 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	// Don't modify the informers copy
 	existing := rev.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Update(existing)
+	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
 }

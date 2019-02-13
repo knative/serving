@@ -1,23 +1,24 @@
 aliases:
   serving-api-approvers:
-  - mattmoor
-  - tcnghia
   - grantr
-  serving-api-reviewers:
   - mattmoor
   - tcnghia
-  - jonjohnsonjr
-  - dprotaso
+  serving-api-reviewers:
   - dgerd
+  - dprotaso
+  - jonjohnsonjr
+  - mattmoor
+  - tcnghia
+  - vagababov
 
   autoscaling-approvers:
   - josephburnett
-  - mdemirhan
   - markusthoemmes
+  - mdemirhan
   autoscaling-reviewers:
   - josephburnett
-  - mdemirhan
   - markusthoemmes
+  - mdemirhan
 
   monitoring-approvers:
   - mdemirhan
@@ -42,6 +43,7 @@ aliases:
   - steuhs
 
   networking-approvers:
+  - markusthoemmes
   - mdemirhan
   - tcnghia
   networking-reviewers:

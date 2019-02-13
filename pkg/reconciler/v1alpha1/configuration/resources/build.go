@@ -53,7 +53,7 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	u.SetLabels(l)
 
 	u.SetNamespace(config.Namespace)
-	u.SetName(names.Build(config))
+	u.SetName(names.DeprecatedBuild(config))
 	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
 	return u
 }

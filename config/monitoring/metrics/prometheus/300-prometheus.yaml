@@ -19,6 +19,7 @@ metadata:
   namespace: knative-monitoring
   labels:
     app: prometheus
+    serving.knative.dev/release: devel
 spec:
   clusterIP: None
   ports:
@@ -36,12 +37,16 @@ kind: ServiceAccount
 metadata:
   name: prometheus-system
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-system
   namespace: default
+  labels:
+    serving.knative.dev/release: devel
 rules:
 - apiGroups: [""]
   resources:
@@ -60,6 +65,8 @@ kind: Role
 metadata:
   name: prometheus-system
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 rules:
 - apiGroups: [""]
   resources:
@@ -78,6 +85,8 @@ kind: Role
 metadata:
   name: prometheus-system
   namespace: kube-system
+  labels:
+    serving.knative.dev/release: devel
 rules:
 - apiGroups: [""]
   resources:
@@ -91,6 +100,8 @@ kind: Role
 metadata:
   name: prometheus-system
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 rules:
 - apiGroups: [""]
   resources:
@@ -110,6 +121,8 @@ kind: ClusterRole
 metadata:
   name: prometheus-system
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 rules:
 - apiGroups: [""]
   resources:
@@ -132,6 +145,8 @@ kind: RoleBinding
 metadata:
   name: prometheus-system
   namespace: default
+  labels:
+    serving.knative.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -146,6 +161,8 @@ kind: RoleBinding
 metadata:
   name: prometheus-system
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -160,6 +177,8 @@ kind: RoleBinding
 metadata:
   name: prometheus-system
   namespace: kube-system
+  labels:
+    serving.knative.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -174,6 +193,8 @@ kind: RoleBinding
 metadata:
   name: prometheus-system
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -187,6 +208,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prometheus-system
+  labels:
+    serving.knative.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -201,6 +224,8 @@ kind: Service
 metadata:
   name: prometheus-system-np
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   type: NodePort
   selector:
@@ -214,6 +239,8 @@ kind: StatefulSet
 metadata:
   name: prometheus-system
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   replicas: 2
   podManagementPolicy: Parallel
@@ -225,6 +252,7 @@ spec:
     metadata:
       labels:
         app: prometheus
+        serving.knative.dev/release: devel
     spec:
       containers:
       - args:
@@ -262,9 +290,9 @@ spec:
         terminationMessagePath: /dev/termination-log
         volumeMounts:
         - name: prometheus-config-volume
-          mountPath: /etc/prometheus/
+          mountPath: /etc/prometheus
         - name: prometheus-storage-volume
-          mountPath: /prometheus/
+          mountPath: /prometheus
       serviceAccountName: prometheus-system
       terminationGracePeriodSeconds: 600
       volumes:

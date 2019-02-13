@@ -22,6 +22,21 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
+// unregister, ehm, unregisters the metrics that were registered, by
+// virtue of StatsReporter creation.
+// Since golang executes test iterations within the same process, the stats reporter
+// returns an error if the metric is already registered and the test panics.
+func unregister() {
+	for _, s := range []string{
+		"request_count",
+		"request_latencies",
+	} {
+		if v := view.Find(s); v != nil {
+			view.Unregister(v)
+		}
+	}
+}
+
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
@@ -31,8 +46,11 @@ func TestActivatorReporter(t *testing.T) {
 
 	var err error
 	if r, err = NewStatsReporter(); err != nil {
-		t.Error("Failed to create a new reporter.")
+		t.Errorf("Failed to create a new reporter: %v", err)
 	}
+	// Without this `go test ... -count=X`, where X > 1, fails, since
+	// we get an error about view already being registered.
+	defer unregister()
 
 	// test ReportRequestCount
 	wantTags2 := map[string]string{
@@ -63,56 +81,55 @@ func TestActivatorReporter(t *testing.T) {
 	expectSuccess(t, func() error {
 		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 9100*time.Millisecond)
 	})
-	checkDistributionData(t, "request_latencies", wantTags3, 2, 1100, 9100)
+	checkDistributionData(t, "request_latencies", wantTags3, 2, 1100.0, 9100.0)
 }
 
 func expectSuccess(t *testing.T, f func() error) {
+	t.Helper()
 	if err := f(); err != nil {
-		t.Errorf("Reporter expected success but got error %v", err)
+		t.Errorf("Reporter expected success but got error: %v", err)
 	}
 }
 
 func checkSumData(t *testing.T, name string, wantTags map[string]string, wantValue int) {
+	t.Helper()
 	if d, err := view.RetrieveData(name); err != nil {
-		t.Errorf("Reporter error = %v, wantErr %v", err, false)
+		t.Errorf("Unexpected reporter error: %v", err)
 	} else {
 		if len(d) != 1 {
-			t.Errorf("Reporter len(d) %v, want %v", len(d), 1)
+			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
-			} else {
-				if got.Value != want {
-					t.Errorf("Reporter expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
-				}
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
+			} else if got.Value != want {
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 
 		if s, ok := d[0].Data.(*view.SumData); !ok {
 			t.Error("Reporter expected a SumData type")
-		} else {
-			if s.Value != (float64)(wantValue) {
-				t.Errorf("Reporter expected %v got %v. metric: %v", (int64)(wantValue), s.Value, name)
-			}
+		} else if s.Value != float64(wantValue) {
+			t.Errorf("For %s value = %v, want: %d", name, s.Value, wantValue)
 		}
 	}
 }
 
 func checkDistributionData(t *testing.T, name string, wantTags map[string]string, expectedCount int, expectedMin float64, expectedMax float64) {
+	t.Helper()
 	if d, err := view.RetrieveData(name); err != nil {
-		t.Errorf("Reporter error = %v, wantErr %v", err, false)
+		t.Errorf("Unexpected reporter error: %v", err)
 	} else {
 		if len(d) != 1 {
-			t.Errorf("Reporter len(d) %v, want %v", len(d), 1)
+			t.Errorf("Reporter len(d) = %d, want: 1", len(d))
 		}
 		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
-			} else {
-				if got.Value != want {
-					t.Errorf("Reporter expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
-				}
+			n := got.Key.Name()
+			if want, ok := wantTags[n]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", n, got.Value)
+			} else if got.Value != want {
+				t.Errorf("Reporter expected a different tag value for key: %s, got: %s, want: %s", n, got.Value, want)
 			}
 		}
 
@@ -120,13 +137,13 @@ func checkDistributionData(t *testing.T, name string, wantTags map[string]string
 			t.Error("Reporter expected a DistributionData type")
 		} else {
 			if s.Count != int64(expectedCount) {
-				t.Errorf("Reporter expected count %v got %v. metric: %v", (int64)(expectedCount), s.Count, name)
+				t.Errorf("For metric %s: reporter count = %d, want = %d", name, s.Count, expectedCount)
 			}
-			if s.Min != float64(expectedMin) {
-				t.Errorf("Reporter expected min %v got %v. metric: %v", expectedMin, s.Min, name)
+			if s.Min != expectedMin {
+				t.Errorf("For metric %s: reporter count = %f, want = %f", name, s.Min, expectedMin)
 			}
-			if s.Max != float64(expectedMax) {
-				t.Errorf("Reporter expected max %v got %v. metric: %v", expectedMax, s.Max, name)
+			if s.Max != expectedMax {
+				t.Errorf("For metric %s: reporter count = %f, want = %f", name, s.Max, expectedMax)
 			}
 		}
 	}

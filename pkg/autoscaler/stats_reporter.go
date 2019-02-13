@@ -27,63 +27,39 @@ import (
 	"go.opencensus.io/tag"
 )
 
-// Measurement represents the type of the autoscaler metric to be reported
-type Measurement int
-
-const (
-	// DesiredPodCountM is used for the pod count that autoscaler wants
-	DesiredPodCountM Measurement = iota
-	// RequestedPodCountM is used for the requested pod count from kubernetes
-	RequestedPodCountM
-	// ActualPodCountM is used for the actual number of pods we have
-	ActualPodCountM
-	// ObservedPodCountM is used for the observed number of pods we have
-	ObservedPodCountM
-	// StableRequestConcurrencyM is the average of requests count per observed pod in each stable window (default 60 seconds)
-	StableRequestConcurrencyM
-	// PanicRequestConcurrencyM is the average of requests count per observed pod in each panic window (default 6 seconds)
-	PanicRequestConcurrencyM
-	// TargetConcurrencyM is the desired number of concurrent requests for each pod
-	TargetConcurrencyM
-	// PanicM is used as a flag to indicate if autoscaler is in panic mode or not
-	PanicM
-)
-
 var (
-	measurements = []*stats.Float64Measure{
-		DesiredPodCountM: stats.Float64(
-			"desired_pods",
-			"Number of pods autoscaler wants to allocate",
-			stats.UnitNone),
-		RequestedPodCountM: stats.Float64(
-			"requested_pods",
-			"Number of pods autoscaler requested from Kubernetes",
-			stats.UnitNone),
-		ActualPodCountM: stats.Float64(
-			"actual_pods",
-			"Number of pods that are allocated currently",
-			stats.UnitNone),
-		ObservedPodCountM: stats.Float64(
-			"observed_pods",
-			"Number of pods that are observed currently",
-			stats.UnitNone),
-		StableRequestConcurrencyM: stats.Float64(
-			"stable_request_concurrency",
-			"Average of requests count per observed pod in each stable window (default 60 seconds)",
-			stats.UnitNone),
-		PanicRequestConcurrencyM: stats.Float64(
-			"panic_request_concurrency",
-			"Average of requests count per observed pod in each panic window (default 6 seconds)",
-			stats.UnitNone),
-		TargetConcurrencyM: stats.Float64(
-			"target_concurrency_per_pod",
-			"The desired number of concurrent requests for each pod",
-			stats.UnitNone),
-		PanicM: stats.Float64(
-			"panic_mode",
-			"1 if autoscaler is in panic mode, 0 otherwise",
-			stats.UnitNone),
-	}
+	desiredPodCountM = stats.Int64(
+		"desired_pods",
+		"Number of pods autoscaler wants to allocate",
+		stats.UnitDimensionless)
+	requestedPodCountM = stats.Int64(
+		"requested_pods",
+		"Number of pods autoscaler requested from Kubernetes",
+		stats.UnitDimensionless)
+	actualPodCountM = stats.Int64(
+		"actual_pods",
+		"Number of pods that are allocated currently",
+		stats.UnitDimensionless)
+	observedPodCountM = stats.Float64(
+		"observed_pods",
+		"Number of pods that are observed currently",
+		stats.UnitDimensionless)
+	stableRequestConcurrencyM = stats.Float64(
+		"stable_request_concurrency",
+		"Average of requests count per observed pod in each stable window (default 60 seconds)",
+		stats.UnitDimensionless)
+	panicRequestConcurrencyM = stats.Float64(
+		"panic_request_concurrency",
+		"Average of requests count per observed pod in each panic window (default 6 seconds)",
+		stats.UnitDimensionless)
+	targetRequestConcurrencyM = stats.Float64(
+		"target_concurrency_per_pod",
+		"The desired number of concurrent requests for each pod",
+		stats.UnitDimensionless)
+	panicM = stats.Int64(
+		"panic_mode",
+		"1 if autoscaler is in panic mode, 0 otherwise",
+		stats.UnitDimensionless)
 	namespaceTagKey tag.Key
 	configTagKey    tag.Key
 	revisionTagKey  tag.Key
@@ -120,49 +96,49 @@ func init() {
 	err = view.Register(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
-			Measure:     measurements[DesiredPodCountM],
+			Measure:     desiredPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods autoscaler requested from Kubernetes",
-			Measure:     measurements[RequestedPodCountM],
+			Measure:     requestedPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods that are allocated currently",
-			Measure:     measurements[ActualPodCountM],
+			Measure:     actualPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Number of pods that are observed currently",
-			Measure:     measurements[ObservedPodCountM],
+			Measure:     observedPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Average of requests count in each 60 second stable window",
-			Measure:     measurements[StableRequestConcurrencyM],
+			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "Average of requests count in each 6 second panic window",
-			Measure:     measurements[PanicRequestConcurrencyM],
+			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "The desired number of concurrent requests for each pod",
-			Measure:     measurements[TargetConcurrencyM],
+			Measure:     targetRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
 			Description: "1 if autoscaler is in panic mode, 0 otherwise",
-			Measure:     measurements[PanicM],
+			Measure:     panicM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
@@ -175,7 +151,14 @@ func init() {
 
 // StatsReporter defines the interface for sending autoscaler metrics
 type StatsReporter interface {
-	Report(m Measurement, v float64) error
+	ReportDesiredPodCount(v int64) error
+	ReportRequestedPodCount(v int64) error
+	ReportActualPodCount(v int64) error
+	ReportObservedPodCount(v float64) error
+	ReportStableRequestConcurrency(v float64) error
+	ReportPanicRequestConcurrency(v float64) error
+	ReportTargetRequestConcurrency(v float64) error
+	ReportPanic(v int64) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -206,12 +189,51 @@ func NewStatsReporter(podNamespace string, service string, config string, revisi
 	return r, nil
 }
 
-// Report captures value v for measurement m
-func (r *Reporter) Report(m Measurement, v float64) error {
+// ReportDesiredPodCount captures value v for desired pod count measure.
+func (r *Reporter) ReportDesiredPodCount(v int64) error {
+	return r.report(desiredPodCountM.M(v))
+}
+
+// ReportRequestedPodCount captures value v for requested pod count measure.
+func (r *Reporter) ReportRequestedPodCount(v int64) error {
+	return r.report(requestedPodCountM.M(v))
+}
+
+// ReportActualPodCount captures value v for actual pod count measure.
+func (r *Reporter) ReportActualPodCount(v int64) error {
+	return r.report(actualPodCountM.M(v))
+}
+
+// ReportObservedPodCount captures value v for observed pod count measure.
+func (r *Reporter) ReportObservedPodCount(v float64) error {
+	return r.report(observedPodCountM.M(v))
+}
+
+// ReportStableRequestConcurrency captures value v for stable request concurrency measure.
+func (r *Reporter) ReportStableRequestConcurrency(v float64) error {
+	return r.report(stableRequestConcurrencyM.M(v))
+}
+
+// ReportPanicRequestConcurrency captures value v for panic request concurrency measure.
+func (r *Reporter) ReportPanicRequestConcurrency(v float64) error {
+	return r.report(panicRequestConcurrencyM.M(v))
+}
+
+// ReportTargetRequestConcurrency captures value v for target request concurrency measure.
+func (r *Reporter) ReportTargetRequestConcurrency(v float64) error {
+	return r.report(targetRequestConcurrencyM.M(v))
+}
+
+// ReportPanic captures value v for panic mode measure.
+func (r *Reporter) ReportPanic(v int64) error {
+	return r.report(panicM.M(v))
+}
+
+func (r *Reporter) report(m stats.Measurement) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	stats.Record(r.ctx, measurements[m].M(v))
+	stats.Record(r.ctx, m)
 	return nil
 }

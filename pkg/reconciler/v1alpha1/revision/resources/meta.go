@@ -44,7 +44,11 @@ func makeLabels(revision *v1alpha1.Revision) map[string]string {
 
 // makeSelector constructs the Selector we will apply to K8s resources.
 func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: makeLabels(revision)}
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			serving.RevisionUID: string(revision.UID),
+		},
+	}
 }
 
 // makeAnnotations creates the annotations we will apply to

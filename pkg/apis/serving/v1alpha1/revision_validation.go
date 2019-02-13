@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -27,7 +28,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
+)
+
+var (
+	reservedPaths = sets.NewString(
+		"/",
+		"/dev",
+		"/dev/log", // Should be a domain socket
+		"/tmp",
+		"/var",
+		"/var/log",
+	)
 )
 
 // Validate ensures Revision is properly configured.
@@ -46,19 +59,31 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := validateContainer(rs.Container).ViaField("container").
-		Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
-	if err := rs.ConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
-		errs = errs.Also(err)
-	} else if err := ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
-		errs = errs.Also(err)
+	volumes := sets.NewString()
+	var errs *apis.FieldError
+	for i, volume := range rs.Volumes {
+		if volumes.Has(volume.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumes", i))
+		}
+		errs = errs.Also(validateVolume(volume).ViaFieldIndex("volumes", i))
+		volumes.Insert(volume.Name)
 	}
 
-	if err := validateTimeoutSeconds(rs.TimeoutSeconds); err != nil {
+	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
+	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
+
+	if err := rs.DeprecatedConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
+	} else {
+		errs = errs.Also(ValidateContainerConcurrency(
+			rs.ContainerConcurrency, rs.DeprecatedConcurrencyModel))
 	}
-	return errs
+
+	return errs.Also(validateTimeoutSeconds(rs.TimeoutSeconds))
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
@@ -118,10 +143,74 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 	return nil
 }
 
-func validateContainer(container corev1.Container) *apis.FieldError {
+func validateVolume(volume corev1.Volume) *apis.FieldError {
+	var errs *apis.FieldError
+	if volume.Name == "" {
+		errs = apis.ErrMissingField("name")
+	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
+		errs = apis.ErrInvalidValue(volume.Name, "name")
+	}
+
+	vs := volume.VolumeSource
+	switch {
+	case vs.Secret != nil, vs.ConfigMap != nil:
+		// These are fine.
+	default:
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+	}
+	return errs
+}
+
+func validateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+
+	// Check that volume mounts match names in "volumes", that "volumes" has 100%
+	// coverage, and the field restrictions.
+	seen := sets.NewString()
+	var errs *apis.FieldError
+	for i, vm := range container.VolumeMounts {
+		// This effectively checks that Name is non-empty because Volume name must be non-empty.
+		if !volumes.Has(vm.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: "volumeMount has no matching volume",
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumeMounts", i))
+		}
+		seen.Insert(vm.Name)
+
+		if vm.MountPath == "" {
+			errs = errs.Also(apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", i))
+		} else if reservedPaths.Has(filepath.Clean(vm.MountPath)) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("mountPath %q is a reserved path", filepath.Clean(vm.MountPath)),
+				Paths:   []string{"mountPath"},
+			}).ViaFieldIndex("volumeMounts", i))
+		} else if !filepath.IsAbs(vm.MountPath) {
+			errs = errs.Also(apis.ErrInvalidValue(vm.MountPath, "mountPath").ViaFieldIndex("volumeMounts", i))
+		}
+		if !vm.ReadOnly {
+			errs = errs.Also(apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", i))
+		}
+
+		if vm.SubPath != "" {
+			errs = errs.Also(
+				apis.ErrDisallowedFields("subPath").ViaFieldIndex("volumeMounts", i))
+		}
+		if vm.MountPropagation != nil {
+			errs = errs.Also(
+				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", i))
+		}
+	}
+
+	if missing := volumes.Difference(seen); missing.Len() > 0 {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
+			Paths:   []string{"volumeMounts"},
+		})
+	}
+
 	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
 	// the users.  See pkg/controller/revision/resources/deploy.go#makePodSpec.
@@ -129,13 +218,10 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "name")
 	}
-	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "volumeMounts")
-	}
+
 	if container.Lifecycle != nil {
 		ignoredFields = append(ignoredFields, "lifecycle")
 	}
-	var errs *apis.FieldError
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		errs = errs.Also(apis.ErrDisallowedFields(ignoredFields...))
@@ -160,6 +246,16 @@ func validateContainer(container corev1.Container) *apis.FieldError {
 	}
 	return errs
 }
+
+// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
+// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
+// allowed.
+// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+var validPortNames = sets.NewString(
+	"h2c",
+	"http1",
+	"",
+)
 
 func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 0 {
@@ -198,21 +294,18 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrDisallowedFields(disallowedFields...))
 	}
 
+	// Don't allow userPort to conflict with QueueProxy sidecar
+	if userPort.ContainerPort == RequestQueuePort ||
+		userPort.ContainerPort == RequestQueueAdminPort ||
+		userPort.ContainerPort == RequestQueueMetricsPort {
+		errs = errs.Also(apis.ErrInvalidValue(strconv.Itoa(int(userPort.ContainerPort)), "ContainerPort"))
+	}
+
 	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
 	}
 
-	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
-	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
-	// allowed.
-	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
-	validPortNames := map[string]bool{
-		"h2c":   true,
-		"http1": true,
-		"":      true,
-	}
-
-	if !validPortNames[userPort.Name] {
+	if !validPortNames.Has(userPort.Name) {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("Port name %v is not allowed", ports[0].Name),
 			Paths:   []string{apis.CurrentField},

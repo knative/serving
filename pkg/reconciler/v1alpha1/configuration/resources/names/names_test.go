@@ -39,10 +39,10 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 42,
+				DeprecatedGeneration: 42,
 			},
 		},
-		f:    Revision,
+		f:    DeprecatedRevision,
 		want: "foo-00042",
 	}, {
 		name: "Revision(31)",
@@ -52,10 +52,10 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 31,
+				DeprecatedGeneration: 31,
 			},
 		},
-		f:    Revision,
+		f:    DeprecatedRevision,
 		want: "bar-00031",
 	}, {
 		name: "Build(no build)",
@@ -65,10 +65,10 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 16,
+				DeprecatedGeneration: 16,
 			},
 		},
-		f:    Build,
+		f:    DeprecatedBuild,
 		want: "",
 	}, {
 		name: "Build(999, with build)",
@@ -78,13 +78,13 @@ func TestNamer(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 999,
+				DeprecatedGeneration: 999,
 				Build: &v1alpha1.RawExtension{
 					BuildSpec: &buildv1alpha1.BuildSpec{},
 				},
 			},
 		},
-		f:    Build,
+		f:    DeprecatedBuild,
 		want: "blah-00999",
 	}}
 

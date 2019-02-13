@@ -19,28 +19,33 @@ package v1alpha1
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
+	generateName := meta.GetGenerateName()
 
-	if strings.Contains(name, ".") {
-		return &apis.FieldError{
-			Message: "Invalid resource name: special character . must not be present",
-			Paths:   []string{"name"},
+	if name != "" {
+		msgs := validation.IsDNS1035Label(name)
+
+		if len(msgs) > 0 {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				Paths:   []string{"name"},
+			}
 		}
 	}
 
-	if len(name) > 63 {
+	if generateName == "" && name == "" {
 		return &apis.FieldError{
-			Message: "Invalid resource name: length must be no more than 63 characters",
+			Message: "name or generateName is required",
 			Paths:   []string{"name"},
 		}
 	}

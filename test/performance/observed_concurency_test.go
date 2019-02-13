@@ -35,12 +35,12 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
 )
 
 const (
-	tName       = "TestObservedConcurrency"
 	concurrency = 5
 )
 
@@ -94,14 +94,19 @@ type event struct {
 func parseResponse(body string) (*event, *event, error) {
 	body = strings.TrimSpace(body)
 	parts := strings.Split(body, ",")
+
+	if len(parts) < 2 {
+		return nil, nil, fmt.Errorf("not enough parts in body, got %q", body)
+	}
+
 	start, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("failed to parse start duration, body %s", body))
+		return nil, nil, errors.Wrapf(err, "failed to parse start duration, body %q", body)
 	}
 
 	end, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("failed to parse end duration, body %s", body))
+		return nil, nil, errors.Wrapf(err, "failed to parse end duration, body %q", body)
 	}
 
 	startEvent := &event{1, time.Unix(0, int64(start))}
@@ -126,7 +131,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Dur
 
 func TestObservedConcurrency(t *testing.T) {
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(tName)
+	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
 	if err != nil {
@@ -172,12 +177,19 @@ func TestObservedConcurrency(t *testing.T) {
 
 	// Collect all responses, parse their bodies and create the resulting events.
 	var events []*event
+	var failedRequests float32
 	for i := int32(0); i < requestsMade; i++ {
 		response := <-responseChannel
+		if response == nil {
+			failedRequests++
+			continue
+		}
+
 		body := string(response.Body)
 		start, end, err := parseResponse(body)
 		if err != nil {
-			logger.Errorf("Failed to parse body")
+			logger.Error("Failed to parse body, %v", err)
+			failedRequests++
 		} else {
 			events = append(events, start, end)
 		}
@@ -188,18 +200,19 @@ func TestObservedConcurrency(t *testing.T) {
 		return events[i].timestamp.Before(events[j].timestamp)
 	})
 
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	for i := int32(1); i <= concurrency; i++ {
 		toConcurrency, err := timeToScale(events, trafficStart, i)
 		if err != nil {
 			logger.Infof("Never scaled to %d\n", i)
 		} else {
 			logger.Infof("Took %v to scale to %d\n", toConcurrency, i)
-			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d", i), tName))
+			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
+	tc = append(tc, CreatePerfTestCase(failedRequests, "failed requests", t.Name()))
 
-	if err = testgrid.CreateTestgridXML(tc); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

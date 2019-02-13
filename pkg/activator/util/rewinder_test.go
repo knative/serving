@@ -13,37 +13,93 @@ limitations under the License.
 package util
 
 import (
-	"bytes"
+	"bufio"
+	"io"
 	"io/ioutil"
+	"strings"
 	"testing"
 )
 
 func TestRewinder(t *testing.T) {
-	str := "test string"
-	rc := &spyReadCloser{Reader: bytes.NewBufferString(str)}
-	rewinder := NewRewinder(rc)
-
-	b1, err := ioutil.ReadAll(rewinder)
-	if err != nil {
-		t.Errorf("Unexpected error reading b1: %v", err)
+	expectStr := func(want, got string, err error) {
+		if err != nil {
+			t.Fatalf("Expected to read string, got error: %v", err)
+		}
+		if want != got {
+			t.Errorf("Unexpected string, want %q, got %q", want, got)
+		}
 	}
+
+	cont := make(chan bool)
+	rp, wp := io.Pipe() // Note: wp.Write() blocks until rp.Read()
+
+	rewinder := NewRewinder(rp)
+	out := bufio.NewReader(rewinder)
+
+	go func() {
+		t.Log("Writing chunk #1")
+		wp.Write([]byte("s1:"))
+
+		t.Log("Writing chunk #2")
+		wp.Write([]byte("s2:"))
+
+		t.Log("Rewinding")
+		rewinder.Close()
+
+		cont <- true
+
+		t.Log("Writing chunk #3")
+		wp.Write([]byte("s3:"))
+
+		t.Log("Closing stream")
+		wp.Close()
+	}()
+
+	got, err := out.ReadString(byte(':'))
+	t.Log("Checking chunk #1")
+	expectStr("s1:", got, err)
+
+	got, err = out.ReadString(byte(':'))
+	t.Log("Checking chunk #2")
+	expectStr("s2:", got, err)
+
+	<-cont
+
+	gotAll, err := ioutil.ReadAll(out)
+	t.Log("Checking chunks #1-3")
+	expectStr("s1:s2:s3:", string(gotAll), err)
+
+	t.Log("Rewinding again")
 	rewinder.Close()
 
-	b2, err := ioutil.ReadAll(rewinder)
+	gotAll, err = ioutil.ReadAll(out)
+	t.Log("Checking chunks #1-3 again")
+	expectStr("s1:s2:s3:", string(gotAll), err)
+}
+
+func TestRewinder_Cleanup(t *testing.T) {
+	want := "foo"
+
+	in := &spyReadCloser{ReadCloser: ioutil.NopCloser(strings.NewReader(want))}
+	rewinder := NewRewinder(in)
+
+	got, err := ioutil.ReadAll(rewinder)
 	if err != nil {
-		t.Errorf("Unexpected error reading b2: %v", err)
+		t.Fatalf("Expected to read string, got error: %v", err)
 	}
+	if want != string(got) {
+		t.Errorf("Unexpected string, want %q, got %q", want, got)
+	}
+
 	rewinder.Close()
 
-	if string(b1) != str {
-		t.Errorf("Unexpected str b1. Want %q, got %q", str, b1)
+	if !in.Closed {
+		t.Error("Input ReadCloser not closed")
 	}
 
-	if string(b2) != str {
-		t.Errorf("Unexpected str b2. Want %q, got %q", str, b2)
-	}
+	ioutil.ReadAll(rewinder)
 
-	if !rc.Closed {
-		t.Errorf("Expected ReadCloser to be closed")
+	if in.ReadAfterClose {
+		t.Error("Read() after Close() in input ReadCloser")
 	}
 }

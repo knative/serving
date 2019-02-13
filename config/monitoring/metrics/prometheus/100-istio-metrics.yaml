@@ -17,6 +17,8 @@ kind: metric
 metadata:
   name: revisionrequestcount
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   value: "1"
   dimensions:
@@ -34,6 +36,8 @@ kind: metric
 metadata:
   name: revisionrequestduration
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -51,6 +55,8 @@ kind: metric
 metadata:
   name: revisionrequestsize
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   value: request.size | 0
   dimensions:
@@ -68,6 +74,8 @@ kind: metric
 metadata:
   name: revisionresponsesize
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   value: response.size | 0
   dimensions:
@@ -85,6 +93,8 @@ kind: prometheus
 metadata:
   name: revisionpromhandler
   namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
 spec:
   metrics:
   - name: revision_request_count
@@ -152,6 +162,7 @@ metadata:
   namespace: istio-system
   labels:
     istio-protocol: http
+    serving.knative.dev/release: devel
 spec:
   actions:
   - handler: revisionpromhandler.prometheus

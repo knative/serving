@@ -17,15 +17,15 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func TestSelectorMatches(t *testing.T) {
@@ -59,21 +59,25 @@ func TestSelectorMatches(t *testing.T) {
 }
 
 func TestNewConfigNoEntry(t *testing.T) {
-	_, err := NewDomainFromConfigMap(&corev1.ConfigMap{
+	d, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      DomainConfigName,
 		},
 	})
-	if err == nil {
-		t.Error("Expect an error when config file has no entry")
+	if err != nil {
+		t.Errorf("Unexpected error when config file has no entry: %v", err)
+	}
+	got := d.LookupDomainForLabels(nil)
+	if got != DefaultDomain {
+		t.Errorf("LookupDomainForLabels() = %s, wanted %s", got, DefaultDomain)
 	}
 }
 
 func TestNewConfigBadYaml(t *testing.T) {
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
@@ -104,7 +108,7 @@ func TestNewConfig(t *testing.T) {
 	}
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
@@ -166,6 +170,9 @@ func TestLookupDomainForLabels(t *testing.T) {
 	}, {
 		labels: map[string]string{},
 		domain: "default.com",
+	}, {
+		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
+		domain: "svc." + utils.GetClusterDomainName(),
 	}}
 
 	for _, expected := range expectations {
@@ -177,15 +184,11 @@ func TestLookupDomainForLabels(t *testing.T) {
 }
 
 func TestOurDomain(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", DomainConfigName))
-	if err != nil {
-		t.Errorf("ReadFile() = %v", err)
+	cm, example := ConfigMapsFromTestFile(t, DomainConfigName)
+	if _, err := NewDomainFromConfigMap(cm); err != nil {
+		t.Errorf("NewDomainFromConfigMap(actual) = %v", err)
 	}
-	var cm corev1.ConfigMap
-	if err := yaml.Unmarshal(b, &cm); err != nil {
-		t.Errorf("yaml.Unmarshal() = %v", err)
-	}
-	if _, err := NewDomainFromConfigMap(&cm); err != nil {
-		t.Errorf("NewDomainFromConfigMap() = %v", err)
+	if _, err := NewDomainFromConfigMap(example); err != nil {
+		t.Errorf("NewDomainFromConfigMap(example) = %v", err)
 	}
 }

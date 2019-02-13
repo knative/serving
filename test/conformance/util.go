@@ -32,13 +32,14 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-// Constants for test images located in test/test_images
+// Constants for test images located in test/test_images.
 const (
 	pizzaPlanet1        = "pizzaplanetv1"
 	pizzaPlanet2        = "pizzaplanetv2"
@@ -47,6 +48,7 @@ const (
 	singleThreadedImage = "singlethreaded"
 	timeout             = "timeout"
 	printport           = "printport"
+	runtime             = "runtime"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
@@ -57,7 +59,7 @@ const (
 	minSplitPercentage = 0.25
 )
 
-// Constants for test image output
+// Constants for test image output.
 const (
 	pizzaPlanetText1 = "What a spaceport!"
 	pizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
@@ -65,6 +67,7 @@ const (
 )
 
 func setup(t *testing.T) *test.Clients {
+	t.Helper()
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
@@ -91,57 +94,53 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 	return err
 }
 
-func validateDomains(t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string, baseExpected, trafficTargets, targetsExpected []string) {
+func validateDomains(
+	logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
+	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
 	for _, target := range trafficTargets {
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
 	}
 
+	g, _ := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
-	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
-	err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0])
-	if err != nil {
-		t.Fatalf("Error waiting for route to update %s: %v", subdomains[0], targetsExpected[0])
+	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
+	for i, s := range subdomains {
+		i, s := i, s
+		g.Go(func() error {
+			logger.Infof("Waiting for route to update domain: %s", s)
+			return waitForExpectedResponse(logger, clients, s, targetsExpected[i])
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return errors.Wrap(err, "error with initial domain probing")
 	}
 
-	g, _ := errgroup.WithContext(context.Background())
-	var minBasePercentage float64
-	if len(baseExpected) == 1 {
-		minBasePercentage = minDirectPercentage
-	} else {
-		minBasePercentage = minSplitPercentage
-	}
 	g.Go(func() error {
+		minBasePercentage := minSplitPercentage
+		if len(baseExpected) == 1 {
+			minBasePercentage = minDirectPercentage
+		}
 		min := int(math.Floor(concurrentRequests * minBasePercentage))
 		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
 	})
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
-	}
 	for i, subdomain := range subdomains {
+		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(concurrentRequests * minDirectPercentage))
 			return checkDistribution(logger, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
 		})
-		// Wait before going to the next domain as to not mutate subdomain and i
-		if err := g.Wait(); err != nil {
-			t.Fatalf("Error sending requests: %v", err)
-		}
 	}
-
+	if err := g.Wait(); err != nil {
+		return errors.Wrap(err, "error checking routing distribution")
+	}
+	return nil
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", test.ServingFlags.DockerRepo, imageName)
-	match, err := regexp.MatchString(imageDigestRegex, imageDigest)
-	if err != nil {
-		return false, err
-	}
-	if !match {
-		return false, nil
-	}
-	return true, nil
+	return regexp.MatchString(imageDigestRegex, imageDigest)
 }
 
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
@@ -187,7 +186,7 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 	for _, ar := range actualResponses {
 		expected := false
 		for _, er := range expectedResponses {
-			if strings.Contains(string(ar), er) {
+			if strings.Contains(ar, er) {
 				counts[er]++
 				expected = true
 			}
@@ -203,18 +202,18 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
-			return fmt.Errorf("domain %s failed: want min %d, got %d for response %q", domain, min, count, er)
+			return fmt.Errorf("domain %s failed: want at least %d, got %d for response %q", domain, min, count, er)
 		}
 
-		logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
+		logger.Infof("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
 		totalMatches += count
 	}
 	// Verify that the total expected responses match the number of requests made.
 	for badResponse, count := range badCounts {
-		logger.Infof("saw unexpected response %q %d times", badResponse, count)
+		logger.Infof("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
-		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil

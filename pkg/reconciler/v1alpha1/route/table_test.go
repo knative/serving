@@ -25,8 +25,10 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
@@ -35,9 +37,12 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 )
+
+const TestIngressClass = "ingress-class-foo"
 
 var fakeCurTime = time.Unix(1e9, 0)
 
@@ -58,7 +63,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
 			rev("default", "not-ready", 1, WithInitRevConditions),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
 				// The first reconciliation initializes the conditions and reflects
 				// that the referenced configuration is not yet ready.
@@ -73,7 +78,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated, MarkLatestCreatedFailed("blah")),
 			rev("default", "permanently-failed", 1, WithInitRevConditions, MarkContainerMissing),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
 				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
@@ -89,7 +94,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
 			rev("default", "not-ready", 1, WithInitRevConditions),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
@@ -101,17 +106,18 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			route("default", "becomes-ready", WithConfigTarget("config")),
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -121,10 +127,15 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
@@ -133,7 +144,103 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "custom ingress route becomes ready, ingress unknown",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready",
+				WithConfigTarget("config"), WithRouteUID("12-34"), WithIngressClass("custom-ingress-class")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+				"custom-ingress-class",
+			),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"), WithIngressClass("custom-ingress-class"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "cluster local route becomes ready, ingress unknown",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady),
+			rev("default", "config", 1, MarkRevisionReady),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"),
+					WithLocalDomain, WithRouteUID("65-23"),
+					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+				TestIngressClass,
+			),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithLocalDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-65-23"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -147,9 +254,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -164,7 +271,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			simpleK8sService(route("default", "becomes-ready", WithConfigTarget("config"))),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
@@ -186,15 +296,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			route("default", "create-svc-failure", WithConfigTarget("config")),
+			route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "create-svc-failure", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -209,8 +319,9 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			simpleK8sService(route("default", "create-svc-failure", WithConfigTarget("config"))),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "create-svc-failure", WithConfigTarget("config"),
+				WithRouteFinalizer,
 				// Populated by reconciliation when we've failed to create
 				// the K8s service.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
@@ -228,7 +339,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "failure creating cluster ingress",
 		Objects: []runtime.Object{
-			route("default", "ingress-create-failure", WithConfigTarget("config")),
+			route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
@@ -243,9 +354,9 @@ func TestReconcile(t *testing.T) {
 			resources.MakeClusterIngress(
 				route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -255,10 +366,12 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "ingress-create-failure", WithConfigTarget("config"),
+				WithRouteFinalizer,
 				// Populated by reconciliation when we fail to create
 				// the cluster ingress.
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
@@ -278,7 +391,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "steady-state", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady,
+				WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -291,9 +405,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "steady-state", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -308,6 +422,53 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}, {
+		Name:    "unhappy about ownership of placeholder service",
+		WantErr: true,
+		Objects: []runtime.Object{
+			route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "unhappy-owner"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			simpleReadyIngress(
+				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "unhappy-owner", WithConfigTarget("config")),
+				WithK8sSvcOwnersRemoved),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "unhappy-owner", WithConfigTarget("config"),
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					}),
+				// The owner is not us, so we are unhappy.
+				MarkServiceNotOwned),
+		}},
+		Key: "default/unhappy-owner",
+	}, {
 		// This tests that when the Route is labelled differently, it is configured with a
 		// different domain from config-domain.yaml.  This is otherwise a copy of the steady
 		// state test above.
@@ -316,7 +477,7 @@ func TestReconcile(t *testing.T) {
 			route("default", "different-domain", WithConfigTarget("config"),
 				WithAnotherDomain, WithDomainInternal, WithAddress,
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
-				WithStatusTraffic(v1alpha1.TrafficTarget{
+				WithRouteFinalizer, WithStatusTraffic(v1alpha1.TrafficTarget{
 					RevisionName: "config-00001",
 					Percent:      100,
 				}), WithRouteLabel("app", "prod")),
@@ -329,9 +490,9 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -350,7 +511,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "new-latest-created", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -365,9 +526,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 2, WithInitRevConditions),
 			simpleReadyIngress(
 				route("default", "new-latest-created", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -387,7 +548,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "new-latest-ready", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -402,9 +563,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 2, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -421,9 +582,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleReadyIngress(
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -434,10 +595,11 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "new-latest-ready", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00002",
 						Percent:      100,
@@ -455,7 +617,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "update-ci-failure", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -470,9 +632,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 2, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -488,9 +650,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
@@ -501,10 +663,11 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "update-ci-failure", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00002",
 						Percent:      100,
@@ -517,7 +680,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "svc-mutation", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -530,9 +693,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -558,7 +721,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			route("default", "svc-mutation", WithConfigTarget("config"),
+			route("default", "svc-mutation", WithConfigTarget("config"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -573,9 +736,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -599,7 +762,7 @@ func TestReconcile(t *testing.T) {
 		// Services. Ensure that we drop the ClusterIP if it is set in the spec.
 		Name: "drop cluster ip",
 		Objects: []runtime.Object{
-			route("default", "cluster-ip", WithConfigTarget("config"),
+			route("default", "cluster-ip", WithConfigTarget("config"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -614,9 +777,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "cluster-ip", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -638,7 +801,7 @@ func TestReconcile(t *testing.T) {
 		// Make sure we fix the external name if something messes with it.
 		Name: "fix external name",
 		Objects: []runtime.Object{
-			route("default", "external-name", WithConfigTarget("config"),
+			route("default", "external-name", WithConfigTarget("config"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -653,9 +816,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "external-name", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -676,7 +839,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile cluster ingress mutation",
 		Objects: []runtime.Object{
-			route("default", "ingress-mutation", WithConfigTarget("config"),
+			route("default", "ingress-mutation", WithConfigTarget("config"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -691,9 +854,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady),
 			mutateIngress(simpleReadyIngress(
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -709,9 +872,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleReadyIngress(
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -729,7 +892,7 @@ func TestReconcile(t *testing.T) {
 		Name: "switch to a different config",
 		Objects: []runtime.Object{
 			// The status reflects "oldconfig", but the spec "newconfig".
-			route("default", "change-configs", WithConfigTarget("newconfig"),
+			route("default", "change-configs", WithConfigTarget("newconfig"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -748,9 +911,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "newconfig", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("oldconfig"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "oldconfig", 1).Name,
@@ -767,9 +930,9 @@ func TestReconcile(t *testing.T) {
 			// Updated to point to "newconfig" things.
 			Object: simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("newconfig"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "newconfig", 1).Name,
@@ -780,11 +943,12 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// Status updated to "newconfig"
 			Object: route("default", "change-configs", WithConfigTarget("newconfig"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "newconfig-00001",
 						Percent:      100,
@@ -796,7 +960,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "config-missing", WithConfigTarget("not-found")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "config-missing", WithConfigTarget("not-found"),
 				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
@@ -808,7 +972,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "missing-revision-direct", WithRevTarget("not-found"),
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
@@ -820,7 +984,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "missing-revision-indirect", WithConfigTarget("config"),
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
@@ -830,7 +994,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "pinned-becomes-ready", WithRevTarget(
 				// Use the Revision name from the config
-				rev("default", "config", 1).Name)),
+				rev("default", "config", 1).Name), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "config", 1, MarkRevisionReady),
@@ -838,9 +1002,9 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				route("default", "pinned-becomes-ready", WithConfigTarget("config"),
 					WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -852,10 +1016,10 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "pinned-becomes-ready",
 				// Use the Revision name from the config
-				WithRevTarget(rev("default", "config", 1).Name),
+				WithRevTarget(rev("default", "config", 1).Name), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -875,7 +1039,7 @@ func TestReconcile(t *testing.T) {
 				}, v1alpha1.TrafficTarget{
 					ConfigurationName: "green",
 					Percent:           50,
-				})),
+				}), WithRouteUID("34-78"), WithRouteFinalizer),
 			cfg("default", "blue",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			cfg("default", "green",
@@ -892,10 +1056,10 @@ func TestReconcile(t *testing.T) {
 					}, v1alpha1.TrafficTarget{
 						ConfigurationName: "green",
 						Percent:           50,
-					})),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+					}), WithRouteUID("34-78")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "blue", 1).Name,
@@ -912,17 +1076,18 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "named-traffic-split",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "named-traffic-split", WithRouteFinalizer,
 				WithSpecTraffic(v1alpha1.TrafficTarget{
 					ConfigurationName: "blue",
 					Percent:           50,
 				}, v1alpha1.TrafficTarget{
 					ConfigurationName: "green",
 					Percent:           50,
-				}),
+				}), WithRouteUID("34-78"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -934,7 +1099,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-34-78"),
 		},
 		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
@@ -950,7 +1115,7 @@ func TestReconcile(t *testing.T) {
 					Name:         "also-gray",
 					RevisionName: "gray-00001",
 					Percent:      50,
-				})),
+				}), WithRouteUID("1-2"), WithRouteFinalizer),
 			cfg("default", "gray",
 				WithGeneration(1), WithLatestCreated, WithLatestReady),
 			rev("default", "gray", 1, MarkRevisionReady),
@@ -966,10 +1131,10 @@ func TestReconcile(t *testing.T) {
 						Name:         "also-gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
-					})),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+					}), WithRouteUID("1-2")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "gray", 1).Name,
@@ -995,9 +1160,10 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "same-revision-targets",
 				WithSpecTraffic(v1alpha1.TrafficTarget{
 					Name:              "gray",
@@ -1007,7 +1173,7 @@ func TestReconcile(t *testing.T) {
 					Name:         "also-gray",
 					RevisionName: "gray-00001",
 					Percent:      50,
-				}),
+				}), WithRouteUID("1-2"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
@@ -1021,7 +1187,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", ""),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 		},
 		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
@@ -1036,7 +1202,7 @@ func TestReconcile(t *testing.T) {
 						Name:         "blue",
 						RevisionName: "blue-00001",
 						Percent:      100,
-					})),
+					}), WithRouteFinalizer),
 			cfg("default", "blue",
 				WithGeneration(1), WithLatestCreated, WithLatestReady,
 				// The Route controller attaches our label to this Configuration.
@@ -1048,9 +1214,9 @@ func TestReconcile(t *testing.T) {
 			rev("default", "green", 1, MarkRevisionReady),
 			simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("blue"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "blue", 1).Name,
@@ -1066,9 +1232,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("green"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "green", 1).Name,
@@ -1079,23 +1245,86 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}, {
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "switch-configs", WithConfigTarget("green"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "green-00001",
 						Percent:      100,
-					})),
+					}), WithRouteFinalizer),
 		}},
 		Key:                     "default/switch-configs",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "update single target to traffic split with unready revision",
+		// Start from a steady state referencing "blue", and modify the route spec to point to both
+		// "blue" and "green" instead, while "green" is not ready.
+		Objects: []runtime.Object{
+			route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					},
+				)),
+			cfg("default", "blue", WithGeneration(1), WithLatestCreated, WithLatestReady),
+			cfg("default", "green", WithGeneration(1), WithLatestCreated),
+			rev("default", "blue", 1, MarkRevisionReady),
+			rev("default", "green", 1),
+			simpleReadyIngress(
+				route("default", "split", WithConfigTarget("blue"), WithDomain),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "blue", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "split", WithConfigTarget("blue"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "split", WithDomain, WithDomainInternal, WithAddress,
+				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				MarkConfigurationNotReady("green"),
+				WithSpecTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           50,
+					}, v1alpha1.TrafficTarget{
+						ConfigurationName: "green",
+						Percent:           50,
+					}),
+				WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						ConfigurationName: "blue",
+						Percent:           100,
+					})),
+		}},
+		Key:                     "default/split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
 		Objects: []runtime.Object{
 			route("default", "stale-lastpinned", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00001",
 						Percent:      100,
@@ -1109,9 +1338,9 @@ func TestReconcile(t *testing.T) {
 				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
 			simpleReadyIngress(
 				route("default", "stale-lastpinned", WithConfigTarget("config"), WithDomain),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": {{
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: rev("default", "config", 1).Name,
@@ -1128,6 +1357,99 @@ func TestReconcile(t *testing.T) {
 			patchLastPinned("default", "config-00001"),
 		},
 		Key: "default/stale-lastpinned",
+	}, {
+		Name: "check that we can find the cluster ingress with old naming",
+		Objects: []runtime.Object{
+			route("default", "old-naming", WithConfigTarget("config"), WithRouteFinalizer,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "old-naming"),
+			),
+			rev("default", "config", 1, MarkRevisionReady),
+			// Make sure that we can find the ingress by labels if the name is different.
+			changeIngressName(simpleReadyIngress(
+				route("default", "old-naming", WithConfigTarget("config"), WithDomain),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: rev("default", "config", 1).Name,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			)),
+			simpleK8sService(route("default", "old-naming", WithConfigTarget("config"))),
+		},
+		Key: "default/old-naming",
+	}, {
+		Name: "check that we do nothing with a deletion timestamp and no finalizers",
+		Objects: []runtime.Object{
+			route("default", "delete-in-progress", WithConfigTarget("config"), WithRouteDeletionTimestamp,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+		},
+		Key: "default/delete-in-progress",
+	}, {
+		Name: "check that we do nothing with a deletion timestamp and another finalizer first",
+		Objects: []runtime.Object{
+			route("default", "delete-in-progress", WithConfigTarget("config"),
+				WithRouteDeletionTimestamp, WithAnotherRouteFinalizer, WithRouteFinalizer,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+		},
+		Key: "default/delete-in-progress",
+	}, {
+		Name: "check that we do nothing with a deletion timestamp and route finalizer first",
+		Objects: []runtime.Object{
+			route("default", "delete-in-progress", WithConfigTarget("config"),
+				WithRouteDeletionTimestamp, WithRouteFinalizer, WithAnotherRouteFinalizer,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "delete-in-progress",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+			},
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "delete-in-progress", WithConfigTarget("config"),
+				WithRouteDeletionTimestamp, // Removed: WithRouteFinalizer,
+				WithAnotherRouteFinalizer,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1alpha1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      100,
+					})),
+		}},
+		SkipNamespaceValidation: true,
+		Key:                     "default/delete-in-progress",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
@@ -1172,7 +1494,7 @@ func cfg(namespace, name string, co ...ConfigOption) *v1alpha1.Configuration {
 			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -1200,7 +1522,7 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 	return svc
 }
 
-func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.TrafficConfig) *netv1alpha1.ClusterIngress {
+func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config) *netv1alpha1.ClusterIngress {
 	return ingressWithStatus(r, tc, readyIngressStatus())
 }
 
@@ -1215,10 +1537,15 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	return status
 }
 
-func ingressWithStatus(r *v1alpha1.Route, tc *traffic.TrafficConfig, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
-	ci := resources.MakeClusterIngress(r, tc)
+func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
+	ci := resources.MakeClusterIngress(r, tc, TestIngressClass)
 	ci.Status = status
 
+	return ci
+}
+
+func changeIngressName(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
+	ci.Name = "not-what-we-thought"
 	return ci
 }
 
@@ -1246,6 +1573,15 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 
 	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
 
+	action.Patch = []byte(patch)
+	return action
+}
+
+func patchFinalizers(namespace, name string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+	patch := `{"metadata":{"finalizers":["routes.serving.knative.dev"],"resourceVersion":""}}`
 	action.Patch = []byte(patch)
 	return action
 }
@@ -1307,6 +1643,9 @@ func ReconcilerTestConfig() *config.Config {
 					Selector: map[string]string{"app": "prod"},
 				},
 			},
+		},
+		Network: &network.Config{
+			DefaultClusterIngressClass: TestIngressClass,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

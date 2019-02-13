@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
@@ -32,9 +34,10 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +51,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", nil
 }
 
@@ -106,8 +109,8 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-			TimeoutSeconds:   60,
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+			TimeoutSeconds:             60,
 		},
 	}
 }
@@ -122,7 +125,7 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.ControllerConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			"queueSidecarImage": testQueueImage,
@@ -149,7 +152,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	opt := rclr.Options{
 		KubeClientSet:    kubeClient,
@@ -186,11 +189,11 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		getTestControllerConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
-				Name:      config.NetworkConfigName,
+				Namespace: system.Namespace(),
+				Name:      network.ConfigName,
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      logging.ConfigName,
 			},
 			Data: map[string]string{
@@ -198,7 +201,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 				"loglevel.queueproxy": "info",
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      config.ObservabilityConfigName,
 			},
 			Data: map[string]string{
@@ -207,7 +210,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 				Name:      autoscaler.ConfigName,
 			},
 			Data: map[string]string{

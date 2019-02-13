@@ -31,35 +31,42 @@ import (
 func TestUpdateConfigurationMetadata(t *testing.T) {
 	clients := setup(t)
 
-	logger := logging.GetContextLogger("TestUpdateConfigurationMetadata")
+	logger := logging.GetContextLogger(t.Name())
 
-	var names test.ResourceNames
-	names.Service = test.AppendRandomString("test-update-configuration-meta-", logger)
-	names.Config = names.Service
+	names := test.ResourceNames{
+		Config: test.AppendRandomString("test-update-configuration-meta-", logger),
+		Image:  pizzaPlanet1,
+	}
 
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("Creating new configuration %s", names.Config)
-	_, err := test.CreateConfiguration(logger, clients, names, test.ImagePath(pizzaPlanet1), &test.Options{})
-	if err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
-	var cfg *v1alpha1.Configuration
-
 	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
+	var err error
 	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 
-	cfg = fetchConfiguration(names.Config, clients, t)
+	cfg := fetchConfiguration(names.Config, clients, t)
 
 	logger.Infof("Updating labels of Configuration %s", names.Config)
-	cfg.Labels = map[string]string{
+	newLabels := map[string]string{
 		"labelX": "abc",
 		"labelY": "def",
+	}
+	// Copy over new labels.
+	if cfg.Labels == nil {
+		cfg.Labels = newLabels
+	} else {
+		for k, v := range newLabels {
+			cfg.Labels[k] = v
+		}
 	}
 	cfg, err = clients.ServingClient.Configs.Update(cfg)
 	if err != nil {
@@ -78,17 +85,27 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
+	logger.Infof("Validating labels were not propagated to Revision %s", names.Revision)
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkMapKeysNotPresent(cfg.Labels, r.Labels), nil
+		// Labels we placed on Configuration should _not_ appear on Revision.
+		return checkNoKeysPresent(newLabels, r.Labels, t), nil
 	})
 	if err != nil {
 		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
 	}
 
 	logger.Infof("Updating annotations of Configuration %s", names.Config)
-	cfg.Annotations = map[string]string{
+	newAnnotations := map[string]string{
 		"annotationA": "123",
 		"annotationB": "456",
+	}
+	if cfg.Annotations == nil {
+		cfg.Annotations = newAnnotations
+	} else {
+		// Copy over new annotations.
+		for k, v := range newAnnotations {
+			cfg.Annotations[k] = v
+		}
 	}
 	cfg, err = clients.ServingClient.Configs.Update(cfg)
 	if err != nil {
@@ -106,8 +123,10 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
+	logger.Infof("Validating annotations were not propagated to Revision %s", names.Revision)
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkMapKeysNotPresent(cfg.Annotations, r.Annotations), nil
+		// Annotations we placed on Configuration should _not_ appear on Revision.
+		return checkNoKeysPresent(newAnnotations, r.Annotations, t), nil
 	})
 	if err != nil {
 		t.Errorf("The annotations for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
@@ -136,21 +155,28 @@ func waitForConfigurationLatestCreatedRevision(clients *test.Clients, names test
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Labels, labels) && c.Spec.Generation == c.Status.ObservedGeneration, nil
+		return reflect.DeepEqual(c.Labels, labels) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithLabels")
 }
 
 func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Annotations, annotations) && c.Spec.Generation == c.Status.ObservedGeneration, nil
+		return reflect.DeepEqual(c.Annotations, annotations) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
 }
 
-func checkMapKeysNotPresent(expected map[string]string, actual map[string]string) bool {
+// checkNoKeysPresent returns true if _no_ keys from `expected`, are present in `actual`.
+// checkNoKeysPresent will log the offending keys to t.Log.
+func checkNoKeysPresent(expected map[string]string, actual map[string]string, t *testing.T) bool {
+	t.Helper()
+	present := []string{}
 	for k := range expected {
 		if _, ok := actual[k]; ok {
-			return false
+			present = append(present, k)
 		}
 	}
-	return true
+	if len(present) != 0 {
+		t.Logf("Unexpected keys: %v", present)
+	}
+	return len(present) == 0
 }

@@ -24,10 +24,14 @@ type EnforceMaxContentLengthHandler struct {
 }
 
 func (h *EnforceMaxContentLengthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If we have a ContentLength, we can fail early
 	if r.ContentLength > h.MaxContentLengthBytes {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
+
+	// Enforce MaxContentLengthBytes
+	r.Body = http.MaxBytesReader(w, r.Body, h.MaxContentLengthBytes)
 
 	h.NextHandler.ServeHTTP(w, r)
 }

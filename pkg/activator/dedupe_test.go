@@ -16,7 +16,7 @@ limitations under the License.
 package activator
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"reflect"
 	"sync"
@@ -27,7 +27,7 @@ import (
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: want,
 				Status:   http.StatusOK,
@@ -54,7 +54,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
@@ -62,7 +62,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 		})
 	d := NewDedupingActivator(f)
 
-	got := concurrentTest(d, f, []revisionID{
+	got := concurrentTest(d, f, []RevisionID{
 		{testNamespace, testRevision},
 		{testNamespace, testRevision},
 	})
@@ -88,7 +88,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 	ep1 := Endpoint{"ip1", 8080}
 	ep2 := Endpoint{"ip2", 8080}
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
 				Status:   http.StatusOK,
@@ -100,7 +100,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 		})
 	d := NewDedupingActivator(f)
 
-	got := concurrentTest(d, f, []revisionID{
+	got := concurrentTest(d, f, []RevisionID{
 		{testNamespace, "rev1"},
 		{testNamespace, "rev2"},
 		{testNamespace, "rev1"},
@@ -129,9 +129,9 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).withRevisionName("rev2").build())
 	ep1 := Endpoint{"ip1", 8080}
 	status2 := http.StatusInternalServerError
-	error2 := fmt.Errorf("test error")
+	error2 := errors.New("test error")
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
 				Status:   http.StatusOK,
@@ -144,7 +144,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 		})
 	d := NewDedupingActivator(f)
 
-	got := concurrentTest(d, f, []revisionID{
+	got := concurrentTest(d, f, []RevisionID{
 		{testNamespace, "rev1"},
 		{testNamespace, "rev2"},
 		{testNamespace, "rev1"},
@@ -160,8 +160,8 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
 	}
-	if len(f.record) != 2 {
-		t.Errorf("Unexpected number of activation requests. Want 2. Got %v.", len(f.record))
+	if got, want := len(f.record), 2; got != want {
+		t.Errorf("Unexpected number of activation requests = %d, want %d", got, want)
 	}
 }
 
@@ -171,9 +171,9 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).build())
 	failEp := Endpoint{}
 	failStatus := http.StatusServiceUnavailable
-	failErr := fmt.Errorf("test error")
+	failErr := errors.New("test error")
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: failEp,
 				Status:   failStatus,
@@ -201,7 +201,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	// Later activation succeeds
 	successEp := Endpoint{"ip", 8080}
 	successStatus := http.StatusOK
-	f.responses[revisionID{testNamespace, testRevision}] = ActivationResult{
+	f.responses[RevisionID{testNamespace, testRevision}] = ActivationResult{
 		Endpoint: successEp,
 		Status:   successStatus,
 	}
@@ -209,7 +209,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	ar = d.ActiveEndpoint(testNamespace, testRevision)
 
 	if ar.Error != nil {
-		t.Errorf("Unexpected error. Want %v. Got %v.", nil, ar.Error)
+		t.Errorf("Unexpected error: %v.", ar.Error)
 	}
 	if ar.Endpoint != successEp {
 		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", successEp, ar.Endpoint)
@@ -228,14 +228,14 @@ func TestShutdown_ReturnError(t *testing.T) {
 		newRevisionBuilder(defaultRevisionLabels).build())
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
-		map[revisionID]ActivationResult{
+		map[RevisionID]ActivationResult{
 			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
 			},
 		})
 	d := NewDedupingActivator(Activator(f))
-	f.hold(revisionID{testNamespace, testRevision})
+	f.hold(RevisionID{testNamespace, testRevision})
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -251,30 +251,30 @@ func TestShutdown_ReturnError(t *testing.T) {
 		t.Errorf("Unexpected error stats. Want %v. Got %v.", http.StatusInternalServerError, ar.Status)
 	}
 	if ar.Error == nil {
-		t.Errorf("Expected error. Want error. Got nil.")
+		t.Error("Expected error.")
 	}
 }
 
 type fakeActivator struct {
 	t         *testing.T
-	responses map[revisionID]ActivationResult
-	holds     map[revisionID]*sync.WaitGroup
+	responses map[RevisionID]ActivationResult
+	holds     map[RevisionID]*sync.WaitGroup
 
-	record      []revisionID
+	record      []RevisionID
 	recordMutex sync.Mutex
 }
 
-func newFakeActivator(t *testing.T, responses map[revisionID]ActivationResult) *fakeActivator {
+func newFakeActivator(t *testing.T, responses map[RevisionID]ActivationResult) *fakeActivator {
 	return &fakeActivator{
 		t:         t,
 		responses: responses,
-		holds:     make(map[revisionID]*sync.WaitGroup),
-		record:    make([]revisionID, 0),
+		holds:     make(map[RevisionID]*sync.WaitGroup),
+		record:    make([]RevisionID, 0),
 	}
 }
 
 func (f *fakeActivator) ActiveEndpoint(namespace, name string) ActivationResult {
-	id := revisionID{namespace, name}
+	id := RevisionID{namespace, name}
 
 	f.recordMutex.Lock()
 	f.record = append(f.record, id)
@@ -295,7 +295,7 @@ func (f *fakeActivator) Shutdown() {
 	// Nothing to do.
 }
 
-func (f *fakeActivator) hold(id revisionID) {
+func (f *fakeActivator) hold(id RevisionID) {
 	_, ok := f.holds[id]
 
 	if !ok {
@@ -305,13 +305,13 @@ func (f *fakeActivator) hold(id revisionID) {
 	f.holds[id].Add(1)
 }
 
-func (f *fakeActivator) release(id revisionID) {
+func (f *fakeActivator) release(id RevisionID) {
 	if h, ok := f.holds[id]; ok {
 		h.Done()
 	}
 }
 
-func concurrentTest(a Activator, f *fakeActivator, ids []revisionID) []ActivationResult {
+func concurrentTest(a Activator, f *fakeActivator, ids []RevisionID) []ActivationResult {
 	for _, id := range ids {
 		f.hold(id)
 	}
@@ -321,9 +321,9 @@ func concurrentTest(a Activator, f *fakeActivator, ids []revisionID) []Activatio
 	for i, id := range ids {
 		start.Add(1)
 		end.Add(1)
-		go func(index int, id revisionID) {
+		go func(index int, id RevisionID) {
 			start.Done()
-			results[index] = a.ActiveEndpoint(id.namespace, id.name)
+			results[index] = a.ActiveEndpoint(id.Namespace, id.Name)
 			end.Done()
 		}(i, id)
 	}

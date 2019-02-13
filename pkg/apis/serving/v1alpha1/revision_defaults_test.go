@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestRevisionDefaulting(t *testing.T) {
@@ -34,6 +35,33 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
 				TimeoutSeconds:       defaultTimeoutSeconds,
+			},
+		},
+	}, {
+		name: "readonly volumes",
+		in: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "foo",
+					VolumeMounts: []corev1.VolumeMount{{
+						Name: "bar",
+					}},
+				},
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       99,
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "foo",
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:     "bar",
+						ReadOnly: true,
+					}},
+				},
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       99,
 			},
 		},
 	}, {
@@ -65,15 +93,15 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "fall back to concurrency model",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel:     "Single",
-				ContainerConcurrency: 0, // unspecified
+				DeprecatedConcurrencyModel: "Single",
+				ContainerConcurrency:       0, // unspecified
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ConcurrencyModel:     "Single",
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       defaultTimeoutSeconds,
+				DeprecatedConcurrencyModel: "Single",
+				ContainerConcurrency:       1,
+				TimeoutSeconds:             defaultTimeoutSeconds,
 			},
 		},
 	}}

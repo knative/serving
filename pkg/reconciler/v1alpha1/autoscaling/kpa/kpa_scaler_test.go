@@ -30,6 +30,7 @@ import (
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	_ "github.com/knative/pkg/system/testing"
 	v1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,7 +206,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Annotations: annotations,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ConcurrencyModel: "Multi",
+			DeprecatedConcurrencyModel: "Multi",
 		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)

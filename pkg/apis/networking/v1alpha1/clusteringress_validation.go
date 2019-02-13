@@ -17,23 +17,25 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// Validate inspects and validates ClusterIngress object.
 func (ci *ClusterIngress) Validate() *apis.FieldError {
 	return ci.Spec.Validate().ViaField("spec")
 }
 
+// Validate inspects and validates IngressSpec object.
 func (spec *IngressSpec) Validate() *apis.FieldError {
 	// Spec must not be empty.
 	if equality.Semantic.DeepEqual(spec, &IngressSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	// Spec must have at least one rule.
 	if len(spec.Rules) == 0 {
 		all = all.Also(apis.ErrMissingField("rules"))
@@ -49,12 +51,13 @@ func (spec *IngressSpec) Validate() *apis.FieldError {
 	return all
 }
 
+// Validate inspects and validates ClusterIngressRule object.
 func (r *ClusterIngressRule) Validate() *apis.FieldError {
 	// Provided rule must not be empty.
 	if equality.Semantic.DeepEqual(r, &ClusterIngressRule{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	if r.HTTP == nil {
 		all = all.Also(apis.ErrMissingField("http"))
 	} else {
@@ -63,23 +66,25 @@ func (r *ClusterIngressRule) Validate() *apis.FieldError {
 	return all
 }
 
+// Validate inspects and validates HTTPClusterIngressRuleValue object.
 func (h *HTTPClusterIngressRuleValue) Validate() *apis.FieldError {
 	if len(h.Paths) == 0 {
 		return apis.ErrMissingField("paths")
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	for idx, path := range h.Paths {
 		all = all.Also(path.Validate().ViaFieldIndex("paths", idx))
 	}
 	return all
 }
 
+// Validate inspects and validates HTTPClusterIngressPath object.
 func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 	// Provided rule must not be empty.
 	if equality.Semantic.DeepEqual(h, HTTPClusterIngressPath{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	// Must provide as least one split.
 	if len(h.Splits) == 0 {
 		all = all.Also(apis.ErrMissingField("splits"))
@@ -95,11 +100,10 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 		// interpret as 100%.
 		if len(h.Splits) == 1 && totalPct == 0 {
 			totalPct = 100
-		}
-		// Total traffic split percentage must sum up to 100%.
-		if totalPct != 100 {
+		} else if totalPct != 100 {
+			// Total traffic split percentage must sum up to 100%.
 			all = all.Also(&apis.FieldError{
-				Message: "Traffic split percentage must total to 100",
+				Message: "Traffic split percentage must total to 100, but was " + strconv.Itoa(totalPct),
 				Paths:   []string{"splits"},
 			})
 		}
@@ -110,15 +114,16 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 	return all
 }
 
+// Validate inspects and validates HTTPClusterIngressPath object.
 func (s ClusterIngressBackendSplit) Validate() *apis.FieldError {
 	// Must not be empty.
 	if equality.Semantic.DeepEqual(s, ClusterIngressBackendSplit{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	// Percent must be between 0 and 100.
 	if s.Percent < 0 || s.Percent > 100 {
-		all = all.Also(apis.ErrInvalidValue(fmt.Sprintf("%d", s.Percent), "percent"))
+		all = all.Also(apis.ErrInvalidValue(strconv.Itoa(s.Percent), "percent"))
 	}
 	return all.Also(s.ClusterIngressBackend.Validate())
 }
@@ -130,7 +135,7 @@ func (b ClusterIngressBackend) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(b, ClusterIngressBackend{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	if b.ServiceNamespace == "" {
 		all = all.Also(apis.ErrMissingField("serviceNamespace"))
 	}
@@ -143,20 +148,22 @@ func (b ClusterIngressBackend) Validate() *apis.FieldError {
 	return all
 }
 
+// Validate inspects and validates HTTPRetry object.
 func (r *HTTPRetry) Validate() *apis.FieldError {
 	// Attempts must be greater than 0.
 	if r.Attempts < 0 {
-		return apis.ErrInvalidValue(fmt.Sprintf("%d", r.Attempts), "attempts")
+		return apis.ErrInvalidValue(strconv.Itoa(r.Attempts), "attempts")
 	}
 	return nil
 }
 
+// Validate inspects and validates ClusterIngressTLS object.
 func (t *ClusterIngressTLS) Validate() *apis.FieldError {
 	// Provided TLS setting must not be empty.
 	if equality.Semantic.DeepEqual(t, &ClusterIngressTLS{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var all *apis.FieldError = nil
+	var all *apis.FieldError
 	// SecretName and SecretNamespace must not be empty.
 	if t.SecretName == "" {
 		all = all.Also(apis.ErrMissingField("secretName"))

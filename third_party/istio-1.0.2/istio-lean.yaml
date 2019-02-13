@@ -233,6 +233,13 @@ data:
     # How frequently should Envoy fetch key/cert from NodeAgent.
     sdsRefreshDelay: 15s
 
+    # PATCH #3: Adding default connection timeout.
+    # Mesh-wide TCP connection timeout between Envoy sidecar and Application.
+    # If we do not specify the property - the value gets overwritten by mesh.connectTimeout's default (1s).
+    # This config could be removed once https://github.com/istio/istio/issues/11319 is resolved
+    connectTimeout: 10s
+    # PATCH #3 ends.
+
     #
     defaultConfig:
       #
@@ -2975,7 +2982,7 @@ metadata:
     name: istio-ingressgateway
     namespace: istio-system
 spec:
-    maxReplicas: 5
+    maxReplicas: 1
     minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1beta1
@@ -4066,7 +4073,7 @@ metadata:
     name: cluster-local-gateway
     namespace: istio-system
 spec:
-    maxReplicas: 5
+    maxReplicas: 1
     minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1beta1

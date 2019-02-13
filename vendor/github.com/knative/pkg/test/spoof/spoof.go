@@ -26,10 +26,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
-	zipkin "github.com/knative/pkg/test/zipkin"
+	"github.com/knative/pkg/test/zipkin"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,13 +45,9 @@ const (
 	requestInterval = 1 * time.Second
 	requestTimeout  = 5 * time.Minute
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
-	ingressNamespace = "istio-system"
+	istioIngressNamespace = "istio-system"
+	istioIngressName      = "istio-ingressgateway"
 )
-
-// Temporary work around the upgrade test issue for knative/serving#2434.
-// TODO(lichuqiang): remove the backward compatibility for knative-ingressgateway
-// once knative/serving#2434 is merged
-var ingressNames = []string{"knative-ingressgateway", "istio-ingressgateway"}
 
 // Response is a stripped down subset of http.Response. The is primarily useful
 // for ResponseCheckers to inspect the response body without consuming it.
@@ -78,7 +75,7 @@ var _ Interface = (*SpoofingClient)(nil)
 // https://github.com/kubernetes/apimachinery/blob/cf7ae2f57dabc02a3d215f15ca61ae1446f3be8f/pkg/util/wait/wait.go#L172
 type ResponseChecker func(resp *Response) (done bool, err error)
 
-// SpoofingClient is a minimal http client wrapper that spoofs the domain of requests
+// SpoofingClient is a minimal HTTP client wrapper that spoofs the domain of requests
 // for non-resolvable domains.
 type SpoofingClient struct {
 	Client          *http.Client
@@ -96,7 +93,7 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
@@ -105,12 +102,16 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 	}
 
 	if !resolvable {
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
-		// spoof the Host in our requests.
-		e, err := GetServiceEndpoint(kubeClientset)
-		if err != nil {
-			return nil, err
+		e := &endpointOverride
+		if endpointOverride == "" {
+			var err error
+			// If the domain that the Route controller is configured to assign to Route.Status.Domain
+			// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
+			// spoof the Host in our requests.
+			e, err = GetServiceEndpoint(kubeClientset)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		sc.endpoint = *e
@@ -123,43 +124,44 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 	return &sc, nil
 }
 
-// GetServiceEndpoint gets the endpoint IP or hostname to use for the service
+// GetServiceEndpoint gets the endpoint IP or hostname to use for the service.
 func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
-	var err error
-
-	for _, ingressName := range ingressNames {
-		var ingress *v1.Service
-		ingress, err = kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
-
-		var endpoint string
-		endpoint, err = getEndpointFromService(ingress)
-		if err != nil {
-			continue
-		}
-
-		return &endpoint, nil
+	ingressName := istioIngressName
+	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
+		ingressName = gatewayOverride
 	}
-	return nil, err
+	ingressNamespace := istioIngressNamespace
+	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
+		ingressNamespace = gatewayNsOverride
+	}
+
+	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	endpoint, err := endpointFromService(ingress)
+	if err != nil {
+		return nil, err
+	}
+	return &endpoint, nil
 }
 
-// getEndpointFromService extracts the endpoint from the service's ingress.
-func getEndpointFromService(svc *v1.Service) (string, error) {
+// endpointFromService extracts the endpoint from the service's ingress.
+func endpointFromService(svc *v1.Service) (string, error) {
 	ingresses := svc.Status.LoadBalancer.Ingress
 	if len(ingresses) != 1 {
-		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingresses), ingresses)
+		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
 	}
-	ingressToUse := ingresses[0]
+	itu := ingresses[0]
 
-	if ingressToUse.IP == "" {
-		if ingressToUse.Hostname == "" {
-			return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
-		}
-		return ingressToUse.Hostname, nil
+	switch {
+	case itu.IP != "":
+		return itu.IP, nil
+	case itu.Hostname != "":
+		return itu.Hostname, nil
+	default:
+		return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
 	}
-	return ingressToUse.IP, nil
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
@@ -212,7 +214,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		resp, err = sc.Do(req)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
-				sc.logger.Infof("Retrying for TCP timeout %v", err)
+				sc.logger.Infof("Retrying %s for TCP timeout %v", req.URL.String(), err)
 				return false, nil
 			}
 			return true, err
@@ -239,6 +241,7 @@ func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
 	if err != nil {
 		return fmt.Errorf("Error retrieving Zipkin trace: %v", err)
 	}
+	defer resp.Body.Close()
 
 	trace, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -246,11 +249,10 @@ func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
 	}
 
 	var prettyJSON bytes.Buffer
-	error := json.Indent(&prettyJSON, trace, "", "\t")
-	if error != nil {
+	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
 		return fmt.Errorf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
 	}
-	sc.logger.Infof(prettyJSON.String())
+	sc.logger.Info(prettyJSON.String())
 
 	return nil
 }

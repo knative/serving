@@ -122,65 +122,6 @@ func TestIsActivationRequired(t *testing.T) {
 	}
 }
 
-func TestIsRoutable(t *testing.T) {
-	cases := []struct {
-		name       string
-		status     RevisionStatus
-		isRoutable bool
-	}{{
-		name:       "empty status should not be routable",
-		status:     RevisionStatus{},
-		isRoutable: false,
-	}, {
-		name: "Ready status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Inactive status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionActive,
-				Status: corev1.ConditionFalse,
-			}, {
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isRoutable: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("%s: IsRoutable() = %v want: %v", tc.name, got, want)
-			}
-		})
-	}
-}
-
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -544,6 +485,24 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
+func TestRevisionNotOwnedStuff(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "NotOwned"
+	r.Status.MarkResourceNotOwned("Resource", "mark")
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
 func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
@@ -590,7 +549,7 @@ func TestRevisionBuildRefFromName(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar-build",
+			DeprecatedBuildName: "bar-build",
 		},
 	}
 	got := *r.BuildRef()
@@ -618,8 +577,8 @@ func TestRevisionBuildRef(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar",
-			BuildRef:  &buildRef,
+			DeprecatedBuildName: "bar",
+			BuildRef:            &buildRef,
 		},
 	}
 	got := *r.BuildRef()
@@ -637,36 +596,91 @@ func TestRevisionBuildRefNil(t *testing.T) {
 		},
 	}
 	got := r.BuildRef()
-	var want *corev1.ObjectReference = nil
+
+	var want *corev1.ObjectReference
 	if got != want {
 		t.Errorf("got: %#v, want: %#v", got, want)
 	}
 }
 
+func TestRevisionGetProtocol(t *testing.T) {
+	containerWithPortName := func(name string) corev1.Container {
+		return corev1.Container{Ports: []corev1.ContainerPort{{Name: name}}}
+	}
+
+	tests := []struct {
+		name      string
+		container corev1.Container
+		protocol  RevisionProtocolType
+	}{
+		{
+			name:      "undefined",
+			container: corev1.Container{},
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "http1",
+			container: containerWithPortName("http1"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "h2c",
+			container: containerWithPortName("h2c"),
+			protocol:  RevisionProtocolH2C,
+		},
+		{
+			name:      "unknown",
+			container: containerWithPortName("whatever"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "empty",
+			container: containerWithPortName(""),
+			protocol:  RevisionProtocolHTTP1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Revision{Spec: RevisionSpec{Container: tt.container}}
+
+			got := r.GetProtocol()
+			want := tt.protocol
+
+			if got != want {
+				t.Errorf("got: %#v, want: %#v", got, want)
+			}
+		})
+	}
+}
+
 func TestRevisionGetLastPinned(t *testing.T) {
 	cases := []struct {
-		name        string
-		annotations map[string]string
-		expectTime  time.Time
-		expectErr   error
+		name              string
+		annotations       map[string]string
+		expectTime        time.Time
+		setLastPinnedTime time.Time
+		expectErr         error
 	}{{
 		name:        "Nil annotations",
 		annotations: nil,
-		expectTime:  time.Time{},
 		expectErr: LastPinnedParseError{
 			Type: AnnotationParseErrorTypeMissing,
 		},
 	}, {
 		name:        "Empty map annotations",
 		annotations: map[string]string{},
-		expectTime:  time.Time{},
 		expectErr: LastPinnedParseError{
 			Type: AnnotationParseErrorTypeMissing,
 		},
 	}, {
+		name:              "Empty map annotations - with set time",
+		annotations:       map[string]string{},
+		setLastPinnedTime: time.Unix(1000, 0),
+		expectTime:        time.Unix(1000, 0),
+	}, {
 		name:        "Invalid time",
 		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "abcd"},
-		expectTime:  time.Time{},
 		expectErr: LastPinnedParseError{
 			Type:  AnnotationParseErrorTypeInvalid,
 			Value: "abcd",
@@ -675,7 +689,6 @@ func TestRevisionGetLastPinned(t *testing.T) {
 		name:        "Valid time",
 		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "10000"},
 		expectTime:  time.Unix(10000, 0),
-		expectErr:   nil,
 	}}
 
 	for _, tc := range cases {
@@ -684,6 +697,10 @@ func TestRevisionGetLastPinned(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations,
 				},
+			}
+
+			if tc.setLastPinnedTime != (time.Time{}) {
+				rev.SetLastPinned(tc.setLastPinnedTime)
 			}
 
 			pt, err := rev.GetLastPinned()
@@ -703,87 +720,6 @@ func TestRevisionGetLastPinned(t *testing.T) {
 
 			if tc.expectTime != pt {
 				t.Fatalf("Expected pin time %v got %v", tc.expectTime, pt)
-			}
-		})
-	}
-}
-
-func TestRevisionAnnotations(t *testing.T) {
-	fakeTime := time.Unix(1e10, 0)
-	fakeGen := int64(10)
-	cases := []struct {
-		name               string
-		annotations        map[string]string
-		labels             map[string]string
-		setLastPinned      *time.Time
-		expectLastPinned   time.Time
-		expectConfigGen    *int64
-		expectConfigGenErr error
-	}{{
-		name:        "nil annotations",
-		annotations: nil,
-		expectConfigGenErr: configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
-		},
-	}, {
-		name:        "empty annotations",
-		annotations: map[string]string{},
-		expectConfigGenErr: configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
-		},
-	}, {
-		name:             "empty annotations set lastPinned",
-		annotations:      map[string]string{},
-		setLastPinned:    &fakeTime,
-		expectLastPinned: fakeTime,
-		expectConfigGenErr: configurationGenerationParseError{
-			Type: AnnotationParseErrorTypeMissing,
-		},
-	}, {
-		name: "annotated lastPinned",
-		annotations: map[string]string{
-			serving.RevisionLastPinnedAnnotationKey: "10000000000",
-		},
-		expectLastPinned: fakeTime,
-		expectConfigGenErr: configurationGenerationParseError{
-			Type: LabelParserErrorTypeMissing,
-		},
-	}, {
-		name: "labeled configGeneration",
-		labels: map[string]string{
-			serving.ConfigurationGenerationLabelKey: "10",
-		},
-		expectConfigGen: &fakeGen,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			rev := Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: tc.annotations,
-					Labels:      tc.labels,
-				},
-			}
-
-			if tc.setLastPinned != nil {
-				rev.SetLastPinned(*tc.setLastPinned)
-			}
-
-			if lp, _ := rev.GetLastPinned(); lp != tc.expectLastPinned {
-				t.Fatalf("Expected lastPinned time of %v, got %v", tc.expectLastPinned, lp)
-			}
-
-			cg, err := rev.GetConfigurationGeneration()
-			if err != nil {
-				if tc.expectConfigGenErr == nil || tc.expectConfigGenErr.Error() != err.Error() {
-					t.Fatalf("Expected configGeneration error of %v, got %v", tc.expectConfigGenErr, err)
-				}
-			} else if tc.expectConfigGenErr != nil {
-				t.Fatalf("Expected configGeneration error of %v, got %v", tc.expectConfigGenErr, err)
-			}
-
-			if tc.expectConfigGen != nil && cg != *tc.expectConfigGen {
-				t.Fatalf("Expected configGeneration %v, got %v", *tc.expectConfigGen, cg)
 			}
 		})
 	}

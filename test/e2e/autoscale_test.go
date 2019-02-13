@@ -28,11 +28,16 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/serving/pkg/autoscaler"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -47,12 +52,6 @@ var (
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
 		return d.Status.ReadyReplicas > 1, nil
-	}
-}
-
-func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
-	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas == 0, nil
 	}
 }
 
@@ -99,8 +98,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 					ctx.logger.Infof("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
-						ctx.logger.Infof("request %d failed", requestID)
-						ctx.logger.Infof("non 200 response %v", res.StatusCode)
+						ctx.logger.Infof("request %d failed with status %v", requestID, res.StatusCode)
 						ctx.logger.Infof("response headers: %v", res.Header)
 						ctx.logger.Infof("response body: %v", string(res.Body))
 						continue
@@ -113,7 +111,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 		})
 	}
 
-	ctx.logger.Infof("Waiting for all requests to complete.")
+	ctx.logger.Info("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("Error making requests for scale up: %v.", err)
 	}
@@ -139,31 +137,25 @@ func setup(t *testing.T) *testContext {
 	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
-	configMap, err := test.GetConfigMap(clients.KubeClient).Get("config-autoscaler", metav1.GetOptions{})
+	cm := ConfigMapFromTestFile(t, autoscaler.ConfigName)
+	cfg, err := autoscaler.NewConfigFromConfigMap(cm)
 	if err != nil {
-		t.Fatalf("Unable to get autoscaler config map: %v", err)
+		t.Fatalf("NewConfigFromConfigMap() = %v", err)
 	}
-	scaleToZeroGrace, err = time.ParseDuration(configMap.Data["scale-to-zero-grace-period"])
-	if err != nil {
-		t.Fatalf("Unable to parse scale-to-zero-grace as duration: %v", err)
-	}
-	stableWindow, err = time.ParseDuration(configMap.Data["stable-window"])
-	if err != nil {
-		t.Fatalf("Unable to parse stable-window as duration: %v", err)
-	}
+	stableWindow = cfg.StableWindow
+	scaleToZeroGrace = cfg.ScaleToZeroGracePeriod
 
-	imagePath := test.ImagePath("autoscale")
-
-	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
-		ContainerConcurrency: 10,
+	logger.Info("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
+		ContainerConcurrency:   10,
+		RevisionTimeoutSeconds: 10,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
@@ -173,7 +165,7 @@ func setup(t *testing.T) *testContext {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	logger.Infof("Serves the expected data at the endpoint")
+	logger.Info("Serves the expected data at the endpoint")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -192,7 +184,7 @@ func setup(t *testing.T) *testContext {
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
+		pkgTest.Retrying(pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -211,7 +203,7 @@ func setup(t *testing.T) *testContext {
 }
 
 func assertScaleUp(ctx *testContext) {
-	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
+	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
 	err := generateTraffic(ctx, 20, 20*time.Second)
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
@@ -230,13 +222,11 @@ func assertScaleUp(ctx *testContext) {
 }
 
 func assertScaleDown(ctx *testContext) {
-	ctx.logger.Infof("The autoscaler successfully scales down when devoid of traffic.")
-
-	ctx.logger.Infof("Waiting for scale to zero")
+	ctx.logger.Info("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
 	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
-		isDeploymentScaledToZero(),
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)
@@ -245,7 +235,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.logger.Infof("Wait for all pods to terminate.")
+	ctx.logger.Info("Wait for all pods to terminate.")
 
 	err = pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
@@ -269,7 +259,7 @@ func assertScaleDown(ctx *testContext) {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	ctx.logger.Infof("Scaled down.")
+	ctx.logger.Info("Scaled down.")
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
@@ -283,61 +273,78 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	assertScaleUp(ctx)
 }
 
-func assertNumberOfPodsEvery(duration time.Duration, ctx *testContext, numReplicasMin int32, numReplicasMax int32) chan struct{} {
-	stopChan := make(chan struct{})
+func assertNumberOfPodsEvery(interval time.Duration, ctx *testContext, errChan chan error, stopChan chan struct{}, numReplicasMin int32, numReplicasMax int32) {
+	timer := time.Tick(interval)
+
 	go func() {
 		for {
 			select {
 			case <-stopChan:
 				return
-			default:
-				assertNumberOfPods(ctx, numReplicasMin, numReplicasMax)
-				time.Sleep(duration)
+			case <-timer:
+				if err := assertNumberOfPods(ctx, numReplicasMin, numReplicasMax); err != nil {
+					errChan <- err
+				}
 			}
 		}
 	}()
-	return stopChan
 }
 
-func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) {
-	deployment, err := ctx.clients.KubeClient.Kube.ExtensionsV1beta1().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
-		ctx.t.Fatalf("Failed to get deployment %s: %v", deployment, err)
+		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
 	gotReplicas := deployment.Status.Replicas
-	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	ctx.logger.Infof("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
+		return errors.Errorf("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	}
+	return nil
 }
 
 func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
-	stopChan := assertNumberOfPodsEvery(2*time.Second, ctx, numPods-1, numPods+1)
-	defer close(stopChan)
-
-	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
 	// Relaxing the pod count requirement a little bit to avoid being too flaky.
 	minPods := numPods - 1
 	maxPods := numPods + 1
-	assertNumberOfPods(ctx, minPods, maxPods)
+
+	// Allow some error to accumulate without locking
+	errChan := make(chan error, 100)
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	assertNumberOfPodsEvery(2*time.Second, ctx, errChan, stopChan, minPods, maxPods)
+
+	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
+		ctx.t.Fatalf("Error during scale up: %v", err)
+	}
+
+	if err := assertNumberOfPods(ctx, numPods, maxPods); err != nil {
+		errChan <- err
+	}
+
+	select {
+	case err := <-errChan:
+		ctx.t.Error(err.Error())
+	default:
+		// Success!
+	}
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx := setup(t)
 	defer tearDown(ctx)
 
-	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
+	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
 
-	// increase workload for 2 replicas for 30s
-	// assert the number of wanted replicas is between 1-3 during the 30s
-	// assert the number of wanted replicas is 2-3 after 30s
+	// Increase workload for 2 replicas for 30s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
+	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
-	// scale to 3 replicas, assert 2-4 during scale up, assert 3-4 after scaleup
+	// Increase workload Scale to 3 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 3)
-	// scale to 4 replicas, assert 3-5 during scale up, assert 4-5 after scaleup
+	// Increase workload Scale to 4 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
 	assertAutoscaleUpToNumPods(ctx, 4)
 
 }

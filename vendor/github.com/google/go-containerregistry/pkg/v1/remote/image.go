@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -42,6 +42,7 @@ type remoteImage struct {
 	config       []byte
 }
 
+// ImageOption is a functional option for Image.
 type ImageOption func(*imageOpener) error
 
 var _ partial.CompressedImageCore = (*remoteImage)(nil)
@@ -125,7 +126,7 @@ func (r *remoteImage) RawManifest() ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if err := CheckError(resp, http.StatusOK); err != nil {
+	if err := transport.CheckError(resp, http.StatusOK); err != nil {
 		return nil, err
 	}
 
@@ -144,14 +145,15 @@ func (r *remoteImage) RawManifest() ([]byte, error) {
 		if digest.String() != dgst.DigestStr() {
 			return nil, fmt.Errorf("manifest digest: %q does not match requested digest: %q for %q", digest, dgst.DigestStr(), r.ref)
 		}
-	} else if checksum := resp.Header.Get("Docker-Content-Digest"); checksum != "" && checksum != digest.String() {
-		err := fmt.Errorf("manifest digest: %q does not match Docker-Content-Digest: %q for %q", digest, checksum, r.ref)
-		if r.ref.Context().RegistryStr() == name.DefaultRegistry {
-			// TODO(docker/distribution#2395): Remove this check.
-		} else {
-			// When pulling by tag, we can only validate that the digest matches what the registry told us it should be.
-			return nil, err
-		}
+	} else {
+		// Do nothing for tags; I give up.
+		//
+		// We'd like to validate that the "Docker-Content-Digest" header matches what is returned by the registry,
+		// but so many registries implement this incorrectly that it's not worth checking.
+		//
+		// For reference:
+		// https://github.com/docker/distribution/issues/2395
+		// https://github.com/GoogleContainerTools/kaniko/issues/298
 	}
 
 	r.manifest = manifest
@@ -206,7 +208,7 @@ func (rl *remoteLayer) Compressed() (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	if err := CheckError(resp, http.StatusOK); err != nil {
+	if err := transport.CheckError(resp, http.StatusOK); err != nil {
 		resp.Body.Close()
 		return nil, err
 	}

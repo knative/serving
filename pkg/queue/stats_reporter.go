@@ -30,38 +30,32 @@ import (
 type Measurement int
 
 const (
-	// ReportingPeriod interval of time for reporting.
-	ReportingPeriod = 10 * time.Second
+	// ViewReportingPeriod is the interval of time between reporting aggregated views.
+	ViewReportingPeriod = time.Second
+	// ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
+	// It should be equal to or larger than ViewReportingPeriod so that no stat
+	// will be dropped if LastValue aggregation is used for a view.
+	ReporterReportingPeriod = time.Second
 
-	// OperationsPerSecondN
-	OperationsPerSecondN = "operations_per_second"
-	// AverageConcurrentRequestsN
-	AverageConcurrentRequestsN = "average_concurrent_requests"
-	// LameDuckN
-	LameDuckN = "lame_duck"
+	operationsPerSecondN       = "operations_per_second"
+	averageConcurrentRequestsN = "average_concurrent_requests"
 
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
 	AverageConcurrentRequestsM
-	// LameDuckM indicates this Pod has received a shutdown signal.
-	LameDuckM
 )
 
 var (
 	measurements = []*stats.Float64Measure{
 		// TODO(#2524): make reporting period accurate.
 		OperationsPerSecondM: stats.Float64(
-			OperationsPerSecondN,
+			operationsPerSecondN,
 			"Number of operations per second",
 			stats.UnitNone),
 		AverageConcurrentRequestsM: stats.Float64(
-			AverageConcurrentRequestsN,
+			averageConcurrentRequestsN,
 			"Number of requests currently being handled by this pod",
-			stats.UnitNone),
-		LameDuckM: stats.Float64(
-			LameDuckN,
-			"Indicates this Pod has received a shutdown signal with 1 else 0",
 			stats.UnitNone),
 	}
 )
@@ -130,12 +124,6 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
 		},
-		&view.View{
-			Description: "Indicates this Pod has received a shutdown signal with 1 else 0",
-			Measure:     measurements[LameDuckM],
-			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -157,15 +145,10 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 }
 
 // Report captures request metrics
-func (r *Reporter) Report(lameDuck bool, operationsPerSecond float64, averageConcurrentRequests float64) error {
+func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.Initialized {
 		return errors.New("StatsReporter is not Initialized yet")
 	}
-	_lameDuck := float64(0)
-	if !lameDuck {
-		_lameDuck = float64(1)
-	}
-	stats.Record(r.ctx, measurements[LameDuckM].M(_lameDuck))
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
 	return nil
@@ -177,13 +160,10 @@ func (r *Reporter) UnregisterViews() error {
 		return errors.New("Reporter is not initialized")
 	}
 	var views []*view.View
-	if v := view.Find(OperationsPerSecondN); v != nil {
+	if v := view.Find(operationsPerSecondN); v != nil {
 		views = append(views, v)
 	}
-	if v := view.Find(AverageConcurrentRequestsN); v != nil {
-		views = append(views, v)
-	}
-	if v := view.Find(LameDuckN); v != nil {
+	if v := view.Find(averageConcurrentRequestsN); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)

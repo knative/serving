@@ -16,19 +16,25 @@
 
 set -o errexit
 
+function upload_test_images() {
+  echo ">> Publishing test images"
+  local image_dirs="$(find $(dirname $0)/test_images -mindepth 1 -maxdepth 1 -type d)"
+  local docker_tag=$1
+  local tag_option=""
+  if [ -n "${docker_tag}" ]; then
+    tag_option="--tags $docker_tag,latest"
+  fi
+
+  for image_dir in ${image_dirs}; do
+      local image_name="$(basename ${image_dir})"
+      local image="github.com/knative/serving/test/test_images/${image_name}"
+
+      ko publish -B ${tag_option} "${image}"
+  done
+}
+
 : ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
 
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-IMAGE_DIRS="$(find $(dirname $0)/test_images -mindepth 1 -maxdepth 1 -type d)"
-DOCKER_TAG=$1
 
-for image_dir in ${IMAGE_DIRS}; do
-  IMAGE="github.com/knative/serving/test/test_images/$(basename ${image_dir})"
-  ko publish -P $IMAGE
-  if [ -n "$DOCKER_TAG" ]; then
-    IMAGE=$KO_DOCKER_REPO/$IMAGE
-    DIGEST=$(docker images | grep $IMAGE | head -1 | awk '{print $2}')
-    echo "Tagging $IMAGE:$DIGEST with $DOCKER_TAG"
-    docker tag $IMAGE:$DIGEST $IMAGE:$DOCKER_TAG
-  fi
-done
+upload_test_images $@

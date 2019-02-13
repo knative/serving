@@ -18,7 +18,10 @@ package clusteringress
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
@@ -30,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
@@ -37,14 +41,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
-	IstioIngressClassName = "istio.ingress.networking.knative.dev"
-
 	controllerAgentName = "clusteringress-controller"
 )
 
@@ -82,7 +83,7 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, IstioIngressClassName, true)
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -167,12 +168,14 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 	// Don't modify the informers copy
 	existing := ci.DeepCopy()
 	existing.Status = desired.Status
-	// TODO: for CRD there's no updatestatus, so use normal update.
-	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(existing)
+	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().UpdateStatus(existing)
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
+	if ci.GetDeletionTimestamp() != nil {
+		return nil
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -195,6 +198,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
+	ci.Status.ObservedGeneration = ci.Generation
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
@@ -241,11 +245,12 @@ func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) [
 }
 
 func dedup(strs []string) []string {
-	existed := make(map[string]struct{})
+	existed := sets.NewString()
 	unique := []string{}
+	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
 	for _, s := range strs {
-		if _, ok := existed[s]; !ok {
-			existed[s] = struct{}{}
+		if !existed.Has(s) {
+			existed.Insert(s)
 			unique = append(unique, s)
 		}
 	}
@@ -271,6 +276,10 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 			"Created VirtualService %q", desired.Name)
 	} else if err != nil {
 		return err
+	} else if !metav1.IsControlledBy(vs, ci) {
+		// Surface an error in the ClusterIngress's status, and return an error.
+		ci.Status.MarkResourceNotOwned("VirtualService", name)
+		return fmt.Errorf("ClusterIngress: %q does not own VirtualService: %q", ci.Name, name)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()

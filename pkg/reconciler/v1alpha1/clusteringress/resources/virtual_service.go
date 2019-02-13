@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
@@ -30,7 +31,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 )
 
 // MakeVirtualService creates an Istio VirtualService as network programming.
@@ -40,7 +41,7 @@ func MakeVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.VirtualService(ci),
-			Namespace:       system.Namespace,
+			Namespace:       system.Namespace(),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 			Annotations:     ci.ObjectMeta.Annotations,
 		},
@@ -114,7 +115,8 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		AppendHeaders: http.AppendHeaders,
+		AppendHeaders:    http.AppendHeaders,
+		WebsocketUpgrade: true,
 	}
 }
 
@@ -135,12 +137,12 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 }
 
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := make(map[string]interface{})
+	hosts := sets.NewString()
 	unique := []string{}
 	for _, rule := range ci.Spec.Rules {
 		for _, h := range rule.Hosts {
-			if _, existed := hosts[h]; !existed {
-				hosts[h] = true
+			if !hosts.Has(h) {
+				hosts.Insert(h)
 				unique = append(unique, h)
 			}
 		}

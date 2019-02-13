@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -25,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -34,22 +37,33 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/tracker"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 )
 
 const (
 	controllerAgentName = "route-controller"
+)
+
+// routeFinalizer is the name that we put into the resource finalizer list, e.g.
+//  metadata:
+//    finalizers:
+//    - routes.serving.knative.dev
+var (
+	routeResource  = v1alpha1.Resource("routes")
+	routeFinalizer = routeResource.String()
 )
 
 type configStore interface {
@@ -132,13 +146,10 @@ func NewControllerWithClock(
 		},
 	})
 
-	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
-		},
+	clusterIngressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
+		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
+		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
@@ -156,10 +167,14 @@ func NewControllerWithClock(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncRoutesOnConfigDomainChange := configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+	configsToResync := []interface{}{
+		&network.Config{},
+		&config.Domain{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncRoutesOnConfigDomainChange)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
@@ -182,7 +197,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	ctx = c.configStore.ToContext(ctx)
 
-	// Get the Route resource with this namespace/name
+	// Get the Route resource with this namespace/name.
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
@@ -191,7 +206,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
-	// Don't modify the informers copy
+	// Don't modify the informers copy.
 	route := original.DeepCopy()
 
 	// Reconcile this copy of the route and then write back any status
@@ -211,8 +226,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
+func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
+	if ingressClass, _ := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
+		return ingressClass
+	}
+	return config.FromContext(ctx).Network.DefaultClusterIngressClass
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
+	if r.GetDeletionTimestamp() != nil {
+		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
+		return c.reconcileDeletion(ctx, r)
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -222,8 +248,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	r.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route :%v", r)
-	// configure traffic based on the RouteSpec.
+	logger.Infof("Reconciling route: %v", r)
+	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
@@ -239,13 +265,19 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable.
 	r.Status.Domain = routeDomain(ctx, r)
-	r.Status.DomainInternal = resourcenames.K8sServiceFullname(r)
+	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
+	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
+	if err := c.ensureFinalizer(r); err != nil {
+		return err
+	}
+
 	logger.Info("Creating ClusterIngress.")
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, traffic))
+	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
@@ -256,8 +288,31 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
+	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
+}
+
+func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
+	logger := logging.FromContext(ctx)
+
+	// If our Finalizer is first, delete the ClusterIngress for this Route
+	// and remove the finalizer.
+	if len(r.Finalizers) == 0 || r.Finalizers[0] != routeFinalizer {
+		return nil
+	}
+
+	// Delete the ClusterIngress resources for this Route.
+	logger.Info("Cleaning up ClusterIngress")
+	if err := c.deleteClusterIngressesForRoute(r); err != nil {
+		return err
+	}
+
+	// Update the Route to remove the Finalizer.
+	logger.Info("Removing Finalizer")
+	r.Finalizers = r.Finalizers[1:]
+	_, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r)
+	return err
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
@@ -266,7 +321,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.TrafficConfig, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.Config, error) {
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
@@ -309,6 +364,29 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
+}
+
+func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
+	finalizers := sets.NewString(route.Finalizers...)
+	if finalizers.Has(routeFinalizer) {
+		return nil
+	}
+	finalizers.Insert(routeFinalizer)
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      finalizers.List(),
+			"resourceVersion": route.ResourceVersion,
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Patch(route.Name, types.MergePatchType, patch)
+	return err
 }
 
 /////////////////////////////////////////

@@ -30,6 +30,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,13 +39,12 @@ func TestSingleConcurrency(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestSingleConcurrency")
-
-	imagePath := test.ImagePath(singleThreadedImage)
+	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Config: test.AppendRandomString("prod", logger),
 		Route:  test.AppendRandomString("pizzaplanet", logger),
+		Image:  singleThreadedImage,
 	}
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
@@ -54,18 +54,17 @@ func TestSingleConcurrency(t *testing.T) {
 		ContainerConcurrency: 1,
 	}
 	logger.Info("Creating a new Configuration")
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &configOptions)
-	if err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, &configOptions); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
 	logger.Info("Creating a new Route")
-	_, err = test.CreateRoute(logger, clients, names)
-	if err != nil {
+	if _, err := test.CreateRoute(logger, clients, names); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
 	logger.Info("The Configuration will be updated with the name of the Revision")
+	var err error
 	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -89,7 +88,7 @@ func TestSingleConcurrency(t *testing.T) {
 		clients.KubeClient,
 		logger,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable),
+		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", domain, err)

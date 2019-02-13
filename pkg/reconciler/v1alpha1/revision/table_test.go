@@ -28,6 +28,7 @@ import (
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
@@ -53,6 +54,13 @@ func TestReconcile(t *testing.T) {
 		// Make sure Reconcile handles good keys that don't exist.
 		Key: "foo/not-found",
 	}, {
+		Name: "nop deletion reconcile",
+		// Test that with a DeletionTimestamp we do nothing.
+		Objects: []runtime.Object{
+			rev("foo", "delete-pending", WithRevisionDeletionTimestamp),
+		},
+		Key: "foo/delete-pending",
+	}, {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
@@ -67,7 +75,7 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "first-reconcile"),
 			image("foo", "first-reconcile"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
@@ -91,7 +99,7 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "update-status-failure"),
 			image("foo", "update-status-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "update-status-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
@@ -119,7 +127,7 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "create-kpa-failure"),
 			image("foo", "create-kpa-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "create-kpa-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
@@ -142,7 +150,7 @@ func TestReconcile(t *testing.T) {
 			// We still see the following creates before the failure is induced.
 			deploy("foo", "create-user-deploy-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "create-user-deploy-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
@@ -167,7 +175,7 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "create-user-service-failure"),
 			image("foo", "create-user-service-failure"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "create-user-service-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
@@ -241,10 +249,6 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"stable-deactivation-service"),
-		},
 		Key: "foo/stable-deactivation",
 	}, {
 		Name: "endpoint is created (not ready)",
@@ -284,7 +288,7 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "endpoint-created-timeout"),
 			image("foo", "endpoint-created-timeout"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
 				// When the LTT is cleared, a reconcile will result in the
@@ -311,15 +315,14 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "endpoint-ready", WithSubsets),
 			image("foo", "endpoint-ready"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "endpoint-ready", WithK8sServiceName, WithLogURL,
 				// When the endpoint and KPA are ready, then we will see the
 				// Revision become ready.
 				MarkRevisionReady),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"endpoint-ready-service"),
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/endpoint-ready",
 	}, {
@@ -335,17 +338,13 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "kpa-not-ready", WithSubsets),
 			image("foo", "kpa-not-ready"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "kpa-not-ready",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady,
 				// When we reconcile a ready state and our KPA is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-not-ready-service"),
-		},
 		Key: "foo/kpa-not-ready",
 	}, {
 		Name: "kpa inactive",
@@ -360,17 +359,13 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "kpa-inactive", WithSubsets),
 			image("foo", "kpa-inactive"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "kpa-inactive",
 				WithK8sServiceName, WithLogURL, MarkRevisionReady,
 				// When we reconcile an "all ready" revision when the KPA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-inactive-service"),
-		},
 		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
@@ -388,13 +383,14 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "fix-mutated-service"),
 			image("foo", "fix-mutated-service"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "fix-mutated-service",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
 				MarkDeploying("Updating"), MarkActivating("Deploying", "")),
-		}, {
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("foo", "fix-mutated-service"),
 		}},
 		Key: "foo/fix-mutated-service",
@@ -434,7 +430,7 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "deploy-timeout"),
 			image("foo", "deploy-timeout"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "deploy-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
 				// When the revision is reconciled after a Deployment has
@@ -462,7 +458,7 @@ func TestReconcile(t *testing.T) {
 			endpoints("foo", "pod-error"),
 			image("foo", "pod-error"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
 				MarkContainerExiting(5, "I failed man!")),
@@ -479,7 +475,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "missing-build", WithBuildRef("the-build")),
 		},
 		WantErr: true,
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (that's missing)
 				// we should see the following status changes.
@@ -497,7 +493,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "running-build", WithBuildRef("the-build")),
 			build("foo", "the-build", WithSucceededUnknown("", "")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "running-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (not done)
 				// we should see the following status changes.
@@ -522,7 +518,7 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "done-build"),
 			image("foo", "done-build"),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
 				// When we reconcile a Revision after the Build completes, we should
 				// see the following updates to its status.
@@ -563,7 +559,7 @@ func TestReconcile(t *testing.T) {
 			build("foo", "the-build",
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "failed-build",
 				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions,
 				// When we reconcile a Revision whose build has failed, we sill see that
@@ -587,6 +583,87 @@ func TestReconcile(t *testing.T) {
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
 		Key: "foo/failed-build-stable",
+	}, {
+		Name: "ready steady state",
+		// Test the transition that Reconcile makes when Endpoints become ready.
+		// This puts the world into the stable post-reconcile state for an Active
+		// Revision.  It then creates an Endpoints resource with active subsets.
+		// This signal should make our Reconcile mark the Revision as Ready.
+		Objects: []runtime.Object{
+			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL),
+			kpa("foo", "steady-ready", WithTraffic),
+			deploy("foo", "steady-ready"),
+			svc("foo", "steady-ready"),
+			endpoints("foo", "steady-ready", WithSubsets),
+			image("foo", "steady-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
+				// All resources are ready to go, we should see the revision being
+				// marked ready
+				MarkRevisionReady),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+		},
+		Key: "foo/steady-ready",
+	}, {
+		Name:    "lost service owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners", WithK8sSvcOwnersRemoved),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Service we see this update.
+				MarkResourceNotOwned("Service", "missing-owners-service")),
+		}},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost kpa owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
+			deploy("foo", "missing-owners"),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for PodAutoscaler we see this update.
+				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
+		}},
+		Key: "foo/missing-owners",
+	}, {
+		Name:    "lost deployment owner ref",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady),
+			kpa("foo", "missing-owners", WithTraffic),
+			noOwner(deploy("foo", "missing-owners")),
+			svc("foo", "missing-owners"),
+			endpoints("foo", "missing-owners", WithSubsets),
+			image("foo", "missing-owners"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
+				MarkRevisionReady,
+				// When we're missing the OwnerRef for Deployment we see this update.
+				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
+		}},
+		Key: "foo/missing-owners",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -628,7 +705,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			fluentdConfigMap("foo", "first-reconcile-var-log", EnableVarLog),
 			image("foo", "first-reconcile-var-log", EnableVarLog),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile-var-log",
 				// After the first reconciliation of a Revision the status looks like this.
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
@@ -650,7 +727,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
 			image("foo", "create-configmap-failure", EnableVarLog),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "create-configmap-failure",
 				// When our first reconciliation is interrupted by a failure creating
 				// the fluentd configmap, we should still see the following reflected
@@ -751,6 +828,11 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 		Status: corev1.ConditionFalse,
 		Reason: "ProgressDeadlineExceeded",
 	}}
+	return deploy
+}
+
+func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
+	deploy.OwnerReferences = nil
 	return deploy
 }
 
@@ -926,7 +1008,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
-		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &config.Observability{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

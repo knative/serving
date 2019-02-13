@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -53,12 +54,21 @@ func cleanup(yamlFilename string, logger *logging.BaseLogger) {
 	os.Remove(yamlFilename)
 }
 
+func serviceHostname() string {
+	return noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
+}
+
+func ingressAddress(gateway string, addressType string) string {
+	return noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
+		"-o", fmt.Sprintf("jsonpath={.status.loadBalancer.ingress[*]['%s']}", addressType))
+}
+
 func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestHelloWorldFromShell")
+	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")
 
-	logger.Infof("Creating manifest")
+	logger.Info("Creating manifest")
 
 	// Create manifest file.
 	newYaml, err := ioutil.TempFile("", "helloworld")
@@ -86,7 +96,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to close new manifest file: %v", err)
 	}
 
-	logger.Infof("Manifest file is '%s'", newYamlFilename)
+	logger.Infof("Manifest file is %q", newYamlFilename)
 	logger.Info("Deploying using kubectl")
 
 	// Deploy using kubectl
@@ -95,53 +105,49 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 
 	logger.Info("Waiting for ingress to come up")
+	gateway := "istio-ingressgateway"
+	// Wait for ingress to come up
+	ingressAddr := ""
+	serviceHost := ""
+	timeout := ingressTimeout
+	for (ingressAddr == "" || serviceHost == "") && timeout >= 0 {
+		if serviceHost == "" {
+			serviceHost = serviceHostname()
+		}
+		if ingressAddr = ingressAddress(gateway, "ip"); ingressAddr == "" {
+			ingressAddr = ingressAddress(gateway, "hostname")
+		}
+		timeout -= checkInterval
+		time.Sleep(checkInterval)
+	}
+	if ingressAddr == "" || serviceHost == "" {
+		// serviceHost or ingressAddr might contain a useful error, dump them.
+		t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
+	}
+	logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
 
-	gateways := []string{"istio-ingressgateway", "knative-ingressgateway"}
-	for _, gateway := range gateways {
-		// Wait for ingress to come up
-		serviceIP := ""
-		serviceHost := ""
-		timeout := ingressTimeout
-		for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
-			if serviceHost == "" {
-				serviceHost = noStderrShell("kubectl", "get", "rt", "route-example", "-o", "jsonpath={.status.domain}", "-n", test.ServingNamespace)
-			}
-			if serviceIP == "" {
-				serviceIP = noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
-					"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
-			}
-			timeout -= checkInterval
-			time.Sleep(checkInterval)
+	outputString := ""
+	timeout = servingTimeout
+	for outputString != helloWorldExpectedOutput && timeout >= 0 {
+		var cmd *exec.Cmd
+		if test.ServingFlags.ResolvableDomain {
+			cmd = exec.Command("curl", serviceHost)
+		} else {
+			cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+ingressAddr)
 		}
-		if serviceIP == "" || serviceHost == "" {
-			// serviceHost or serviceIP might contain a useful error, dump them.
-			t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
+		output, err := cmd.Output()
+		errorString := "none"
+		if err != nil {
+			errorString = err.Error()
 		}
-		logger.Infof("Curling %s/%s", serviceIP, serviceHost)
+		outputString = strings.TrimSpace(string(output))
+		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+		timeout -= checkInterval
+		time.Sleep(checkInterval)
+	}
 
-		outputString := ""
-		timeout = servingTimeout
-		for outputString != helloWorldExpectedOutput && timeout >= 0 {
-			var cmd *exec.Cmd
-			if test.ServingFlags.ResolvableDomain {
-				cmd = exec.Command("curl", serviceHost)
-			} else {
-				cmd = exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP)
-			}
-			output, err := cmd.Output()
-			errorString := "none"
-			if err != nil {
-				errorString = err.Error()
-			}
-			outputString = strings.TrimSpace(string(output))
-			logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
-			timeout -= checkInterval
-			time.Sleep(checkInterval)
-		}
-
-		if outputString != helloWorldExpectedOutput {
-			t.Fatal("Timeout waiting for app to start serving")
-		}
+	if outputString != helloWorldExpectedOutput {
+		t.Fatal("Timeout waiting for app to start serving")
 	}
 	logger.Info("App is serving")
 }

@@ -27,9 +27,10 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +65,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
@@ -72,8 +73,14 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})
@@ -122,6 +129,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
 	configMapWatcher.Start(stopCh)
+
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
 
 	// Run the controller.
 	eg.Go(func() error {

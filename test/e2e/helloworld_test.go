@@ -29,27 +29,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
-)
-
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestHelloWorld")
+	logger := logging.GetContextLogger(t.Name())
+	logger.Info("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, logger, "helloworld", &test.Options{})
 
-	var imagePath = test.ImagePath("helloworld")
-
-	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 	defer TearDown(clients, names, logger)
 
-	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}

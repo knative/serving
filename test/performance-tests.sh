@@ -17,30 +17,19 @@
 # This script runs the performance tests; It is run by prow daily.
 # For convenience, it can also be executed manually.
 
-source $(dirname $0)/cluster.sh
-
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
-}
+source $(dirname $0)/e2e-common.sh
 
 initialize $@
 
 header "Setting up environment"
 
-# Handle test failures ourselves, so we can dump useful info.
-set +o errexit
-set +o pipefail
-
 # Build Knative, but don't install the default "no monitoring" version
 build_knative_from_source
-install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${RELEASE_YAML}" \
+install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}" \
     || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
-# We use a plain `go test` because `go_test_e2e()` calls bazel to generate
-# the test summary, thus overwriting our generated performance summary
-go test -v -count=1 -tags=performance -timeout=5m ./test/performance || fail_test
+go_test_e2e -tags="performance" -timeout=0 ./test/performance || fail_test
 
 success

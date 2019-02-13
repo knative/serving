@@ -17,7 +17,7 @@ limitations under the License.
 package activator
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"sync"
 )
@@ -25,14 +25,14 @@ import (
 var shuttingDownError = ActivationResult{
 	Endpoint: Endpoint{},
 	Status:   http.StatusInternalServerError,
-	Error:    fmt.Errorf("activator shutting down"),
+	Error:    errors.New("activator shutting down"),
 }
 
 var _ Activator = (*dedupingActivator)(nil)
 
 type dedupingActivator struct {
 	mux             sync.Mutex
-	pendingRequests map[revisionID][]chan ActivationResult
+	pendingRequests map[RevisionID][]chan ActivationResult
 	activator       Activator
 	shutdown        bool
 }
@@ -41,13 +41,13 @@ type dedupingActivator struct {
 // activations requests for the same revision id and namespace.
 func NewDedupingActivator(a Activator) Activator {
 	return &dedupingActivator{
-		pendingRequests: make(map[revisionID][]chan ActivationResult),
+		pendingRequests: make(map[RevisionID][]chan ActivationResult),
 		activator:       a,
 	}
 }
 
 func (a *dedupingActivator) ActiveEndpoint(namespace, name string) ActivationResult {
-	id := revisionID{namespace: namespace, name: name}
+	id := RevisionID{Namespace: namespace, Name: name}
 	ch := make(chan ActivationResult, 1)
 	a.dedupe(id, ch)
 	result := <-ch
@@ -66,7 +66,7 @@ func (a *dedupingActivator) Shutdown() {
 	}
 }
 
-func (a *dedupingActivator) dedupe(id revisionID, ch chan ActivationResult) {
+func (a *dedupingActivator) dedupe(id RevisionID, ch chan ActivationResult) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if a.shutdown {
@@ -81,8 +81,8 @@ func (a *dedupingActivator) dedupe(id revisionID, ch chan ActivationResult) {
 	}
 }
 
-func (a *dedupingActivator) activate(id revisionID) {
-	result := a.activator.ActiveEndpoint(id.namespace, id.name)
+func (a *dedupingActivator) activate(id RevisionID) {
+	result := a.activator.ActiveEndpoint(id.Namespace, id.Name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if reqs, ok := a.pendingRequests[id]; ok {

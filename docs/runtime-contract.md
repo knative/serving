@@ -331,9 +331,19 @@ serverless workloads. Containers MUST use the provided temporary storage areas
 
 ### Mounts
 
-Platform providers SHOULD NOT allow additional volume mounts. Stateless
-applications should package their dependencies within the container. As
-serverless applications are expected to scale horizontally and statelessly,
+In general, stateless applications should package their dependencies within the
+container and not rely on mutable external state for templates, logging
+configuration, etc. In some cases, it may be necessary for certain application
+settings to be overridden at deploy time (for example, database backends or
+authentication credentials). When these settings need to be loaded via a file,
+read-only mounts of application configuration and secrets are supported by
+`ConfigMap` and `Secrets` volumes. Platform providers MAY apply updates to
+`Secrets` and `ConfigMaps` while the application is running; these updates could
+complicate rollout and rollback. It is up to the developer to choose appropriate
+policies for mounting and updating `ConfigMap` and `Secrets` which are mounted
+as volumes.
+
+As serverless applications are expected to scale horizontally and statelessly,
 per-container volumes are likely to introduce state and scaling bottlenecks and
 are NOT RECOMMENDED.
 
@@ -366,8 +376,15 @@ such variables will follow demonstrated usage and utility.
 
 ### User
 
-The user which the process is run as SHOULD be specified by the operator or
-platform provider, rather than the developer.
+Developers MAY specify that containers should be run as a specific user or group
+ID using the `runAsUser` container property. If specified, the runtime MUST run
+the container as the specified user ID if allowed by the platform (see below).
+If no `runAsUser` is specified, a platform-specific default SHALL be used.
+Platform Providers SHOULD document this default behavior.
+
+Operators and Platform Providers MAY prohibit certain user IDs, such as `root`,
+from executing code. In this case, if the identity selected by the developer is
+invalid, the container execution MUST be failed.
 
 ### Default Filesystems
 

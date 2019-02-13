@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -88,12 +90,16 @@ type TrafficTarget struct {
 
 // RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	// +optional
@@ -124,12 +130,12 @@ type RouteStatus struct {
 	// +optional
 	Domain string `json:"domain,omitempty"`
 
-	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form
-	// {route-name}.{route-namespace}.svc.cluster.local
+	// {route-name}.{route-namespace}.svc.{cluster-domain-name}
 	// DEPRECATED: Use Address instead.
 	// +optional
-	DomainInternal string `json:"domainInternal,omitempty"`
+	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`
 
 	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
@@ -179,6 +185,13 @@ func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.
 
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
+}
+
+// MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
+// there is a pre-existing placeholder service with the name we wanted to use.
+func (rs *RouteStatus) MarkServiceNotOwned(name string) {
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
+		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {

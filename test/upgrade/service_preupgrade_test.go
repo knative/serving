@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 )
@@ -31,7 +32,7 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger("TestRunLatestServicePreUpgrade")
+	logger := logging.GetContextLogger(t.Name())
 
 	var names test.ResourceNames
 	names.Service = serviceName

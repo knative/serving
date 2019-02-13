@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,21 +45,23 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"github.com/knative/serving/pkg/system"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/pkg/system"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
@@ -139,7 +142,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	opt := rclr.Options{
 		KubeClientSet:    kubeClient,
@@ -173,24 +176,23 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
-	var cms []*corev1.ConfigMap
-	cms = append(cms, &corev1.ConfigMap{
+	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      config.NetworkConfigName,
+			Namespace: system.Namespace(),
+			Name:      network.ConfigName,
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 			"loglevel.queueproxy": "info",
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -198,9 +200,9 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"logging.fluentd-sidecar-image":         testFluentdImage,
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 		},
-	}, &corev1.ConfigMap{
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -211,9 +213,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	},
-		getTestControllerConfigMap(),
-	)
+	}, getTestControllerConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -347,7 +347,7 @@ type fixedResolver struct {
 	digest string
 }
 
-func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return r.digest, nil
 }
 
@@ -355,7 +355,7 @@ type errorResolver struct {
 	error string
 }
 
-func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", errors.New(r.error)
 }
 
@@ -386,7 +386,7 @@ func TestResolutionFailed(t *testing.T) {
 			Reason:             "ContainerMissing",
 			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -400,7 +400,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -419,7 +419,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	// Update controllers logging URL
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -450,7 +450,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h := NewHooks()
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	expectedMessage := "Revision becomes ready upon endpoint \"test-rev-service\" becoming ready"
+	expectedMessage := "Revision becomes ready upon all resources being ready"
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
@@ -463,7 +463,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -490,7 +490,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           "Error",
+			Severity:           duckv1alpha1.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -516,14 +516,14 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "config-controller",
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Look for the revision deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace()).Get(rev.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
@@ -552,7 +552,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	// An invalid IP range
 	in = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
+	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; !ok {
 		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
@@ -578,11 +578,11 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.NetworkConfigName,
-			Namespace: system.Namespace,
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			config.IstioOutboundIPRangesKey: configMapValue,
+			network.IstioOutboundIPRangesKey: configMapValue,
 		}})
 
 	rev := getTestRevision()
@@ -604,4 +604,266 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 		t.Fatalf("Couldn't get serving deployment: %v", err)
 	}
 	return deployment.Spec.Template.ObjectMeta.Annotations
+}
+
+func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
+	defer ClearAllLoggers()
+	// Test that changes to the ConfigMap result in the desired changes on an existing
+	// revision.
+	tests := []struct {
+		name              string
+		expected          string
+		configMapToUpdate *corev1.ConfigMap
+		resource          string
+		callback          func(*testing.T) func(runtime.Object) HookResult
+	}{{
+		name: "Update LoggingURL", // Should update LogURL on revision
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         testFluentdImage,
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+				"logging.revision-url-template":         "http://log-here.test.com?filter=${REVISION_UID}",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				revision := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", revision.Name)
+
+				expected := "http://log-here.test.com?filter="
+				got := revision.Status.LogURL
+				if strings.HasPrefix(got, expected) {
+					return HookComplete
+				}
+
+				t.Logf("No update occurred; expected: %s got: %s", expected, got)
+				return HookIncomplete
+			}
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controllerConfig := getTestControllerConfig()
+			_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+
+			stopCh := make(chan struct{})
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
+
+			rev := getTestRevision()
+			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
+			h := NewHooks()
+
+			h.OnUpdate(&servingClient.Fake, "revisions", test.callback(t))
+
+			servingInformer.Start(stopCh)
+			kubeInformer.Start(stopCh)
+			cachingInformer.Start(stopCh)
+			if err := watcher.Start(stopCh); err != nil {
+				t.Fatalf("Failed to start configuration manager: %v", err)
+			}
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+			cachingInformer.WaitForCacheSync(stopCh)
+
+			grp.Go(func() error { return controller.Run(1, stopCh) })
+
+			revClient.Create(rev)
+
+			watcher.OnChange(test.configMapToUpdate)
+
+			if err := h.WaitForHooks(1 * time.Second); err != nil {
+				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+			}
+		})
+	}
+}
+
+func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
+	defer ClearAllLoggers()
+	// Test that changes to the ConfigMap result in the desired changes on an existing
+	// deployment.
+	tests := []struct {
+		name              string
+		configMapToUpdate *corev1.ConfigMap
+		callback          func(*testing.T) func(runtime.Object) HookResult
+	}{{
+		name: "Update Istio Outbound IP Ranges", // Should update metadata on Deployment
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      network.ConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"istio.sidecar.includeOutboundIPRanges": "10.0.0.1/24",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				deployment := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", deployment.Name)
+
+				expected := "10.0.0.1/24"
+				annotations := deployment.Spec.Template.ObjectMeta.Annotations
+				got := annotations[resources.IstioOutboundIPRangeAnnotation]
+
+				if got != expected {
+					t.Logf("No update occurred; expected: %s got: %s", expected, got)
+					return HookIncomplete
+				}
+
+				return HookComplete
+			}
+		},
+	}, {
+		name: "Disable Fluentd", // Should remove fluentd from Deployment
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection": "false",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				deployment := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", deployment.Name)
+
+				expected := ""
+
+				for _, c := range deployment.Spec.Template.Spec.Containers {
+					if c.Name == resources.FluentdContainerName {
+						t.Logf("No update occurred; expected: %s got: %s", expected, c.Image)
+						return HookIncomplete
+					}
+				}
+				return HookComplete
+			}
+		},
+	}, {
+		name: "Update Fluentd Image", // Should Fluentd to Deployment
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         "newFluentdImage",
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				deployment := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", deployment.Name)
+
+				expected := "newFluentdImage"
+				var got string
+				for _, c := range deployment.Spec.Template.Spec.Containers {
+					if c.Name == resources.FluentdContainerName {
+						got = c.Image
+						if got == expected {
+							return HookComplete
+						}
+					}
+				}
+				t.Logf("No update occurred; expected: %s got: %s", expected, got)
+				return HookIncomplete
+			}
+		},
+	}, {
+		name: "Update QueueProxy Image", // Should update queueSidecarImage
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ControllerConfigName,
+			},
+			Data: map[string]string{
+				"queueSidecarImage": "myAwesomeQueueImage",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				deployment := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", deployment.Name)
+
+				expected := "myAwesomeQueueImage"
+
+				var got string
+				for _, c := range deployment.Spec.Template.Spec.Containers {
+					if c.Name == resources.QueueContainerName {
+						got = c.Image
+						if got == expected {
+							return HookComplete
+						}
+					}
+				}
+
+				t.Logf("No update occurred; expected: %s got: %s", expected, got)
+				return HookIncomplete
+			}
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controllerConfig := getTestControllerConfig()
+			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+
+			stopCh := make(chan struct{})
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
+
+			rev := getTestRevision()
+			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
+			h := NewHooks()
+			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))
+
+			// Wait for the deployment creation to trigger the global resync. This
+			// avoids the create and update being coalesced into one event.
+			h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) HookResult {
+				watcher.OnChange(test.configMapToUpdate)
+				return HookComplete
+			})
+
+			servingInformer.Start(stopCh)
+			kubeInformer.Start(stopCh)
+			cachingInformer.Start(stopCh)
+			if err := watcher.Start(stopCh); err != nil {
+				t.Fatalf("Failed to start configuration manager: %v", err)
+			}
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+			cachingInformer.WaitForCacheSync(stopCh)
+
+			grp.Go(func() error { return controller.Run(1, stopCh) })
+
+			revClient.Create(rev)
+
+			if err := h.WaitForHooks(3 * time.Second); err != nil {
+				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+			}
+		})
+	}
 }

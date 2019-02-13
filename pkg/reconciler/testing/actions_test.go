@@ -49,23 +49,23 @@ func TestActionsByVerb(t *testing.T) {
 	actions, err := list.ActionsByVerb()
 
 	if err != nil {
-		t.Errorf("unexpected error sorting actions by verb %s", err)
+		t.Errorf("Unexpected error sorting actions by verb %s", err)
 	}
 
 	if got, want := len(actions.Creates), 2; got != want {
-		t.Errorf("create action count is incorrect got %d - want %d", got, want)
+		t.Errorf("Create action count = %d, want %d", got, want)
 	}
 
 	if got, want := len(actions.Updates), 2; got != want {
-		t.Errorf("update action count is incorrect got %d - want %d", got, want)
+		t.Errorf("Update action count = %d; want %d", got, want)
 	}
 
 	if got, want := len(actions.Deletes), 2; got != want {
-		t.Errorf("delete action count is incorrect got %d - want %d", got, want)
+		t.Errorf("Delete action count is incorrect got %d - want %d", got, want)
 	}
 
 	if got, want := len(actions.Patches), 2; got != want {
-		t.Errorf("patch action count is incorrect got %d - want %d", got, want)
+		t.Errorf("Patch action = %d; want %d", got, want)
 	}
 }
 
@@ -76,10 +76,8 @@ func TestActionsByVerb_UnrecognizedVerb(t *testing.T) {
 		},
 	}
 
-	_, err := list.ActionsByVerb()
-
-	if err == nil {
-		t.Errorf("expected an error to have occurred when grouping actions")
+	if _, err := list.ActionsByVerb(); err == nil {
+		t.Error("Expected an error to have occurred when grouping actions")
 	}
 }
 

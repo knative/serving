@@ -25,12 +25,16 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
+	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // BuildOption enables further configuration of a Build.
@@ -94,6 +98,12 @@ var (
 	}
 )
 
+// WithServiceDeletionTimestamp will set the DeletionTimestamp on the Service.
+func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
 // WithRunLatestRollout configures the Service to use a "runLatest" rollout.
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
@@ -103,13 +113,33 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
+// WithServiceLabel attaches a particular label to the service.
+func WithServiceLabel(key, value string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		service.Labels[key] = value
+	}
+}
+
+// MarkConfigurationNotOwned calls the function of the same name on the Service's status.
+func MarkConfigurationNotOwned(service *v1alpha1.Service) {
+	service.Status.MarkConfigurationNotOwned(servicenames.Configuration(service))
+}
+
+// MarkRouteNotOwned calls the function of the same name on the Service's status.
+func MarkRouteNotOwned(service *v1alpha1.Service) {
+	service.Status.MarkRouteNotOwned(servicenames.Route(service))
+}
+
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
 // which is pinned to the named revision.
 // Deprecated, since PinnedType is deprecated.
 func WithPinnedRollout(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
-			Pinned: &v1alpha1.PinnedType{
+			DeprecatedPinned: &v1alpha1.PinnedType{
 				RevisionName:  name,
 				Configuration: configSpec,
 			},
@@ -164,7 +194,7 @@ func WithManualStatus(s *v1alpha1.Service) {
 
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
-	s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   "Ready",
 			Status: "True",
@@ -176,7 +206,7 @@ func WithReadyRoute(s *v1alpha1.Service) {
 func WithSvcStatusDomain(s *v1alpha1.Service) {
 	n, ns := s.GetName(), s.GetNamespace()
 	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
-	s.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
+	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
@@ -196,7 +226,7 @@ func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
 // WithFailedRoute reflects a Route's failure in the Service resource.
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateRouteStatus(v1alpha1.RouteStatus{
+		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 			Conditions: []duckv1alpha1.Condition{{
 				Type:    "Ready",
 				Status:  "False",
@@ -212,7 +242,7 @@ func WithFailedRoute(reason, message string) ServiceOption {
 // to the provided revision name.
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
 			LatestReadyRevisionName:   name,
 			Conditions: []duckv1alpha1.Condition{{
@@ -227,17 +257,29 @@ func WithReadyConfig(name string) ServiceOption {
 // resource.  The failing revision's name is reflected in LatestCreated.
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
-		s.Status.PropagateConfigurationStatus(v1alpha1.ConfigurationStatus{
+		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
 			Conditions: []duckv1alpha1.Condition{{
 				Type:   "Ready",
 				Status: "False",
 				Reason: reason,
-				Message: fmt.Sprintf("Revision %q failed with message: %q.",
+				Message: fmt.Sprintf("Revision %q failed with message: %s.",
 					name, message),
 			}},
 		})
 	}
+}
+
+// WithServiceLatestReadyRevision sets the latest ready revision on the Service's status.
+func WithServiceLatestReadyRevision(lrr string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
+func WithServiceStatusRouteNotReady(s *v1alpha1.Service) {
+	s.Status.MarkRouteNotYetReady()
 }
 
 // RouteOption enables further configuration of a Route.
@@ -248,6 +290,29 @@ func WithSpecTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
 	return func(r *v1alpha1.Route) {
 		r.Spec.Traffic = traffic
 	}
+}
+
+// WithRouteUID sets the Route's UID
+func WithRouteUID(uid types.UID) RouteOption {
+	return func(r *v1alpha1.Route) {
+		r.ObjectMeta.UID = uid
+	}
+}
+
+// WithRouteDeletionTimestamp will set the DeletionTimestamp on the Route.
+func WithRouteDeletionTimestamp(r *v1alpha1.Route) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
+// WithRouteFinalizer adds the Route finalizer to the Route.
+func WithRouteFinalizer(r *v1alpha1.Route) {
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "routes.serving.knative.dev")
+}
+
+// WithAnotherRouteFinalizer adds a non-Route finalizer to the Route.
+func WithAnotherRouteFinalizer(r *v1alpha1.Route) {
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "another.serving.knative.dev")
 }
 
 // WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
@@ -273,6 +338,16 @@ func WithStatusTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
 	}
 }
 
+// WithRouteOwnersRemoved clears the owner references of this Route.
+func WithRouteOwnersRemoved(r *v1alpha1.Route) {
+	r.OwnerReferences = nil
+}
+
+// MarkServiceNotOwned calls the function of the same name on the Service's status.
+func MarkServiceNotOwned(r *v1alpha1.Route) {
+	r.Status.MarkServiceNotOwned(routenames.K8sService(r))
+}
+
 // WithDomain sets the .Status.Domain field to the prototypical domain.
 func WithDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace)
@@ -280,7 +355,7 @@ func WithDomain(r *v1alpha1.Route) {
 
 // WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
 func WithDomainInternal(r *v1alpha1.Route) {
-	r.Status.DomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+	r.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
@@ -293,6 +368,11 @@ func WithAddress(r *v1alpha1.Route) {
 // WithAnotherDomain sets the .Status.Domain field to an atypical domain.
 func WithAnotherDomain(r *v1alpha1.Route) {
 	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
+}
+
+// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+func WithLocalDomain(r *v1alpha1.Route) {
+	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
@@ -346,8 +426,24 @@ func WithRouteLabel(key, value string) RouteOption {
 	}
 }
 
+// WithIngressClass sets the ingress class annotation on the Route.
+func WithIngressClass(ingressClass string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+	}
+}
+
 // ConfigOption enables further configuration of a Configuration.
 type ConfigOption func(*v1alpha1.Configuration)
+
+// WithConfigDeletionTimestamp will set the DeletionTimestamp on the Config.
+func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
 
 // WithBuild adds a Build to the provided Configuration.
 func WithBuild(cfg *v1alpha1.Configuration) {
@@ -371,35 +467,50 @@ func WithBuild(cfg *v1alpha1.Configuration) {
 	}
 }
 
+// WithConfigOwnersRemoved clears the owner references of this Configuration.
+func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
+	cfg.OwnerReferences = nil
+}
+
 // WithConfigConcurrencyModel sets the given Configuration's concurrency model.
 func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.RevisionTemplate.Spec.ConcurrencyModel = ss
+		cfg.Spec.RevisionTemplate.Spec.DeprecatedConcurrencyModel = ss
 	}
 }
 
 // WithGeneration sets the generation of the Configuration.
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.Generation = gen
+		cfg.Generation = gen
+		//TODO(dprotaso) remove this for 0.4 release
+		cfg.Spec.DeprecatedGeneration = gen
 	}
 }
 
 // WithObservedGen sets the observed generation of the Configuration.
 func WithObservedGen(cfg *v1alpha1.Configuration) {
-	cfg.Status.ObservedGeneration = cfg.Spec.Generation
+	cfg.Status.ObservedGeneration = cfg.Generation
+}
+
+// WithCreatedAndReady sets the latest{Created,Ready}RevisionName on the Configuration.
+func WithCreatedAndReady(created, ready string) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Status.SetLatestCreatedRevisionName(created)
+		cfg.Status.SetLatestReadyRevisionName(ready)
+	}
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestCreated(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestCreatedRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestCreatedRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // WithLatestReady initializes the .status.latestReadyRevisionName to be the name
 // of the latest revision that the Configuration would have created.
 func WithLatestReady(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestReadyRevisionName(confignames.Revision(cfg))
+	cfg.Status.SetLatestReadyRevisionName(confignames.DeprecatedRevision(cfg))
 }
 
 // MarkRevisionCreationFailed calls .Status.MarkRevisionCreationFailed.
@@ -429,6 +540,12 @@ func WithConfigLabel(key, value string) ConfigOption {
 // RevisionOption enables further configuration of a Revision.
 type RevisionOption func(*v1alpha1.Revision)
 
+// WithRevisionDeletionTimestamp will set the DeletionTimestamp on the Revision.
+func WithRevisionDeletionTimestamp(r *v1alpha1.Revision) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
 // WithInitRevConditions calls .Status.InitializeConditions() on a Revision.
 func WithInitRevConditions(r *v1alpha1.Revision) {
 	r.Status.InitializeConditions()
@@ -446,10 +563,17 @@ func WithBuildRef(name string) RevisionOption {
 	}
 }
 
+// MarkResourceNotOwned calls the function of the same name on the Revision's status.
+func MarkResourceNotOwned(kind, name string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Status.MarkResourceNotOwned(kind, name)
+	}
+}
+
 // WithRevConcurrencyModel sets the concurrency model on the Revision.
 func WithRevConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.ConcurrencyModel = ss
+		rev.Spec.DeprecatedConcurrencyModel = ss
 	}
 }
 
@@ -463,7 +587,7 @@ func WithLogURL(r *v1alpha1.Revision) {
 // but unfortunately Go's type system cannot support that.
 func WithCreationTimestamp(t time.Time) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.ObjectMeta.CreationTimestamp = metav1.Time{t}
+		rev.ObjectMeta.CreationTimestamp = metav1.Time{Time: t}
 	}
 }
 
@@ -601,6 +725,11 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
+// WithPodAutoscalerOwnersRemoved clears the owner references of this PodAutoscaler.
+func WithPodAutoscalerOwnersRemoved(r *autoscalingv1alpha1.PodAutoscaler) {
+	r.OwnerReferences = nil
+}
+
 // WithTraffic updates the PA to reflect it receiving traffic.
 func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
@@ -620,6 +749,12 @@ func WithNoTraffic(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkInactive(reason, message)
 	}
+}
+
+// WithPADeletionTimestamp will set the DeletionTimestamp on the PodAutoscaler.
+func WithPADeletionTimestamp(r *autoscalingv1alpha1.PodAutoscaler) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
 // WithHPAClass updates the PA to add the hpa class annotation.
@@ -689,6 +824,11 @@ func WithExternalName(name string) K8sServiceOption {
 	}
 }
 
+// WithK8sSvcOwnersRemoved clears the owner references of this Route.
+func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
+	svc.OwnerReferences = nil
+}
+
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
 
@@ -707,7 +847,7 @@ type PodOption func(*corev1.Pod)
 func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	return func(pod *corev1.Pod) {
 		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
-			corev1.ContainerStatus{
+			{
 				Name: name,
 				LastTerminationState: corev1.ContainerState{
 					Terminated: &corev1.ContainerStateTerminated{

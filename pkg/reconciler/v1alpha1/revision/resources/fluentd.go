@@ -119,7 +119,7 @@ func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 	}
 
 	return &corev1.Container{
-		Name:      fluentdContainerName,
+		Name:      FluentdContainerName,
 		Image:     observabilityConfig.FluentdSidecarImage,
 		Resources: fluentdResources,
 		Env: []corev1.EnvVar{{

@@ -58,7 +58,7 @@ func TestObjectSorter(t *testing.T) {
 func TestObjectSorterAddUnrecognizedType(t *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Errorf("AddObjects did not panic when receiving an unrecognized type ")
+			t.Error("AddObjects did not panic when receiving an unrecognized type ")
 		}
 	}()
 
@@ -71,7 +71,7 @@ func TestObjectSorterAddUnrecognizedType(t *testing.T) {
 func TestObjectSorterIndexerUnrecognizedType(t *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Errorf("IndexerForObjectType did not panic when receiving an unrecognized type ")
+			t.Error("IndexerForObjectType did not panic when receiving an unrecognized type ")
 		}
 	}()
 

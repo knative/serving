@@ -60,7 +60,7 @@ func TestBuilds(t *testing.T) {
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 31,
+				DeprecatedGeneration: 31,
 				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
@@ -102,9 +102,6 @@ func TestBuilds(t *testing.T) {
 				}},
 			},
 			"status": map[string]interface{}{
-				"startTime":      nil,
-				"completionTime": nil,
-				"stepStates":     nil,
 				"stepsCompleted": nil,
 			},
 		}),
@@ -116,7 +113,7 @@ func TestBuilds(t *testing.T) {
 				Name:      "build-template",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Generation: 42,
+				DeprecatedGeneration: 42,
 				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Template: &buildv1alpha1.TemplateInstantiationSpec{
 						Name: "buildpacks",
@@ -164,9 +161,6 @@ func TestBuilds(t *testing.T) {
 				},
 			},
 			"status": map[string]interface{}{
-				"startTime":      nil,
-				"completionTime": nil,
-				"stepStates":     nil,
 				"stepsCompleted": nil,
 			},
 		}),

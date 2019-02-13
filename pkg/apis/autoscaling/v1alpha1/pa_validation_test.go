@@ -167,6 +167,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		name: "valid",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
 				Annotations: map[string]string{
 					"minScale": "2",
 				},
@@ -186,6 +187,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		name: "bad scale bounds",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "FOO",
 				},
@@ -206,11 +208,18 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "empty spec",
-		r:    &PodAutoscaler{},
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
+		},
 		want: apis.ErrMissingField("spec"),
 	}, {
 		name: "nested spec error",
 		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
 				ConcurrencyModel: "BadValue",
 				ServiceName:      "foo",

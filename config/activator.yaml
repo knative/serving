@@ -17,8 +17,9 @@ kind: Deployment
 metadata:
   name: activator
   namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: activator
@@ -30,6 +31,7 @@ spec:
       labels:
         app: activator
         role: activator
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -38,8 +40,10 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/activator
         ports:
-        - name: activator-port
+        - name: http1-port
           containerPort: 8080
+        - name: h2c-port
+          containerPort: 8081
         - name: metrics-port
           containerPort: 9090
         args:
@@ -61,6 +65,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: SYSTEM_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging

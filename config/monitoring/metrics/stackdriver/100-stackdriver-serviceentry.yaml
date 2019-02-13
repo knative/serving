@@ -16,6 +16,8 @@ kind: ServiceEntry
 metadata:
   name: googleapis
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   hosts:
   - "*.googleapis.com"
@@ -31,6 +33,8 @@ kind: ServiceEntry
 metadata:
   name: metadata-server-gke
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   hosts:
   - metadata
@@ -51,6 +55,8 @@ kind: ServiceEntry
 metadata:
   name: metadata-server
   namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
 spec:
   hosts:
   - metadata.google.internal

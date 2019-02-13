@@ -30,11 +30,20 @@ A valid Route object, when reconciled by Knative Route controller, will generate
 the following objects:
 
 - A VirtualService to realize the routing from the Gateway
-  `knative-shared-gateway` to the traffic target referenced in the Route.
+  `knative-ingress-gateway` to the traffic target referenced in the Route.
 - A Service with the same name as the Route, so that we can access the Route
-  using `<route-name>.<route-namespace>.svc.cluster.local`. This Service has no
-  Pod, we use it solely to have a domain name and a cluster IP to be used in the
-  VirtualService.
+  using `<route-name>.<route-namespace>.svc.<cluster-domain-name>`. This Service
+  has no Pod, we use it solely to have a domain name and a cluster IP to be used
+  in the VirtualService. The value of `<cluster-domain-name>` depends on a
+  domain name specified during the installation of the cluster. If no custom
+  domain name was specified, then `cluster.local` should be used as in the
+  following example:
+
+  `<route-name>.<route-namespace>.svc.cluster.local`
+
+  otherwise cluster's custom domain name should be used:
+
+  `<route-name>.<route-namespace>.svc.real-domain-name.com`
 
 For example, if we have two Knative Revisions `hello-world-01` and
 `hello-world-02`, and one Route `hello-world` that directs traffic to both

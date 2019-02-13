@@ -17,12 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -60,12 +59,16 @@ var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
+	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
+	// when metadata.generation was not being incremented by the api server
+	//
+	// This property will be dropped in future Knative releases and should
+	// not be used - use metadata.generation
+	//
+	// Tracking issue: https://github.com/knative/serving/issues/643
+	//
 	// +optional
-	Generation int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
@@ -167,14 +170,14 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		"Revision %q failed with message: %q.", name, message)
+		"Revision %q failed with message: %s.", name, message)
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 	confCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
 		"RevisionFailed",
-		"Revision creation failed with message: %q.", message)
+		"Revision creation failed with message: %s.", message)
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {

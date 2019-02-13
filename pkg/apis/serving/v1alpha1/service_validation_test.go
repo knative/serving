@@ -27,6 +27,8 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
+const incorrectDNS1035Label = "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"
+
 func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -35,6 +37,9 @@ func TestServiceValidation(t *testing.T) {
 	}{{
 		name: "valid runLatest",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
@@ -53,8 +58,11 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "valid pinned",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
@@ -72,6 +80,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "valid release -- one revision",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{"asdf"},
@@ -91,6 +102,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "valid release -- two revisions",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
@@ -111,6 +125,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "valid manual",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Manual: &ManualType{},
 			},
@@ -119,6 +136,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "invalid multiple types",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
@@ -131,7 +151,7 @@ func TestServiceValidation(t *testing.T) {
 						},
 					},
 				},
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
@@ -151,7 +171,11 @@ func TestServiceValidation(t *testing.T) {
 		},
 	}, {
 		name: "invalid missing type",
-		s:    &Service{},
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
 			Paths:   []string{"spec.manual", "spec.pinned", "spec.release", "spec.runLatest"},
@@ -159,6 +183,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "invalid runLatest",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
@@ -178,8 +205,11 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "invalid pinned",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
-				Pinned: &PinnedType{
+				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
@@ -198,6 +228,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "invalid release -- too few revisions; nil",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
@@ -214,8 +247,77 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("spec.release.revisions"),
 	}, {
+		name: "invalid release -- revision name invalid, long",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{strings.Repeat("a", 64)},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [must be no more than 63 characters]", "spec.release.revisions[0]"),
+	}, {
+		name: "invalid release -- revision name invalid, incorrect",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{".negative"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(incorrectDNS1035Label, "spec.release.revisions[0]"),
+	}, {
+		name: "valid release -- with @latest",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"s-1-00001", ReleaseLatestRevisionKeyword},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
 		name: "invalid release -- too few revisions; empty slice",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{},
@@ -235,6 +337,9 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "invalid release -- too many revisions",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{"asdf", "fdsa", "abcde"},
@@ -250,13 +355,13 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
-			Message: "expected number of elements in range [1, 2], got 3",
-			Paths:   []string{"spec.release.revisions"},
-		},
+		want: apis.ErrOutOfBoundsValue("3", "1", "2", "spec.release.revisions"),
 	}, {
 		name: "invalid release -- rollout greater than 99",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
@@ -273,10 +378,13 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("100", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue("100", "0", "99", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- rollout less than 0",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
@@ -293,10 +401,13 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("-50", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue("-50", "0", "99", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- non-zero rollout for single revision",
 		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions:      []string{"asdf"},
@@ -334,12 +445,15 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: special character . must not be present", Paths: []string{"metadata.name"}},
+		want: &apis.FieldError{
+			Message: incorrectDNS1035Label,
+			Paths:   []string{"metadata.name"},
+		},
 	}, {
 		name: "invalid name - too long",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: strings.Repeat("a", 65),
+				Name: strings.Repeat("a", 64),
 			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
@@ -355,7 +469,10 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{Message: "Invalid resource name: length must be no more than 63 characters", Paths: []string{"metadata.name"}},
+		want: &apis.FieldError{
+			Message: "not a DNS 1035 label: [must be no more than 63 characters]",
+			Paths:   []string{"metadata.name"},
+		},
 	}}
 
 	for _, test := range tests {

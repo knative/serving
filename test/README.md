@@ -19,7 +19,7 @@ If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 ## Presubmit tests
 
 [`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the
-[end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
+[end-to-end tests](./e2e) and the [conformance tests](./conformance)
 
 This script, and consequently, the e2e and conformance tests will be run before
 every code submission. You can run these tests manually with:
@@ -78,26 +78,44 @@ To run one e2e test case, e.g. TestAutoscaleUpDownUp, use
 go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 ```
 
+### Running tests in short mode
+
+Running tests in short mode excludes some large-scale E2E tests and saves
+time/resources required for running the test suite. To run the tests in short
+mode, use
+[the `-short` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags)
+
+```bash
+go test -v -tags=e2e -count=1 -short ./test/e2e
+```
+
+To get a better idea where the flag is used, search for `testing.Short()`
+throughout the test source code.
+
 ### Environment requirements
 
 These tests require:
 
-1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The `knative-testing` resources:
+1. [A running `Knative Serving` cluster.](../DEVELOPMENT.md#prerequisites)
+1. The `knative-testing` resources:
+
    ```bash
    ko apply -f test/config
    ```
-3. The namespace `serving-tests`:
+
+1. The namespace `serving-tests`:
+
    ```bash
    kubectl create namespace serving-tests
    ```
-4. A docker repo containing [the test images](#test-images)
+
+1. A docker repo containing [the test images](#test-images)
 
 ### Common Flags
 
 - By default the e2e tests against the current cluster in `~/.kube/config` using
   the environment specified in
-  [your environment variables](/DEVELOPMENT.md#environment-setup).
+  [your environment variables](../DEVELOPMENT.md#setup-your-environment).
 - Since these tests are fairly slow, running them with logging enabled is
   recommended (`-v`).
 - Using [`--logverbose`](#output-verbose-log) to see the verbose log output from
@@ -107,7 +125,7 @@ These tests require:
 
 You can [use test flags](#flags) to control the environment your tests run
 against, i.e. override
-[your environment variables](/DEVELOPMENT.md#environment-setup):
+[your environment variables](../DEVELOPMENT.md#setup-your-environment):
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
@@ -134,9 +152,9 @@ The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. It
 requires:
 
-- [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
+- [`DOCKER_REPO_OVERRIDE`](../DEVELOPMENT.md#setup-your-environment) to be set
 - You to be
-  [authenticated with your `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
+  [authenticated with your `DOCKER_REPO_OVERRIDE`](../docs/setting-up-a-docker-registry.md)
 - [`docker`](https://docs.docker.com/install/) to be installed
 
 To run the script for all end to end test images:
@@ -160,7 +178,7 @@ New test images should be placed in `./test/test_images`.
 ## Flags
 
 These flags are useful for running against an existing cluster, making use of
-your existing [environment setup](/DEVELOPMENT.md#environment-setup).
+your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
 Tests importing [`github.com/knative/serving/test`](#test-library) recognize
 these flags:
@@ -174,7 +192,7 @@ these flags:
 
 The `--dockerrepo` argument lets you specify the docker repo from which images
 used by your tests should be pulled. This will default to the value of your
-[`DOCKER_REPO_OVERRIDE` environment variable](/DEVELOPMENT.md#environment-setup)
+[`DOCKER_REPO_OVERRIDE` environment variable](../DEVELOPMENT.md#setup-your-environment)
 if not specified.
 
 ```bash
@@ -200,7 +218,7 @@ Of course, this implies that you tagged the images when you
 ### Using a resolvable domain
 
 If you set up your cluster using
-[the getting started docs](/DEVELOPMENT.md#getting-started), Routes created in
+[the getting started docs](../DEVELOPMENT.md#prerequisites), Routes created in
 the test will use the domain `example.com`, unless the route has label
 `app=prod` in which case they will use the domain `prod-domain.com`. Since these
 domains will not be resolvable to deployments in your test cluster, in order to

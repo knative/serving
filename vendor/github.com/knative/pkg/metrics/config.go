@@ -19,6 +19,7 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,8 @@ const (
 	Stackdriver metricsBackend = "stackdriver"
 	// Prometheus is used for Prometheus backend
 	Prometheus metricsBackend = "prometheus"
+
+	defaultBackendEnvName = "DEFAULT_METRICS_BACKEND"
 )
 
 type metricsConfig struct {
@@ -60,9 +63,15 @@ type metricsConfig struct {
 
 func getMetricsConfig(m map[string]string, domain string, component string, logger *zap.SugaredLogger) (*metricsConfig, error) {
 	var mc metricsConfig
-	backend, ok := m[backendDestinationKey]
-	if !ok {
-		return nil, errors.New("metrics.backend-destination key is missing")
+	// Read backend setting from environment variable first
+	backend := os.Getenv(defaultBackendEnvName)
+	if backend == "" {
+		// Use Prometheus if DEFAULT_METRICS_BACKEND does not exist or is empty
+		backend = string(Prometheus)
+	}
+	// Override backend if it is setting in config map.
+	if backendFromConfig, ok := m[backendDestinationKey]; ok {
+		backend = backendFromConfig
 	}
 	lb := metricsBackend(strings.ToLower(backend))
 	switch lb {
@@ -116,14 +125,13 @@ func UpdateExporterFromConfigMap(domain string, component string, logger *zap.Su
 	return func(configMap *corev1.ConfigMap) {
 		newConfig, err := getMetricsConfig(configMap.Data, domain, component, logger)
 		if err != nil {
-			ce := getCurMetricsExporter()
-			if ce == nil {
+			if ce := getCurMetricsExporter(); ce == nil {
 				// Fail the process if there doesn't exist an exporter.
-				logger.Fatal("Failed to get a valid metrics config")
+				logger.Error("Failed to get a valid metrics config", zap.Error(err))
 			} else {
 				logger.Error("Failed to get a valid metrics config; Skip updating the metrics exporter", zap.Error(err))
-				return
 			}
+			return
 		}
 
 		if isMetricsConfigChanged(newConfig) {
