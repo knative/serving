@@ -15,12 +15,9 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -52,13 +49,9 @@ type stubActivator struct {
 	name      string
 }
 
-func newStubActivator(namespace string, name string, server *httptest.Server) activator.Activator {
-	url, _ := url.Parse(server.URL)
-	host := url.Hostname()
-	port, _ := strconv.Atoi(url.Port())
-
+func newStubActivator(namespace string, name string) activator.Activator {
 	return &stubActivator{
-		endpoint:  activator.Endpoint{FQDN: host, Port: int32(port)},
+		endpoint:  activator.Endpoint{FQDN: "example.com", Port: int32(8080)},
 		namespace: namespace,
 		name:      name,
 	}
@@ -93,14 +86,7 @@ func TestActivationHandler(t *testing.T) {
 		return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
 	}
 
-	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, "everything good!")
-		}),
-	)
-	defer server.Close()
-
-	act := newStubActivator(testNamespace, testRevName, server)
+	act := newStubActivator(testNamespace, testRevName)
 
 	examples := []struct {
 		label           string
@@ -242,14 +228,16 @@ func TestActivationHandler(t *testing.T) {
 				if e.wantErr != nil {
 					return nil, e.wantErr
 				}
-				resp, err := http.DefaultTransport.RoundTrip(r)
-				if err != nil {
-					return resp, err
-				}
+
+				fake := httptest.NewRecorder()
+
 				if e.attempts != "" {
-					resp.Header.Add(activator.RequestCountHTTPHeader, e.attempts)
+					fake.Header().Add(activator.RequestCountHTTPHeader, e.attempts)
 				}
-				return resp, err
+
+				fake.WriteHeader(200)
+				fake.WriteString(wantBody)
+				return fake.Result(), nil
 			})
 
 			reporter := &fakeReporter{}
@@ -307,11 +295,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 
 	throttler := getThrottler(breakerParams, t)
 
-	act := &stubActivator{
-		endpoint:  activator.Endpoint{FQDN: "test.com", Port: int32(8080)},
-		namespace: namespace,
-		name:      revName,
-	}
+	act := newStubActivator(namespace, revName)
 	lockerCh := make(chan struct{})
 	handler := getHandler(throttler, act, lockerCh, t)
 	sendRequests(requests, namespace, revName, respCh, handler)
@@ -337,11 +321,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 		namespace := fmt.Sprintf("real-namespace-%d", rev)
 		revName := testRevName
 
-		act := &stubActivator{
-			endpoint:  activator.Endpoint{FQDN: "test.com", Port: int32(8080)},
-			namespace: namespace,
-			name:      revName,
-		}
+		act := newStubActivator(namespace, revName)
 		handler := getHandler(throttler, act, lockerCh, t)
 
 		requestCount := overallRequests / revisions
