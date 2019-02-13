@@ -33,7 +33,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	errutil "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -162,13 +161,14 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation.
-	revName := resourcenames.DeprecatedRevision(config)
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
-			logger.Errorf("Failed to create Revision %q: %v", revName, err)
-			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
+			errMsg := fmt.Sprintf("Failed to create Revision for Configuration %q: %v", config.Name, err)
+
+			logger.Errorf(errMsg)
+			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", errMsg)
 
 			// Mark the Configuration as not-Ready since creating
 			// its latest revision failed.
@@ -177,9 +177,11 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 			return err
 		}
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Configuration: %q failed to Get Revision: %q", config.Name, revName)
+		logger.Errorf("Failed to reconcile Configuration %q - failed to get Revision: %v", config.Name, err)
 		return err
 	}
+
+	revName := lcr.Name
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
@@ -243,26 +245,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1a
 		return list[0], nil
 	}
 
-	// This is a legacy path for older revisions that don't have
-	// the configuration metadata generation label.
-	//
-	// We will update these revisions with the label.
-	revName := resourcenames.DeprecatedRevision(config)
-
-	rev, err := lister.Get(revName)
-	if err != nil {
-		return rev, err
-	}
-
-	rev = rev.DeepCopy()
-	resources.UpdateRevisionLabels(rev, config)
-
-	rev, err = c.ServingClientSet.Serving().Revisions(config.Namespace).Update(rev)
-	if err != nil {
-		return nil, fmt.Errorf("error migrating revision metadata generation label: %v", err)
-	}
-
-	return rev, nil
+	return nil, errors.NewNotFound(v1alpha1.Resource("revisions"), fmt.Sprintf("revision for %s", config.Name))
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
@@ -291,7 +274,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 			// Otherwise, create a build and reference that.
 			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
 			if err != nil {
-				return nil, errutil.Wrapf(err, "Failed to create Build %v", build.GetName())
+				return nil, errutil.Wrapf(err, "Failed to create Build for Configuration %q", config.GetName())
 			}
 			logger.Infof("Created Build:\n%+v", result.GetName())
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())

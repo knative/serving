@@ -49,7 +49,6 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "hello-taskrun",
 				},
 				Spec: pipelinev1alpha1.TaskRunSpec{
 					Trigger: pipelinev1alpha1.TaskTrigger{
@@ -87,7 +86,6 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "hello-pipelinerun",
 				},
 				Spec: pipelinev1alpha1.PipelineRunSpec{
 					Trigger: pipelinev1alpha1.PipelineTrigger{

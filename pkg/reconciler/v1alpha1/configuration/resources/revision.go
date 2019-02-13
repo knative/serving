@@ -22,7 +22,6 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -35,7 +34,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	}
 	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace
-	rev.Name = names.DeprecatedRevision(config)
+	rev.GenerateName = config.Name + "-"
 
 	UpdateRevisionLabels(rev, config)
 

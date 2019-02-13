@@ -54,9 +54,9 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "no",
-				Name:        "build-00012",
-				Annotations: map[string]string{},
+				Namespace:    "no",
+				GenerateName: "build-",
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -108,9 +108,9 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "build-00099",
-				Annotations: map[string]string{},
+				Namespace:    "with",
+				GenerateName: "build-",
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -163,9 +163,9 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "labels-00099",
-				Annotations: map[string]string{},
+				Namespace:    "with",
+				GenerateName: "labels-",
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -215,8 +215,8 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "with",
-				Name:      "annotations-00099",
+				Namespace:    "with",
+				GenerateName: "annotations-",
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
