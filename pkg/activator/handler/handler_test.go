@@ -328,7 +328,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 		revisions       = 2
 	)
 
-	respCh := make(chan *httptest.ResponseRecorder, overallRequests)
+	respCh := make(chan *httptest.ResponseRecorder)
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	throttler := getThrottler(breakerParams, t)
 
@@ -353,6 +353,8 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
+// sendRequests sends `count` concurrent requests via the given handler and writes
+// the recorded responses to the `respCh`.
 func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler ActivationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
@@ -366,6 +368,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	}
 }
 
+// getThrottler returns a fully setup Throttler with some sensible defaults for tests.
 func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Throttler {
 	endpointsGetter := func(activator.RevisionID) (int32, error) {
 		// Since revisions have a concurrency of 1, this will cause the very same capacity
@@ -377,6 +380,8 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 	return throttler
 }
 
+// getHandler returns an already setup ActivationHandler. The roundtripper is controlled
+// via the given `lockerCh`.
 func getHandler(throttler *activator.Throttler, act activator.Activator, lockerCh chan struct{}, t *testing.T) ActivationHandler {
 	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// Allows only one request at a time until read from.
