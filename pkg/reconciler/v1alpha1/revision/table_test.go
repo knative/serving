@@ -677,28 +677,71 @@ func TestReconcile(t *testing.T) {
 		// the old label value
 		Name: "steady state revision with different generation labels",
 		Objects: []runtime.Object{
-			rev("foo", "legacy-label",
+			rev("foo", "different-gen-labels",
 				WithConfigurationGenerationLabel(5),
 				WithDeprecatedConfigurationMetadataGenerationLabel(2),
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "legacy-label"),
-			deploy("foo", "legacy-label",
+			kpa("foo", "different-gen-labels"),
+			deploy("foo", "different-gen-labels",
 				WithConfigurationGenerationLabel(5),
 				WithDeprecatedConfigurationMetadataGenerationLabel(2),
 			),
-			svc("foo", "legacy-label"),
-			image("foo", "legacy-label"),
+			svc("foo", "different-gen-labels"),
+			image("foo", "different-gen-labels"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "legacy-label",
+			Object: rev("foo", "different-gen-labels",
 				WithConfigurationGenerationLabel(2),
 				WithDeprecatedConfigurationMetadataGenerationLabel(2),
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 			),
 		}, {
-			Object: deploy("foo", "legacy-label",
+			Object: deploy("foo", "different-gen-labels",
 				WithConfigurationGenerationLabel(2),
 				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+			),
+		}},
+		Key: "foo/different-gen-labels",
+	}, {
+		Name: "steady state revision with legacy annotation (from serving 0.2)",
+		Objects: []runtime.Object{
+			rev("foo", "legacy-annotation",
+				WithConfigurationGenerationAnnotation(5),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "legacy-annotation"),
+			deploy("foo", "legacy-annotation"),
+			svc("foo", "legacy-annotation"),
+			image("foo", "legacy-annotation"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "legacy-annotation",
+				// Bye bye annotation
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+			),
+		}},
+		Key: "foo/legacy-annotation",
+	}, {
+		// This occurs if the revision was created with 0.2 and
+		// received a /configurationGeneration label but never
+		// received a /configurationMetadataGeneration label since
+		// it was not the latest created revision
+		//
+		// We drop this label since it's value was set according
+		// to a configuration's spec.generation
+		Name: "steady state revision with legacy label",
+		Objects: []runtime.Object{
+			rev("foo", "legacy-label",
+				WithConfigurationGenerationLabel(5),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "legacy-label"),
+			deploy("foo", "legacy-label"),
+			svc("foo", "legacy-label"),
+			image("foo", "legacy-label"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "legacy-label",
+				// Bye bye label
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 			),
 		}},
 		Key: "foo/legacy-label",
@@ -1079,6 +1122,16 @@ func WithConfigurationGenerationLabel(generation int) RevisionOption {
 			r.Labels = make(map[string]string)
 		}
 		r.Labels[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
+	}
+}
+
+// WithConfigurationGenerationLabel sets the label on the revision
+func WithConfigurationGenerationAnnotation(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
 	}
 }
 
