@@ -101,61 +101,66 @@ func TestGRPC(t *testing.T) {
 
 	pc := ping.NewPingServiceClient(conn)
 
-	// Unary
-	logger.Info("Testing unary Ping")
+	unaryTest := func(t *testing.T) {
+		logger.Info("Testing unary Ping")
 
-	resp, err := pc.Ping(context.TODO(), &ping.Request{Msg: "Hello!"})
-	if err != nil {
-		t.Fatalf("Couldn't send request: %v", err)
-	}
-
-	if resp.Msg != "Hello!" {
-		t.Errorf("Unexpected response. Want %q, got %q", "Hello!", resp.Msg)
-	}
-
-	// Stream
-	logger.Info("Testing streaming Ping")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	stream, err := pc.PingStream(ctx)
-	if err != nil {
-		t.Fatalf("Error creating stream: %v", err)
-	}
-
-	count := 10
-	for i := 0; i < count; i++ {
-		logger.Infof("Sending stream %d of %d", i+1, count)
-
-		payload := make([]byte, 4096)
-		_, err = rand.Read(payload)
+		resp, err := pc.Ping(context.TODO(), &ping.Request{Msg: "Hello!"})
 		if err != nil {
-			t.Fatalf("Error generating payload: %v", err)
-		}
-		want := string(payload)
-
-		err = stream.Send(&ping.Request{Msg: want})
-		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
+			t.Fatalf("Couldn't send request: %v", err)
 		}
 
-		resp, err = stream.Recv()
-		if err != nil {
-			t.Fatalf("Error receiving response: %v", err)
-		}
-
-		got := resp.Msg
-
-		if want != got {
-			t.Errorf("Unexpected response. Want %q, got %q", want, got)
+		if resp.Msg != "Hello!" {
+			t.Errorf("Unexpected response. Want %q, got %q", "Hello!", resp.Msg)
 		}
 	}
 
-	stream.CloseSend()
+	streamTest := func(t *testing.T) {
+		logger.Info("Testing streaming Ping")
 
-	_, err = stream.Recv()
-	if err != io.EOF {
-		t.Errorf("Expected EOF, got %v", err)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		stream, err := pc.PingStream(ctx)
+		if err != nil {
+			t.Fatalf("Error creating stream: %v", err)
+		}
+
+		count := 3
+		for i := 0; i < count; i++ {
+			logger.Infof("Sending stream %d of %d", i+1, count)
+
+			payload := make([]byte, 4096)
+			_, err = rand.Read(payload)
+			if err != nil {
+				t.Fatalf("Error generating payload: %v", err)
+			}
+			want := string(payload)
+
+			err = stream.Send(&ping.Request{Msg: want})
+			if err != nil {
+				t.Fatalf("Error sending request: %v", err)
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				t.Fatalf("Error receiving response: %v", err)
+			}
+
+			got := resp.Msg
+
+			if want != got {
+				t.Errorf("Unexpected response. Want %q, got %q", want, got)
+			}
+		}
+
+		stream.CloseSend()
+
+		_, err = stream.Recv()
+		if err != io.EOF {
+			t.Errorf("Expected EOF, got %v", err)
+		}
 	}
+
+	t.Run("unary ping", unaryTest)
+	t.Run("streaming ping", streamTest)
 }
