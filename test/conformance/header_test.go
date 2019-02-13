@@ -20,6 +20,7 @@ package conformance
 
 import (
 	"net"
+	"net/http"
 	"regexp"
 	"strings"
 	"testing"
@@ -83,22 +84,25 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	headers := ri.Request.Headers
 
 	for header, regex := range expectedHeaders {
-		hv, ok := headers[header]
-		if !ok {
-			t.Errorf("Header %s was not present on request", header)
-			continue
-		}
-
-		switch {
-		case strings.EqualFold(header, "x-forwarded-for"):
-			for _, ip := range strings.Split(hv, ",") {
-				if net.ParseIP(strings.TrimSpace(ip)) == nil {
-					t.Errorf("Header %s has invalid IP: %s", header, ip)
-				}
+		hvl, ok := headers[http.CanonicalHeaderKey(header)]
+		// Check against each value for the header key
+		for _, hv := range hvl {
+			if !ok {
+				t.Errorf("Header %s was not present on request", header)
+				continue
 			}
-		default:
-			if !regex.MatchString(hv) {
-				t.Errorf("%s = %s; want: %s", header, hv, regex.String())
+
+			switch {
+			case strings.EqualFold(header, "x-forwarded-for"):
+				for _, ip := range strings.Split(hv, ",") {
+					if net.ParseIP(strings.TrimSpace(ip)) == nil {
+						t.Errorf("Header %s has invalid IP: %s", header, ip)
+					}
+				}
+			default:
+				if !regex.MatchString(hv) {
+					t.Errorf("%s = %s; want: %s", header, hv, regex.String())
+				}
 			}
 		}
 	}

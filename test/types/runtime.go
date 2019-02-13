@@ -36,7 +36,7 @@ type RequestInfo struct {
 	// Method is the method used for the request.
 	Method string `json:"method"`
 	// Headers is a Map of all headers set.
-	Headers map[string]string `json:"headers"`
+	Headers map[string][]string `json:"headers"`
 }
 
 // HostInfo contains information about the host environment.
