@@ -314,7 +314,7 @@ func TestReconcile_Gateway(t *testing.T) {
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 
 		// As we use a customized resource name for Gateway CRD (i.e. `gateways`), not the one
-		// orginally geneerated by kubernetes code generator (i.e. `gatewaies`), we have to
+		// originally geneerated by kubernetes code generator (i.e. `gatewaies`), we have to
 		// explicitly create gateways when setting up the test per suggestion
 		// https://github.com/knative/serving/blob/a6852fc3b6cdce72b99c5d578dd64f2e03dabb8b/vendor/k8s.io/client-go/testing/fixture.go#L292
 		gateways := getGatewaysFromObjects(listers.GetSharedObjects())
