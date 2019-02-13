@@ -85,12 +85,12 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 	for header, regex := range expectedHeaders {
 		hvl, ok := headers[http.CanonicalHeaderKey(header)]
+		if !ok {
+			t.Errorf("Header %s was not present on request", header)
+			continue
+		}
 		// Check against each value for the header key
 		for _, hv := range hvl {
-			if !ok {
-				t.Errorf("Header %s was not present on request", header)
-				continue
-			}
 
 			switch {
 			case strings.EqualFold(header, "x-forwarded-for"):
