@@ -49,6 +49,7 @@ const (
 	timeout             = "timeout"
 	printport           = "printport"
 	runtime             = "runtime"
+	protocols           = "protocols"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.

@@ -21,6 +21,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/test/logging"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 const (
@@ -56,7 +58,7 @@ func ListenAndServeGracefullyWithPattern(addr string, handlers map[string]func(w
 		m.HandleFunc(pattern, handler)
 	}
 
-	server := http.Server{Addr: addr, Handler: m}
+	server := http.Server{Addr: addr, Handler: h2c.NewHandler(m, &http2.Server{})}
 	go server.ListenAndServe()
 
 	<-signals.SetupSignalHandler()
