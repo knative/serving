@@ -46,7 +46,7 @@ import (
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"

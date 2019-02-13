@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
-	_ "github.com/knative/serving/pkg/system/testing" // Setup system.Namespace()
+	_ "github.com/knative/pkg/system/testing" // Setup system.Namespace()
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:e7616ef642758549870638e204b48d6270fcb65fb73c9904cf3e0b7b795f0bd6"
+  digest = "1:08fd8a70f17af4a706f4587be2c473fc8d8450bebc7392b98f2a3738ca333dc4"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -487,6 +487,8 @@
     "metrics",
     "metrics/metricskey",
     "signals",
+    "system",
+    "system/testing",
     "test",
     "test/logging",
     "test/spoof",
@@ -497,7 +499,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "5db4e8e38e5682fd28c4849ffa3135da7787edb6"
+  revision = "c089ddfc5d7067c9fcf517ef71d2307b102f2fa0"
 
 [[projects]]
   branch = "master"
@@ -1318,6 +1320,8 @@
     "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/metrics/metricskey",
     "github.com/knative/pkg/signals",
+    "github.com/knative/pkg/system",
+    "github.com/knative/pkg/system/testing",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",

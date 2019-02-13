@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 
@@ -82,7 +82,7 @@ type ControllerOptions struct {
 	// registration.
 	SecretName string
 
-	// Namespace is the namespace in which everything above lives
+	// Namespace is the namespace in which everything above lives.
 	Namespace string
 
 	// Port where the webhook is served. Per k8s admission
@@ -200,46 +200,41 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 	return serverKey, serverCert, caCert, nil
 }
 
-// Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
+// validate checks whether "new" and "old" implement HasImmutableFields and checks them,
 // it then delegates validation to apis.Validatable on "new".
-func Validate(_ context.Context) ResourceCallback {
-	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
-			// Copy the old object and set defaults so that we don't reject our own
-			// defaulting done earlier in the webhook.
-			old = old.DeepCopyObject().(GenericCRD)
-			old.SetDefaults()
+func validate(old GenericCRD, new GenericCRD) error {
+	if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
+		// Copy the old object and set defaults so that we don't reject our own
+		// defaulting done earlier in the webhook.
+		old = old.DeepCopyObject().(GenericCRD)
+		old.SetDefaults()
 
-			immutableOld, ok := old.(apis.Immutable)
-			if !ok {
-				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
-			}
-			if err := immutableNew.CheckImmutableFields(immutableOld); err != nil {
-				return err
-			}
+		immutableOld, ok := old.(apis.Immutable)
+		if !ok {
+			return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
 		}
-		// Can't just `return new.Validate()` because it doesn't properly nil-check.
-		if err := new.Validate(); err != nil {
+		if err := immutableNew.CheckImmutableFields(immutableOld); err != nil {
 			return err
 		}
-		return nil
 	}
+	// Can't just `return new.Validate()` because it doesn't properly nil-check.
+	if err := new.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
-// SetDefaults simply leverages apis.Defaultable to set defaults.
-func SetDefaults(_ context.Context) ResourceDefaulter {
-	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		before, after := crd.DeepCopyObject(), crd
-		after.SetDefaults()
+// setDefaults simply leverages apis.Defaultable to set defaults.
+func setDefaults(patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
+	before, after := crd.DeepCopyObject(), crd
+	after.SetDefaults()
 
-		patch, err := duck.CreatePatch(before, after)
-		if err != nil {
-			return err
-		}
-
-		*patches = append(*patches, patch...)
-		return nil
+	patch, err := duck.CreatePatch(before, after)
+	if err != nil {
+		return nil, err
 	}
+
+	return append(patches, patch...), nil
 }
 
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
@@ -269,7 +264,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
 	if err != nil {
-		logger.Error("Could not configure admission webhook certs", zap.Error(err))
+		logger.Errorw("could not configure admission webhook certs", zap.Error(err))
 		return err
 	}
 
@@ -297,7 +292,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	case <-time.After(ac.Options.RegistrationDelay):
 		cl := ac.Client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if err := ac.register(ctx, cl, caCert); err != nil {
-			logger.Error("Failed to register webhook", zap.Error(err))
+			logger.Errorw("failed to register webhook", zap.Error(err))
 			return err
 		}
 		logger.Info("Successfully registered webhook")
@@ -308,7 +303,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	serverBootstrapErrCh := make(chan struct{})
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			logger.Error("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
+			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
 			close(serverBootstrapErrCh)
 		}
 	}()
@@ -375,31 +370,33 @@ func (ac *AdmissionController) register(
 		}},
 	}
 
-	// Set the owner to our deployment
+	// Set the owner to our deployment.
 	deployment, err := ac.Client.ExtensionsV1beta1().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("Failed to fetch our deployment: %s", err)
+		return fmt.Errorf("failed to fetch our deployment: %v", err)
 	}
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
 
-	// Try to create the webhook and if it already exists validate webhook rules
+	// Try to create the webhook and if it already exists validate webhook rules.
 	_, err = client.Create(webhook)
 	if err != nil {
 		if !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failed to create a webhook: %s", err)
+			return fmt.Errorf("failed to create a webhook: %v", err)
 		}
 		logger.Info("Webhook already exists")
 		configuredWebhook, err := client.Get(ac.Options.WebhookName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("Error retrieving webhook: %s", err)
+			return fmt.Errorf("error retrieving webhook: %v", err)
 		}
-		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
+		if ok, err := kmp.SafeEqual(configuredWebhook.Webhooks, webhook.Webhooks); err != nil {
+			return fmt.Errorf("error diffing webhooks: %v", err)
+		} else if !ok {
 			logger.Info("Updating webhook")
 			// Set the ResourceVersion as required by update.
 			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
 			if _, err := client.Update(webhook); err != nil {
-				return fmt.Errorf("Failed to update webhook: %s", err)
+				return fmt.Errorf("failed to update webhook: %s", err)
 			}
 		} else {
 			logger.Info("Webhook is already valid")
@@ -413,10 +410,12 @@ func (ac *AdmissionController) register(
 // ServeHTTP implements the external admission webhook for mutating
 // serving resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	logger := ac.Logger
 	logger.Infof("Webhook ServeHTTP request=%#v", r)
 
-	// verify the content type is accurate
+	// Verify the content type is accurate.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
@@ -424,7 +423,6 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	var review admissionv1beta1.AdmissionReview
-	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
 		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
 		return
@@ -445,7 +443,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		response.Response.UID = review.Request.UID
 	}
 
-	logger.Infof("AdmissionReview for %s: %v/%v response=%v",
+	logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
 		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -498,33 +496,27 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 	logger := logging.FromContext(ctx)
 	handler, ok := ac.Handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind %v", gvk)
+		logger.Errorf("Unhandled kind: %v", gvk)
 		return nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
-	oldObj := handler.DeepCopyObject().(GenericCRD)
-	newObj := handler.DeepCopyObject().(GenericCRD)
+	// nil values denote absence of `old` (create) or `new` (delete) objects.
+	var oldObj, newObj GenericCRD
 
 	if len(newBytes) != 0 {
+		newObj = handler.DeepCopyObject().(GenericCRD)
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
-	} else {
-		// Use nil to denote the absence of a new object (delete)
-		newObj = nil
 	}
-
 	if len(oldBytes) != 0 {
+		oldObj = handler.DeepCopyObject().(GenericCRD)
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
-	} else {
-		// Use nil to denote the absence of an old object (create)
-		oldObj = nil
 	}
-
 	var patches []jsonpatch.JsonPatchOperation
 
 	// Add these before defaulting fields, otherwise defaulting may cause an illegal patch because
@@ -535,32 +527,27 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 	}
 	patches = append(patches, rtp...)
 
-	err = updateGeneration(ctx, &patches, oldObj, newObj)
-	if err != nil {
-		logger.Errorw("Failed to update generation", zap.Error(err))
+	if patches, err = updateGeneration(ctx, patches, oldObj, newObj); err != nil {
+		logger.Errorw("failed to update generation", zap.Error(err))
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	if defaulter := SetDefaults(ctx); defaulter != nil {
-		if err := defaulter(&patches, newObj); err != nil {
-			logger.Error("Failed the resource specific defaulter", zap.Error(err))
-			// Return the error message as-is to give the defaulter callback
-			// discretion over (our portion of) the message that the user sees.
-			return nil, err
-		}
+	if patches, err = setDefaults(patches, newObj); err != nil {
+		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))
+		// Return the error message as-is to give the defaulter callback
+		// discretion over (our portion of) the message that the user sees.
+		return nil, err
 	}
 
 	// None of the validators will accept a nil value for newObj.
 	if newObj == nil {
 		return nil, errMissingNewObject
 	}
-	if validator := Validate(ctx); validator != nil {
-		if err := validator(&patches, oldObj, newObj); err != nil {
-			logger.Error("Failed the resource specific validation", zap.Error(err))
-			// Return the error message as-is to give the validation callback
-			// discretion over (our portion of) the message that the user sees.
-			return nil, err
-		}
+	if err := validate(oldObj, newObj); err != nil {
+		logger.Errorw("failed the resource specific validation", zap.Error(err))
+		// Return the error message as-is to give the validation callback
+		// discretion over (our portion of) the message that the user sees.
+		return nil, err
 	}
 
 	return json.Marshal(patches)
@@ -574,30 +561,29 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 // So, we add Generation here. Once that gets fixed, remove this and use
 // ObjectMeta.Generation instead.
-func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+func updateGeneration(ctx context.Context, patches duck.JSONPatch, old GenericCRD, new GenericCRD) (duck.JSONPatch, error) {
 	logger := logging.FromContext(ctx)
 
 	if chg, err := hasChanged(ctx, old, new); err != nil {
-		return err
+		return nil, err
 	} else if !chg {
 		logger.Info("No changes in the spec, not bumping generation")
-		return nil
+		return patches, nil
 	}
 
 	// Leverage Spec duck typing to bump the Generation of the resource.
-	before, err := asGenerational(ctx, new)
+	before, err := asGenerational(new)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	after := before.DeepCopyObject().(*duckv1alpha1.Generational)
 	after.Spec.Generation = after.Spec.Generation + 1
 
 	genBump, err := duck.CreatePatch(before, after)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	*patches = append(*patches, genBump...)
-	return nil
+	return append(patches, genBump...), nil
 }
 
 // roundTripPatch generates the JSONPatch that corresponds to round tripping the given bytes through
@@ -643,18 +629,17 @@ func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
 
 	oldSpecJSON, err := getSpecJSON(old)
 	if err != nil {
-		logger.Error("Failed to get Spec JSON for old", zap.Error(err))
+		logger.Errorw("failed to get Spec JSON for old", zap.Error(err))
 		return false, err
 	}
 	newSpecJSON, err := getSpecJSON(new)
 	if err != nil {
-		logger.Error("Failed to get Spec JSON for new", zap.Error(err))
+		logger.Errorw("failed to get Spec JSON for new", zap.Error(err))
 		return false, err
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
 	if err != nil {
-		fmt.Printf("Error creating JSON patch:%v", err)
 		return false, err
 	}
 	if len(specPatches) == 0 {
@@ -662,14 +647,14 @@ func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
 	}
 	specPatchesJSON, err := json.Marshal(specPatches)
 	if err != nil {
-		logger.Error("Failed to marshal spec patches", zap.Error(err))
+		logger.Errorw("failed to marshal spec patches", zap.Error(err))
 		return false, err
 	}
 	logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
 	return true, nil
 }
 
-func asGenerational(_ context.Context, crd GenericCRD) (*duckv1alpha1.Generational, error) {
+func asGenerational(crd GenericCRD) (*duckv1alpha1.Generational, error) {
 	raw, err := json.Marshal(crd)
 	if err != nil {
 		return nil, err
