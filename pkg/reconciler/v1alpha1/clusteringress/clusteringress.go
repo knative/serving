@@ -214,7 +214,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// TODO(zhiminx): copy certificate secrets into the target namespaces that Istio gateway
 	// ingress (pods) are deployed so that Istio gateway could consume them.
 
-	// TODO(zhiminx): currently we turn off Gateway reconcilation as it relies
+	// TODO(zhiminx): currently we turn off Gateway reconciliation as it relies
 	// on Istio 1.1, which is not ready.
 	// We should eventually use a feature flag (in ConfigMap) to turn this on/off.
 	if c.enableReconcilingGateway {
