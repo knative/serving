@@ -47,4 +47,13 @@ var MustFilePathSpecs = map[string]FilePathInfo{
 		IsDirectory: true,
 		PermString:  "rw*rw*rw*", // * indicates no specification
 	},
+	// TODO(#822): Add conformance tests for "/dev/log".
+}
+
+// ShouldFilePathSpecs specifies the file-paths and expected permissions that SHOULD be set as specified in the run-time contract.
+var ShouldFilePathSpecs = map[string]FilePathInfo{
+	"/etc/resolv.conf": {
+		IsDirectory: false,
+		PermString:  "rw*r**r**", // * indicates no specification
+	},
 }
