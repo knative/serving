@@ -59,7 +59,7 @@ type configStore interface {
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
 	// The Mutex is needed to guard Istio Gateway because Istio Gateway is
-	// a global resource that should be modified by single thread.
+	// a global resource that should be modified by a single thread.
 	mutex sync.Mutex
 
 	*reconciler.Base
