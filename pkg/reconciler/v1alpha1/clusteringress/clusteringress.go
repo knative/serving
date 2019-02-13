@@ -58,7 +58,10 @@ type configStore interface {
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
+	// The Mutex is needed to guard Istio Gateway because Istio Gateway is
+	// a global resource that should be modified by single thread.
 	mutex sync.Mutex
+
 	*reconciler.Base
 
 	// listers index properties about resources
@@ -211,8 +214,9 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	ci.Status.ObservedGeneration = ci.Generation
 
-	// TODO(zhiminx): copy certificate secrets into the target namespaces that Istio gateway
-	// ingress (pods) are deployed so that Istio gateway could consume them.
+	// TODO(zhiminx): Istio requires to put certificates under the namespace where Istio ingress
+	// (pods) are deployed so that Istio ingress pods can consume them.
+	// So we need to copy certificates from their origin namespace to the Istio ingress namespace.
 
 	// TODO(zhiminx): currently we turn off Gateway reconciliation as it relies
 	// on Istio 1.1, which is not ready.
@@ -293,7 +297,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	if apierrs.IsNotFound(err) {
 		vs, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
-			logger.Error("Failed to create VirtualService", zap.Error(err))
+			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %q/%q: %v", ns, name, err)
 			return err
@@ -312,7 +316,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 		existing.Spec = desired.Spec
 		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
-			logger.Error("Failed to update VirtualService", zap.Error(err))
+			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
@@ -333,6 +337,10 @@ func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.Cluster
 
 func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress.
+
+	// We need to hold a lock to do read-modify-write operation for Istio Gateway because it is a
+	// global resource across all of ClusterIngresses. So the Istio Gateway should only be updated
+	// by a single thread.
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	logger := logging.FromContext(ctx)
@@ -340,7 +348,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	if err != nil {
 		// Not like VirtualService, A default gateway needs to be existed.
 		// It should be installed when installing Knative.
-		logger.Error("Failed to get Gateway.", zap.Error(err))
+		logger.Errorw("Failed to get Gateway.", zap.Error(err))
 		return err
 	}
 
@@ -354,7 +362,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, want, existing)
 	if _, err := c.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
-		logger.Error("Failed to update Gateway", zap.Error(err))
+		logger.Errorw("Failed to update Gateway", zap.Error(err))
 		return err
 	}
 	c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
