@@ -107,7 +107,7 @@ func TestLabelExistsFilterFunc(t *testing.T) {
 		in:   config(nil, map[string]string{}),
 		want: false,
 	}, {
-		name: "non-emtpy map, the required label doesn't exist",
+		name: "non-empty map, the required label doesn't exist",
 		in:   config(nil, map[string]string{"randomLabel": ""}),
 		want: false,
 	}, {
