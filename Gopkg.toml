@@ -2,29 +2,29 @@
 # for detailed Gopkg.toml documentation.
 
 required = [
-"k8s.io/apimachinery/pkg/util/sets/types",
-"k8s.io/code-generator/cmd/deepcopy-gen",
-"k8s.io/code-generator/cmd/defaulter-gen",
-"k8s.io/code-generator/cmd/client-gen",
-"k8s.io/code-generator/cmd/lister-gen",
-"k8s.io/code-generator/cmd/informer-gen",
-"github.com/knative/caching/pkg/apis/caching",
-"github.com/knative/test-infra/scripts",
-"github.com/knative/test-infra/tools/dep-collector",
+  "k8s.io/apimachinery/pkg/util/sets/types",
+  "k8s.io/code-generator/cmd/deepcopy-gen",
+  "k8s.io/code-generator/cmd/defaulter-gen",
+  "k8s.io/code-generator/cmd/client-gen",
+  "k8s.io/code-generator/cmd/lister-gen",
+  "k8s.io/code-generator/cmd/informer-gen",
+  "github.com/knative/caching/pkg/apis/caching",
+  "github.com/knative/test-infra/scripts",
+  "github.com/knative/test-infra/tools/dep-collector",
 ]
 
 [[override]]
-name = "gopkg.in/yaml.v2"
-version = "v2.2.1"
+  name = "gopkg.in/yaml.v2"
+  version = "v2.2.1"
 
 [[override]]
-name = "github.com/knative/build"
-version = "v0.3.0"
+  name = "github.com/knative/build"
+  version = "v0.3.0"
 
 [[constraint]]
-name = "github.com/knative/build-pipeline"
-# HEAD as of 2019-01-24
-revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
+  name = "github.com/knative/build-pipeline"
+  # HEAD as of 2019-01-24
+  revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
 
 [[override]]
   name = "github.com/knative/pkg"
