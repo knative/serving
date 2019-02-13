@@ -73,11 +73,13 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 		},
 	}
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
-	// 95 = 19/20, so allow a single failure with the minimum number of probes, but expect
-	// us to have 3.5 9s overall.
+	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
+	// us to have 2.5 9s overall.
+	//
+	// TODO(#2850): After moving to Istio 1.1 we need to revisit these SLOs.
 	const (
-		localSLO  = 0.95
-		globalSLO = 0.9995
+		localSLO  = 0.90
+		globalSLO = 0.995
 		minProbes = 20
 	)
 	pm := test.NewProberManager(logger, clients, minProbes)

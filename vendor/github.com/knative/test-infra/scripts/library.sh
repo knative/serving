@@ -27,7 +27,7 @@ readonly KNATIVE_BASE_YAML_SOURCE=https://storage.googleapis.com/knative-nightly
 readonly KNATIVE_ISTIO_CRD_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio-crds.yaml
 readonly KNATIVE_ISTIO_YAML=${KNATIVE_BASE_YAML_SOURCE/@/serving}/istio.yaml
 readonly KNATIVE_SERVING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/serving}/serving.yaml
-readonly KNATIVE_BUILD_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/build}/release.yaml
+readonly KNATIVE_BUILD_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/build}/build.yaml
 readonly KNATIVE_EVENTING_RELEASE=${KNATIVE_BASE_YAML_SOURCE/@/eventing}/release.yaml
 
 # Conveniently set GOPATH if unset
@@ -277,23 +277,15 @@ function start_latest_knative_serving() {
   kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
   wait_until_pods_running istio-system || return 1
   kubectl label namespace default istio-injection=enabled || return 1
-  subheader "Installing Knative Build"
-  echo "Installing Build from ${KNATIVE_BUILD_RELEASE}"
-  kubectl apply -f ${KNATIVE_BUILD_RELEASE} || return 1
   subheader "Installing Knative Serving"
   echo "Installing Serving from ${KNATIVE_SERVING_RELEASE}"
   kubectl apply -f ${KNATIVE_SERVING_RELEASE} || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running knative-build || return 1
 }
 
 # Install the latest stable Knative/build in the current cluster.
 function start_latest_knative_build() {
   header "Starting Knative Build"
-  subheader "Installing Istio"
-  echo "Installing Istio from ${KNATIVE_ISTIO_YAML}"
-  kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
-  wait_until_pods_running istio-system || return 1
   subheader "Installing Knative Build"
   echo "Installing Build from ${KNATIVE_BUILD_RELEASE}"
   kubectl apply -f ${KNATIVE_BUILD_RELEASE} || return 1

@@ -151,8 +151,8 @@ kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
 Follow the
-[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md) if you need to
-set up static IP for Ingresses in the cluster.
+[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md)
+if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
 
@@ -173,8 +173,8 @@ ko apply -f config/
 ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
 ```
 
-The above step is equivalent to applying the `serving.yaml` for released versions of
-Knative Serving.
+The above step is equivalent to applying the `serving.yaml` for released
+versions of Knative Serving.
 
 You can see things running with:
 
@@ -261,9 +261,6 @@ ko delete --ignore-not-found=true \
 
 To access Telemetry see:
 
-- [Accessing
-Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
-- [Accessing
-Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
-- [Accessing
-Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)
+- [Accessing Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
+- [Accessing Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
+- [Accessing Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)
