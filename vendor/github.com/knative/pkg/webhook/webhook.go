@@ -37,11 +37,13 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
+	perrors "github.com/pkg/errors"
 
 	"github.com/markbates/inflect"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -222,6 +224,29 @@ func validate(old GenericCRD, new GenericCRD) error {
 		return err
 	}
 	return nil
+}
+
+func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticationv1.UserInfo) (duck.JSONPatch, error) {
+	// Nowhere to set the annotations.
+	if new == nil {
+		return patches, nil
+	}
+	na, ok := new.(apis.Annotatable)
+	if !ok {
+		return patches, nil
+	}
+	var oa apis.Annotatable
+	if old != nil {
+		oa = old.(apis.Annotatable)
+	}
+	b, a := new.DeepCopyObject().(apis.Annotatable), na
+
+	a.AnnotateUserInfo(oa, ui)
+	patch, err := duck.CreatePatch(b, a)
+	if err != nil {
+		return nil, err
+	}
+	return append(patches, patch...), nil
 }
 
 // setDefaults simply leverages apis.Defaultable to set defaults.
@@ -469,7 +494,7 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	patchBytes, err := ac.mutate(ctx, request.Kind, request.OldObject.Raw, request.Object.Raw)
+	patchBytes, err := ac.mutate(ctx, request)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
@@ -485,7 +510,10 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 	}
 }
 
-func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVersionKind, oldBytes []byte, newBytes []byte) ([]byte, error) {
+func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
+	kind := req.Kind
+	newBytes := req.Object.Raw
+	oldBytes := req.OldObject.Raw
 	// Why, oh why are these different types...
 	gvk := schema.GroupVersionKind{
 		Group:   kind.Group,
@@ -517,7 +545,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
 	}
-	var patches []jsonpatch.JsonPatchOperation
+	var patches duck.JSONPatch
 
 	// Add these before defaulting fields, otherwise defaulting may cause an illegal patch because
 	// it expects the round tripped through Golang fields to be present already.
@@ -528,8 +556,8 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 	patches = append(patches, rtp...)
 
 	if patches, err = updateGeneration(ctx, patches, oldObj, newObj); err != nil {
-		logger.Errorw("failed to update generation", zap.Error(err))
-		return nil, fmt.Errorf("Failed to update generation: %s", err)
+		logger.Errorw("Failed to update generation", zap.Error(err))
+		return nil, perrors.Wrap(err, "failed to update generation")
 	}
 
 	if patches, err = setDefaults(patches, newObj); err != nil {
@@ -539,17 +567,21 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind metav1.GroupVers
 		return nil, err
 	}
 
+	if patches, err = setAnnotations(patches, newObj, oldObj, &req.UserInfo); err != nil {
+		logger.Errorw("Failed the resource annotator", zap.Error(err))
+		return nil, perrors.Wrap(err, "error setting annotations")
+	}
+
 	// None of the validators will accept a nil value for newObj.
 	if newObj == nil {
 		return nil, errMissingNewObject
 	}
 	if err := validate(oldObj, newObj); err != nil {
-		logger.Errorw("failed the resource specific validation", zap.Error(err))
+		logger.Errorw("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
-
 	return json.Marshal(patches)
 }
 
@@ -629,12 +661,12 @@ func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
 
 	oldSpecJSON, err := getSpecJSON(old)
 	if err != nil {
-		logger.Errorw("failed to get Spec JSON for old", zap.Error(err))
+		logger.Errorw("Failed to get Spec JSON for old", zap.Error(err))
 		return false, err
 	}
 	newSpecJSON, err := getSpecJSON(new)
 	if err != nil {
-		logger.Errorw("failed to get Spec JSON for new", zap.Error(err))
+		logger.Errorw("Failed to get Spec JSON for new", zap.Error(err))
 		return false, err
 	}
 
@@ -647,10 +679,10 @@ func hasChanged(ctx context.Context, old, new GenericCRD) (bool, error) {
 	}
 	specPatchesJSON, err := json.Marshal(specPatches)
 	if err != nil {
-		logger.Errorw("failed to marshal spec patches", zap.Error(err))
+		logger.Errorw("Failed to marshal spec patches", zap.Error(err))
 		return false, err
 	}
-	logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+	logger.Infof("Specs differ:\n%s\n", string(specPatchesJSON))
 	return true, nil
 }
 
