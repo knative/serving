@@ -99,7 +99,7 @@ func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.B
 	cc := int32(revision.Spec.ContainerConcurrency)
 
 	targetCapacity := cc * size
-	if targetCapacity == 0 {
+	if cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency {
 		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
 		targetCapacity = t.breakerParams.MaxConcurrency
 	}
