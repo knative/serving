@@ -406,11 +406,13 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
 	t.Helper()
 
-	successCode := http.StatusOK
-	failureCode := http.StatusServiceUnavailable
+	var (
+		successCode = http.StatusOK
+		failureCode = http.StatusServiceUnavailable
 
-	var succeeded int
-	var failed int
+		succeeded int
+		failed    int
+	)
 
 	for i := 0; i < overallRequests; i++ {
 		if i < wantedSuccess {
