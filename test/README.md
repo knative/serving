@@ -177,7 +177,7 @@ these flags:
 - [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
 - [`--dockerrepo`](#overriding-docker-repo)
 - [`--tag`](#using-a-docker-tag)
-- [`--ingressendpoint`](#using-a-specified-ingressendpoint)
+- [`--ingressendpoint`](#using-a-custom-ingressendpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
 
 ### Overridding docker repo
@@ -207,7 +207,7 @@ go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
 Of course, this implies that you tagged the images when you
 [uploaded them](#building-the-test-images).
 
-### Using a specified ingressendpoint
+### Using a custom ingressendpoint
 
 Some environments (like minikube) do not support a Loadbalancer to make Knative
 services externally available. These environments usually rely on rewriting the
