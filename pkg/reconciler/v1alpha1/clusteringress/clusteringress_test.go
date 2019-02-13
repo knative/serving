@@ -270,9 +270,34 @@ func TestReconcile_Gateway(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingressTLSServer needs to be added into Gateway.
-			Object: gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+			Object: gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer, irrelevanteServer}),
 		}, {
-			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer, irrelevanteServer}),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithTLSAndStatus("new-created-clusteringress", 1234,
+				ingressTLS,
+				v1alpha1.IngressStatus{
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+						},
+					},
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}, {
+						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}, {
+						Type:     v1alpha1.ClusterIngressConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}},
+				},
+			),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
