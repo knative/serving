@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"

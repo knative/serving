@@ -49,8 +49,7 @@ type params struct {
 
 func TestAnnotationFilter(t *testing.T) {
 	tests := []params{{
-		name:
-		"non kubernetes object",
+		name: "non kubernetes object",
 		in:   struct{}{},
 		want: false,
 	}, {

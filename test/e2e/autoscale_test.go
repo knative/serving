@@ -26,10 +26,10 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/autoscaler"
-	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"

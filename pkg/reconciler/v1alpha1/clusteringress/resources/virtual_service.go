@@ -26,12 +26,12 @@ import (
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
-	"github.com/knative/pkg/system"
 )
 
 // MakeVirtualService creates an Istio VirtualService as network programming.

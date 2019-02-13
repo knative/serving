@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -34,7 +35,6 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/utils"
 )
 

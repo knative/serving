@@ -36,6 +36,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -50,7 +51,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/pkg/system"
 )
 
 const (
