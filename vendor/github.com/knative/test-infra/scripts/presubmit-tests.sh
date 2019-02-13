@@ -139,6 +139,9 @@ function default_build_test_runner() {
   markdown_build_tests || failed=1
   # For documentation PRs, just check the md files
   (( IS_DOCUMENTATION_PR )) && return ${failed}
+  # Skip build test if there is no go code
+  local go_pkg_dirs="$(go list ./...)"
+  [[ -z "${go_pkg_dirs}" ]] && return ${failed}
   # Ensure all the code builds
   subheader "Checking that go code builds"
   go build -v ./... || failed=1
@@ -154,7 +157,7 @@ function default_build_test_runner() {
   fi
   # Check that we don't have any forbidden licenses in our images.
   subheader "Checking for forbidden licenses"
-  check_licenses $(go list ./...) || failed=1
+  check_licenses ${go_pkg_dirs} || failed=1
   return ${failed}
 }
 
@@ -308,6 +311,8 @@ function main() {
     if (( RUN_BUILD_TESTS || RUN_UNIT_TESTS || RUN_INTEGRATION_TESTS )); then
       abort "--run-test must be used alone"
     fi
+    # If this is a presubmit run, but a documentation-only PR, don't run the test
+    (( IS_PRESUBMIT && IS_DOCUMENTATION_PR )) && exit 0
     ${TEST_TO_RUN} || failed=1
   fi
 
