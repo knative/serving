@@ -217,16 +217,19 @@ func TestUpdateEndpoints(t *testing.T) {
 		label:          "add single endpoint",
 		endpointsAfter: 1,
 		wantCapacity:   1 * revisionConcurrency,
-		initCapacity:   0,
 	}, {
 		label:          "add several endpoints",
 		endpointsAfter: 2,
 		wantCapacity:   2 * revisionConcurrency,
-		initCapacity:   0,
 	}, {
 		label:          "do nothing",
 		endpointsAfter: 1,
 		wantCapacity:   1 * revisionConcurrency,
+		initCapacity:   10,
+	}, {
+		label:          "reduce endpoints",
+		endpointsAfter: 0,
+		wantCapacity:   0,
 		initCapacity:   10,
 	}, {
 		label:          "exceed max concurrency",
