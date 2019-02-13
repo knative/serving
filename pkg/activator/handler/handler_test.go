@@ -408,6 +408,7 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
 	t.Helper()
 
+	const channelTimeout = 3 * time.Second
 	var (
 		successCode = http.StatusOK
 		failureCode = http.StatusServiceUnavailable
@@ -419,29 +420,38 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh
 	for i := 0; i < overallRequests; i++ {
 		if i < wantedSuccess {
 			// Only those requests should ever reach the RoundTripper
-			<-lockerCh
-		}
-		resp := <-respCh
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatalf("Failed to read body: %v", err)
-		}
-		gotBody := strings.TrimSpace(string(bodyBytes))
-
-		switch resp.Code {
-		case successCode:
-			succeeded++
-			if gotBody != wantBody {
-				t.Errorf("response body = %q, want: %q", gotBody, wantBody)
+			select {
+			case <-lockerCh:
+				// All good.
+			case <-time.After(channelTimeout):
+				t.Fatalf("Timed out waiting for a request to reach the RoundTripper")
 			}
-		case failureCode:
-			failed++
-			if gotBody != activator.ErrActivatorOverload.Error() {
-				t.Errorf("error message = %q, want: %q", gotBody, activator.ErrActivatorOverload.Error())
+		}
+
+		select {
+		case resp := <-respCh:
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("Failed to read body: %v", err)
 			}
-		default:
-			t.Errorf("http response code = %d, want: %d or %d", resp.Code, successCode, failureCode)
+			gotBody := strings.TrimSpace(string(bodyBytes))
+
+			switch resp.Code {
+			case successCode:
+				succeeded++
+				if gotBody != wantBody {
+					t.Errorf("response body = %q, want: %q", gotBody, wantBody)
+				}
+			case failureCode:
+				failed++
+				if gotBody != activator.ErrActivatorOverload.Error() {
+					t.Errorf("error message = %q, want: %q", gotBody, activator.ErrActivatorOverload.Error())
+				}
+			default:
+				t.Errorf("http response code = %d, want: %d or %d", resp.Code, successCode, failureCode)
+			}
+		case <-time.After(channelTimeout):
+			t.Fatalf("Timed out waiting for a request to be returned")
 		}
 	}
 
