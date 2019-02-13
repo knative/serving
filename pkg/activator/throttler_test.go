@@ -86,6 +86,12 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 		maxConcurrency:  defaultMaxConcurrency,
 		want:            int32(0),
 		wantError:       sampleError,
+	}, {
+		label:           "exceeds maxConcurrency",
+		revisionGetter:  existingRevisionGetter(10),
+		endpointsGetter: existingEndpointsGetter,
+		maxConcurrency:  int32(5),
+		want:            int32(5),
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
