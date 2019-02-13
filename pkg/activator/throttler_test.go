@@ -44,6 +44,7 @@ var (
 	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
 		return nil, errors.New(sampleError)
 	}
+
 	existingEndpointsGetter = func(RevisionID) (int32, error) {
 		return initCapacity, nil
 	}
@@ -221,6 +222,10 @@ func TestUpdateEndpoints(t *testing.T) {
 		endpointsAfter: 1,
 		wantCapacity:   1 * revisionConcurrency,
 		initCapacity:   10,
+	}, {
+		label:          "exceed max concurrency",
+		endpointsAfter: 101 * revisionConcurrency,
+		wantCapacity:   int(defaultMaxConcurrency),
 	}}
 
 	for _, s := range samples {
