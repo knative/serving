@@ -47,6 +47,8 @@ func TestMustHaveHeadersSet(t *testing.T) {
 		// may be made internally or externally which will result in a different host.
 		t.Error("Header host was not present on request")
 	}
+
+	// TODO(#3112): Validate Forwarded header once it is enabled.
 }
 
 // TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
@@ -59,8 +61,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// We expect the protocol to be http for our test image.
 		"x-forwarded-proto": regexp.MustCompile("https?"),
 		// We expect the value to be a list of at least one comma separated IP addresses (IPv4 or IPv6).
-		// We do additional validation of the IP addresses below.
-		"x-forwarded-for": regexp.MustCompile("[0-9a-f.:]*(, [0-9a-f.:]*)*"),
+		"x-forwarded-for": nil, // Non-regex based validation performed for this header
 
 		// Trace Headers
 		// See https://github.com/openzipkin/b3-propagation#overall-process
@@ -87,17 +88,17 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 			t.Errorf("Header %s was not present on request", header)
 			continue
 		}
-		if !regex.MatchString(hv) {
-			t.Errorf("%s = %s; want: %s", header, hv, regex.String())
-		}
 
-		// Additional validation for x-forwarded-for
-		if header == "x-forwarded-for" {
-			ips := strings.Split(hv, ",")
-			for _, ip := range ips {
+		switch {
+		case strings.EqualFold(header, "x-forwarded-for"):
+			for _, ip := range strings.Split(hv, ",") {
 				if net.ParseIP(strings.TrimSpace(ip)) == nil {
 					t.Errorf("Header %s has invalid IP: %s", header, ip)
 				}
+			}
+		default:
+			if !regex.MatchString(hv) {
+				t.Errorf("%s = %s; want: %s", header, hv, regex.String())
 			}
 		}
 	}
