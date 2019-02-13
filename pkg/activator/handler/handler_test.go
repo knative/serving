@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -35,9 +36,7 @@ import (
 )
 
 const (
-	wantBody    = "everything good!"
-	successCode = http.StatusOK
-	failureCode = http.StatusServiceUnavailable
+	wantBody = "everything good!"
 )
 
 var stubRevisionGetter = func(activator.RevisionID) (*v1alpha1.Revision, error) {
@@ -136,7 +135,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-		},},
+		}},
 	}, {
 		label:           "active endpoint with missing count header",
 		namespace:       "real-namespace",
@@ -161,7 +160,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-		},},
+		}},
 	}, {
 		label:           "no active endpoint",
 		namespace:       "fake-namespace",
@@ -195,7 +194,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
-		},},
+		}},
 	}, {
 		label:           "invalid number of attempts",
 		namespace:       "real-namespace",
@@ -221,7 +220,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-		},},
+		}},
 	}, {
 		label:           "broken GetEndpoints",
 		namespace:       "real-namespace",
@@ -295,24 +294,29 @@ func TestActivationHandler_Overflow(t *testing.T) {
 	const (
 		wantedSuccess = 20
 		wantedFailure = 1
-		requests      = 21
+		requests      = wantedSuccess + wantedFailure
 	)
-	respCh := make(chan *httptest.ResponseRecorder, requests)
+	respCh := make(chan *httptest.ResponseRecorder)
 	// overall max 20 requests in the Breaker
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 
-	conf := Config{
-		namespace:   "real-namespace",
-		revName:     "real-name",
-		serviceName: "real-name-service",
-		wantBody:    wantBody,
-		requests:    requests,
-		respCh:      respCh,
-	}
-	throttler := getThrottler(breakerParams, t)
-	run(conf, throttler, t)
+	namespace := "real-namespace"
+	revName := "real-name"
 
-	assertResponses(wantedSuccess, wantedFailure, requests, respCh, t)
+	throttler := getThrottler(breakerParams, t)
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.WriteString(w, wantBody)
+		}),
+	)
+	defer server.Close()
+
+	act := newStubActivator(namespace, revName, server)
+	lockerCh := make(chan struct{})
+	handler := getHandler(throttler, act, lockerCh, t)
+	sendRequests(requests, namespace, revName, respCh, handler)
+
+	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
@@ -320,14 +324,12 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	const (
 		wantedSuccess   = 40
 		wantedFailure   = 2
-		overallRequests = 42
+		overallRequests = wantedSuccess + wantedFailure
 		revisions       = 2
 	)
 
 	respCh := make(chan *httptest.ResponseRecorder, overallRequests)
-
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-
 	throttler := getThrottler(breakerParams, t)
 
 	server := httptest.NewServer(
@@ -335,50 +337,39 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 			io.WriteString(w, wantBody)
 		}),
 	)
+	defer server.Close()
 
+	lockerCh := make(chan struct{})
 	for rev := 0; rev < revisions; rev++ {
-		config := Config{
-			namespace:   fmt.Sprintf("real-namespace-%d", rev),
-			revName:     "real-name",
-			serviceName: "real-name-service",
-			wantBody:    wantBody,
-			requests:    21,
-			respCh:      respCh,
-			revisions:   revisions,
-		}
-		act := newStubActivator(config.namespace, config.revName, server)
-		handler := getHandler(throttler, t, act)
-		sendRequests(config, handler)
+		namespace := fmt.Sprintf("real-namespace-%d", rev)
+		revName := "real-name"
+
+		act := newStubActivator(namespace, revName, server)
+		handler := getHandler(throttler, act, lockerCh, t)
+
+		requestCount := overallRequests / revisions
+		sendRequests(requestCount, namespace, revName, respCh, handler)
 	}
-	assertResponses(wantedSuccess, wantedFailure, overallRequests, respCh, t)
+	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
-type Config struct {
-	namespace     string
-	revName       string
-	serviceName   string
-	requests      int
-	respCh        chan *httptest.ResponseRecorder
-	wantBody      string
-	breakerParams queue.BreakerParams
-	revisions     int
-}
-
-func sendRequests(config Config, handler ActivationHandler) {
-	for i := 0; i < config.requests; i++ {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler ActivationHandler) {
+	for i := 0; i < count; i++ {
 		go func() {
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set(activator.RevisionHeaderNamespace, config.namespace)
-			req.Header.Set(activator.RevisionHeaderName, config.revName)
+			req.Header.Set(activator.RevisionHeaderNamespace, namespace)
+			req.Header.Set(activator.RevisionHeaderName, revName)
 			handler.ServeHTTP(resp, req)
-			config.respCh <- resp
+			respCh <- resp
 		}()
 	}
 }
 
 func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Throttler {
 	endpointsGetter := func(activator.RevisionID) (int32, error) {
+		// Since revisions have a concurrency of 1, this will cause the very same capacity
+		// as being set initially.
 		return breakerParams.InitialCapacity, nil
 	}
 	throttlerParams := activator.ThrottlerParams{BreakerParams: breakerParams, Logger: TestLogger(t), GetRevision: stubRevisionGetter, GetEndpoints: endpointsGetter}
@@ -386,27 +377,15 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 	return throttler
 }
 
-func run(conf Config, throttler *activator.Throttler, t *testing.T) {
-	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, conf.wantBody)
-		}),
-	)
-	act := newStubActivator(conf.namespace, conf.revName, server)
-	handler := getHandler(throttler, t, act)
-	sendRequests(conf, handler)
-}
-
-func getHandler(throttler *activator.Throttler, t *testing.T, act activator.Activator) ActivationHandler {
+func getHandler(throttler *activator.Throttler, act activator.Activator, lockerCh chan struct{}, t *testing.T) ActivationHandler {
 	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		// Allows only one request at a time until read from.
+		lockerCh <- struct{}{}
+
 		resp, err := http.DefaultTransport.RoundTrip(r)
 		if err != nil {
 			return resp, err
 		}
-		// Simulate a real request round trip to avoid race condition.
-		// If sending N requests that equals to the number of slots, we need to make sure that
-		// N+1 won't get a slot that is freed up by one of the "speedy" responses.
-		time.Sleep(50 * time.Millisecond)
 		return resp, nil
 	})
 	handler := ActivationHandler{
@@ -419,34 +398,49 @@ func getHandler(throttler *activator.Throttler, t *testing.T, act activator.Acti
 	return handler
 }
 
-func assertResponses(wantedSuccess, wantedFailure, overallRequests int, respCh chan *httptest.ResponseRecorder, t *testing.T) {
+func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
 	t.Helper()
+
+	successCode := http.StatusOK
+	failureCode := http.StatusServiceUnavailable
+
 	var succeeded int
 	var failed int
-	wantedOverflowMessage := activator.ErrActivatorOverload.Error() + "\n"
+
 	for i := 0; i < overallRequests; i++ {
+		if i < wantedSuccess {
+			// Only those requests should ever reach the RoundTripper
+			<-lockerCh
+		}
 		resp := <-respCh
+
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Failed to read body: %v", err)
+		}
+		gotBody := strings.TrimSpace(string(bodyBytes))
+
 		switch resp.Code {
 		case successCode:
-			gotBody, _ := ioutil.ReadAll(resp.Body)
-			if string(gotBody) != wantBody {
-				t.Errorf("Unexpected response body. Want %q, got %q", wantBody, gotBody)
-			}
 			succeeded++
-		case failureCode:
-			if wantedOverflowMessage != resp.Body.String() {
-				t.Errorf("Unexpected error message. Want %s, got %s", wantedOverflowMessage, resp.Body)
+			if gotBody != wantBody {
+				t.Errorf("response body = %q, want: %q", gotBody, wantBody)
 			}
+		case failureCode:
 			failed++
+			if gotBody != activator.ErrActivatorOverload.Error() {
+				t.Errorf("error message = %q, want: %q", gotBody, activator.ErrActivatorOverload.Error())
+			}
 		default:
-			t.Errorf("Unknown http response code was received. Want either %d|%d, got %d", successCode, failureCode, resp.Code)
+			t.Errorf("http response code = %d, want: %d or %d", resp.Code, successCode, failureCode)
 		}
 	}
+
 	if wantedFailure != failed {
-		t.Errorf("Unexpected number of failed requests. Want %d, got %d", wantedFailure, failed)
+		t.Errorf("failed request count = %d, want: %d", failed, wantedFailure)
 	}
 	if succeeded != wantedSuccess {
-		t.Errorf("Unexpected number of succeeded requests. Want %d, got %d", wantedSuccess, succeeded)
+		t.Errorf("successful request count = %d, want: %d", succeeded, wantedSuccess)
 	}
 
 }
