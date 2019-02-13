@@ -160,7 +160,7 @@ func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
 		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
 	}
-	return validateAnnotations(objs)
+	return nil
 }
 
 // TestRunLatestService tests both Creation and Update paths of a runLatest service. The test performs a series of Update/Validate steps to ensure that
@@ -204,6 +204,10 @@ func TestRunLatestService(t *testing.T) {
 
 	if err = validateLabelsPropagation(logger, *objects, names); err != nil {
 		t.Error(err)
+	}
+
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
@@ -372,7 +376,10 @@ func TestReleaseService(t *testing.T) {
 
 	logger.Info("Validating service shape.")
 	if err := validateReleaseServiceShape(objects); err != nil {
-		t.Fatalf("Release shape incorrect: %v", err)
+		t.Fatalf("Release shape is incorrect: %v", err)
+	}
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 	revisions := []string{names.Revision}
 
@@ -507,6 +514,10 @@ func TestReleaseService(t *testing.T) {
 	logger.Info("5. Updating Service to split traffic between two `current` and `@latest`")
 	if objects.Service, err = test.PatchReleaseService(logger, clients, objects.Service, revisions, 50); err != nil {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	}
+	// Verify in the end it's still the case.
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
 	// `candidate` now points to the latest.
