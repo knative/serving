@@ -19,9 +19,6 @@ package activator
 import (
 	"errors"
 	"testing"
-	"time"
-
-	"golang.org/x/sync/errgroup"
 
 	. "github.com/knative/pkg/logging/testing"
 	testinghelper "github.com/knative/serving/pkg/activator/testing"
@@ -45,8 +42,10 @@ var (
 		return nil, errors.New(sampleError)
 	}
 
-	existingEndpointsGetter = func(RevisionID) (int32, error) {
-		return initCapacity, nil
+	existingEndpointsGetter = func(count int) func(RevisionID) (int32, error) {
+		return func(RevisionID) (int32, error) {
+			return int32(count), nil
+		}
 	}
 	nonExistingEndpointsGetter = func(RevisionID) (int32, error) {
 		return initCapacity, errors.New(sampleError)
@@ -70,26 +69,26 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	}{{
 		label:           "all good",
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 		maxConcurrency:  defaultMaxConcurrency,
 		want:            int32(10),
 	}, {
 		label:           "unlimited concurrency",
 		revisionGetter:  existingRevisionGetter(0),
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 		maxConcurrency:  100,
 		want:            int32(100),
 	}, {
 		label:           "non-existing revision",
 		revisionGetter:  nonExistingRevisionGetter,
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 		maxConcurrency:  defaultMaxConcurrency,
 		want:            int32(0),
 		wantError:       sampleError,
 	}, {
 		label:           "exceeds maxConcurrency",
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 		maxConcurrency:  int32(5),
 		want:            int32(5),
 	}}
@@ -128,14 +127,14 @@ func TestThrottler_Try(t *testing.T) {
 		addCapacity:     true,
 		wantBreakers:    int32(1),
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 	}, {
 		label:           "non-existing revision",
 		addCapacity:     true,
 		wantBreakers:    int32(0),
 		wantError:       sampleError,
 		revisionGetter:  nonExistingRevisionGetter,
-		endpointsGetter: existingEndpointsGetter,
+		endpointsGetter: existingEndpointsGetter(0),
 	}, {
 		label:           "non-existing endpoint",
 		addCapacity:     false,
@@ -173,35 +172,43 @@ func TestThrottler_Try(t *testing.T) {
 }
 
 func TestThrottler_TryOverload(t *testing.T) {
-	th := getThrottler(
-		1 /*maxConcurrency*/, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t),
-		1 /*initial capacity*/)
-	done := make(chan struct{})
+	maxConcurrency := 1
+	initialCapacity := 1
+	queueLength := 1
+	th := getThrottler(int32(maxConcurrency), existingRevisionGetter(1), existingEndpointsGetter(1), TestLogger(t), int32(initialCapacity))
 
-	// We have two slots to fill.
-	var g errgroup.Group
-	for i := 0; i < 2; i++ {
-		g.Go(func() error {
-			return th.Try(revID, func() {
-				select {
-				case <-done:
-				}
+	doneCh := make(chan struct{})
+	errCh := make(chan error)
+
+	// Make one more request than allowed.
+	allowedRequests := initialCapacity + queueLength
+	for i := 0; i < allowedRequests+1; i++ {
+		go func() {
+			err := th.Try(revID, func() {
+				doneCh <- struct{}{} // Blocks forever
 			})
-		})
+			if err != nil {
+				errCh <- err
+			}
+		}()
 	}
-	// Give the chance for the goroutines to launch.
-	time.Sleep(150 * time.Millisecond)
-	err := th.Try(revID, func() {
-		t.Fatal("This should not have executed")
-	})
-	// `err` must be non-nil here, since `t.Fatal()` above would ensure we
-	// don't reach here on success.
-	if got := err; got != ErrActivatorOverload {
-		t.Errorf("Error message = %v, want: %v", got, ErrActivatorOverload)
+
+	if err := <-errCh; err != ErrActivatorOverload {
+		t.Errorf("error = %v, want: %v", err, ErrActivatorOverload)
 	}
-	close(done)
-	if err := g.Wait(); err != nil {
-		t.Errorf("Error in the parallel requests: %v", err)
+
+	successfulRequests := 0
+	for i := 0; i < allowedRequests; i++ {
+		select {
+		case <-doneCh:
+			successfulRequests++
+		case <-errCh:
+			t.Errorf("Only one request should fail.")
+		}
+	}
+
+	if successfulRequests != allowedRequests {
+		t.Errorf("successfulRequests = %d, want: %d", successfulRequests, allowedRequests)
 	}
 }
 
@@ -239,7 +246,7 @@ func TestUpdateEndpoints(t *testing.T) {
 
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
-			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency), existingEndpointsGetter, TestLogger(t), int32(s.initCapacity))
+			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency), existingEndpointsGetter(0), TestLogger(t), int32(s.initCapacity))
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
 			updater := UpdateEndpoints(throttler)
@@ -254,7 +261,7 @@ func TestUpdateEndpoints(t *testing.T) {
 }
 
 func TestThrottler_Remove(t *testing.T) {
-	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), initCapacity)
+	throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter(0), TestLogger(t), initCapacity)
 	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
 
 	if got := len(throttler.breakers); got != 1 {
@@ -268,7 +275,7 @@ func TestThrottler_Remove(t *testing.T) {
 }
 
 func TestHelper_DeleteBreaker(t *testing.T) {
-	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), initCapacity)
+	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter(0), TestLogger(t), initCapacity)
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revID.Name,
