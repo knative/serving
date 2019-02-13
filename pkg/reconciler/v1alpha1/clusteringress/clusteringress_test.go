@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -265,6 +266,10 @@ func TestReconcile_Gateway(t *testing.T) {
 			gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
 		},
 		WantCreates: []metav1.Object{
+			// The creation of gateways are triggered when setting up the test.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+			gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+
 			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
 				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
 		},
@@ -307,6 +312,16 @@ func TestReconcile_Gateway(t *testing.T) {
 		Key: "new-created-clusteringress",
 	}}
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+
+		// As we use a customized resource name for Gateway CRD (i.e. `gateways`), not the one
+		// orginally geneerated by kubernetes code generator (i.e. `gatewaies`), we have to
+		// explicitly create gateways when setting up the test per suggestion
+		// https://github.com/knative/serving/blob/a6852fc3b6cdce72b99c5d578dd64f2e03dabb8b/vendor/k8s.io/client-go/testing/fixture.go#L292
+		gateways := getGatewaysFromObjects(listers.GetSharedObjects())
+		for _, gateway := range gateways {
+			opt.SharedClientSet.NetworkingV1alpha3().Gateways(gateway.Namespace).Create(gateway)
+		}
+
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
@@ -321,8 +336,18 @@ func TestReconcile_Gateway(t *testing.T) {
 	}))
 }
 
+func getGatewaysFromObjects(objects []runtime.Object) []*v1alpha3.Gateway {
+	gateways := []*v1alpha3.Gateway{}
+	for _, object := range objects {
+		if equality.Semantic.DeepEqual(object.GetObjectKind().GroupVersionKind(), v1alpha3.SchemeGroupVersion.WithKind("Gateway")) {
+			gateways = append(gateways, object.(*v1alpha3.Gateway))
+		}
+	}
+	return gateways
+}
+
 func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gateway {
-	return &v1alpha3.Gateway{
+	gateway := &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -331,6 +356,8 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 			Servers: servers,
 		},
 	}
+	gateway.SetGroupVersionKind(v1alpha3.SchemeGroupVersion.WithKind("Gateway"))
+	return gateway
 }
 
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
