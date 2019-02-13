@@ -503,3 +503,11 @@ platform providers MAY use hooks to implement their own lifecycle controls.
 ### Annotations
 
 As specified by OCI.
+
+In addition, the following annotations SHALL be set by the system on the
+Knative Service Kubernetes objects:
+
+- `serving.knative.dev/creator` with the value of the `username` creating the
+  Knative Service provided by the system.
+- `serving.knative.dev/lastModifier` with the value of the `username` performing the
+  latest mutation of the `Spec` of the Knative Service.
