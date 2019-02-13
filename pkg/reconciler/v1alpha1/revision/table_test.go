@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
@@ -26,6 +27,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
@@ -664,6 +666,42 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
 		Key: "foo/missing-owners",
+	}, {
+		// Prior to Serving 0.4 revisions were labelled with
+		// a configuration's spec.generation with the key /configurationGeneration
+		//
+		// We are repurposing that label and having it's value be a configuration's
+		// metadata.generation
+		//
+		// This case tests the migration path where we replace
+		// the old label value
+		Name: "steady state revision with different generation labels",
+		Objects: []runtime.Object{
+			rev("foo", "legacy-label",
+				WithConfigurationGenerationLabel(5),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "legacy-label"),
+			deploy("foo", "legacy-label",
+				WithConfigurationGenerationLabel(5),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+			),
+			svc("foo", "legacy-label"),
+			image("foo", "legacy-label"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "legacy-label",
+				WithConfigurationGenerationLabel(2),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+			),
+		}, {
+			Object: deploy("foo", "legacy-label",
+				WithConfigurationGenerationLabel(2),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+			),
+		}},
+		Key: "foo/legacy-label",
 	}}
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -896,18 +934,30 @@ func AllUnknownConditions(r *v1alpha1.Revision) {
 
 type configOption func(*config.Config)
 
-func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
-	config := ReconcilerTestConfig()
-	for _, opt := range co {
-		opt(config)
+func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
+	cfg := ReconcilerTestConfig()
+
+	for _, opt := range opts {
+		if configOpt, ok := opt.(configOption); ok {
+			configOpt(cfg)
+		}
 	}
 
 	rev := rev(namespace, name)
+
+	for _, opt := range opts {
+		if revOpt, ok := opt.(RevisionOption); ok {
+			revOpt(rev)
+		}
+	}
+
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults()
-	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
-		config.Autoscaler, config.Controller)
+	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+		cfg.Observability, cfg.Autoscaler, cfg.Controller,
+	)
+
 }
 
 func image(namespace, name string, co ...configOption) *caching.Image {
@@ -1017,6 +1067,28 @@ func ReconcilerTestConfig() *config.Config {
 	}
 }
 
-func EnableVarLog(cfg *config.Config) {
+// this forces the type to be a 'configOption'
+var EnableVarLog configOption = func(cfg *config.Config) {
 	cfg.Observability.EnableVarLogCollection = true
+}
+
+// WithConfigurationGenerationLabel sets the label on the revision
+func WithConfigurationGenerationLabel(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+		r.Labels[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
+	}
+}
+
+// WithDeprecatedConfigurationMetadataGenerationLabel sets the label on the revision
+func WithDeprecatedConfigurationMetadataGenerationLabel(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+
+		r.Labels[serving.DeprecatedConfigurationMetadataGenerationLabelKey] = strconv.Itoa(generation)
+	}
 }

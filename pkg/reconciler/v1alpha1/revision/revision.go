@@ -259,8 +259,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
+
 	// Don't modify the informer's copy.
-	rev := original.DeepCopy()
+	rev, err := c.migrateConfigurationLabels(original.DeepCopy())
+
+	if err != nil {
+		logger.Warnw("Failed to migrate revision labels", zap.Error(err))
+		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to migrate revision %q labels: %v", rev.Name, err)
+		return err
+	}
 
 	// Reconcile this copy of the revision and then write back any status
 	// updates regardless of whether the reconciliation errored out.
@@ -446,4 +454,26 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	existing := rev.DeepCopy()
 	existing.Status = desired.Status
 	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+}
+
+func (c *Reconciler) migrateConfigurationLabels(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+	legacyLabelKey := serving.DeprecatedConfigurationMetadataGenerationLabelKey
+	targetLabelKey := serving.ConfigurationGenerationLabelKey
+
+	value, ok := rev.Labels[legacyLabelKey]
+
+	if !ok {
+		// Ignore revisions who don't have the 'legacy label'
+		// This would happen if the revision was never created
+		// or was never the 'LatestCreatedRevision' with a 0.3 controller
+		return rev, nil
+	}
+
+	if rev.Labels[targetLabelKey] == value {
+		return rev, nil
+	}
+
+	rev.Labels[targetLabelKey] = value
+
+	return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 }
