@@ -36,9 +36,9 @@ import (
 var (
 	revID = RevisionID{"good-namespace", "good-name"}
 
-	existingRevisionGetter = func(concurrency v1alpha1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha12.Revision, error) {
+	existingRevisionGetter = func(concurrency int) func(RevisionID) (*v1alpha12.Revision, error) {
 		return func(RevisionID) (*v1alpha12.Revision, error) {
-			return &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: concurrency}}, nil
+			return &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency)}}, nil
 		}
 	}
 	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
@@ -199,38 +199,40 @@ func TestThrottler_TryOverload(t *testing.T) {
 }
 
 func TestUpdateEndpoints(t *testing.T) {
+	revisionConcurrency := 10
+
 	samples := []struct {
 		label          string
 		endpointsAfter int
-		wantCapacity   int32
-		initCapacity   int32
+		wantCapacity   int
+		initCapacity   int
 	}{{
 		label:          "add single endpoint",
 		endpointsAfter: 1,
-		wantCapacity:   10,
+		wantCapacity:   1 * revisionConcurrency,
 		initCapacity:   0,
 	}, {
 		label:          "add several endpoints",
 		endpointsAfter: 2,
-		wantCapacity:   20,
+		wantCapacity:   2 * revisionConcurrency,
 		initCapacity:   0,
 	}, {
 		label:          "do nothing",
 		endpointsAfter: 1,
-		wantCapacity:   10,
+		wantCapacity:   1 * revisionConcurrency,
 		initCapacity:   10,
 	}}
 
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
-			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(10), existingEndpointsGetter, TestLogger(t), s.initCapacity)
+			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency), existingEndpointsGetter, TestLogger(t), int32(s.initCapacity))
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
 			updater := UpdateEndpoints(throttler)
 			endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
 			updater(&endpointsAfter)
 
-			if got := breaker.Capacity(); got != s.wantCapacity {
+			if got := breaker.Capacity(); got != int32(s.wantCapacity) {
 				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
 			}
 		})
