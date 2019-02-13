@@ -36,7 +36,9 @@ import (
 )
 
 const (
-	wantBody = "everything good!"
+	wantBody      = "everything good!"
+	testNamespace = "real-namespace"
+	testRevName   = "real-name"
 )
 
 var stubRevisionGetter = func(activator.RevisionID) (*v1alpha1.Revision, error) {
@@ -98,7 +100,7 @@ func TestActivationHandler(t *testing.T) {
 	)
 	defer server.Close()
 
-	act := newStubActivator("real-namespace", "real-name", server)
+	act := newStubActivator(testNamespace, testRevName, server)
 
 	examples := []struct {
 		label           string
@@ -112,8 +114,8 @@ func TestActivationHandler(t *testing.T) {
 		reporterCalls   []reporterCall
 	}{{
 		label:           "active endpoint",
-		namespace:       "real-namespace",
-		name:            "real-name",
+		namespace:       testNamespace,
+		name:            testRevName,
 		wantBody:        "everything good!",
 		wantCode:        http.StatusOK,
 		wantErr:         nil,
@@ -121,8 +123,8 @@ func TestActivationHandler(t *testing.T) {
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
@@ -130,24 +132,24 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
 		}},
 	}, {
 		label:           "active endpoint with missing count header",
-		namespace:       "real-namespace",
-		name:            "real-name",
+		namespace:       testNamespace,
+		name:            testRevName,
 		wantBody:        "everything good!",
 		wantCode:        http.StatusOK,
 		wantErr:         nil,
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
@@ -155,8 +157,8 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
@@ -172,16 +174,16 @@ func TestActivationHandler(t *testing.T) {
 		reporterCalls:   nil,
 	}, {
 		label:           "request error",
-		namespace:       "real-namespace",
-		name:            "real-name",
+		namespace:       testNamespace,
+		name:            testRevName,
 		wantBody:        "",
 		wantCode:        http.StatusBadGateway,
 		wantErr:         errors.New("request error"),
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
@@ -189,16 +191,16 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
 		}},
 	}, {
 		label:           "invalid number of attempts",
-		namespace:       "real-namespace",
-		name:            "real-name",
+		namespace:       testNamespace,
+		name:            testRevName,
 		wantBody:        "everything good!",
 		wantCode:        http.StatusOK,
 		wantErr:         nil,
@@ -206,8 +208,8 @@ func TestActivationHandler(t *testing.T) {
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
@@ -215,16 +217,16 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
-			Namespace:  "real-namespace",
-			Revision:   "real-name",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
 		}},
 	}, {
 		label:           "broken GetEndpoints",
-		namespace:       "real-namespace",
-		name:            "real-name",
+		namespace:       testNamespace,
+		name:            testRevName,
 		wantBody:        "",
 		wantCode:        http.StatusInternalServerError,
 		wantErr:         nil,
@@ -300,8 +302,8 @@ func TestActivationHandler_Overflow(t *testing.T) {
 	// overall max 20 requests in the Breaker
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 
-	namespace := "real-namespace"
-	revName := "real-name"
+	namespace := testNamespace
+	revName := testRevName
 
 	throttler := getThrottler(breakerParams, t)
 	server := httptest.NewServer(
@@ -342,7 +344,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	lockerCh := make(chan struct{})
 	for rev := 0; rev < revisions; rev++ {
 		namespace := fmt.Sprintf("real-namespace-%d", rev)
-		revName := "real-name"
+		revName := testRevName
 
 		act := newStubActivator(namespace, revName, server)
 		handler := getHandler(throttler, act, lockerCh, t)
