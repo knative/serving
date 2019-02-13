@@ -363,12 +363,13 @@ const (
 // AnnotateUserInfo satisfay the apis.Annotatable interface, and set the proper annotations
 // on the Service resource about the user that performed the action.
 func (s *Service) AnnotateUserInfo(prev apis.Annotatable, ui *authv1.UserInfo) {
-	ans := s.ObjectMeta.GetAnnotations()
+	ans := s.GetAnnotations()
 	if ans == nil {
 		ans = map[string]string{}
-		defer s.ObjectMeta.SetAnnotations(ans)
+		defer s.SetAnnotations(ans)
 	}
 
+	// WebHook makes sure we get the proper type here.
 	ps, _ := prev.(*Service)
 
 	// Creation.
@@ -377,8 +378,6 @@ func (s *Service) AnnotateUserInfo(prev apis.Annotatable, ui *authv1.UserInfo) {
 		ans[UpdaterAnnotation] = ui.Username
 		return
 	}
-
-	// WebHook makes sure we get the proper type here.
 
 	// Compare the Spec's, we update the `lastModifier` key iff
 	// there's a change in the spec.

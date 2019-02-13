@@ -137,6 +137,20 @@ func validateLabelsPropagation(logger *logging.BaseLogger, objects test.Resource
 	return nil
 }
 
+func validateAnnotations(objs *test.ResourceObjects) error {
+	// This checks whether the annotations are set on the resources that
+	// expect them to have.
+	// List of issues listing annotations that we check: #1642.
+
+	anns := objs.Service.GetAnnotations()
+	for _, a := range []string{v1alpha1.CreatorAnnotation, v1alpha1.UpdaterAnnotation} {
+		if got := anns[a]; got == "" {
+			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
+		}
+	}
+	return nil
+}
+
 func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 	// Check that Spec.Revisions is as expected.
 	if got, want := objs.Service.Spec.Release.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
@@ -146,7 +160,7 @@ func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
 		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
 	}
-	return nil
+	return validateAnnotations(objs)
 }
 
 // TestRunLatestService tests both Creation and Update paths of a runLatest service. The test performs a series of Update/Validate steps to ensure that
