@@ -235,7 +235,7 @@ func TestActivationHandler(t *testing.T) {
 					fake.Header().Add(activator.RequestCountHTTPHeader, e.attempts)
 				}
 
-				fake.WriteHeader(200)
+				fake.WriteHeader(http.StatusOK)
 				fake.WriteString(wantBody)
 				return fake.Result(), nil
 			})
@@ -365,7 +365,7 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 		lockerCh <- struct{}{}
 
 		fake := httptest.NewRecorder()
-		fake.WriteHeader(200)
+		fake.WriteHeader(http.StatusOK)
 		fake.WriteString(wantBody)
 
 		return fake.Result(), nil
