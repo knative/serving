@@ -52,9 +52,11 @@ func connect(logger *logging.BaseLogger, ingressIP string, domain string) (*webs
 			conn = c
 			return true, nil
 		}
-		body := new(bytes.Buffer)
-		body.ReadFrom(resp.Body)
-		logger.Infof("Connection failed: %v.  Response=%+v, ResponseBody=%q", err, resp, body)
+		if resp != nil {
+			body := new(bytes.Buffer)
+			body.ReadFrom(resp.Body)
+			logger.Infof("Connection failed: %v.  Response=%+v, ResponseBody=%q", err, resp, body)
+		}
 		return false, nil
 	})
 	return conn, waitErr
