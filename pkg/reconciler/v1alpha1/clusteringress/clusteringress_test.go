@@ -23,7 +23,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -339,15 +338,15 @@ func TestReconcile_Gateway(t *testing.T) {
 func getGatewaysFromObjects(objects []runtime.Object) []*v1alpha3.Gateway {
 	gateways := []*v1alpha3.Gateway{}
 	for _, object := range objects {
-		if equality.Semantic.DeepEqual(object.GetObjectKind().GroupVersionKind(), v1alpha3.SchemeGroupVersion.WithKind("Gateway")) {
-			gateways = append(gateways, object.(*v1alpha3.Gateway))
+		if gateway, ok := object.(*v1alpha3.Gateway); ok {
+			gateways = append(gateways, gateway)
 		}
 	}
 	return gateways
 }
 
 func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gateway {
-	gateway := &v1alpha3.Gateway{
+	return &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -356,8 +355,6 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 			Servers: servers,
 		},
 	}
-	gateway.SetGroupVersionKind(v1alpha3.SchemeGroupVersion.WithKind("Gateway"))
-	return gateway
 }
 
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
