@@ -36,7 +36,7 @@ import (
 
 const (
 	connectRetryInterval = 1 * time.Second
-	connectTimeout       = 2 * time.Minute
+	connectTimeout       = 20 * time.Second
 )
 
 // connect attempts to establish websocket connection with the Service.
@@ -157,12 +157,19 @@ func combineShell(logger *logging.BaseLogger, name string, arg ...string) string
 	return string(out)
 }
 
-func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) {
-	containers := []string{"queue-proxy", "user-container"}
+func printPodLogs(logger *logging.BaseLogger, ns string, key string, value string, containers []string) {
+	pods := combineShell(logger, "kubectl", "get", "pods", "-n", ns, "-l", key+"="+value)
+	logger.Infof("PODS LIST [%s=%s] ------\n%s", key, value, pods)
+	logger.Infof("PODS LIST [%s=%s] ------\n", key, value)
 	for _, c := range containers {
-		l := combineShell(logger, "/usr/bin/kubectl", "logs", "-n", "serving-tests", "-l",
-			"serving.knative.dev/service="+names.Service, "-c", c)
-		logger.Infof("LOG START   [%s] ------\n%s", c, l)
+		logs := combineShell(logger, "kubectl", "logs", "-n", ns, "-l", key+"="+value, "-c", c)
+		logger.Infof("LOG START   [%s] ------\n%s", c, logs)
 		logger.Infof("POD LOG END [%s] ------\n", c)
 	}
+}
+
+func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) {
+	printPodLogs(logger, "serving-tests", "serving.knative.dev/service", names.Service,
+		[]string{"queue-proxy", "user-container"})
+	printPodLogs(logger, "knative-serving", "app", "activator", []string{"activator"})
 }
