@@ -33,6 +33,7 @@ import (
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,6 +69,13 @@ func TestGRPC(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
+	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
+	}
+	names.Revision = config.Status.LatestCreatedRevisionName
+	deploymentName := names.Revision + "-deployment"
+
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
@@ -88,6 +96,24 @@ func TestGRPC(t *testing.T) {
 	}
 
 	logger.Infof("Connecting to grpc-ping using host %q and authority %q", *host, domain)
+
+	waitForScaleToZero := func() {
+		logger.Infof("Waiting for scale to zero")
+		err = pkgTest.WaitForDeploymentState(
+			clients.KubeClient,
+			deploymentName,
+			func(d *v1beta1.Deployment) (bool, error) {
+				logger.Infof("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
+				return d.Status.ReadyReplicas == 0, nil
+			},
+			"DeploymentIsScaledDown",
+			test.ServingNamespace,
+			2*time.Minute,
+		)
+		if err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+	}
 
 	conn, err := grpc.Dial(
 		*host+":80",
@@ -117,7 +143,7 @@ func TestGRPC(t *testing.T) {
 	streamTest := func(t *testing.T) {
 		logger.Info("Testing streaming Ping")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		stream, err := pc.PingStream(ctx)
@@ -163,4 +189,12 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("unary ping", unaryTest)
 	t.Run("streaming ping", streamTest)
+
+	waitForScaleToZero()
+
+	t.Run("unary ping after scale-to-zero", unaryTest)
+
+	waitForScaleToZero()
+
+	t.Run("streaming ping after scale-to-zero", streamTest)
 }
