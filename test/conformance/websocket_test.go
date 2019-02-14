@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ import (
 
 const (
 	connectRetryInterval = 1 * time.Second
-	connectTimeout       = 6 * time.Minute
+	connectTimeout       = 2 * time.Minute
 )
 
 // connect attempts to establish websocket connection with the Service.
@@ -141,7 +142,25 @@ func TestWebsocket(t *testing.T) {
 	}
 
 	// Validate the websocket connection.
-	if err = validateWebsocketConnection(logger, clients, names); err != nil {
+	err = validateWebsocketConnection(logger, clients, names)
+	printAllLogs(logger, clients, names)
+	if err != nil {
 		t.Error(err)
+	}
+}
+
+func combineShell(logger *logging.BaseLogger, name string, arg ...string) string {
+	cmd := exec.Command(name, arg...)
+	out, _ := cmd.CombinedOutput()
+	return string(out)
+}
+
+func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) {
+	containers := []string{"queue-proxy", "user-container"}
+	for _, c := range containers {
+		l := combineShell(logger, "/usr/bin/kubectl", "logs", "-n", "serving-tests", "-l",
+			"serving.knative.dev/service="+names.Service, "-c", c)
+		logger.Infof("LOG START   [%s] ------\n%s", c, l)
+		logger.Infof("POD LOG END [%s] ------\n", c)
 	}
 }
