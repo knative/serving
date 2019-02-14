@@ -150,12 +150,12 @@ func TestWebsocket(t *testing.T) {
 	defer tearDown(clients, client_names)
 
 	// Get the gatewayIP.
-	gatewayIP, err := getGatewayIP(clients.KubeClient.Kube)
-	if err != nil {
-		t.Fatalf("Failed to get Gateway IP %v", err)
-	}
+	// gatewayIP, err := getGatewayIP(clients.KubeClient.Kube)
+	// if err != nil {
+	// 	t.Fatalf("Failed to get Gateway IP %v", err)
+	// }
 	// Setup websocket server.
-	_, err = test.CreateRunLatestServiceReady(logger, clients, &server_names, &test.Options{})
+	_, err := test.CreateRunLatestServiceReady(logger, clients, &server_names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", server_names.Service, err)
 	}
@@ -164,7 +164,7 @@ func TestWebsocket(t *testing.T) {
 	_, err = test.CreateRunLatestServiceReady(logger, clients, &client_names, &test.Options{
 		EnvVars: []corev1.EnvVar{{
 			Name:  "INGRESS_IP",
-			Value: gatewayIP,
+			Value: "istio-ingressgateway.istio-system.svc",
 		}, {
 			Name:  "TARGET_HOST",
 			Value: server_names.Domain,
