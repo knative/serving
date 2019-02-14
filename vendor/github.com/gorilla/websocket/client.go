@@ -148,6 +148,7 @@ var nilDialer = *DefaultDialer
 // etcetera. The response body may not contain the entire response and does not
 // need to be closed by the application.
 func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (*Conn, *http.Response, error) {
+	fmt.Printf("requestHeader=%+v\n", requestHeader)
 	if d == nil {
 		d = &nilDialer
 	}

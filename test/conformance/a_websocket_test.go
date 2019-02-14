@@ -167,7 +167,7 @@ func TestWebsocket(t *testing.T) {
 			Value: gatewayIP,
 		}, {
 			Name:  "TARGET_HOST",
-			Value: server_names.Service,
+			Value: server_names.Domain,
 		}},
 	})
 	if err != nil {
@@ -179,7 +179,7 @@ func TestWebsocket(t *testing.T) {
 		clients.KubeClient,
 		logger,
 		client_names.Domain,
-		pkgTest.Retrying(pkgTest.MatchesBody("Helloworld, websocket"), http.StatusNotFound, http.StatusInternalServerError),
+		pkgTest.Retrying(pkgTest.MatchesBody("Hello, websocket"), http.StatusNotFound, http.StatusInternalServerError),
 		"WebsocketClientServesText",
 		test.ServingFlags.ResolvableDomain)
 	printAllLogs(logger, clients, server_names, client_names)

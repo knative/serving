@@ -85,7 +85,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Expected to receive back the message: %q but received %q", sent, string(recv)), http.StatusInternalServerError)
 		return
 	} else {
-		fmt.Fprintln(w, recv)
+		fmt.Fprintln(w, string(recv))
 	}
 }
 
