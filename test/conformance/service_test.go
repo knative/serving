@@ -369,13 +369,13 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
 	}
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
-		"current": {
-			Name:         "current",
+		v1alpha1.CurrentTrafficTarget: {
+			Name:         v1alpha1.CurrentTrafficTarget,
 			RevisionName: objects.Config.Status.LatestReadyRevisionName,
 			Percent:      100,
 		},
-		"latest": {
-			Name:         "latest",
+		v1alpha1.LatestTrafficTarget: {
+			Name:         v1alpha1.LatestTrafficTarget,
 			RevisionName: objects.Config.Status.LatestReadyRevisionName,
 		},
 	}
@@ -388,7 +388,7 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
+		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
 		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
@@ -406,8 +406,8 @@ func TestReleaseService(t *testing.T) {
 	revisions = append(revisions, names.Revision)
 
 	// Also verify traffic is in the correct shape.
-	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		Name:         "latest",
+	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
+		Name:         v1alpha1.LatestTrafficTarget,
 		RevisionName: names.Revision,
 	}
 	logger.Info("Waiting for Service to become ready with the new shape.")
@@ -419,7 +419,7 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
+		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
 		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
@@ -431,18 +431,18 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
-		"current": {
-			Name:         "current",
+		v1alpha1.CurrentTrafficTarget: {
+			Name:         v1alpha1.CurrentTrafficTarget,
 			RevisionName: revisions[0],
 			Percent:      50,
 		},
-		"candidate": {
-			Name:         "candidate",
+		v1alpha1.CandidateTrafficTarget: {
+			Name:         v1alpha1.CandidateTrafficTarget,
 			RevisionName: revisions[1],
 			Percent:      50,
 		},
-		"latest": {
-			Name:         "latest",
+		v1alpha1.LatestTrafficTarget: {
+			Name:         v1alpha1.LatestTrafficTarget,
 			RevisionName: revisions[1],
 		},
 	}
@@ -455,7 +455,7 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"candidate", "latest", "current"},
+		[]string{v1alpha1.CandidateTrafficTarget, v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
 		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
@@ -470,8 +470,8 @@ func TestReleaseService(t *testing.T) {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		Name:         "latest",
+	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
+		Name:         v1alpha1.LatestTrafficTarget,
 		RevisionName: names.Revision,
 	}
 	logger.Info("Waiting for Service to become ready with the new shape.")
@@ -483,7 +483,7 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"latest", "candidate", "current"},
+		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CandidateTrafficTarget, v1alpha1.CurrentTrafficTarget},
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
@@ -496,8 +496,8 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	// `candidate` now points to the latest.
-	desiredTrafficShape["candidate"] = v1alpha1.TrafficTarget{
-		Name:         "candidate",
+	desiredTrafficShape[v1alpha1.CandidateTrafficTarget] = v1alpha1.TrafficTarget{
+		Name:         v1alpha1.CandidateTrafficTarget,
 		RevisionName: names.Revision,
 		Percent:      50,
 	}
@@ -509,7 +509,7 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(logger, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedThirdRev},
-		[]string{"latest", "candidate", "current"},
+		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CandidateTrafficTarget, v1alpha1.CurrentTrafficTarget},
 		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}

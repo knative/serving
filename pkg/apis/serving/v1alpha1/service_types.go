@@ -286,7 +286,17 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 const (
 	trafficNotMigratedReason  = "TrafficNotMigrated"
 	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+
+	// LatestTrafficTarget is the named constant of the `latest` traffic target.
+	LatestTrafficTarget = "latest"
+
+	// CurrentTrafficTarget is the named constnat of the `current` traffic target.
+	CurrentTrafficTarget = "current"
+
+	// CandidateTrafficTarget is the named constnat of the `candidate` traffic target.
+	CandidateTrafficTarget = "candidate"
 )
+
 
 // MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
 // See: #2430, for details.
