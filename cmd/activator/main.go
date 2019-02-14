@@ -18,48 +18,46 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg/autoscaler"
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/knative/pkg/logging/logkey"
-
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/system"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/utils"
-	"go.uber.org/zap"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/pkg/controller"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-
-	"github.com/knative/serving/pkg/apis/serving"
-	"errors"
-	"github.com/knative/pkg/version"
-	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/utils"
+	"go.uber.org/zap"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/api/core/v1"
 )
 
 const (
@@ -207,36 +205,26 @@ func main() {
 	}
 
 	activationResultGetter := func(revID activator.RevisionID) *activator.ActivationResult {
+
 		rev, err := revisionGetter(revID)
 		if err != nil {
 			return getActivationResultFromError(err)
 		}
+		name := revisionresourcenames.K8sService(rev)
 		serviceName, configurationName := getLabels(rev)
 
-		name := revisionresourcenames.K8sService(rev)
 		svc, err := serviceInformer.Lister().Services(revID.Namespace).Get(name)
 		if err != nil {
 			return getActivationResultFromError(err)
 		}
 
-		fqdn := fmt.Sprintf("%s.%s.svc.%s", name, rev.Namespace, utils.GetClusterDomainName())
-
 		// Search for the correct port in all the service ports.
-		port := int32(-1)
-		for _, p := range svc.Spec.Ports {
-			if p.Name == revisionresources.ServicePortName(rev) {
-				port = p.Port
-				break
-			}
-		}
-		if port == -1 {
-			return &activator.ActivationResult{
-				Status: http.StatusInternalServerError,
-				Error:  errors.New("revision needs external HTTP port"),
-			}
+		port, err := getServicePort(svc.Spec.Ports, rev)
+		if err != nil {
+			return getActivationResultFromError(err)
 		}
 
-		endpoint := activator.Endpoint{fqdn, port}
+		endpoint := activator.Endpoint{reconciler.GetK8sServiceFullname(name, rev.Namespace), port}
 
 		return &activator.ActivationResult{
 			Endpoint:          endpoint,
@@ -338,6 +326,20 @@ func getLabels(rev *v1alpha1.Revision) (string, string) {
 		return "", ""
 	}
 	return rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey]
+}
+
+func getServicePort(ports []v1.ServicePort, rev *v1alpha1.Revision) (int32, error) {
+	port := int32(-1)
+	for _, p := range ports {
+		if p.Name == revisionresources.ServicePortName(rev) {
+			port = p.Port
+			break
+		}
+	}
+	if port == -1 {
+		return port, errors.New("revision needs external HTTP port")
+	}
+	return port, nil
 }
 
 func getActivationResultFromError(err error) *activator.ActivationResult {
