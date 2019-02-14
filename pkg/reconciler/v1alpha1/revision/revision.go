@@ -461,6 +461,9 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 func (c *Reconciler) migrateConfigurationMetadata(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	stale := false
 
+	// The /configurationGeneration label key used to be an annotation key
+	// This is not the case anymore so if the revision has that annotation
+	// we delete it since it used to point to a configuration's spec.generation
 	if rev.Annotations[serving.ConfigurationGenerationLabelKey] != "" {
 		delete(rev.Annotations, serving.ConfigurationGenerationLabelKey)
 		stale = true
@@ -472,6 +475,8 @@ func (c *Reconciler) migrateConfigurationMetadata(rev *v1alpha1.Revision) (*v1al
 	legacyValue, hasLegacy := rev.Labels[legacyKey]
 	targetValue, hasTarget := rev.Labels[targetKey]
 
+	// If the two keys are different then set /configurationGeneration
+	// to be the value of the label /configurationMetadataGeneration
 	if hasLegacy && targetValue != legacyValue {
 		stale = true
 		rev.Labels[targetKey] = legacyValue
