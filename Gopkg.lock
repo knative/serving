@@ -504,7 +504,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a1828a61bf85b9d8c092628a4600792ba6bf1e772eac30bfcaf7cf6032ac3837"
+  digest = "1:5107cbbdde8b5ebc8930f58cbb044a4551d9ede8f4a52aa3fe11f15640033bd5"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -515,9 +515,14 @@
     "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
+    "tools/webhook-apicoverage/coveragecalculator",
+    "tools/webhook-apicoverage/resourcetree",
+    "tools/webhook-apicoverage/tools",
+    "tools/webhook-apicoverage/view",
+    "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "4b75a7bd1c72927062d03459c229d985d3bc2d10"
+  revision = "c39a55c42c92897adb484a3b15b65ff26c607931"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1338,8 +1343,14 @@
     "github.com/knative/test-infra/shared/junit",
     "github.com/knative/test-infra/shared/loadgenerator",
     "github.com/knative/test-infra/shared/prometheus",
+    "github.com/knative/test-infra/shared/prow",
     "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
+    "github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator",
+    "github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree",
+    "github.com/knative/test-infra/tools/webhook-apicoverage/tools",
+    "github.com/knative/test-infra/tools/webhook-apicoverage/view",
+    "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
     "github.com/prometheus/client_model/go",
@@ -1348,7 +1359,6 @@
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
-    "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
