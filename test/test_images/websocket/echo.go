@@ -35,6 +35,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func echo(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Request headers = %+v\n", r.Header)
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
