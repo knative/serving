@@ -50,6 +50,9 @@ metadata:
   namespace: default
   labels:
     knative.dev/service: ...  # name of the Service automatically filled in
+  annotations:
+    serving.knative.dev/creator: ...       # the user identity who created the service, system generated.
+    serving.knative.dev/lastModifier: ...  # the user identity who last modified the service, system generated.
 
   # system generated meta
   uid: ...
