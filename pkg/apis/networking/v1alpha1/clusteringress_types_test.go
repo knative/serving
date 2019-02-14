@@ -25,15 +25,11 @@ import (
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generational",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}

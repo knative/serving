@@ -29,15 +29,10 @@ import (
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
-
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generations",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}
