@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -228,6 +229,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		req.Header["Sec-WebSocket-Extensions"] = []string{"permessage-deflate; server_no_context_takeover; client_no_context_takeover"}
 	}
 
+	fmt.Printf("req.Headers=%+v\n", req.Header)
 	if d.HandshakeTimeout != 0 {
 		var cancel func()
 		ctx, cancel = context.WithTimeout(ctx, d.HandshakeTimeout)

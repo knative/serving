@@ -48,10 +48,7 @@ func connect(logger *logging.BaseLogger, ingressIP string, domain string) (*webs
 		logger.Infof("Connecting using websocket: url=%s, host=%s", u.String(), domain)
 		c, resp, err := websocket.DefaultDialer.Dial(u.String(),
 			map[string][]string{
-				"Host":       []string{domain},
-				"Connection": []string{"upgrade"},
-				"Upgrade":    []string{"websocket"},
-				"foo":        []string{"bar"},
+				"Host": []string{domain},
 			},
 		)
 		if err == nil {
@@ -63,6 +60,8 @@ func connect(logger *logging.BaseLogger, ingressIP string, domain string) (*webs
 			body := new(bytes.Buffer)
 			body.ReadFrom(resp.Body)
 			logger.Infof("Connection failed: %v.  Response=%+v, ResponseBody=%q", err, resp, body)
+		} else {
+			logger.Infof("Connection failed: %v", err)
 		}
 		return false, nil
 	})
