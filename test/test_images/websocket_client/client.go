@@ -69,7 +69,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	log.Printf("Connection established")
 	// Send a message.
 	sent := "Hello, websocket"
 	log.Printf("Sending message %q to server.", sent)
@@ -77,6 +77,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Message sent")
 	// Attempt to read back the same message.
 	if _, recv, err := conn.ReadMessage(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
