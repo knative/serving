@@ -50,7 +50,8 @@ const (
 	runtime             = "runtime"
 	singleThreadedImage = "singlethreaded"
 	timeout             = "timeout"
-	websocketEcho       = "websocket"
+	websocketServer     = "websocket"
+	websocketClient     = "websocket_client"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.

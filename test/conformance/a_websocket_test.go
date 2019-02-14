@@ -21,14 +21,17 @@ package conformance
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os/exec"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -134,27 +137,55 @@ func TestWebsocket(t *testing.T) {
 	// Add test case specific name to its own logger.
 	logger := logging.GetContextLogger(t.Name())
 
-	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-websocket-", logger),
-		Image:   websocketEcho,
+	server_names := test.ResourceNames{
+		Service: test.AppendRandomString("test-ws-server-", logger),
+		Image:   websocketServer,
+	}
+	defer tearDown(clients, server_names)
+
+	client_names := test.ResourceNames{
+		Service: test.AppendRandomString("test-ws-client-", logger),
+		Image:   websocketClient,
+	}
+	defer tearDown(clients, client_names)
+
+	// Get the gatewayIP.
+	gatewayIP, err := getGatewayIP(clients.KubeClient.Kube)
+	if err != nil {
+		t.Fatalf("Failed to get Gateway IP %v", err)
+	}
+	// Setup websocket server.
+	_, err = test.CreateRunLatestServiceReady(logger, clients, &server_names, &test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", server_names.Service, err)
 	}
 
-	// Clean up on test failure or interrupt
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-
-	// Setup Service
-	_, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	// Setup websocket client.
+	_, err = test.CreateRunLatestServiceReady(logger, clients, &client_names, &test.Options{
+		EnvVars: []corev1.EnvVar{{
+			Name:  "INGRESS_IP",
+			Value: gatewayIP,
+		}, {
+			Name:  "TARGET_HOST",
+			Value: server_names.Service,
+		}},
+	})
 	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service %v: %v", server_names.Service, err)
 	}
 
 	// Validate the websocket connection.
-	err = validateWebsocketConnection(logger, clients, names)
-	printAllLogs(logger, clients, names)
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		client_names.Domain,
+		pkgTest.Retrying(pkgTest.MatchesBody("Helloworld, websocket"), http.StatusNotFound),
+		"WebsocketClientServesText",
+		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Fail to validate websocket connection %v: %v", server_names.Service, err)
 	}
+	printAllLogs(logger, clients, server_names, client_names)
 }
 
 func combineShell(logger *logging.BaseLogger, name string, arg ...string) string {
@@ -169,13 +200,15 @@ func printPodLogs(logger *logging.BaseLogger, ns string, key string, value strin
 	logger.Infof("PODS LIST [%s=%s] ------\n", key, value)
 	for _, c := range containers {
 		logs := combineShell(logger, "kubectl", "logs", "-n", ns, "-l", key+"="+value, "-c", c)
-		logger.Infof("LOG START   [%s] ------\n%s", c, logs)
-		logger.Infof("POD LOG END [%s] ------\n", c)
+		logger.Infof("LOG START   [%s=%s,%s] ------\n%s", key, value, c, logs)
+		logger.Infof("POD LOG END [%s=%s,%s] ------\n", key, value, c)
 	}
 }
 
-func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) {
-	printPodLogs(logger, "serving-tests", "serving.knative.dev/service", names.Service,
+func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, server_names test.ResourceNames, client_names test.ResourceNames) {
+	printPodLogs(logger, "serving-tests", "serving.knative.dev/service", server_names.Service,
+		[]string{"queue-proxy", "user-container", "istio-proxy"})
+	printPodLogs(logger, "serving-tests", "serving.knative.dev/service", client_names.Service,
 		[]string{"queue-proxy", "user-container", "istio-proxy"})
 	printPodLogs(logger, "knative-serving", "app", "activator", []string{"activator"})
 }
