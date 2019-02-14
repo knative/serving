@@ -14,6 +14,7 @@ limitations under the License.
 package types
 
 import (
+	"net/http"
 	"time"
 )
 
@@ -36,7 +37,7 @@ type RequestInfo struct {
 	// Method is the method used for the request.
 	Method string `json:"method"`
 	// Headers is a Map of all headers set.
-	Headers map[string]string `json:"headers"`
+	Headers http.Header `json:"headers"`
 }
 
 // HostInfo contains information about the host environment.

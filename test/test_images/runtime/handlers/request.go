@@ -14,28 +14,11 @@ limitations under the License.
 package handlers
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/knative/serving/test/types"
 )
-
-func headers(r *http.Request) map[string]string {
-	headerMap := map[string]string{}
-	for name, headers := range r.Header {
-		name = strings.ToLower(name)
-		for i, h := range headers {
-			if len(headers) > 1 {
-				headerMap[fmt.Sprintf("%s[%d]", name, i)] = h
-			} else {
-				headerMap[fmt.Sprintf("%s", name)] = h
-			}
-		}
-	}
-	return headerMap
-}
 
 func requestInfo(r *http.Request) *types.RequestInfo {
 	return &types.RequestInfo{
@@ -43,6 +26,6 @@ func requestInfo(r *http.Request) *types.RequestInfo {
 		URI:     r.RequestURI,
 		Host:    r.Host,
 		Method:  r.Method,
-		Headers: headers(r),
+		Headers: r.Header,
 	}
 }
