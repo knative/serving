@@ -29,7 +29,7 @@ import (
 func handler(w http.ResponseWriter, r *http.Request) {
 	timeout, _ := strconv.Atoi(r.URL.Query().Get("timeout"))
 	start := time.Now().UnixNano()
-	time.Sleep(timeout * time.Millisecond)
+	time.Sleep(time.Duration(timeout) * time.Millisecond)
 	end := time.Now().UnixNano()
 	fmt.Fprintf(w, "%d,%d\n", start, end)
 }
