@@ -259,8 +259,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
+
 	// Don't modify the informer's copy.
-	rev := original.DeepCopy()
+	rev, err := c.migrateConfigurationMetadata(original.DeepCopy())
+
+	if err != nil {
+		logger.Warnw("Failed to migrate revision labels", zap.Error(err))
+		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to migrate revision %q labels: %v", rev.Name, err)
+		return err
+	}
 
 	// Reconcile this copy of the revision and then write back any status
 	// updates regardless of whether the reconciliation errored out.
@@ -446,4 +454,49 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 	existing := rev.DeepCopy()
 	existing.Status = desired.Status
 	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+}
+
+// TODO(643) Change this logic in 0.5 to only drop the deprecated label
+//           Delete this logic in 0.6
+func (c *Reconciler) migrateConfigurationMetadata(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+	stale := false
+
+	// The /configurationGeneration label key used to be an annotation key
+	// This is not the case anymore so if the revision has that annotation
+	// we delete it since it used to point to a configuration's spec.generation
+	if rev.Annotations[serving.ConfigurationGenerationLabelKey] != "" {
+		delete(rev.Annotations, serving.ConfigurationGenerationLabelKey)
+		stale = true
+	}
+
+	legacyKey := serving.DeprecatedConfigurationMetadataGenerationLabelKey
+	targetKey := serving.ConfigurationGenerationLabelKey
+
+	legacyValue, hasLegacy := rev.Labels[legacyKey]
+	targetValue, hasTarget := rev.Labels[targetKey]
+
+	// If the two keys are different then set /configurationGeneration
+	// to be the value of the label /configurationMetadataGeneration
+	if hasLegacy && targetValue != legacyValue {
+		stale = true
+		rev.Labels[targetKey] = legacyValue
+	}
+
+	if hasTarget && !hasLegacy {
+		// This occurs if the revision was created with 0.2 and
+		// received a /configurationGeneration label but never
+		// received a /configurationMetadataGeneration label since
+		// it was not the latest created revision
+		//
+		// We drop this label since it's value was set according
+		// to a configuration's spec.generation
+		stale = true
+		delete(rev.Labels, serving.ConfigurationGenerationLabelKey)
+	}
+
+	if !stale {
+		return rev, nil
+	}
+
+	return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 }
