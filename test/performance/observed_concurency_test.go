@@ -62,7 +62,7 @@ func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, 
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						logger.Errorf("Error sending request: %v", err)
+						logger.Infof("Error sending request: %v", err)
 					}
 					if resChannel != nil {
 						resChannel <- res
