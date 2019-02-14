@@ -48,3 +48,6 @@ data:
     # do have a service mesh setup, this isn't required.
     local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
 
+    # In case users just want to expose Services and Routes through the
+    # service mesh, use local-gateway.mesh = "mesh" like the following.
+    local-gateway.mesh: "mesh"

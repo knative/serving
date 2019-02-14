@@ -108,6 +108,35 @@ func TestGatewayConfiguration(t *testing.T) {
 				"local-gateway.knative-ingress-backroad": "istio-ingressbackroad.istio-system.svc.cluster.local",
 			},
 		},
+	}, {
+		name:    "mesh-only gateway configuration",
+		wantErr: false,
+		wantIstio: &Istio{
+			IngressGateways: []Gateway{defaultGateway},
+			LocalGateways:   []Gateway{},
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"local-gateway.mesh": "mesh",
+			},
+		},
+	}, {
+		name:      "mesh-only gateway invalid configuration",
+		wantErr:   true,
+		wantIstio: (*Istio)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"local-gateway.mesh": "mess",
+			},
+		},
 	}}
 
 	for _, tt := range gatewayConfigTests {
