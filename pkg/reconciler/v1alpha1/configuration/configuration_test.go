@@ -25,7 +25,6 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
@@ -654,13 +653,4 @@ func TestIsRevisionStale(t *testing.T) {
 			}
 		})
 	}
-}
-
-// WithoutConfigurationMetadataGenerationLabel clears the label from the revision
-func WithoutConfigurationMetadataGenerationLabel(rev *v1alpha1.Revision) {
-	if rev.Labels == nil {
-		return
-	}
-
-	delete(rev.Labels, serving.ConfigurationMetadataGenerationLabelKey)
 }

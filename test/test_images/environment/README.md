@@ -16,6 +16,12 @@ Currently the server exposes:
   query-param. The JSON payload returned as response is specified in
   [runtime_contract_types](../../conformance/runtime_contract_types.go)
 
+## Trying out
+
+To run the image as a Service outisde of the test suite:
+
+`ko apply -f service.yaml`
+
 ## Building
 
 For details about building and adding new images, see the
