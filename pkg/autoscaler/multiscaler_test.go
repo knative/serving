@@ -174,6 +174,64 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 }
 
+func TestMultiScalerScaleFromZero(t *testing.T) {
+	ctx := context.TODO()
+	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{
+		TickInterval:      time.Second * 60,
+		EnableScaleToZero: true,
+	})
+	defer close(stopCh)
+
+	metric := newMetric()
+	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
+
+	uniScaler.setScaleResult(1, true)
+
+	done := make(chan struct{})
+	defer close(done)
+	ms.Watch(func(key string) {
+		// When we return, let the main process know.
+		defer func() {
+			done <- struct{}{}
+		}()
+		if key != metricKey {
+			t.Errorf("Watch() = %v, wanted %v", key, metricKey)
+		}
+		m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+		if err != nil {
+			t.Errorf("Get() = %v", err)
+		}
+		if got, want := m.Status.DesiredScale, int32(1); got != want {
+			t.Errorf("Get() = %v, wanted %v", got, want)
+		}
+	})
+
+	_, err := ms.Create(ctx, metric)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+	if ok := ms.SetScale(autoscaler.NewMetricKey(metric.Namespace, metric.Name), 0); !ok {
+		t.Error("Failed to set scale for metric to 0")
+	}
+
+	now := time.Now()
+	testStat := autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   "test-pod",
+		AverageConcurrentRequests: 1,
+		RequestCount:              1,
+	}
+	ms.RecordStat(testKPAKey, testStat)
+
+	// Verify that we see a "tick" on scale from zero
+	select {
+	case <-done:
+		// We got the signal!
+	case <-time.After(30 * time.Millisecond):
+		t.Fatalf("timed out waiting for Watch()")
+	}
+}
+
 func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	ctx := context.TODO()
 	ms, stopCh, uniScaler := createMultiScaler(t, &autoscaler.Config{

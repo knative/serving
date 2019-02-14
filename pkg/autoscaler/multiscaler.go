@@ -76,6 +76,7 @@ type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
+	pokeCh chan struct{}
 
 	// mux guards access to metric
 	mux    sync.RWMutex
@@ -145,6 +146,17 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric,
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
 	return (&scaler.metric).DeepCopy(), nil
+}
+
+// SetScale directly sets the scale for a given metric key. This does not perform any ticking
+// or updating of other scaler components.
+func (m *MultiScaler) SetScale(metricKey string, scale int32) bool {
+	scaler, exists := m.scalers[metricKey]
+	if !exists {
+		return false
+	}
+	scaler.updateLatestScale(scale)
+	return true
 }
 
 // Create instantiates the desired Metric.
@@ -229,6 +241,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		scaler: scaler,
 		stopCh: stopCh,
 		metric: *metric,
+		pokeCh: make(chan struct{}),
 	}
 	runner.metric.Status.DesiredScale = -1
 
@@ -246,6 +259,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				ticker.Stop()
 				return
 			case <-ticker.C:
+				m.tickScaler(ctx, scaler, scaleChan)
+			case <-runner.pokeCh:
 				m.tickScaler(ctx, scaler, scaleChan)
 			}
 		}
@@ -300,6 +315,10 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	if exists {
 		logger := m.logger.With(zap.String(logkey.Key, key))
 		ctx := logging.WithLogger(context.TODO(), logger)
+
 		scaler.scaler.Record(ctx, stat)
+		if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+			scaler.pokeCh <- struct{}{}
+		}
 	}
 }
