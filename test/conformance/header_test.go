@@ -52,17 +52,39 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	// TODO(#3112): Validate Forwarded header once it is enabled.
 }
 
+type checkIPList struct {
+	expected string
+}
+
+// MatchString returns true if the passed string is a list of IPv4 or IPv6 Addresses. Otherwise returns false.
+func (*checkIPList) MatchString(s string) bool {
+	for _, ip := range strings.Split(s, ",") {
+		if net.ParseIP(strings.TrimSpace(ip)) == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// String returns the expected string from the object.
+func (c *checkIPList) String() string {
+	return c.expected
+}
+
 // TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
-	expectedHeaders := map[string]*regexp.Regexp{
+	expectedHeaders := map[string]interface {
+		MatchString(string) bool
+		String() string
+	}{
 		// We expect the protocol to be http for our test image.
 		"x-forwarded-proto": regexp.MustCompile("https?"),
 		// We expect the value to be a list of at least one comma separated IP addresses (IPv4 or IPv6).
-		"x-forwarded-for": nil, // Non-regex based validation performed for this header
+		"x-forwarded-for": &checkIPList{expected: "comma separated IPv4 or IPv6 addresses"},
 
 		// Trace Headers
 		// See https://github.com/openzipkin/b3-propagation#overall-process
@@ -83,7 +105,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 	headers := ri.Request.Headers
 
-	for header, regex := range expectedHeaders {
+	for header, match := range expectedHeaders {
 		hvl, ok := headers[http.CanonicalHeaderKey(header)]
 		if !ok {
 			t.Errorf("Header %s was not present on request", header)
@@ -91,18 +113,8 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		}
 		// Check against each value for the header key
 		for _, hv := range hvl {
-
-			switch {
-			case strings.EqualFold(header, "x-forwarded-for"):
-				for _, ip := range strings.Split(hv, ",") {
-					if net.ParseIP(strings.TrimSpace(ip)) == nil {
-						t.Errorf("Header %s has invalid IP: %s", header, ip)
-					}
-				}
-			default:
-				if !regex.MatchString(hv) {
-					t.Errorf("%s = %s; want: %s", header, hv, regex.String())
-				}
+			if !match.MatchString(hv) {
+				t.Errorf("%s = %s; want: %s", header, hv, match.String())
 			}
 		}
 	}
