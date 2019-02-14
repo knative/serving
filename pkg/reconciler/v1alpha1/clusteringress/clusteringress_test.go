@@ -309,6 +309,47 @@ func TestReconcile_Gateway(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
 		},
 		Key: "new-created-clusteringress",
+	}, {
+		Name:                    "No preinstalled Gateways",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithTLS("new-created-clusteringress", 1234, ingressTLS),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
+				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithTLSAndStatus("new-created-clusteringress", 1234,
+				ingressTLS,
+				v1alpha1.IngressStatus{
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+						},
+					},
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}, {
+						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}, {
+						Type:     v1alpha1.ClusterIngressConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: duckv1alpha1.ConditionSeverityError,
+					}},
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
+		},
+		// Error should be returned when there is no preinstalled gateways.
+		WantErr: true,
+		Key:     "new-created-clusteringress",
 	}}
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 
