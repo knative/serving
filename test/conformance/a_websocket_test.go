@@ -46,7 +46,14 @@ func connect(logger *logging.BaseLogger, ingressIP string, domain string) (*webs
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		logger.Infof("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), map[string][]string{"Host": []string{domain}})
+		c, resp, err := websocket.DefaultDialer.Dial(u.String(),
+			map[string][]string{
+				"Host":       []string{domain},
+				"Connection": []string{"upgrade"},
+				"Upgrade":    []string{"websocket"},
+				"foo":        []string{"bar"},
+			},
+		)
 		if err == nil {
 			logger.Info("Connection established.")
 			conn = c
@@ -170,6 +177,6 @@ func printPodLogs(logger *logging.BaseLogger, ns string, key string, value strin
 
 func printAllLogs(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) {
 	printPodLogs(logger, "serving-tests", "serving.knative.dev/service", names.Service,
-		[]string{"queue-proxy", "user-container"})
+		[]string{"queue-proxy", "user-container", "istio-proxy"})
 	printPodLogs(logger, "knative-serving", "app", "activator", []string{"activator"})
 }
