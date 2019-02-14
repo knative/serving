@@ -126,7 +126,7 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 	if got, want := ttCurrent.Percent, currentPercent; got != want {
 		t.Errorf("Expected %d percent got %d", want, got)
 	}
-	if got, want := ttCurrent.Name, "current"; got != want {
+	if got, want := ttCurrent.Name, v1alpha1.CurrentTrafficTarget; got != want {
 		t.Errorf("Expected %q name got %q", want, got)
 	}
 	if got, want := ttCurrent.RevisionName, testRevisionName; got != want {
@@ -139,7 +139,7 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 	if got, want := ttLatest.Percent, 0; got != want {
 		t.Errorf("Expected %d percent got %d", want, got)
 	}
-	if got, want := ttLatest.Name, "latest"; got != want {
+	if got, want := ttLatest.Name, v1alpha1.LatestTrafficTarget; got != want {
 		t.Errorf("Expected %q name got %q", want, got)
 	}
 	if got, want := ttLatest.RevisionName, ""; got != want {
@@ -180,15 +180,15 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		Name:              "current",
+		Name:              v1alpha1.CurrentTrafficTarget,
 		Percent:           currentPercent,
 		ConfigurationName: testConfigName,
 	}, {
-		Name:         "candidate",
+		Name:         v1alpha1.CandidateTrafficTarget,
 		Percent:      rolloutPercent,
 		RevisionName: "juicy-revision",
 	}, {
-		Name:              "latest",
+		Name:              v1alpha1.LatestTrafficTarget,
 		ConfigurationName: testConfigName,
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -223,15 +223,15 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		Name:         "current",
+		Name:         v1alpha1.CurrentTrafficTarget,
 		Percent:      currentPercent,
 		RevisionName: "squishy-revision",
 	}, {
-		Name:              "candidate",
+		Name:              v1alpha1.CandidateTrafficTarget,
 		Percent:           rolloutPercent,
 		ConfigurationName: testConfigName,
 	}, {
-		Name:              "latest",
+		Name:              v1alpha1.LatestTrafficTarget,
 		ConfigurationName: testConfigName,
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -264,11 +264,11 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	}
 	// Should have 2 named traffic targets (current, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		Name:              "current",
+		Name:              v1alpha1.CurrentTrafficTarget,
 		Percent:           100,
 		ConfigurationName: testConfigName,
 	}, {
-		Name:              "latest",
+		Name:              v1alpha1.LatestTrafficTarget,
 		ConfigurationName: testConfigName,
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -309,7 +309,7 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	if got, want := ttCurrent.Percent, currentPercent; got != want {
 		t.Errorf("Expected %d percent got %d", want, got)
 	}
-	if got, want := ttCurrent.Name, "current"; got != want {
+	if got, want := ttCurrent.Name, v1alpha1.CurrentTrafficTarget; got != want {
 		t.Errorf("Expected %q name got %q", want, got)
 	}
 	if got, want := ttCurrent.RevisionName, testRevisionName; got != want {
@@ -322,7 +322,7 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	if got, want := ttCandidate.Percent, rolloutPercent; got != want {
 		t.Errorf("Expected %d percent got %d", want, got)
 	}
-	if got, want := ttCandidate.Name, "candidate"; got != want {
+	if got, want := ttCandidate.Name, v1alpha1.CandidateTrafficTarget; got != want {
 		t.Errorf("Expected %q name got %q", want, got)
 	}
 	if got, want := ttCandidate.RevisionName, testCandidateRevisionName; got != want {
@@ -335,7 +335,7 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	if got, want := ttLatest.Percent, 0; got != want {
 		t.Errorf("Expected %d percent got %d", want, got)
 	}
-	if got, want := ttLatest.Name, "latest"; got != want {
+	if got, want := ttLatest.Name, v1alpha1.LatestTrafficTarget; got != want {
 		t.Errorf("Expected %q name got %q", want, got)
 	}
 	if got, want := ttLatest.RevisionName, ""; got != want {

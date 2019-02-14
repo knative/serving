@@ -88,6 +88,17 @@ type TrafficTarget struct {
 	Percent int `json:"percent"`
 }
 
+const (
+	// LatestTrafficTarget is the named constant of the `latest` traffic target.
+	LatestTrafficTarget = "latest"
+
+	// CurrentTrafficTarget is the named constnat of the `current` traffic target.
+	CurrentTrafficTarget = "current"
+
+	// CandidateTrafficTarget is the named constnat of the `candidate` traffic target.
+	CandidateTrafficTarget = "candidate"
+)
+
 // RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
