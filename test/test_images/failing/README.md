@@ -2,8 +2,8 @@
 
 This directory contains the test image used to simulate a crashing image.
 
-The image runs for 10 seconds and then exits. It is useful for testing
-readiness probes.
+The image runs for 10 seconds and then exits. It is useful for testing readiness
+probes.
 
 ## Trying out
 
