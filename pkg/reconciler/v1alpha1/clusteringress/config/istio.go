@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -37,19 +36,12 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
-
-	// MeshGateway is the special case where local ClusterIngresses are only exposed to service mesh.
-	MeshGateway = "mesh"
 )
 
 var (
 	defaultGateway = Gateway{
 		GatewayName: "knative-ingress-gateway",
 		ServiceURL:  fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s", utils.GetClusterDomainName()),
-	}
-	defaultLocalGateway = Gateway{
-		GatewayName: "cluster-local-gateway",
-		ServiceURL:  fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s", utils.GetClusterDomainName()),
 	}
 )
 
@@ -77,9 +69,6 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 			continue
 		}
 		gatewayName, serviceURL := k[len(prefix):], v
-		if gatewayName == MeshGateway && serviceURL != MeshGateway {
-			return nil, errors.New("local-gateway.mesh can only be set to 'mesh'")
-		}
 		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
@@ -97,16 +86,6 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	return gateways, nil
 }
 
-func ignoreMeshGateway(gateways []Gateway) []Gateway {
-	results := []Gateway{}
-	for _, gw := range gateways {
-		if gw.GatewayName != MeshGateway {
-			results = append(results, gw)
-		}
-	}
-	return results
-}
-
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
@@ -120,12 +99,6 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(localGateways) == 0 {
-		localGateways = append(localGateways, defaultLocalGateway)
-	}
-	// MeshGateway specification is a workaround of defaulting empty list
-	// of gateways, so we remove it after defaulting.
-	localGateways = ignoreMeshGateway(localGateways)
 	return &Istio{
 		IngressGateways: gateways,
 		LocalGateways:   localGateways,
