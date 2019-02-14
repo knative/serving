@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,7 +54,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			"Host": []string{targetHost},
 		},
 	)
-	defer conn.Close()
+	if conn != nil {
+		defer conn.Close()
+	}
 	if err != nil {
 		if resp != nil {
 			body := new(bytes.Buffer)
