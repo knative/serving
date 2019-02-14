@@ -25,7 +25,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,17 +39,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	concurrency = 5
-)
+const concurrency = 5
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
 // All responses are forwarded to a channel, if given.
-func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response) (int32, error) {
-	var (
-		group    errgroup.Group
-		requests int32
-	)
+func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response, logger *logging.BaseLogger) error {
+	var group errgroup.Group
+	// Notify the consumer about the end of the data stream.
+	defer close(resChannel)
 
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
@@ -64,28 +60,28 @@ func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, 
 				case <-done:
 					return nil
 				default:
-					res, _ := client.Do(req)
+					res, err := client.Do(req)
+					if err != nil {
+						logger.Errorf("Error sending request: %v", err)
+					}
 					if resChannel != nil {
 						resChannel <- res
 					}
-					atomic.AddInt32(&requests, 1)
 				}
 			}
 		})
 	}
 
-	err := group.Wait()
-	requestsMade := atomic.LoadInt32(&requests)
-
-	if err != nil {
-		return requestsMade, fmt.Errorf("error making requests for scale up: %v", err)
+	// Requests is no longer touched by the parallel go routines, so it's safe to read it as is.
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("error making requests for scale up: %v", err)
 	}
-	return requestsMade, nil
+	return nil
 }
 
 // event represents the start or end of a request
 type event struct {
-	concurrencyModifier int32
+	concurrencyModifier int
 	timestamp           time.Time
 }
 
@@ -101,12 +97,12 @@ func parseResponse(body string) (*event, *event, error) {
 
 	start, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse start duration, body %q", body)
+		return nil, nil, errors.Wrapf(err, "failed to parse start timestamp, body %q", body)
 	}
 
 	end, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse end duration, body %q", body)
+		return nil, nil, errors.Wrapf(err, "failed to parse end timestamp, body %q", body)
 	}
 
 	startEvent := &event{1, time.Unix(0, int64(start))}
@@ -117,8 +113,8 @@ func parseResponse(body string) (*event, *event, error) {
 
 // timeToScale calculates the time it took to scale to a given scale, starting from a given
 // time. Returns an error if that scale was never reached.
-func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Duration, error) {
-	var currentConcurrency int32
+func timeToScale(events []*event, start time.Time, desiredScale int) (time.Duration, error) {
+	var currentConcurrency int
 	for _, event := range events {
 		currentConcurrency += event.concurrencyModifier
 		if currentConcurrency == desiredScale {
@@ -130,7 +126,6 @@ func timeToScale(events []*event, start time.Time, desiredScale int32) (time.Dur
 }
 
 func TestObservedConcurrency(t *testing.T) {
-	// add test case specific name to its own logger
 	logger := logging.GetContextLogger(t.Name())
 
 	perfClients, err := Setup(context.Background(), logger, true)
@@ -165,52 +160,74 @@ func TestObservedConcurrency(t *testing.T) {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
-	trafficStart := time.Now()
+	// Make sure we are ready to serve.
+	st := time.Now()
+	logger.Info("Starting to probe the endpoint at ", st)
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		domain+"/?timeout=10", // To generate any kind of a valid response.
+		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+			_, _, err := parseResponse(string(resp.Body))
+			return err == nil, nil
+		}, http.StatusNotFound),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
+	}
+	logger.Infof("Took %v for the endpoint to start serving", time.Now().Sub(st))
 
-	responseChannel := make(chan *spoof.Response, 1000)
+	// This just helps with preallocation.
+	const presumedSize = 1000
+
+	eg := errgroup.Group{}
+	trafficStart := time.Now()
+	responseChannel := make(chan *spoof.Response, presumedSize)
+	events := make([]*event, 0, presumedSize)
+	failedRequests := 0
 
 	logger.Infof("Running %d concurrent requests for %v", concurrency, duration)
-	requestsMade, err := generateTraffic(client, url, concurrency, duration, responseChannel)
-	if err != nil {
-		t.Fatalf("Failed to generate traffic, err: %v", err)
-	}
-
-	// Collect all responses, parse their bodies and create the resulting events.
-	var events []*event
-	var failedRequests float32
-	for i := int32(0); i < requestsMade; i++ {
-		response := <-responseChannel
-		if response == nil {
-			failedRequests++
-			continue
-		}
-
-		body := string(response.Body)
-		start, end, err := parseResponse(body)
-		if err != nil {
-			logger.Error("Failed to parse body, %v", err)
-			failedRequests++
-		} else {
+	eg.Go(func() error {
+		return generateTraffic(client, url, concurrency, duration, responseChannel, logger)
+	})
+	eg.Go(func() error {
+		for response := range responseChannel {
+			if response == nil {
+				failedRequests++
+				continue
+			}
+			start, end, err := parseResponse(string(response.Body))
+			if err != nil {
+				logger.Error("Failed to parse the body: ", err)
+				failedRequests++
+				continue
+			}
 			events = append(events, start, end)
 		}
-	}
-
-	// Sort all events by their timestamp
-	sort.Slice(events, func(i, j int) bool {
-		return events[i].timestamp.Before(events[j].timestamp)
+		// Sort all events by their timestamp.
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].timestamp.Before(events[j].timestamp)
+		})
+		return nil
 	})
 
+	if err := eg.Wait(); err != nil {
+		t.Fatalf("Failed to generate traffic and process responses: %v", err)
+	}
+	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
+
 	var tc []junit.TestCase
-	for i := int32(1); i <= concurrency; i++ {
+	for i := 1; i <= concurrency; i++ {
 		toConcurrency, err := timeToScale(events, trafficStart, i)
 		if err != nil {
-			logger.Infof("Never scaled to %d\n", i)
+			logger.Infof("Never scaled to %d", i)
 		} else {
-			logger.Infof("Took %v to scale to %d\n", toConcurrency, i)
+			logger.Infof("Took %v to scale to %d", toConcurrency, i)
 			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
-	tc = append(tc, CreatePerfTestCase(failedRequests, "failed requests", t.Name()))
+	tc = append(tc, CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))
 
 	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
