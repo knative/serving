@@ -179,13 +179,13 @@ func TestWebsocket(t *testing.T) {
 		clients.KubeClient,
 		logger,
 		client_names.Domain,
-		pkgTest.Retrying(pkgTest.MatchesBody("Helloworld, websocket"), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesBody("Helloworld, websocket"), http.StatusNotFound, http.StatusInternalServerError),
 		"WebsocketClientServesText",
 		test.ServingFlags.ResolvableDomain)
+	printAllLogs(logger, clients, server_names, client_names)
 	if err != nil {
 		t.Fatalf("Fail to validate websocket connection %v: %v", server_names.Service, err)
 	}
-	printAllLogs(logger, clients, server_names, client_names)
 }
 
 func combineShell(logger *logging.BaseLogger, name string, arg ...string) string {
