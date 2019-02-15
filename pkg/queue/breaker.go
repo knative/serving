@@ -111,11 +111,11 @@ func newSemaphore(maxCapacity, initialCapacity int32) *semaphore {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
 	queue := make(chan struct{}, maxCapacity)
-	sem := semaphore{queue: queue}
+	sem := &semaphore{queue: queue}
 	if initialCapacity > 0 {
 		sem.UpdateCapacity(initialCapacity)
 	}
-	return &sem
+	return sem
 }
 
 // semaphore is an implementation of a semaphore based on Go channels.
