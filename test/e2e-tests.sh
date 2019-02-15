@@ -57,9 +57,8 @@ initialize $@
 
 header "Setting up environment"
 
-# Download kail
-go get github.com/boz/kail/cmd/kail
-echo $GOPATH
+# Download and install
+bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
 
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
