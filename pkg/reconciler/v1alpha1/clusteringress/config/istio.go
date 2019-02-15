@@ -104,9 +104,9 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(localGateways) == 0 {
-		localGateways = append(localGateways, defaultLocalGateway)
-	}
+	// if len(localGateways) == 0 {
+	// 	localGateways = append(localGateways, defaultLocalGateway)
+	// }
 	return &Istio{
 		IngressGateways: gateways,
 		LocalGateways:   localGateways,
