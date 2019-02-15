@@ -143,13 +143,13 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Authority: &istiov1alpha1.StringMatch{Exact: "domain.com"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns.svc"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns"},
+			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -314,5 +314,70 @@ func TestGetHosts_Duplicate(t *testing.T) {
 	}
 	if diff := cmp.Diff(expected, hosts); diff != "" {
 		t.Errorf("Unexpected hosts  (-want +got): %v", diff)
+	}
+}
+
+func TestGetExpandedHosts(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		hosts []string
+		want  []string
+	}{{
+		name: "cluster local service in non-default namespace",
+		hosts: []string{
+			"service.namespace.svc.cluster.local",
+		},
+		want: []string{
+			"service.namespace",
+			"service.namespace.svc",
+			"service.namespace.svc.cluster.local",
+		},
+	}, {
+		name: "cluster local default service in default namespace",
+		hosts: []string{
+			"service.default.svc.cluster.local",
+		},
+		want: []string{
+			"service",
+			"service.default",
+			"service.default.svc",
+			"service.default.svc.cluster.local",
+		},
+	}, {
+		name: "example.com service",
+		hosts: []string{
+			"foo.bar.example.com",
+		},
+		want: []string{
+			"foo.bar.example.com",
+		},
+	}, {
+		name: "default.example.com service",
+		hosts: []string{
+			"foo.default.example.com",
+		},
+		want: []string{
+			"foo.default.example.com",
+		},
+	}, {
+		name: "mix",
+		hosts: []string{
+			"foo.default.example.com",
+			"foo.default.svc.cluster.local",
+		},
+		want: []string{
+			"foo",
+			"foo.default",
+			"foo.default.example.com",
+			"foo.default.svc",
+			"foo.default.svc.cluster.local",
+		},
+	}} {
+		t.Run(test.name, func(t *testing.T) {
+			got := expandedHosts(test.hosts)
+			if diff := cmp.Diff(got, test.want); diff != "" {
+				t.Errorf("Unexpected (-want +got): %v", diff)
+			}
+		})
 	}
 }
