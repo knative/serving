@@ -142,7 +142,7 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
 	}
 
-	logger.Info("Creating a new Service as RunLatest.")
+	logger.Infof("Creating a new Service %s as RunLatest.", names.Service)
 	svc, err := CreateLatestService(logger, clients, *names, options, fopt...)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,11 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 	}
 
 	logger.Info("Getting latest objects Created by Service.")
-	return GetResourceObjects(clients, *names)
+	resources, err := GetResourceObjects(clients, *names)
+	if err == nil {
+		logger.Infof("Successfully created Service %s.", names.Domain)
+	}
+	return resources, err
 }
 
 // CreateReleaseService creates a service in namespace with the name names.Service and names.Image,

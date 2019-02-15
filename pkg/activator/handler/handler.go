@@ -14,7 +14,9 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -24,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
+	"github.com/knative/serving/pkg/network/websocket"
 	"go.uber.org/zap"
 )
 
@@ -115,4 +118,11 @@ type statusCapture struct {
 func (s *statusCapture) WriteHeader(statusCode int) {
 	s.statusCode = statusCode
 	s.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
+// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
+// to handle connection upgrade/switching protocol.  Otherwise returns an error.
+func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return websocket.HijackIfPossible(s.ResponseWriter)
 }
