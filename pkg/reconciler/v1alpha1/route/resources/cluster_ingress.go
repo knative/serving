@@ -100,8 +100,6 @@ func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 		domains := []string{
 			r.Status.Domain,
 			names.K8sServiceFullname(r),
-			fmt.Sprintf("%s.%s.svc", r.Name, r.Namespace),
-			fmt.Sprintf("%s.%s", r.Name, r.Namespace),
 		}
 		return dedup(domains)
 	}
