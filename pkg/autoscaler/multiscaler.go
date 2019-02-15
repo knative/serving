@@ -148,17 +148,6 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric,
 	return (&scaler.metric).DeepCopy(), nil
 }
 
-// SetScale directly sets the scale for a given metric key. This does not perform any ticking
-// or updating of other scaler components.
-func (m *MultiScaler) SetScale(metricKey string, scale int32) bool {
-	scaler, exists := m.scalers[metricKey]
-	if !exists {
-		return false
-	}
-	scaler.updateLatestScale(scale)
-	return true
-}
-
 // Create instantiates the desired Metric.
 func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, error) {
 	m.scalersMutex.Lock()
@@ -227,6 +216,17 @@ func (m *MultiScaler) Inform(event string) bool {
 		return true
 	}
 	return false
+}
+
+// setScale directly sets the scale for a given metric key. This does not perform any ticking
+// or updating of other scaler components.
+func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
+	scaler, exists := m.scalers[metricKey]
+	if !exists {
+		return false
+	}
+	scaler.updateLatestScale(scale)
+	return true
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
