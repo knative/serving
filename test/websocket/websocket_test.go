@@ -65,14 +65,14 @@ func TestWebsocketConnection(t *testing.T) {
 			"serving.knative.dev/visibility": "cluster-local",
 		},
 	}
-	server_names := test.ResourceNames{
+	serverNames := test.ResourceNames{
 		Service: test.AppendRandomString("ws-server-", logger),
 		Image:   websocketServer,
 	}
 	// Must clean up in both abnormal and normal exit.
-	defer tearDown(clients, server_names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, server_names) }, logger)
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &server_names, server_options); err != nil {
+	defer tearDown(clients, serverNames)
+	test.CleanupOnInterrupt(func() { tearDown(clients, serverNames) }, logger)
+	if _, err := test.CreateRunLatestServiceReady(logger, clients, &serverNames, server_options); err != nil {
 		t.Fatalf("Failed to create websocket server: %v", err)
 	}
 
@@ -80,30 +80,31 @@ func TestWebsocketConnection(t *testing.T) {
 	client_options := &test.Options{
 		EnvVars: []corev1.EnvVar{{
 			Name:  "TARGET",
-			Value: server_names.Domain,
+			Value: serverNames.Domain,
 		}, {
 			Name:  "HOST_HEADER",
-			Value: server_names.Domain,
+			Value: serverNames.Domain,
 		}},
 	}
-	client_names := test.ResourceNames{
+	clientNames := test.ResourceNames{
 		Service: test.AppendRandomString("ws-client-", logger),
 		Image:   websocketClient,
 	}
 	// Must clean up in both abnormal and normal exit.
-	defer tearDown(clients, client_names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, client_names) }, logger)
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &client_names, client_options); err != nil {
+	defer tearDown(clients, clientNames)
+	test.CleanupOnInterrupt(func() { tearDown(clients, clientNames) }, logger)
+	if _, err := test.CreateRunLatestServiceReady(logger, clients, &clientNames, client_options); err != nil {
 		t.Fatalf("Failed to create websocket client: %v", err)
 	}
 
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		logger,
-		client_names.Domain,
-		pkgTest.Retrying(pkgTest.MatchesBody("Hello"), http.StatusNotFound, http.StatusInternalServerError),
+		clientNames.Domain,
+		pkgTest.Retrying(pkgTest.MatchesBody("HelloFoo"),
+			http.StatusNotFound, http.StatusInternalServerError, http.StatusOK),
 		"WebsocketClientServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Fail to validate websocket connection %v: %v", server_names.Service, err)
+		t.Fatalf("Fail to validate websocket connection %v: %v", serverNames.Service, err)
 	}
 }
