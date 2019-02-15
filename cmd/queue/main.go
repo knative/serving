@@ -172,7 +172,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 		return
 	}
-
+	logger.Infof("queue-proxy proxying request with Header=%+v", r.Header)
 	// Metrics for autoscaling
 	reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqIn}
 	defer func() {

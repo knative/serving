@@ -57,6 +57,10 @@ initialize $@
 
 header "Setting up environment"
 
+# Download kail
+go get github.com/boz/kail/cmd/kail
+echo $GOPATH
+
 install_knative_serving || fail_test "Knative Serving installation failed"
 publish_test_images || fail_test "one or more test images weren't published"
 
@@ -64,12 +68,17 @@ publish_test_images || fail_test "one or more test images weren't published"
 header "Running tests"
 failed=0
 
+
+kail -n serving-tests > kail.serving-tests.log &
+
 # Print out the listeners to confirm that websocket upgrade is enabled by default.
 INGRESS_POD=$(kubectl get pods -n istio-system -listio=ingressgateway --output jsonpath="{.items[0].metadata.name}")
 kubectl exec $INGRESS_POD -n istio-system -- curl localhost:15000/config_dump
 
 # Run conformance tests, but don't exit if it fails.
 go_test_e2e -timeout=10m ./test/websocket || failed=1
+
+cat kail.serving-tests.log
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
