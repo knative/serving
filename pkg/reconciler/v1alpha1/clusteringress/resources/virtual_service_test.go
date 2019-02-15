@@ -333,17 +333,6 @@ func TestGetExpandedHosts(t *testing.T) {
 			"service.namespace.svc.cluster.local",
 		},
 	}, {
-		name: "cluster local default service in default namespace",
-		hosts: []string{
-			"service.default.svc.cluster.local",
-		},
-		want: []string{
-			"service",
-			"service.default",
-			"service.default.svc",
-			"service.default.svc.cluster.local",
-		},
-	}, {
 		name: "example.com service",
 		hosts: []string{
 			"foo.bar.example.com",
@@ -366,7 +355,6 @@ func TestGetExpandedHosts(t *testing.T) {
 			"foo.default.svc.cluster.local",
 		},
 		want: []string{
-			"foo",
 			"foo.default",
 			"foo.default.example.com",
 			"foo.default.svc",

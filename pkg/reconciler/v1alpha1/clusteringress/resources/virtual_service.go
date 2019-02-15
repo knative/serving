@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,17 +122,7 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 }
 
 func dedup(hosts []string) []string {
-	set := sets.NewString()
-	unique := []string{}
-	for _, h := range hosts {
-		if !set.Has(h) {
-			set.Insert(h)
-			unique = append(unique, h)
-		}
-	}
-	// Sort the names to give a deterministic ordering.
-	sort.Strings(unique)
-	return unique
+	return sets.NewString(hosts...).List()
 }
 
 func expandedHosts(hosts []string) []string {
@@ -142,7 +131,6 @@ func expandedHosts(hosts []string) []string {
 		"",
 		"." + utils.GetClusterDomainName(),
 		".svc." + utils.GetClusterDomainName(),
-		".default.svc." + utils.GetClusterDomainName(),
 	}
 	for _, h := range hosts {
 		for _, suffix := range allowedSuffixes {
