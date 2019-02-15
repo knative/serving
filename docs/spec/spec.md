@@ -141,8 +141,6 @@ spec:
 
   revisionTemplate:  # template for building Revision
     metadata: ...
-      labels:
-        knative.dev/type: "function"  # One of "function" or "app"
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. DEPRECATED, use buildRef
@@ -300,8 +298,6 @@ kind: Service
 metadata:
   name: myservice
   namespace: default
-  labels:
-    knative.dev/type: "function"  # convention, one of "function" or "app"
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control

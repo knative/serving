@@ -22,8 +22,8 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
@@ -32,8 +32,19 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	name := meta.GetName()
 	generateName := meta.GetGenerateName()
 
+	if generateName != "" {
+		msgs := validation.NameIsDNS1035Label(generateName, true)
+
+		if len(msgs) > 0 {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
+				Paths:   []string{"generateName"},
+			}
+		}
+	}
+
 	if name != "" {
-		msgs := validation.IsDNS1035Label(name)
+		msgs := validation.NameIsDNS1035Label(name, false)
 
 		if len(msgs) > 0 {
 			return &apis.FieldError{
