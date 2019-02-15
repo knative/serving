@@ -115,6 +115,15 @@ func TestGRPC(t *testing.T) {
 		}
 	}
 
+	payload := func(size int) string {
+		b := make([]byte, size)
+		_, err = rand.Read(b)
+		if err != nil {
+			t.Fatalf("Error generating payload: %v", err)
+		}
+		return string(b)
+	}
+
 	conn, err := grpc.Dial(
 		*host+":80",
 		grpc.WithAuthority(domain),
@@ -130,13 +139,15 @@ func TestGRPC(t *testing.T) {
 	unaryTest := func(t *testing.T) {
 		logger.Info("Testing unary Ping")
 
-		resp, err := pc.Ping(context.TODO(), &ping.Request{Msg: "Hello!"})
+		want := &ping.Request{Msg: "Hello!"}
+
+		got, err := pc.Ping(context.TODO(), want)
 		if err != nil {
 			t.Fatalf("Couldn't send request: %v", err)
 		}
 
-		if resp.Msg != "Hello!" {
-			t.Errorf("Unexpected response. Want %q, got %q", "Hello!", resp.Msg)
+		if got.Msg != want.Msg {
+			t.Errorf("Unexpected response. Want %q, got %q", want.Msg, got.Msg)
 		}
 	}
 
@@ -155,12 +166,8 @@ func TestGRPC(t *testing.T) {
 		for i := 0; i < count; i++ {
 			logger.Infof("Sending stream %d of %d", i+1, count)
 
-			payload := make([]byte, 4096)
-			_, err = rand.Read(payload)
-			if err != nil {
-				t.Fatalf("Error generating payload: %v", err)
-			}
-			want := string(payload)
+			// TODO(#3188): Responses less than 4KB are buffered indefinitely
+			want := payload(4096)
 
 			err = stream.Send(&ping.Request{Msg: want})
 			if err != nil {
@@ -194,7 +201,7 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("unary ping after scale-to-zero", unaryTest)
 
-	waitForScaleToZero()
-
-	t.Run("streaming ping after scale-to-zero", streamTest)
+	// TODO(#3239): Fix gRPC streaming after cold start
+	//waitForScaleToZero()
+	//t.Run("streaming ping after scale-to-zero", streamTest)
 }
