@@ -59,7 +59,7 @@ func tearDown(ctx *testContext) {
 	TearDown(ctx.clients, ctx.names, ctx.logger)
 }
 
-func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) error {
+func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int
 		successfulRequests int
@@ -81,7 +81,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 			}
 			for {
 				select {
+				case <-stopChan:
+					ctx.logger.Info("Stopping generateTraffic")
+					return nil
 				case <-done:
+					ctx.logger.Info("Time up, done")
 					return nil
 				default:
 					mux.Lock()
@@ -113,11 +117,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 
 	ctx.logger.Info("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("Error making requests for scale up: %v.", err)
+		return fmt.Errorf("error making requests for scale up: %v.", err)
 	}
 
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("Error making requests for scale up. Got %d successful requests. Wanted %d.",
+		return fmt.Errorf("error making requests for scale up. Got %d successful requests. Wanted %d.",
 			successfulRequests, totalRequests)
 	}
 	return nil
@@ -203,7 +207,7 @@ func setup(t *testing.T) *testContext {
 
 func assertScaleUp(ctx *testContext) {
 	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
-	err := generateTraffic(ctx, 20, 20*time.Second)
+	err := generateTraffic(ctx, 20, 20*time.Second, nil)
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
@@ -252,6 +256,7 @@ func assertScaleDown(ctx *testContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
+	ctx.logger.Info("Sleeping 10 seconds.")
 	time.Sleep(10 * time.Second)
 	ctx.logger.Info("The Revision should remain ready after scaling to zero.")
 	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
@@ -272,32 +277,16 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	assertScaleUp(ctx)
 }
 
-func assertNumberOfPodsEvery(interval time.Duration, ctx *testContext, errChan chan error, stopChan chan struct{}, numReplicasMin int32, numReplicasMax int32) {
-	timer := time.Tick(interval)
-
-	go func() {
-		for {
-			select {
-			case <-stopChan:
-				return
-			case <-timer:
-				if err := assertNumberOfPods(ctx, numReplicasMin, numReplicasMax); err != nil {
-					errChan <- err
-				}
-			}
-		}
-	}()
-}
-
 func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
 	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
 	gotReplicas := deployment.Status.Replicas
-	ctx.logger.Infof("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
+	mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
+	ctx.logger.Info(mes)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
-		return errors.Errorf("Got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
+		return errors.New(mes)
 	}
 	return nil
 }
@@ -312,20 +301,34 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	assertNumberOfPodsEvery(2*time.Second, ctx, errChan, stopChan, minPods, maxPods)
+	go func() {
+		if err := generateTraffic(ctx, int(numPods*10), 30*time.Second, stopChan); err != nil {
+			errChan <- err
+		}
+	}()
 
-	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
-		ctx.t.Fatalf("Error during scale up: %v", err)
-	}
-
-	if err := assertNumberOfPods(ctx, numPods, maxPods); err != nil {
-		errChan <- err
-	}
+	done := make(chan struct{})
+	timer := time.Tick(2 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				return
+			case <-timer:
+				if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+					errChan <- err
+				}
+				if err := assertNumberOfPods(ctx, numPods, maxPods); err == nil {
+					close(done)
+				}
+			}
+		}
+	}()
 
 	select {
 	case err := <-errChan:
 		ctx.t.Error(err.Error())
-	default:
+	case <-done:
 		// Success!
 	}
 }
@@ -341,9 +344,9 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
 	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
-	// Increase workload Scale to 3 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
+	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
 	assertAutoscaleUpToNumPods(ctx, 3)
-	// Increase workload Scale to 4 replicas, assert between [n-1, n+1]  during scale up, assert between [n, n+1] after scaleup
+	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
 	assertAutoscaleUpToNumPods(ctx, 4)
 
 }
