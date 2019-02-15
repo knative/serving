@@ -68,6 +68,7 @@ header "Running tests"
 failed=0
 
 
+kail -n serving-tests > artifacts/kail.serving-tests.log &
 kail -n serving-tests > kail.serving-tests.log &
 
 # Print out the listeners to confirm that websocket upgrade is enabled by default.
