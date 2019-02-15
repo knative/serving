@@ -142,7 +142,7 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
 	}
 
-	logger.Info("Creating a new Service as RunLatest.")
+	logger.Infof("Creating a new Service %q as RunLatest.", names.Service)
 	svc, err := CreateLatestService(logger, clients, *names, options, fopt...)
 	if err != nil {
 		return nil, err
@@ -163,7 +163,7 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 		return nil, err
 	}
 
-	logger.Info("Getting latest objects Created by Service.")
+	logger.Infof("Getting latest objects Created by Service %q.", names.Domain)
 	return GetResourceObjects(clients, *names)
 }
 

@@ -187,6 +187,7 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Service,
+			Labels:    options.Labels,
 		},
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{

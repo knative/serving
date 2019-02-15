@@ -65,10 +65,7 @@ header "Running tests"
 failed=0
 
 # Run conformance tests, but don't exit if it fails.
-go_test_e2e -timeout=10m ./test/conformance || failed=1
-
-# So that we can also identify failing E2E tests.
-go_test_e2e -timeout=20m ./test/e2e || failed=1
+go_test_e2e -timeout=10m ./test/websocket || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
