@@ -78,6 +78,12 @@ var (
 		// thus don't want to be limited by K8s granularity here.
 		TimeoutSeconds: 10,
 	}
+
+	queueAllowPrivilegeEscalation = false
+
+	queueSecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &queueAllowPrivilegeEscalation,
+	}
 )
 
 func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
@@ -192,12 +198,13 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	}
 
 	return &corev1.Container{
-		Name:           QueueContainerName,
-		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
-		Ports:          ports,
-		ReadinessProbe: queueReadinessProbe,
-		VolumeMounts:   volumeMounts,
+		Name:            QueueContainerName,
+		Image:           deploymentConfig.QueueSidecarImage,
+		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
+		Ports:           ports,
+		ReadinessProbe:  queueReadinessProbe,
+		VolumeMounts:    volumeMounts,
+		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
