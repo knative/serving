@@ -72,7 +72,6 @@ func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, 
 		})
 	}
 
-	// Requests is no longer touched by the parallel go routines, so it's safe to read it as is.
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("error making requests for scale up: %v", err)
 	}
@@ -149,12 +148,8 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	domain := objs.Route.Status.Domain
-	endpoint, err := spoof.GetServiceEndpoint(clients.KubeClient.Kube)
-	if err != nil {
-		t.Fatalf("Cannot get service endpoint: %v", err)
-	}
 
-	url := fmt.Sprintf("http://%s/?timeout=1000", *endpoint)
+	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
