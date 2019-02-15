@@ -25,6 +25,12 @@
 # in a net-negative contributor experience.
 export DISABLE_MD_LINTING=1
 
+# YOLO go1.12
+echo "Install Go 1.12"
+go get golang.org/dl/go1.12rc1
+go1.12rc1 download
+cp $GOPATH/bin/go1.12rc1 $(which go)
+
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/presubmit-tests.sh
 
 # We use the default build, unit and integration test runners.
