@@ -299,7 +299,6 @@ const (
 	CandidateTrafficTarget = "candidate"
 )
 
-
 // MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
 // See: #2430, for details.
 func (ss *ServiceStatus) MarkRouteNotYetReady() {
