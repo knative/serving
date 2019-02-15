@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	"sort"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
+	"github.com/knative/serving/pkg/utils"
 )
 
 // MakeVirtualService creates an Istio VirtualService as network programming.
@@ -93,7 +94,7 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 
 func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPath) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
-	for _, host := range hosts {
+	for _, host := range expandedHosts(hosts) {
 		matches = append(matches, makeMatch(host, http.Path))
 	}
 	weights := []v1alpha3.DestinationWeight{}
@@ -120,6 +121,27 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	}
 }
 
+func dedup(hosts []string) []string {
+	return sets.NewString(hosts...).List()
+}
+
+func expandedHosts(hosts []string) []string {
+	expanded := []string{}
+	allowedSuffixes := []string{
+		"",
+		"." + utils.GetClusterDomainName(),
+		".svc." + utils.GetClusterDomainName(),
+	}
+	for _, h := range hosts {
+		for _, suffix := range allowedSuffixes {
+			if strings.HasSuffix(h, suffix) {
+				expanded = append(expanded, strings.TrimSuffix(h, suffix))
+			}
+		}
+	}
+	return dedup(expanded)
+}
+
 func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 	match := v1alpha3.HTTPMatchRequest{
 		Authority: &istiov1alpha1.StringMatch{
@@ -137,17 +159,11 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 }
 
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := sets.NewString()
-	unique := []string{}
+	hosts := []string{}
 	for _, rule := range ci.Spec.Rules {
 		for _, h := range rule.Hosts {
-			if !hosts.Has(h) {
-				hosts.Insert(h)
-				unique = append(unique, h)
-			}
+			hosts = append(hosts, h)
 		}
 	}
-	// Sort the names to give a deterministic ordering.
-	sort.Strings(unique)
-	return unique
+	return dedup(hosts)
 }
