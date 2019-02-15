@@ -133,7 +133,8 @@ Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform the setup needed
 for Knative.
 
 The value you use depends on
-[your cluster setup](./docs/creating-a-kubernetes-cluster.md):
+[your cluster
+setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
 
 ```shell
 # When using Minikube, the K8s user is your local user.
