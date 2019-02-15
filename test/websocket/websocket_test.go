@@ -101,8 +101,7 @@ func TestWebsocketConnection(t *testing.T) {
 		clients.KubeClient,
 		logger,
 		clientNames.Domain,
-		pkgTest.Retrying(pkgTest.MatchesBody("HelloFoo"),
-			http.StatusNotFound, http.StatusInternalServerError, http.StatusOK),
+		pkgTest.Retrying(pkgTest.MatchesBody("Hello"), http.StatusNotFound, http.StatusInternalServerError),
 		"WebsocketClientServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Fail to validate websocket connection %v: %v", serverNames.Service, err)
