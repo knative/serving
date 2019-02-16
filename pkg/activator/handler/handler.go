@@ -85,6 +85,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 		statusCode:     http.StatusOK,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.FlushInterval = -1
 	proxy.Transport = a.Transport
 
 	attempts := int(1) // one attempt is always needed
