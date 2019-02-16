@@ -31,6 +31,7 @@ import (
 // TestMustHaveHeadersSet verified that all headers declared as "MUST" in the runtime
 // contract are present from the point of view of the user container.
 func TestMustHaveHeadersSet(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
@@ -72,6 +73,7 @@ func (c *checkIPList) String() string {
 // TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	expectedHeaders := map[string]interface {

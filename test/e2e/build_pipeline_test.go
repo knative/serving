@@ -33,6 +33,9 @@ import (
 )
 
 func TestPipeline(t *testing.T) {
+	t.Parallel()
+	pipelineName := test.ObjectNameForTest(t)
+
 	testCases := []struct {
 		name         string
 		rawExtension *v1alpha1.RawExtension
@@ -91,17 +94,19 @@ func TestPipeline(t *testing.T) {
 						Type: pipelinev1alpha1.PipelineTriggerTypeManual,
 					},
 					PipelineRef: pipelinev1alpha1.PipelineRef{
-						Name: "test-pipe",
+						Name: pipelineName,
 					},
 				},
 			},
 		},
 		preFn: func(t *testing.T, clients *test.Clients) {
 			t.Log("Creating Pipeline and Task for the build with PipelineRun")
+			taskName := test.ObjectNameForTest(t)
+
 			if _, err := clients.PipelineClient.Task.Create(&pipelinev1alpha1.Task{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "test-task",
+					Name:      taskName,
 				},
 				Spec: pipelinev1alpha1.TaskSpec{
 					Steps: []corev1.Container{{
@@ -111,18 +116,18 @@ func TestPipeline(t *testing.T) {
 					}},
 				},
 			}); err != nil {
-				t.Fatalf("Failed to create Pipeline: %v", err)
+				t.Fatalf("Failed to create Task: %v", err)
 			}
 			if _, err := clients.PipelineClient.Pipeline.Create(&pipelinev1alpha1.Pipeline{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "test-pipe",
+					Name:      pipelineName,
 				},
 				Spec: pipelinev1alpha1.PipelineSpec{
 					Tasks: []pipelinev1alpha1.PipelineTask{{
 						Name: "test-pipe-test-task",
 						TaskRef: pipelinev1alpha1.TaskRef{
-							Name: "test-task",
+							Name: taskName,
 						},
 					}},
 				},
@@ -144,7 +149,9 @@ func TestPipeline(t *testing.T) {
 		},
 	}}
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			clients := Setup(t)
 
 			t.Log("Creating a new Route and Configuration with build")

@@ -30,6 +30,7 @@ import (
 
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	names := test.ResourceNames{
@@ -102,6 +103,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	names := test.ResourceNames{

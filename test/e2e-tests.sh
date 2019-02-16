@@ -63,7 +63,15 @@ publish_test_images || fail_test "one or more test images weren't published"
 # Run the tests
 header "Running tests"
 
-# Run conformance tests and e2e tests.
-go_test_e2e -timeout=30m ./test/conformance ./test/e2e || fail_test
+failed=0
+
+# Run conformance and e2e tests.
+go_test_e2e -timeout=30m ./test/conformance ./test/e2e || failed=1
+
+# Run scale tests.
+go_test_e2e -timeout=10m ./test/scale || failed=1
+
+# Require that both set of tests succeeded.
+(( failed )) && fail_test
 
 success

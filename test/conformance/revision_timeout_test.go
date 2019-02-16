@@ -97,6 +97,7 @@ func sendRequest(t *testing.T, clients *test.Clients, domain string, initialSlee
 }
 
 func TestRevisionTimeout(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	var rev2s, rev5s test.ResourceNames

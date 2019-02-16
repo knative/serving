@@ -247,6 +247,7 @@ func assertScaleDown(ctx *testContext) {
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
+	t.Parallel()
 	ctx := setup(t)
 	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
 	defer close(stopChan)
@@ -314,6 +315,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
+	t.Parallel()
 	ctx := setup(t)
 	defer test.TearDown(ctx.clients, ctx.names)
 

@@ -28,6 +28,7 @@ import (
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	names := test.ResourceNames{

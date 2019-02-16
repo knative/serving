@@ -42,6 +42,7 @@ import (
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func TestBuildSpecAndServe(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration with build")
@@ -144,6 +145,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 }
 
 func TestBuildAndServe(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 	t.Log("Creating a new Route and Configuration with build")
 
@@ -261,6 +263,7 @@ func TestBuildAndServe(t *testing.T) {
 }
 
 func TestBuildFailure(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
 	t.Log("Creating a new Configuration with failing build")

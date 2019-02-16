@@ -40,6 +40,7 @@ const (
 )
 
 func TestDestroyPodInflight(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")

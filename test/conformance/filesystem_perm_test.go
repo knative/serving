@@ -68,6 +68,7 @@ func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[st
 
 // TestMustHaveFileSystemPermissions asserts that the file system has all the MUST have paths and they have appropriate permissions.
 func TestMustHaveFileSystemPermissions(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	if err := testFileSystemPermissions(t, clients, MustFilePathSpecs); err != nil {
 		t.Error(err)
@@ -76,6 +77,7 @@ func TestMustHaveFileSystemPermissions(t *testing.T) {
 
 // TestShouldHaveFileSystemPermissions asserts that the file system has all the SHOULD have paths and they have appropriate permissions.
 func TestShouldHaveFileSystemPermissions(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	if err := testFileSystemPermissions(t, clients, ShouldFilePathSpecs); err != nil {
 		t.Error(err)
