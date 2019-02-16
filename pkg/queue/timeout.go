@@ -17,11 +17,15 @@ limitations under the License.
 package queue
 
 import (
+	"bufio"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/knative/pkg/websocket"
 )
 
 var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
@@ -119,6 +123,13 @@ type timeoutWriter struct {
 }
 
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
+
+// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
+// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
+// to handle connection upgrade/switching protocol.  Otherwise returns an error.
+func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return websocket.HijackIfPossible(tw.w)
+}
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
 
