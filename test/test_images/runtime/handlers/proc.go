@@ -19,19 +19,13 @@ package handlers
 import (
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/knative/serving/test/types"
 )
 
 // stdin attempts to read bytes from the stdin file descriptor and returns the result.
 func stdin() *types.Stdin {
-	file, err := os.Open("/proc/" + strconv.Itoa(os.Getpid()) + "/fd/0")
-	if err != nil {
-		return &types.Stdin{Error: err.Error()}
-	}
-
-	_, err = file.Read(make([]byte, 1))
+	_, err := os.Stdin.Read(make([]byte, 1))
 	if err == io.EOF {
 		return &types.Stdin{EOF: &yes}
 	}
