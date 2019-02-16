@@ -19,7 +19,8 @@ metadata:
   labels:
     # This label includes this into the capabilities of the
     # knative/serving controller, which enables it to create
-    # these test build resources.
+    # these test build resources. See also:
+    # https://kubernetes.io/docs/reference/access-authn-authz/rbac/#aggregated-clusterroles
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["testing.internal.knative.dev"]
