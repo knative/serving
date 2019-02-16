@@ -140,13 +140,9 @@ Note: this is only required when you run conformance/e2e tests locally with
 `go test` commands.
 
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
-build and push the test images used by the conformance and e2e tests. It
-requires:
-
-- [`DOCKER_REPO_OVERRIDE`](../DEVELOPMENT.md#setup-your-environment) to be set
-- You to be
-  [authenticated with your `DOCKER_REPO_OVERRIDE`](../docs/setting-up-a-docker-registry.md)
-- [`docker`](https://docs.docker.com/install/) to be installed
+build and push the test images used by the conformance and e2e tests. The script
+expects your environment to be setup as described in
+[DEVELOPMENT.md](../DEVELOPMENT.md#install-requirements).
 
 To run the script for all end to end test images:
 
