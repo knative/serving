@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/network/websocket"
 	"go.uber.org/zap"
 )
 
