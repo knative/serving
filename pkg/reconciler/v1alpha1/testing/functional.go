@@ -112,6 +112,17 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
+// WithRunLatestConfigSpec confgures the Service to use a "runLastest" configuration
+func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec = v1alpha1.ServiceSpec{
+			RunLatest: &v1alpha1.RunLatestType{
+				Configuration: config,
+			},
+		}
+	}
+}
+
 // WithServiceLabel attaches a particular label to the service.
 func WithServiceLabel(key, value string) ServiceOption {
 	return func(service *v1alpha1.Service) {
@@ -119,6 +130,45 @@ func WithServiceLabel(key, value string) ServiceOption {
 			service.Labels = make(map[string]string)
 		}
 		service.Labels[key] = value
+	}
+}
+
+// WithResourceRequirements attaches resource requirements to the service
+func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = resourceRequirements
+	}
+}
+
+// AddVolume adds a volume to the service
+func AddVolum(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
+
+		rt.Container.VolumeMounts = []corev1.VolumeMount{{
+			Name:      name,
+			MountPath: mountPath,
+		}}
+
+		rt.Volumes = []corev1.Volume{{
+			Name:         name,
+			VolumeSource: volumeSource,
+		}}
+	}
+}
+
+// WithoutAutoScaling turns off auto scaling by setting max and min scale to 1
+func WithoutAutoScaling(service *v1alpha1.Service) {
+	service.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = map[string]string{
+		"autoscaling.knative.dev/minScale": "1",
+		"autoscaling.knative.dev/maxScale": "1",
+	}
+}
+
+// WithRevisionTimeoutSeconds sets revision timeout
+func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = revisionTimeoutSeconds
 	}
 }
 
@@ -136,11 +186,16 @@ func MarkRouteNotOwned(service *v1alpha1.Service) {
 // which is pinned to the named revision.
 // Deprecated, since PinnedType is deprecated.
 func WithPinnedRollout(name string) ServiceOption {
+	return WithPinnedRolloutConfigSpec(name, configSpec)
+}
+
+// WithPinnedRolloutConfigSpec WithPinnedRollout2
+func WithPinnedRolloutConfigSpec(name string, config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
 			DeprecatedPinned: &v1alpha1.PinnedType{
 				RevisionName:  name,
-				Configuration: configSpec,
+				Configuration: config,
 			},
 		}
 	}
@@ -149,12 +204,31 @@ func WithPinnedRollout(name string) ServiceOption {
 // WithReleaseRolloutAndPercentage configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRolloutAndPercentage(percentage int, names ...string) ServiceOption {
+	return WithReleaseRolloutAndPercentageConfigSpec(percentage, configSpec, names...)
+}
+
+// WithReleaseRolloutAndPercentageConfigSpec configures the Service to use a "release" rollout,
+// which spans the provided revisions.
+func WithReleaseRolloutAndPercentageConfigSpec(percentage int, config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
 			Release: &v1alpha1.ReleaseType{
 				Revisions:      names,
 				RolloutPercent: percentage,
-				Configuration:  configSpec,
+				Configuration:  config,
+			},
+		}
+	}
+}
+
+// WithReleaseRolloutConfigSpec configures the Service to use a "release" rollout,
+// which spans the provided revisions.
+func WithReleaseRolloutConfigSpec(config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec = v1alpha1.ServiceSpec{
+			Release: &v1alpha1.ReleaseType{
+				Revisions:     names,
+				Configuration: config,
 			},
 		}
 	}

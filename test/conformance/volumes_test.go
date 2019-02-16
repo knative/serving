@@ -68,24 +68,12 @@ func TestConfigMapVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup, logger)
 
-	addVolume := func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
-
-		rt.Container.VolumeMounts = []corev1.VolumeMount{{
-			Name:      "asdf",
-			MountPath: filepath.Dir(test.HelloVolumePath),
-		}}
-
-		rt.Volumes = []corev1.Volume{{
-			Name: "asdf",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMap.Name,
-					},
-				},
-			},
-		}}
+	addVolume := AddVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource {
+		ConfigMap: &corev1.ConfigMapVolumeSource {
+			LocalObjectReference: corev1.LocalObjectReference {
+				Name: configMap.Name
+			}
+		}
 	}
 
 	// Setup initial Service
@@ -143,23 +131,10 @@ func TestSecretVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup, logger)
 
-	addVolume := func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
-
-		rt.Container.VolumeMounts = []corev1.VolumeMount{{
-			Name:      "asdf",
-			MountPath: filepath.Dir(test.HelloVolumePath),
-		}}
-
-		rt.Volumes = []corev1.Volume{{
-			Name: "asdf",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secret.Name,
-				},
-			},
-		}}
-	}
+	addVolume := AddVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName: secret.Name,
+		})
 
 	// Setup initial Service
 	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
