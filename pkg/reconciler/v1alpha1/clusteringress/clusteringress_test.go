@@ -262,20 +262,16 @@ func TestReconcile_Gateway(t *testing.T) {
 			ingressWithTLS("new-created-clusteringress", 1234, ingressTLS),
 			// No Gateway servers match the given TLS of ClusterIngress.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
-			gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
 		},
 		WantCreates: []metav1.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
-			gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
 
 			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
-				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
+				[]string{"knative-ingress-gateway"}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingressTLSServer needs to be added into Gateway.
-			Object: gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer, irrelevanteServer}),
-		}, {
 			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer, irrelevanteServer}),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -284,7 +280,7 @@ func TestReconcile_Gateway(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Conditions: duckv1alpha1.Conditions{{
@@ -305,7 +301,6 @@ func TestReconcile_Gateway(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-shared-gateway"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
 		},
 		Key: "new-created-clusteringress",
@@ -317,7 +312,7 @@ func TestReconcile_Gateway(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
-				[]string{"knative-shared-gateway", "knative-ingress-gateway"}),
+				[]string{"knative-ingress-gateway"}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatus("new-created-clusteringress", 1234,
@@ -325,7 +320,7 @@ func TestReconcile_Gateway(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Conditions: duckv1alpha1.Conditions{{
@@ -370,7 +365,14 @@ func TestReconcile_Gateway(t *testing.T) {
 			// Enable reconciling gateway.
 			enableReconcilingGateway: true,
 			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
+				config: &config.Config{
+					Istio: &config.Istio{
+						IngressGateways: []config.Gateway{{
+							GatewayName: "knative-ingress-gateway",
+							ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+						}},
+					},
+				},
 			},
 		}
 	}))
