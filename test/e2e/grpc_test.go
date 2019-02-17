@@ -108,7 +108,7 @@ func TestGRPC(t *testing.T) {
 			},
 			"DeploymentIsScaledDown",
 			test.ServingNamespace,
-			2*time.Minute,
+			3*time.Minute,
 		)
 		if err != nil {
 			t.Fatalf("Could not scale to zero: %v", err)
@@ -166,8 +166,7 @@ func TestGRPC(t *testing.T) {
 		for i := 0; i < count; i++ {
 			logger.Infof("Sending stream %d of %d", i+1, count)
 
-			// TODO(#3188): Responses less than 4KB are buffered indefinitely
-			want := payload(4096)
+			want := payload(10)
 
 			err = stream.Send(&ping.Request{Msg: want})
 			if err != nil {
@@ -198,10 +197,9 @@ func TestGRPC(t *testing.T) {
 	t.Run("streaming ping", streamTest)
 
 	waitForScaleToZero()
-
 	t.Run("unary ping after scale-to-zero", unaryTest)
 
 	// TODO(#3239): Fix gRPC streaming after cold start
-	//waitForScaleToZero()
-	//t.Run("streaming ping after scale-to-zero", streamTest)
+	// waitForScaleToZero()
+	// t.Run("streaming ping after scale-to-zero", streamTest)
 }

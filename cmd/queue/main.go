@@ -245,8 +245,10 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.FlushInterval = -1
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
+	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
 	activatorutil.SetupHeaderPruning(h2cProxy)

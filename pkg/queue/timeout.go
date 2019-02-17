@@ -122,7 +122,13 @@ type timeoutWriter struct {
 	wroteOnce bool
 }
 
+var _ http.Flusher = (*timeoutWriter)(nil)
+
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
+
+func (tw *timeoutWriter) Flush() {
+	tw.w.(http.Flusher).Flush()
+}
 
 // Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
 // http.Hijacker interface, which is required for net/http/httputil/reverseproxy

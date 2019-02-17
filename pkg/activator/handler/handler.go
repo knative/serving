@@ -86,6 +86,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
+	proxy.FlushInterval = -1
 
 	attempts := int(1) // one attempt is always needed
 	proxy.ModifyResponse = func(r *http.Response) error {
@@ -115,6 +116,8 @@ type statusCapture struct {
 	statusCode int
 }
 
+var _ http.Flusher = (*statusCapture)(nil)
+
 func (s *statusCapture) WriteHeader(statusCode int) {
 	s.statusCode = statusCode
 	s.ResponseWriter.WriteHeader(statusCode)
@@ -125,4 +128,8 @@ func (s *statusCapture) WriteHeader(statusCode int) {
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
 func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return websocket.HijackIfPossible(s.ResponseWriter)
+}
+
+func (s *statusCapture) Flush() {
+	s.ResponseWriter.(http.Flusher).Flush()
 }
