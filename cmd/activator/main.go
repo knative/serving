@@ -246,19 +246,21 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
 	go cr.Run(stopCh)
 
-	ah := &activatorhandler.FilteringHandler{
-		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
-			&activatorhandler.EnforceMaxContentLengthHandler{
-				MaxContentLengthBytes: maxUploadBytes,
-				NextHandler: &activatorhandler.ActivationHandler{
-					Activator: a,
-					Transport: rt,
-					Logger:    logger,
-					Reporter:  reporter,
-					Throttler: throttler,
+	ah := &activatorhandler.ProbeHandler{
+		NextHandler: &activatorhandler.FilteringHandler{
+			NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
+				&activatorhandler.EnforceMaxContentLengthHandler{
+					MaxContentLengthBytes: maxUploadBytes,
+					NextHandler: &activatorhandler.ActivationHandler{
+						Activator: a,
+						Transport: rt,
+						Logger:    logger,
+						Reporter:  reporter,
+						Throttler: throttler,
+					},
 				},
-			},
-		),
+			),
+		},
 	}
 
 	// Watch the logging config map and dynamically update logging levels.

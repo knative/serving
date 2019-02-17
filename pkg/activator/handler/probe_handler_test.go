@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -17,30 +17,46 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/network"
 )
 
-func TestFilteringHandler(t *testing.T) {
+func TestProbeHandler(t *testing.T) {
 	examples := []struct {
 		label          string
 		headers        http.Header
 		passed         bool
 		expectedStatus int
+		method         string
 	}{{
-		label:          "forward a normal request",
+		label:          "forward a normal POST request",
 		headers:        http.Header{},
 		passed:         true,
 		expectedStatus: http.StatusOK,
+		method:         http.MethodPost,
 	}, {
-		label:          "filter a request containing retry header",
-		headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: "4"}),
+		label:          "filter a POST request containing probe header",
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
 		passed:         false,
-		expectedStatus: http.StatusServiceUnavailable,
+		expectedStatus: http.StatusOK,
+		method:         http.MethodPost,
 	}, {
-		label:          "forward a request containing empty retry header",
-		headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: ""}),
+		label:          "forward a normal GET request",
+		headers:        http.Header{},
 		passed:         true,
 		expectedStatus: http.StatusOK,
+		method:         http.MethodGet,
+	}, {
+		label:          "filter a GET request containing probe header",
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+		passed:         false,
+		expectedStatus: http.StatusOK,
+		method:         http.MethodGet,
+	}, {
+		label:          "forward a request containing empty retry header",
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: ""}),
+		passed:         true,
+		expectedStatus: http.StatusOK,
+		method:         http.MethodPost,
 	}}
 
 	for _, e := range examples {
@@ -50,10 +66,10 @@ func TestFilteringHandler(t *testing.T) {
 				wasPassed = true
 				w.WriteHeader(http.StatusOK)
 			})
-			handler := FilteringHandler{NextHandler: baseHandler}
+			handler := ProbeHandler{NextHandler: baseHandler}
 
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(e.method, "http://example.com", nil)
 			req.Header = e.headers
 
 			handler.ServeHTTP(resp, req)
@@ -71,12 +87,4 @@ func TestFilteringHandler(t *testing.T) {
 			}
 		})
 	}
-}
-
-func mapToHeader(m map[string]string) http.Header {
-	h := http.Header{}
-	for k, v := range m {
-		h.Add(k, v)
-	}
-	return h
 }
