@@ -200,6 +200,6 @@ func TestGRPC(t *testing.T) {
 	t.Run("unary ping after scale-to-zero", unaryTest)
 
 	// TODO(#3239): Fix gRPC streaming after cold start
-	// waitForScaleToZero()
-	// t.Run("streaming ping after scale-to-zero", streamTest)
+	waitForScaleToZero()
+	t.Run("streaming ping after scale-to-zero", streamTest)
 }

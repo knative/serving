@@ -80,6 +80,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) (int, int) {
+	time.Sleep(5 * time.Second)
+
 	capture := &statusCapture{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
