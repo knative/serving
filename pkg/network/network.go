@@ -24,6 +24,12 @@ import (
 )
 
 const (
+	// ProbeHeaderName is the name of a header that can be added to
+	// requests to probe the knative networking layer.  Requests
+	// with this header will not be passed to the user container or
+	// included in request metrics.
+	ProbeHeaderName = "k-network-probe"
+
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
 	ConfigName = "config-network"
