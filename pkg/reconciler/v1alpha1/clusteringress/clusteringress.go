@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -58,10 +57,6 @@ type configStore interface {
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
-	// The Mutex is needed to guard Istio Gateway because Istio Gateway is
-	// a global resource that should be modified by a single thread.
-	mutex sync.Mutex
-
 	*reconciler.Base
 
 	// listers index properties about resources
@@ -336,13 +331,9 @@ func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.Cluster
 }
 
 func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string) error {
-	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress.
+	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
+	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 
-	// We need to hold a lock to do read-modify-write operation for Istio Gateway because it is a
-	// global resource across all of ClusterIngresses. So the Istio Gateway should only be updated
-	// by a single thread.
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	logger := logging.FromContext(ctx)
 	gateway, err := c.gatewayLister.Gateways(system.Namespace()).Get(gatewayName)
 	if err != nil {
