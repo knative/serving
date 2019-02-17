@@ -93,6 +93,8 @@ var (
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 
+	enableNetworkProbe = flag.Bool("enable-network-probe", true, "Whether to replace request retries with network level probing.")
+
 	logger *zap.SugaredLogger
 
 	statSink *websocket.ManagedConnection
@@ -237,6 +239,14 @@ func main() {
 		Steps:    maxRetries,
 	}
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
+	getProbeCount := 0
+	// When network probing is enabled remove the retrying transport
+	// and pass in the retry count for our network probes instead.
+	if *enableNetworkProbe {
+		logger.Info("Enabling network probing for activation.")
+		getProbeCount = maxRetries
+		rt = activatorutil.AutoTransport
+	}
 
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
@@ -253,7 +263,14 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler
-	ah = &activatorhandler.ActivationHandler{Activator: a, Transport: rt, Logger: logger, Reporter: reporter, Throttler: throttler}
+	ah = &activatorhandler.ActivationHandler{
+		Activator:     a,
+		Transport:     rt,
+		Logger:        logger,
+		Reporter:      reporter,
+		Throttler:     throttler,
+		GetProbeCount: getProbeCount,
+	}
 	ah = &activatorhandler.EnforceMaxContentLengthHandler{MaxContentLengthBytes: maxUploadBytes, NextHandler: ah}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = &activatorhandler.FilteringHandler{NextHandler: ah}
