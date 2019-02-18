@@ -36,7 +36,7 @@ const (
 )
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
-func watchFunc(ctx context.Context, ms *MultiScaler, metric *Metric, desiredScale int, doneCh chan struct{}, errCh chan error) func(key string) {
+func watchFunc(ctx context.Context, ms *MultiScaler, metric *Metric, desiredScale int, errCh chan error) func(key string) {
 	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
 	return func(key string) {
 		if key != metricKey {
@@ -52,34 +52,32 @@ func watchFunc(ctx context.Context, ms *MultiScaler, metric *Metric, desiredScal
 			errCh <- fmt.Errorf("Get() = %v, wanted %v", got, want)
 			return
 		}
-		doneCh <- struct{}{}
+		errCh <- nil
 	}
 }
 
 // verifyTick verifies that we get a tick in a certain amount of time.
-func verifyTick(doneCh chan struct{}, errCh chan error) error {
+func verifyTick(errCh chan error) error {
 	select {
 	case err := <-errCh:
 		return err
-	case <-doneCh:
-		// We got the signal!
 	case <-time.After(tickTimeout):
 		return errors.New("timed out waiting for Watch()")
 	}
-	return nil
 }
 
 // verifyNoTick verifies that we don't get a tick in a certain amount of time.
-func verifyNoTick(doneCh chan struct{}, errCh chan error) error {
+func verifyNoTick(errCh chan error) error {
 	select {
 	case err := <-errCh:
-		return err
-	case <-doneCh:
+		if err != nil {
+			return err
+		}
 		return errors.New("Got unexpected tick")
 	case <-time.After(tickTimeout):
-		// We got nothing!
+		// Got nothing, all good!
+		return nil
 	}
-	return nil
 }
 
 func TestMultiScalerScaling(t *testing.T) {
@@ -98,11 +96,9 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
-	doneCh := make(chan struct{})
-	defer close(doneCh)
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 1, doneCh, errCh))
+	ms.Watch(watchFunc(ctx, ms, metric, 1, errCh))
 
 	_, err = ms.Create(ctx, metric)
 	if err != nil {
@@ -110,13 +106,13 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	// Verify that we see a "tick"
-	if err := verifyTick(doneCh, errCh); err != nil {
+	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify that subsequent "ticks" don't trigger a callback, since
 	// the desired scale has not changed.
-	if err := verifyNoTick(doneCh, errCh); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 
@@ -125,7 +121,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(doneCh, errCh); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -147,11 +143,9 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
-	doneCh := make(chan struct{})
-	defer close(doneCh)
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 0, doneCh, errCh))
+	ms.Watch(watchFunc(ctx, ms, metric, 0, errCh))
 
 	_, err = ms.Create(ctx, metric)
 	if err != nil {
@@ -159,7 +153,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we see a "tick"
-	if err := verifyTick(doneCh, errCh); err != nil {
+	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 
@@ -169,7 +163,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(doneCh, errCh); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -185,11 +179,9 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	metric := newMetric()
 	uniScaler.setScaleResult(1, true)
 
-	doneCh := make(chan struct{})
-	defer close(doneCh)
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 1, doneCh, errCh))
+	ms.Watch(watchFunc(ctx, ms, metric, 1, errCh))
 
 	_, err := ms.Create(ctx, metric)
 	if err != nil {
@@ -209,7 +201,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	ms.RecordStat(testKPAKey, testStat)
 
 	// Verify that we see a "tick"
-	if err := verifyTick(doneCh, errCh); err != nil {
+	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -231,11 +223,11 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
-	done := make(chan struct{})
-	defer close(done)
+	errCh := make(chan error)
+	defer close(errCh)
 	ms.Watch(func(key string) {
 		// Let the main process know when this is called.
-		done <- struct{}{}
+		errCh <- nil
 	})
 
 	_, err = ms.Create(ctx, metric)
@@ -244,7 +236,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we get no "ticks", because the desired scale is zero
-	if err := verifyNoTick(done, nil); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 
@@ -254,7 +246,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(done, nil); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -277,11 +269,11 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
-	done := make(chan struct{})
-	defer close(done)
+	errCh := make(chan error)
+	defer close(errCh)
 	ms.Watch(func(key string) {
 		// Let the main process know when this is called.
-		done <- struct{}{}
+		errCh <- nil
 	})
 
 	_, err = ms.Create(ctx, metric)
@@ -290,7 +282,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we get no "ticks", because the desired scale is negative
-	if err := verifyNoTick(done, nil); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 
@@ -300,7 +292,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(done, nil); err != nil {
+	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 }
