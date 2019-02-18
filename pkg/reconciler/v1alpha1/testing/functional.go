@@ -157,11 +157,10 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 	}
 }
 
-// WithoutAutoScaling turns off auto scaling by setting max and min scale to 1
-func WithoutAutoScaling(service *v1alpha1.Service) {
-	service.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = map[string]string{
-		"autoscaling.knative.dev/minScale": "1",
-		"autoscaling.knative.dev/maxScale": "1",
+// WithConfigAnnotations assigns config annotations to a service
+func WithConfigAnnotations(annotations map[string]string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		service.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = annotations
 	}
 }
 

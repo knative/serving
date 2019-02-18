@@ -106,7 +106,11 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 					},
 				}),
 				// See #2946 for why we do this.
-				WithoutAutoScaling)
+				// turns off auto scaling by setting max and min scale to 1
+				WithConfigAnnotations(map[string]string{
+					"autoscaling.knative.dev/minScale": "1",
+					"autoscaling.knative.dev/maxScale": "1",
+				}))
 
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
