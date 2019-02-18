@@ -60,14 +60,10 @@ func watchFunc(ctx context.Context, ms *MultiScaler, metric *Metric, desiredScal
 func verifyTick(errCh chan error) error {
 	select {
 	case err := <-errCh:
-		if err != nil {
-			return err
-		}
-		// If the error is nil we got the expected tick.
+		return err
 	case <-time.After(tickTimeout):
 		return errors.New("timed out waiting for Watch()")
 	}
-	return nil
 }
 
 // verifyNoTick verifies that we don't get a tick in a certain amount of time.
@@ -79,9 +75,9 @@ func verifyNoTick(errCh chan error) error {
 		}
 		return errors.New("Got unexpected tick")
 	case <-time.After(tickTimeout):
-		// We got nothing!
+		// Got nothing, all good!
+		return nil
 	}
-	return nil
 }
 
 func TestMultiScalerScaling(t *testing.T) {
