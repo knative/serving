@@ -35,17 +35,12 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
-var (
-	clients *test.Clients
-	logger  *logging.BaseLogger
-)
-
 const (
 	targetHostEnv      = "TARGET_HOST"
 	helloworldResponse = "Hello World! How about some tasty noodles?"
 )
 
-func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
+func createTargetHostEnvVars(clients *test.Clients, logger *logging.BaseLogger, routeName string, t *testing.T) []corev1.EnvVar {
 	helloWorldRoute, err := clients.ServingClient.Routes.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Route of helloworld app: %v", err)
@@ -67,7 +62,7 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 	}}
 }
 
-func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
+func sendRequest(clients *test.Clients, logger *logging.BaseLogger, resolvableDomain bool, domain string) (*spoof.Response, error) {
 	logger.Infof("The domain of request is %s.", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
 	if err != nil {
@@ -88,8 +83,8 @@ func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) 
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
-	logger = logging.GetContextLogger(t.Name())
-	clients = Setup(t)
+	logger := logging.GetContextLogger(t.Name())
+	clients := Setup(t)
 
 	// Set up helloworld app.
 	logger.Info("Creating a Route and Configuration for helloworld test app.")
@@ -126,7 +121,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	// Set up httpproxy app.
 	logger.Info("Creating a Route and Configuration for httpproxy test app.")
 
-	envVars := createTargetHostEnvVars(helloWorldNames.Route, t)
+	envVars := createTargetHostEnvVars(clients, logger, helloWorldNames.Route, t)
 	httpProxyNames, err := CreateRouteAndConfig(clients, logger, "httpproxy", &test.Options{
 		EnvVars: envVars,
 	})
@@ -153,7 +148,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	logger.Info("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
+	response, err := sendRequest(clients, logger, test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
@@ -164,7 +159,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// As a final check (since we know they are both up), check that we cannot
 	// send a request directly to the helloWorldRoute.
-	response, err = sendRequest(test.ServingFlags.ResolvableDomain, helloWorldRoute.Status.Domain)
+	response, err = sendRequest(clients, logger, test.ServingFlags.ResolvableDomain, helloWorldRoute.Status.Domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to helloworld: %v", err)
 	}

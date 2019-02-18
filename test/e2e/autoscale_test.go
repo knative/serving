@@ -36,17 +36,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
 	autoscaleExpectedOutput = "399989"
-)
-
-var (
-	stableWindow     time.Duration
-	scaleToZeroGrace time.Duration
 )
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
@@ -141,14 +134,6 @@ func setup(t *testing.T) *testContext {
 	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
-	cm := ConfigMapFromTestFile(t, autoscaler.ConfigName)
-	cfg, err := autoscaler.NewConfigFromConfigMap(cm)
-	if err != nil {
-		t.Fatalf("NewConfigFromConfigMap() = %v", err)
-	}
-	stableWindow = cfg.StableWindow
-	scaleToZeroGrace = cfg.ScaleToZeroGracePeriod
-
 	logger.Info("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
 		ContainerConcurrency: 10,
@@ -232,7 +217,7 @@ func assertScaleDown(ctx *testContext) {
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
-		scaleToZeroGrace+stableWindow+2*time.Minute)
+		autoscaler.DefaultScaleToZeroGracePeriod+autoscaler.DefaultStableWindow+2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
 	}

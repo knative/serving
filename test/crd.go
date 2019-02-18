@@ -19,14 +19,11 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"math/rand"
-	"sync"
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -259,41 +256,10 @@ func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
 	}
 }
 
-const (
-	letterBytes   = "abcdefghijklmnopqrstuvwxyz"
-	randSuffixLen = 8
-)
-
-// r is used by AppendRandomString to generate a random string. It is seeded with the time
-// at import so the strings will be different between test runs.
-var (
-	r        *rand.Rand
-	rndMutex *sync.Mutex
-)
-
-// once is used to initialize r
-var once sync.Once
-
-func initSeed(logger *logging.BaseLogger) func() {
-	return func() {
-		seed := time.Now().UTC().UnixNano()
-		logger.Infof("Seeding rand.Rand with %d", seed)
-		r = rand.New(rand.NewSource(seed))
-		rndMutex = &sync.Mutex{}
-	}
-}
-
 // AppendRandomString will generate a random string that begins with prefix. This is useful
 // if you want to make sure that your tests can run at the same time against the same
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
 func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
-	once.Do(initSeed(logger))
-	suffix := make([]byte, randSuffixLen)
-	rndMutex.Lock()
-	defer rndMutex.Unlock()
-	for i := range suffix {
-		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
-	}
-	return prefix + string(suffix)
+	return helpers.AppendRandomString(prefix)
 }

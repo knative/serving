@@ -29,6 +29,10 @@ import (
 const (
 	// ConfigName is the name of the config map of the autoscaler.
 	ConfigName = "config-autoscaler"
+
+	// Default values for several key autoscaler settings.
+	DefaultStableWindow           = 60 * time.Second
+	DefaultScaleToZeroGracePeriod = 30 * time.Second
 )
 
 // Config defines the tunable autoscaler parameters
@@ -118,7 +122,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}{{
 		key:          "stable-window",
 		field:        &lc.StableWindow,
-		defaultValue: 60 * time.Second,
+		defaultValue: DefaultStableWindow,
 	}, {
 		key:          "panic-window",
 		field:        &lc.PanicWindow,
@@ -126,7 +130,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}, {
 		key:          "scale-to-zero-grace-period",
 		field:        &lc.ScaleToZeroGracePeriod,
-		defaultValue: 30 * time.Second,
+		defaultValue: DefaultScaleToZeroGracePeriod,
 	}, {
 		key:          "tick-interval",
 		field:        &lc.TickInterval,
