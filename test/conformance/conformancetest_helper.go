@@ -44,8 +44,8 @@ func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options
 		Image:   runtime,
 	}
 
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, options)
 	if err != nil {
@@ -90,8 +90,8 @@ func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath str
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	var revisionName string
 	logger.Info("The Service will be updated with the name of the Revision once it is created")

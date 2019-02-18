@@ -64,9 +64,7 @@ func Setup(ctx context.Context, logger *logging.BaseLogger, promReqd bool) (*Cli
 
 // TearDown cleans up resources used
 func TearDown(client *Client, logger *logging.BaseLogger, names test.ResourceNames) {
-	if client.E2EClients != nil && client.E2EClients.ServingClient != nil {
-		client.E2EClients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
+	test.TearDown(client.E2EClients, names)
 
 	if client.PromClient != nil {
 		client.PromClient.Teardown(logger)

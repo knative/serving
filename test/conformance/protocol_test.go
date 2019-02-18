@@ -48,11 +48,11 @@ func (pt *protocolsTest) setup(t *testing.T) {
 		Image:   protocols,
 	}
 
-	test.CleanupOnInterrupt(func() { pt.teardown() }, pt.logger)
+	test.CleanupOnInterrupt(func() { pt.teardown() })
 }
 
 func (pt *protocolsTest) teardown() {
-	tearDown(pt.clients, pt.names)
+	test.TearDown(pt.clients, pt.names)
 }
 
 func (pt *protocolsTest) getProtocol(resp *spoof.Response) protocol {

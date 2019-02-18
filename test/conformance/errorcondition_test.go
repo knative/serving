@@ -57,8 +57,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	manifestUnknown := string(transport.ManifestUnknownErrorCode)
 	logger.Info("When the imagepath is invalid, the Configuration should have error status.")
@@ -148,8 +148,8 @@ func TestContainerExitingMsg(t *testing.T) {
 	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{ReadinessProbe: probe}); err != nil {
 		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 	}
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	logger.Info("When the containers keep crashing, the Configuration should have error status.")
 

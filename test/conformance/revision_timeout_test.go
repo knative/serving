@@ -109,8 +109,8 @@ func TestRevisionTimeout(t *testing.T) {
 		Image:   timeout,
 	}
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	logger.Info("Creating a new Service in runLatest")
 	svc, err := createLatestService(logger, clients, names, 2)

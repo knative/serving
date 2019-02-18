@@ -54,8 +54,8 @@ func TestGRPC(t *testing.T) {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	logger.Info("Waiting for route to be ready")
 

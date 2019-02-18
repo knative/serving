@@ -185,8 +185,8 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 		select {
 		case names := <-cleanupCh:
 			logger.Infof("Added %v to cleanup routine.", names)
-			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-			defer TearDown(clients, names, logger)
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			defer test.TearDown(clients, names)
 
 		case err := <-doneCh:
 			if err != nil {

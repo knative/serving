@@ -49,7 +49,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	clients := perfClients.E2EClients
 
 	defer TearDown(perfClients, logger, names)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
+	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) })
 
 	logger.Info("Creating a new Service")
 	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})

@@ -106,8 +106,8 @@ func TestServiceToServiceCall(t *testing.T) {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, helloWorldNames, logger) }, logger)
-	defer TearDown(clients, helloWorldNames, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
+	defer test.TearDown(clients, helloWorldNames)
 
 	if err := test.WaitForRouteState(clients.ServingClient, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", helloWorldNames.Route, err)
@@ -128,8 +128,8 @@ func TestServiceToServiceCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, httpProxyNames, logger) }, logger)
-	defer TearDown(clients, httpProxyNames, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, httpProxyNames) })
+	defer test.TearDown(clients, httpProxyNames)
 	if err := test.WaitForRouteState(clients.ServingClient, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", httpProxyNames.Route, err)
 	}

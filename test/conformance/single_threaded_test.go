@@ -47,8 +47,8 @@ func TestSingleConcurrency(t *testing.T) {
 		Image:  singleThreadedImage,
 	}
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	configOptions := test.Options{
 		ContainerConcurrency: 1,

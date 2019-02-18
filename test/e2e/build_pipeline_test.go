@@ -162,8 +162,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				tc.preFn(t, clients, logger)
 			}
 
-			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-			defer TearDown(clients, names, logger)
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			defer test.TearDown(clients, names)
 
 			if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, tc.rawExtension)); err != nil {
 				t.Fatalf("Failed to create Configuration: %v", err)
