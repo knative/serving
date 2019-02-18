@@ -40,7 +40,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText)), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText)), http.StatusNotFound),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

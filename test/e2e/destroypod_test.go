@@ -77,7 +77,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.MatchesBody(timeoutExpectedOutput)), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(timeoutExpectedOutput)), http.StatusNotFound),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

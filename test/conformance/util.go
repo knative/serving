@@ -84,7 +84,7 @@ func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expect
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedResponse)))
+	_, err = client.Poll(req, pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedResponse)))
 	return err
 }
 

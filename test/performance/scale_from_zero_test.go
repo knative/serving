@@ -70,7 +70,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		m := fmt.Sprintf("%d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
