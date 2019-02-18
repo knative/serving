@@ -49,7 +49,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-resource-limits-", logger),
+		Service: test.AppendRandomString("test-resource-limits-"),
 		Image:   "bloatingcow",
 	}
 

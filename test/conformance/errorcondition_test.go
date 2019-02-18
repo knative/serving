@@ -48,7 +48,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-container-error-msg", logger),
+		Config: test.AppendRandomString("test-container-error-msg"),
 		Image:  "invalidhelloworld",
 	}
 	// Specify an invalid image path
@@ -125,7 +125,7 @@ func TestContainerExitingMsg(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-container-exiting-msg", logger),
+		Config: test.AppendRandomString("test-container-exiting-msg"),
 		Image:  "failing",
 	}
 

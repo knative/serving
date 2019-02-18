@@ -90,8 +90,8 @@ func TestServiceToServiceCall(t *testing.T) {
 	logger.Info("Creating a Route and Configuration for helloworld test app.")
 
 	helloWorldNames := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: test.AppendRandomString(configName),
+		Route:  test.AppendRandomString(routeName),
 		Image:  "helloworld",
 	}
 

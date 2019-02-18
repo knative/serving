@@ -131,7 +131,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("observed-concurrency", logger),
+		Service: test.AppendRandomString("observed-concurrency-"),
 		Image:   "observed-concurrency",
 	}
 	clients := perfClients.E2EClients
@@ -155,20 +155,20 @@ func TestObservedConcurrency(t *testing.T) {
 
 	// Make sure we are ready to serve.
 	st := time.Now()
-		logger.Info("Starting to probe the endpoint at ", st)
-		_, err = pkgTest.WaitForEndpointState(
-			clients.KubeClient,
-			logger,
-			domain+"/?timeout=10", // To generate any kind of a valid response.
-			pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
-				_, _, err := parseResponse(string(resp.Body))
-				return err == nil, nil
-			}, http.StatusNotFound),
-			"WaitForEndpointToServeText",
-			test.ServingFlags.ResolvableDomain)
-		if err != nil {
-			t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
-		}
+	logger.Info("Starting to probe the endpoint at ", st)
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		logger,
+		domain+"/?timeout=10", // To generate any kind of a valid response.
+		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+			_, _, err := parseResponse(string(resp.Body))
+			return err == nil, nil
+		}, http.StatusNotFound),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
+	}
 	logger.Infof("Took %v for the endpoint to start serving", time.Since(st))
 
 	// This just helps with preallocation.

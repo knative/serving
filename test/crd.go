@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/test/helpers"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -260,6 +259,4 @@ func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
 // if you want to make sure that your tests can run at the same time against the same
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
-func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
-	return helpers.AppendRandomString(prefix)
-}
+var AppendRandomString = helpers.AppendRandomString

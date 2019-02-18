@@ -94,7 +94,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 
 		wg.Go(func() error {
 			names := test.ResourceNames{
-				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
+				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i)),
 				Image:   "helloworld",
 			}
 

@@ -34,7 +34,7 @@ func TestShouldNotHaveHooks(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-should-not-have-hooks-", logger),
+		Service: test.AppendRandomString("test-should-not-have-hooks-"),
 		Image:   pizzaPlanet1,
 	}
 

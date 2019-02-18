@@ -40,7 +40,7 @@ import (
 // RuntimeInfo object.
 func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options *test.Options) (*types.RuntimeInfo, error) {
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("runtime-test-", logger),
+		Service: test.AppendRandomString("runtime-test-"),
 		Image:   runtime,
 	}
 
@@ -81,7 +81,7 @@ func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options
 func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath string, options *test.Options) ([]byte, *test.ResourceNames, error) {
 	logger.Info("Creating a new Service")
 	var names test.ResourceNames
-	names.Service = test.AppendRandomString("yashiki", logger)
+	names.Service = test.AppendRandomString("yashiki")
 	names.Image = "environment"
 	svc, err := test.CreateLatestService(logger, clients, names, options)
 	if err != nil {

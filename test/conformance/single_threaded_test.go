@@ -42,8 +42,8 @@ func TestSingleConcurrency(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("prod", logger),
-		Route:  test.AppendRandomString("pizzaplanet", logger),
+		Config: test.AppendRandomString("single-threaded-"),
+		Route:  test.AppendRandomString("single-threaded-"),
 		Image:  singleThreadedImage,
 	}
 

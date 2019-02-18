@@ -44,7 +44,7 @@ func (pt *protocolsTest) setup(t *testing.T) {
 	pt.clients = setup(t)
 	pt.logger = logging.GetContextLogger(t.Name())
 	pt.names = test.ResourceNames{
-		Service: test.AppendRandomString("protocols", pt.logger),
+		Service: test.AppendRandomString("protocols"),
 		Image:   protocols,
 	}
 

@@ -178,7 +178,7 @@ func TestRunLatestService(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-run-latest-service-", logger),
+		Service: test.AppendRandomString("test-run-latest-service-"),
 		Image:   pizzaPlanet1,
 	}
 
@@ -356,7 +356,7 @@ func TestReleaseService(t *testing.T) {
 	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
 	releaseImagePath3 := test.ImagePath(helloworld)
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-release-service-", logger),
+		Service: test.AppendRandomString("test-release-service-"),
 		Image:   pizzaPlanet1,
 	}
 	defer tearDown(clients, names)
