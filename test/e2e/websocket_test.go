@@ -131,7 +131,7 @@ func TestWebSocket(t *testing.T) {
 	clients := Setup(t)
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("websocket-server-", logger),
+		Service: test.AppendRandomString("websocket-server-"),
 		Image:   "wsserver",
 	}
 

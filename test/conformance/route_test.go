@@ -102,9 +102,9 @@ func TestRouteCreation(t *testing.T) {
 
 	var objects test.ResourceObjects
 	names := test.ResourceNames{
-		Config:        test.AppendRandomString("test-route-creation-", logger),
-		Route:         test.AppendRandomString("test-route-creation-", logger),
-		TrafficTarget: test.AppendRandomString("test-route-creation-", logger),
+		Config:        test.AppendRandomString("test-route-creation-"),
+		Route:         test.AppendRandomString("test-route-creation-"),
+		TrafficTarget: test.AppendRandomString("test-route-creation-"),
 		Image:         pizzaPlanet1,
 	}
 

@@ -43,7 +43,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("helloworld", logger),
+		Service: test.AppendRandomString("helloworld"),
 		Image:   "helloworld",
 	}
 	clients := perfClients.E2EClients

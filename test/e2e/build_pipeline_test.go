@@ -153,8 +153,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 
 			logger.Info("Creating a new Route and Configuration with build")
 			names := test.ResourceNames{
-				Config: test.AppendRandomString(configName, logger),
-				Route:  test.AppendRandomString(routeName, logger),
+				Config: test.AppendRandomString(configName),
+				Route:  test.AppendRandomString(routeName),
 				Image:  "helloworld",
 			}
 

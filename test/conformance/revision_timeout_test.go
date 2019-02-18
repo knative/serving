@@ -105,7 +105,7 @@ func TestRevisionTimeout(t *testing.T) {
 
 	var rev2s, rev5s test.ResourceNames
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("timeout", logger),
+		Service: test.AppendRandomString("timeout"),
 		Image:   timeout,
 	}
 

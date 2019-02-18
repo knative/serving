@@ -42,8 +42,8 @@ func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.B
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, image string, options *test.Options) (test.ResourceNames, error) {
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: test.AppendRandomString(configName),
+		Route:  test.AppendRandomString(routeName),
 		Image:  image,
 	}
 

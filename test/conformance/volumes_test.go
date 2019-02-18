@@ -37,11 +37,11 @@ func TestConfigMapVolume(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("cm-volume-", logger),
+		Service: test.AppendRandomString("cm-volume-"),
 		Image:   "hellovolume",
 	}
 
-	text := test.AppendRandomString("hello-volumes-", logger)
+	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
 	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
@@ -112,11 +112,11 @@ func TestSecretVolume(t *testing.T) {
 	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("cm-volume-", logger),
+		Service: test.AppendRandomString("secret-volume-"),
 		Image:   "hellovolume",
 	}
 
-	text := test.AppendRandomString("hello-volumes-", logger)
+	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the Secret with random text.
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
