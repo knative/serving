@@ -168,7 +168,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	})
 
 	if _, err := servingClient.ServingV1alpha1().Configurations(config.Namespace).Create(config); err != nil {
-		t.Fatalf("Unexpected error creating revision: %v", err)
+		t.Fatalf("Unexpected error creating configuration: %v", err)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
