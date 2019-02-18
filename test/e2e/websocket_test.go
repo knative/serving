@@ -127,8 +127,8 @@ func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clien
 // (2) connects to the service using websocket, (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
-	logger = logging.GetContextLogger(t.Name())
-	clients = Setup(t)
+	logger := logging.GetContextLogger(t.Name())
+	clients := Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("websocket-server-", logger),
