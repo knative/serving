@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,13 +68,14 @@ func TestConfigMapVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup, logger)
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource {
-		ConfigMap: &corev1.ConfigMapVolumeSource {
-			LocalObjectReference: corev1.LocalObjectReference {
-				Name: configMap.Name
-			}
-		}
-	}
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: configMap.Name,
+			},
+		},
+	},
+	)
 
 	// Setup initial Service
 	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, withVolume); err != nil {
@@ -134,7 +135,9 @@ func TestSecretVolume(t *testing.T) {
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
-		})
+		},
+	},
+	)
 
 	// Setup initial Service
 	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, withVolume); err != nil {
