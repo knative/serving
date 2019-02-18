@@ -140,8 +140,8 @@ func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) 
 	}
 }
 
-// AddVolume adds a volume to the service
-func AddVolum(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
+// WithVolume adds a volume to the service
+func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
 

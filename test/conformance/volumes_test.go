@@ -68,7 +68,7 @@ func TestConfigMapVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup, logger)
 
-	addVolume := AddVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource {
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource {
 		ConfigMap: &corev1.ConfigMapVolumeSource {
 			LocalObjectReference: corev1.LocalObjectReference {
 				Name: configMap.Name
@@ -77,7 +77,7 @@ func TestConfigMapVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -131,13 +131,13 @@ func TestSecretVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup, logger)
 
-	addVolume := AddVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
 		})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
