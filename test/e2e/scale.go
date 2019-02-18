@@ -148,7 +148,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+				pkgTest.Retrying(pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput)), http.StatusNotFound),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
