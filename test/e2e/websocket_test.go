@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,29 +37,29 @@ const (
 
 // connect attempts to establish WebSocket connection with the Service.
 // It will retry until reaching `connectTimeout` duration.
-func connect(logger *logging.BaseLogger, ingressIP string, domain string) (*websocket.Conn, error) {
+func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, error) {
 	u := url.URL{Scheme: "ws", Host: ingressIP, Path: "/"}
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
-		logger.Infof("Connecting using websocket: url=%s, host=%s", u.String(), domain)
+		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
 		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": []string{domain}})
 		if err == nil {
-			logger.Info("WebSocket connection established.")
+			t.Log("WebSocket connection established.")
 			conn = c
 			return true, nil
 		}
 		if resp == nil {
 			// We don't have an HTTP response, probably TCP errors.
-			logger.Infof("Connection failed: %v", err)
+			t.Logf("Connection failed: %v", err)
 			return false, nil
 		}
 		body := &bytes.Buffer{}
 		defer resp.Body.Close()
 		if _, readErr := body.ReadFrom(resp.Body); readErr != nil {
-			logger.Infof("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
+			t.Logf("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
 			return false, nil
 		}
-		logger.Infof("HTTP connection failed: %v. Response=%+v. ResponseBody=%q", err, resp, body.String())
+		t.Logf("HTTP connection failed: %v. Response=%+v. ResponseBody=%q", err, resp, body.String())
 		return false, nil
 	})
 	return conn, waitErr
@@ -90,7 +89,7 @@ func getGatewayIP(kube *kubernetes.Clientset) (string, error) {
 	return ingress.Status.LoadBalancer.Ingress[0].IP, nil
 }
 
-func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clients, names test.ResourceNames) error {
+func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	// Get the gatewayIP.
 	gatewayIP, err := getGatewayIP(clients.KubeClient.Kube)
 	if err != nil {
@@ -98,7 +97,7 @@ func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clien
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(logger, gatewayIP, names.Domain)
+	conn, err := connect(t, gatewayIP, names.Domain)
 	if err != nil {
 		return err
 	}
@@ -106,11 +105,11 @@ func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clien
 
 	// Send a message.
 	const sent = "Hello, websocket"
-	logger.Infof("Sending message %q to server.", sent)
+	t.Logf("Sending message %q to server.", sent)
 	if err = conn.WriteMessage(websocket.TextMessage, []byte(sent)); err != nil {
 		return err
 	}
-	logger.Info("Message sent.")
+	t.Log("Message sent.")
 
 	// Read back the echoed message and compared with sent.
 	if _, recv, err := conn.ReadMessage(); err != nil {
@@ -118,7 +117,7 @@ func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clien
 	} else if sent != string(recv) {
 		return fmt.Errorf("expected to receive back the message: %q but received %q", sent, string(recv))
 	} else {
-		logger.Infof("Received message %q from echo server.", recv)
+		t.Logf("Received message %q from echo server.", recv)
 	}
 	return nil
 }
@@ -127,7 +126,6 @@ func validateWebSocketConnection(logger *logging.BaseLogger, clients *test.Clien
 // (2) connects to the service using websocket, (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
 	names := test.ResourceNames{
@@ -140,12 +138,12 @@ func TestWebSocket(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup a WebSocket server.
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
 	// Validate the websocket connection.
-	if err := validateWebSocketConnection(logger, clients, names); err != nil {
+	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
 }

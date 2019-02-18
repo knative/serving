@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -32,9 +31,6 @@ import (
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
 	clients := setup(t)
-
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("cm-volume-"),
@@ -55,7 +51,7 @@ func TestConfigMapVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create configmap: %v", err)
 	}
-	logger.Info("Successfully created configMap: %v", configMap)
+	t.Logf("Successfully created configMap: %v", configMap)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -89,17 +85,17 @@ func TestConfigMapVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(logger, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(logger, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }
@@ -107,9 +103,6 @@ func TestConfigMapVolume(t *testing.T) {
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
 	clients := setup(t)
-
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
 
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("secret-volume-"),
@@ -130,7 +123,7 @@ func TestSecretVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
-	logger.Info("Successfully created secret: %v", secret)
+	t.Logf("Successfully created secret: %v", secret)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -162,17 +155,17 @@ func TestSecretVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(logger, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(logger, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
@@ -44,7 +43,7 @@ type Latencies interface {
 	Add(name string, start time.Time)
 }
 
-func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration, latencies Latencies) {
+func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
 	clients := Setup(t)
 
 	cleanupCh := make(chan test.ResourceNames, scale)
@@ -82,11 +81,11 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 		globalSLO = 0.995
 		minProbes = 20
 	)
-	pm := test.NewProberManager(logger, clients, minProbes)
+	pm := test.NewProberManager(t, clients, minProbes)
 
 	timeoutCh := time.After(duration)
 
-	logger.Info("Creating new Services")
+	t.Log("Creating new Services")
 	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
@@ -116,7 +115,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := test.CreateLatestService(logger, clients, names, options, fopt...)
+			svc, err := test.CreateLatestService(t, clients, names, options, fopt...)
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
 				return nil
@@ -129,7 +128,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Send it to our cleanup logic (below)
 			cleanupCh <- names
 
-			logger.Infof("Wait for %s to become ready.", names.Service)
+			t.Logf("Wait for %s to become ready.", names.Service)
 			var domain string
 			err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.Domain == "" {
@@ -147,7 +146,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 
 			_, err = pkgTest.WaitForEndpointState(
 				clients.KubeClient,
-				logger,
+				t.Logf,
 				domain,
 				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
 				"WaitForEndpointToServeText",
@@ -162,7 +161,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Start probing the domain until the test is complete.
 			pm.Spawn(domain)
 
-			logger.Infof("%s is ready.", names.Service)
+			t.Logf("%s is ready.", names.Service)
 			return nil
 		})
 	}
@@ -184,7 +183,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 		// All of this has to finish within the configured timeout.
 		select {
 		case names := <-cleanupCh:
-			logger.Infof("Added %v to cleanup routine.", names)
+			t.Logf("Added %v to cleanup routine.", names)
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 			defer test.TearDown(clients, names)
 

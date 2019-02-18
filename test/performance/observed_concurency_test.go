@@ -31,7 +31,6 @@ import (
 	"github.com/pkg/errors"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
@@ -43,7 +42,7 @@ const concurrency = 5
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
 // All responses are forwarded to a channel, if given.
-func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response, logger *logging.BaseLogger) error {
+func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, concurrency int, duration time.Duration, resChannel chan *spoof.Response) error {
 	var group errgroup.Group
 	// Notify the consumer about the end of the data stream.
 	defer close(resChannel)
@@ -62,7 +61,7 @@ func generateTraffic(client *spoof.SpoofingClient, url string, concurrency int, 
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						logger.Infof("Error sending request: %v", err)
+						t.Logf("Error sending request: %v", err)
 					}
 					resChannel <- res
 				}
@@ -123,9 +122,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int) (time.Durat
 }
 
 func TestObservedConcurrency(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
-
-	perfClients, err := Setup(context.Background(), logger, true)
+	perfClients, err := Setup(context.Background(), t, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
@@ -136,11 +133,11 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 	clients := perfClients.E2EClients
 
-	defer TearDown(perfClients, logger, names)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) })
+	defer TearDown(t, perfClients, names)
+	test.CleanupOnInterrupt(func() { TearDown(t, perfClients, names) })
 
-	logger.Info("Creating a new Service")
-	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerConcurrency: 1})
+	t.Log("Creating a new Service")
+	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{ContainerConcurrency: 1})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -148,17 +145,17 @@ func TestObservedConcurrency(t *testing.T) {
 	domain := objs.Route.Status.Domain
 
 	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
 	// Make sure we are ready to serve.
 	st := time.Now()
-	logger.Info("Starting to probe the endpoint at ", st)
+	t.Log("Starting to probe the endpoint at ", st)
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
 		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
 			_, _, err := parseResponse(string(resp.Body))
@@ -169,7 +166,7 @@ func TestObservedConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
 	}
-	logger.Infof("Took %v for the endpoint to start serving", time.Since(st))
+	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
 	// This just helps with preallocation.
 	const presumedSize = 1000
@@ -180,9 +177,9 @@ func TestObservedConcurrency(t *testing.T) {
 	events := make([]*event, 0, presumedSize)
 	failedRequests := 0
 
-	logger.Infof("Running %d concurrent requests for %v", concurrency, duration)
+	t.Logf("Running %d concurrent requests for %v", concurrency, duration)
 	eg.Go(func() error {
-		return generateTraffic(client, url, concurrency, duration, responseChannel, logger)
+		return generateTraffic(t, client, url, concurrency, duration, responseChannel)
 	})
 	eg.Go(func() error {
 		for response := range responseChannel {
@@ -192,7 +189,7 @@ func TestObservedConcurrency(t *testing.T) {
 			}
 			start, end, err := parseResponse(string(response.Body))
 			if err != nil {
-				logger.Error("Failed to parse the body: ", err)
+				t.Logf("Failed to parse the body: %v", err)
 				failedRequests++
 				continue
 			}
@@ -214,9 +211,9 @@ func TestObservedConcurrency(t *testing.T) {
 	for i := 1; i <= concurrency; i++ {
 		toConcurrency, err := timeToScale(events, trafficStart, i)
 		if err != nil {
-			logger.Infof("Never scaled to %d", i)
+			t.Logf("Never scaled to %d", i)
 		} else {
-			logger.Infof("Took %v to scale to %d", toConcurrency, i)
+			t.Logf("Took %v to scale to %d", toConcurrency, i)
 			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}

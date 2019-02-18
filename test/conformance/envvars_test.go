@@ -23,15 +23,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
-	resp, names, err := fetchEnvInfo(clients, logger, test.EnvImageEnvVarsPath, &test.Options{})
+	resp, names, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,9 +51,8 @@ func TestShouldEnvVars(t *testing.T) {
 
 // TestMustEnvVars verifies environment variables that are declared as "MUST be set" in runtime-contract
 func TestMustEnvVars(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
-	resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageEnvVarsPath, &test.Options{})
+	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

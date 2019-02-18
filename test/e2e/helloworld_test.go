@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,10 +31,8 @@ import (
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
-	logger.Info("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, "helloworld", &test.Options{})
+	t.Log("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(t, clients, "helloworld", &test.Options{})
 
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
@@ -43,7 +40,7 @@ func TestHelloWorld(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -56,7 +53,7 @@ func TestHelloWorld(t *testing.T) {
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
 		pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
 		"HelloWorldServesText",

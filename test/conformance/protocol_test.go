@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +32,6 @@ import (
 
 type protocolsTest struct {
 	t       *testing.T
-	logger  *logging.BaseLogger
 	clients *test.Clients
 	names   test.ResourceNames
 }
@@ -42,7 +40,6 @@ func (pt *protocolsTest) setup(t *testing.T) {
 	pt.t = t
 
 	pt.clients = setup(t)
-	pt.logger = logging.GetContextLogger(t.Name())
 	pt.names = test.ResourceNames{
 		Service: test.AppendRandomString("protocols"),
 		Image:   protocols,
@@ -63,16 +60,16 @@ func (pt *protocolsTest) getProtocol(resp *spoof.Response) protocol {
 		pt.t.Fatalf("Can't unmarshal response %s: %v", resp.Body, err)
 	}
 
-	pt.logger.Infof("Parsed version: %q", got.String())
+	pt.t.Logf("Parsed version: %q", got.String())
 
 	return got
 }
 
 func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
-	pt.logger.Infof("Making request to %q", domain)
+	pt.t.Logf("Making request to %q", domain)
 
 	resp, err := pkgTest.WaitForEndpointState(
-		pt.clients.KubeClient, pt.logger, domain,
+		pt.clients.KubeClient, pt.t.Logf, domain,
 		pkgTest.Retrying(
 			func(resp *spoof.Response) (bool, error) {
 				if resp.StatusCode == http.StatusOK {
@@ -89,15 +86,15 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 		pt.t.Fatalf("Failed to get a successful request from %s: %v", domain, err)
 	}
 
-	pt.logger.Infof("Got response: %s", resp.Body)
+	pt.t.Logf("Got response: %s", resp.Body)
 
 	return resp
 }
 
 func (pt *protocolsTest) createService(options *test.Options) string {
-	pt.logger.Infof("Creating service %q with options: %#v", pt.names.Service, options)
+	pt.t.Logf("Creating service %q with options: %#v", pt.names.Service, options)
 
-	objects, err := test.CreateRunLatestServiceReady(pt.logger, pt.clients, &pt.names, options)
+	objects, err := test.CreateRunLatestServiceReady(pt.t, pt.clients, &pt.names, options)
 	if err != nil {
 		pt.t.Fatalf("Failed to create service %v", err)
 	}

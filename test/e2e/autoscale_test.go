@@ -28,7 +28,6 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
@@ -60,11 +59,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 		group              errgroup.Group
 	)
 
-	ctx.logger.Infof("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.logger, ctx.domain, test.ServingFlags.ResolvableDomain)
+			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				return fmt.Errorf("error creating spoofing client: %v", err)
 			}
@@ -75,10 +74,10 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 			for {
 				select {
 				case <-stopChan:
-					ctx.logger.Info("Stopping generateTraffic")
+					ctx.t.Log("Stopping generateTraffic")
 					return nil
 				case <-done:
-					ctx.logger.Info("Time up, done")
+					ctx.t.Log("Time up, done")
 					return nil
 				default:
 					mux.Lock()
@@ -88,16 +87,16 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 					start := time.Now()
 					res, err := client.Do(req)
 					if err != nil {
-						ctx.logger.Infof("error making request %v", err)
+						ctx.t.Logf("error making request %v", err)
 						continue
 					}
 					duration := time.Now().Sub(start)
-					ctx.logger.Infof("Request took: %v", duration)
+					ctx.t.Logf("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
-						ctx.logger.Infof("request %d failed with status %v", requestID, res.StatusCode)
-						ctx.logger.Infof("response headers: %v", res.Header)
-						ctx.logger.Infof("response body: %v", string(res.Body))
+						ctx.t.Logf("request %d failed with status %v", requestID, res.StatusCode)
+						ctx.t.Logf("response headers: %v", res.Header)
+						ctx.t.Logf("response body: %v", string(res.Body))
 						continue
 					}
 					mux.Lock()
@@ -108,7 +107,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 		})
 	}
 
-	ctx.logger.Info("Waiting for all requests to complete.")
+	ctx.t.Log("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("error making requests for scale up: %v.", err)
 	}
@@ -123,19 +122,16 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 type testContext struct {
 	t              *testing.T
 	clients        *test.Clients
-	logger         *logging.BaseLogger
 	names          test.ResourceNames
 	deploymentName string
 	domain         string
 }
 
 func setup(t *testing.T) *testContext {
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
 	clients := Setup(t)
 
-	logger.Info("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
+	t.Log("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(t, clients, "autoscale", &test.Options{
 		ContainerConcurrency: 10,
 	})
 	if err != nil {
@@ -143,7 +139,7 @@ func setup(t *testing.T) *testContext {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
@@ -153,7 +149,7 @@ func setup(t *testing.T) *testContext {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	logger.Info("Serves the expected data at the endpoint")
+	t.Log("Serves the expected data at the endpoint")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -168,7 +164,7 @@ func setup(t *testing.T) *testContext {
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
@@ -183,7 +179,6 @@ func setup(t *testing.T) *testContext {
 	return &testContext{
 		t:              t,
 		clients:        clients,
-		logger:         logger,
 		names:          names,
 		deploymentName: deploymentName,
 		domain:         domain,
@@ -191,12 +186,12 @@ func setup(t *testing.T) *testContext {
 }
 
 func assertScaleUp(ctx *testContext) {
-	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
+	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	err := generateTraffic(ctx, 20, 20*time.Second, nil)
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	ctx.logger.Info("Waiting for scale up")
+	ctx.t.Log("Waiting for scale up")
 	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
@@ -210,7 +205,7 @@ func assertScaleUp(ctx *testContext) {
 }
 
 func assertScaleDown(ctx *testContext) {
-	ctx.logger.Info("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
+	ctx.t.Log("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
 	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
@@ -223,7 +218,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.logger.Info("Wait for all pods to terminate.")
+	ctx.t.Log("Wait for all pods to terminate.")
 
 	err = pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
@@ -241,19 +236,19 @@ func assertScaleDown(ctx *testContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
-	ctx.logger.Info("Sleeping 10 seconds.")
+	ctx.t.Log("Sleeping 10 seconds.")
 	time.Sleep(10 * time.Second)
-	ctx.logger.Info("The Revision should remain ready after scaling to zero.")
+	ctx.t.Log("The Revision should remain ready after scaling to zero.")
 	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	ctx.logger.Info("Scaled down.")
+	ctx.t.Log("Scaled down.")
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
+	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
 	defer close(stopChan)
 	defer test.TearDown(ctx.clients, ctx.names)
 
@@ -269,7 +264,7 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 	}
 	gotReplicas := deployment.Status.Replicas
 	mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
-	ctx.logger.Info(mes)
+	ctx.t.Log(mes)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
 		return errors.New(mes)
 	}
@@ -322,7 +317,7 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx := setup(t)
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
+	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
 
 	// Increase workload for 2 replicas for 30s

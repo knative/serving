@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
@@ -43,9 +42,9 @@ func verifyPermString(resp string, expected string) error {
 	return nil
 }
 
-func testFileSystemPermissions(clients *test.Clients, logger *logging.BaseLogger, paths map[string]FilePathInfo) error {
+func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[string]FilePathInfo) error {
 	for key, value := range paths {
-		resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
+		resp, _, err := fetchEnvInfo(t, clients, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
 		if err != nil {
 			return err
 		}
@@ -69,18 +68,16 @@ func testFileSystemPermissions(clients *test.Clients, logger *logging.BaseLogger
 
 // TestMustHaveFileSystemPermissions asserts that the file system has all the MUST have paths and they have appropriate permissions.
 func TestMustHaveFileSystemPermissions(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
-	if err := testFileSystemPermissions(clients, logger, MustFilePathSpecs); err != nil {
+	if err := testFileSystemPermissions(t, clients, MustFilePathSpecs); err != nil {
 		t.Error(err)
 	}
 }
 
 // TestShouldHaveFileSystemPermissions asserts that the file system has all the SHOULD have paths and they have appropriate permissions.
 func TestShouldHaveFileSystemPermissions(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
-	if err := testFileSystemPermissions(clients, logger, ShouldFilePathSpecs); err != nil {
+	if err := testFileSystemPermissions(t, clients, ShouldFilePathSpecs); err != nil {
 		t.Error(err)
 	}
 }
