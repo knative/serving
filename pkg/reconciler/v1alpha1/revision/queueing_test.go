@@ -233,6 +233,13 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	stopCh := make(chan struct{})
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	rev := getTestRevision()
 	kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, _, configMapWatcher, _ := newTestController(t, stopCh)
@@ -246,14 +253,6 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 		return HookComplete
 	})
-
-	eg := errgroup.Group{}
-	defer func() {
-		close(stopCh)
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
