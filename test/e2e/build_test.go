@@ -71,8 +71,8 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
@@ -174,8 +174,8 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
@@ -297,8 +297,8 @@ func TestBuildFailure(t *testing.T) {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	// Wait for the Config have a LatestCreatedRevisionName
 	if err := test.WaitForConfigurationState(clients.ServingClient, names.Config, test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {

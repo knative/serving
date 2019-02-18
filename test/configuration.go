@@ -46,7 +46,7 @@ func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names Res
 }
 
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
-func PatchConfigImage(logger *logging.BaseLogger, clients *Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
+func PatchConfigImage(clients *Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.RevisionTemplate.Spec.Container.Image = imagePath
 	patchBytes, err := createPatch(cfg, newCfg)

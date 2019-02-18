@@ -136,8 +136,8 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Clean up in both abnormal and normal exits.
-	defer TearDown(clients, names, logger)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup a WebSocket server.
 	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}); err != nil {

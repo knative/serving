@@ -104,7 +104,7 @@ func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Durati
 		}
 	}
 	defer cleanupNames()
-	test.CleanupOnInterrupt(cleanupNames, logger)
+	test.CleanupOnInterrupt(cleanupNames)
 
 	g, _ := errgroup.WithContext(ctx)
 	for i := 0; i < count; i++ {

@@ -53,8 +53,8 @@ func TestCustomResourcesLimits(t *testing.T) {
 		Image:   "bloatingcow",
 	}
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
 	if err != nil {

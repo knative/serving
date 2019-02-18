@@ -31,13 +31,6 @@ func Setup(t *testing.T) *test.Clients {
 	return clients
 }
 
-// TearDown will delete created names using clients.
-func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, image string, options *test.Options) (test.ResourceNames, error) {

@@ -108,8 +108,8 @@ func TestRouteCreation(t *testing.T) {
 		Image:         pizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	logger.Info("Creating a new Route and Configuration")
 	config, err := test.CreateConfiguration(logger, clients, names, &test.Options{})
@@ -143,7 +143,7 @@ func TestRouteCreation(t *testing.T) {
 	defer test.AssertProberDefault(t, prober)
 
 	logger.Info("Updating the Configuration to use a different image")
-	objects.Config, err = test.PatchConfigImage(logger, clients, objects.Config, test.ImagePath(pizzaPlanet2))
+	objects.Config, err = test.PatchConfigImage(clients, objects.Config, test.ImagePath(pizzaPlanet2))
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, pizzaPlanet2, err)
 	}

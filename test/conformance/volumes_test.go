@@ -58,7 +58,7 @@ func TestConfigMapVolume(t *testing.T) {
 	logger.Info("Successfully created configMap: %v", configMap)
 
 	cleanup := func() {
-		tearDown(clients, names)
+		test.TearDown(clients, names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
@@ -66,7 +66,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	defer cleanup()
-	test.CleanupOnInterrupt(cleanup, logger)
+	test.CleanupOnInterrupt(cleanup)
 
 	addVolume := func(svc *v1alpha1.Service) {
 		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
@@ -133,7 +133,7 @@ func TestSecretVolume(t *testing.T) {
 	logger.Info("Successfully created secret: %v", secret)
 
 	cleanup := func() {
-		tearDown(clients, names)
+		test.TearDown(clients, names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
@@ -141,7 +141,7 @@ func TestSecretVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	defer cleanup()
-	test.CleanupOnInterrupt(cleanup, logger)
+	test.CleanupOnInterrupt(cleanup)
 
 	addVolume := func(svc *v1alpha1.Service) {
 		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec

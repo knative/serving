@@ -183,8 +183,8 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Clean up on test failure or interrupt
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
 	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
@@ -359,8 +359,8 @@ func TestReleaseService(t *testing.T) {
 		Service: test.AppendRandomString("test-release-service-"),
 		Image:   pizzaPlanet1,
 	}
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Expected Text for different revisions.
 	const (

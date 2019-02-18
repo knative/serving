@@ -76,12 +76,6 @@ func setup(t *testing.T) *test.Clients {
 	return clients
 }
 
-func tearDown(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
 func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, domain, expectedResponse string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {

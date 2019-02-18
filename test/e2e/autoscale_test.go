@@ -49,7 +49,7 @@ func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 }
 
 func tearDown(ctx *testContext) {
-	TearDown(ctx.clients, ctx.names, ctx.logger)
+	test.TearDown(ctx.clients, ctx.names)
 }
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
@@ -141,7 +141,7 @@ func setup(t *testing.T) *testContext {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(
@@ -255,7 +255,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	ctx := setup(t)
 	stopChan := DiagnoseMeEvery(15*time.Second, ctx.clients, ctx.logger)
 	defer close(stopChan)
-	defer tearDown(ctx)
+	defer test.TearDown(ctx.clients, ctx.names)
 
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
@@ -320,7 +320,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx := setup(t)
-	defer tearDown(ctx)
+	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.logger.Info("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy

@@ -63,8 +63,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	// Setup Initial Service
 	logger.Info("Creating a new Service in runLatest")
@@ -84,7 +84,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	objects.Service = svc
 
 	logger.Info("Updating the Configuration to use a different image")
-	cfg, err := test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
+	cfg, err := test.PatchConfigImage(clients, objects.Config, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
 	}
