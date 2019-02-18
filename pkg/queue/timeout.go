@@ -30,7 +30,7 @@ import (
 
 var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
 
-// TimeToFirstByteTimeoutHandler returns a Handler that runs h with the
+// TimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
 // given time limit in which the first byte of the response must be written.
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
@@ -78,29 +78,26 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tw := &timeoutWriter{w: w}
 	go func() {
+		// The defer statements are executed in LIFO order,
+		// so recover will execute first, then only, the channel will be closed.
+		defer close(done)
 		defer func() {
 			if p := recover(); p != nil {
 				panicChan <- p
 			}
 		}()
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
-
-		// Closing the channel is not deferred to give the panic recovery
-		// precedence and not successfully complete the request by accident.
-		close(done)
 	}()
 
 	timeout := time.After(h.dt)
 	for {
 		select {
 		case p := <-panicChan:
-			close(done)
 			panic(p)
 		case <-done:
 			return
 		case <-timeout:
 			if tw.TimeoutAndWriteError(h.errorBody()) {
-				cancelCtx()
 				return
 			}
 		}
