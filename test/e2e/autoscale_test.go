@@ -236,8 +236,6 @@ func assertScaleDown(ctx *testContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
-	ctx.t.Log("Sleeping 10 seconds.")
-	time.Sleep(10 * time.Second)
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
 	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
