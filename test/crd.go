@@ -183,15 +183,15 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func LatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
-	a := append(fopt, testing.WithRunLatestConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options)))
+	a := append([]testing.ServiceOption{testing.WithRunLatestConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options))}, fopt...)
 	return testing.Service(names.Service, namespace, a...)
 }
 
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
 func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
-	a := append(fopt, testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options),
-		[]string{v1alpha1.ReleaseLatestRevisionKeyword}...))
+	a := append([]testing.ServiceOption{testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options),
+		[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
 	return testing.Service(names.Service, namespace, a...)
 }
 
