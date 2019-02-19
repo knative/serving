@@ -37,9 +37,10 @@ import (
 func TestSingleConcurrency(t *testing.T) {
 	clients := setup(t)
 
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("single-threaded-"),
-		Route:  test.AppendRandomString("single-threaded-"),
+		Config: svcName,
+		Route:  svcName,
 		Image:  singleThreadedImage,
 	}
 

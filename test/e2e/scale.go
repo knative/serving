@@ -93,7 +93,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 		wg.Go(func() error {
 			names := test.ResourceNames{
-				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i)),
+				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%d", i)),
 				Image:   "helloworld",
 			}
 

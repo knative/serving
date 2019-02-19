@@ -19,18 +19,25 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"testing"
+	"unicode"
 
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Default for user containers in e2e tests. This value is lower than the general
-// Knative's default so as to run more effectively in CI with limited resources.
-const defaultRequestCPU = "100m"
+const (
+	// Default for user containers in e2e tests. This value is lower than the general
+	// Knative's default so as to run more effectively in CI with limited resources.
+	defaultRequestCPU = "100m"
+
+	testNamePrefix = "Test"
+)
 
 // ResourceNames holds names of various resources.
 type ResourceNames struct {
@@ -53,7 +60,7 @@ type ResourceObjects struct {
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(namespace string, names ResourceNames, fopt ...testing.RouteOption) *v1alpha1.Route {
+func Route(namespace string, names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
 	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -135,7 +142,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(namespace string, names ResourceNames, options *Options, fopt ...testing.ConfigOption) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -178,7 +185,7 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+func LatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	svc := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -200,7 +207,7 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
-func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
+func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	svc := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -260,3 +267,34 @@ func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
 var AppendRandomString = helpers.AppendRandomString
+
+// ObjectNameForTest generates a random object name based on the test name.
+func ObjectNameForTest(t *testing.T) string {
+	return AppendRandomString(makeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
+}
+
+// SubServiceNameForTest generates a random service name based on the test name and
+// the given subservice name.
+func SubServiceNameForTest(t *testing.T, subsvc string) string {
+	fullPrefix := strings.TrimPrefix(t.Name(), testNamePrefix) + "-" + subsvc
+	return AppendRandomString(makeK8sNamePrefix(fullPrefix))
+}
+
+// makeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
+// and also convert camelcase tokens into dash-delimited lowercase tokens.
+func makeK8sNamePrefix(s string) string {
+	var sb strings.Builder
+	newToken := false
+	for _, c := range s {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
+			newToken = true
+			continue
+		}
+		if sb.Len() > 0 && (newToken == true || unicode.IsUpper(c)) {
+			sb.WriteRune('-')
+		}
+		sb.WriteRune(unicode.ToLower(c))
+		newToken = false
+	}
+	return sb.String()
+}

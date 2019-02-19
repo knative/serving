@@ -31,7 +31,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-update-configuration-meta-"),
+		Config: test.ObjectNameForTest(t),
 		Image:  pizzaPlanet1,
 	}
 

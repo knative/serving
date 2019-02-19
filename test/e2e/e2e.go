@@ -33,9 +33,10 @@ func Setup(t *testing.T) *test.Clients {
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, options *test.Options) (test.ResourceNames, error) {
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName),
-		Route:  test.AppendRandomString(routeName),
+		Config: svcName,
+		Route:  svcName,
 		Image:  image,
 	}
 

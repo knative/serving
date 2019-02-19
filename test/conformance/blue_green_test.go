@@ -52,7 +52,7 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service
-	names.Service = test.AppendRandomString("test-blue-green-route-")
+	names.Service = test.ObjectNameForTest(t)
 	names.Image = pizzaPlanet1
 
 	// Set names for traffic targets to make them directly routable.

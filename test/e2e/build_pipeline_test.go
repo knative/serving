@@ -148,9 +148,10 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			clients := Setup(t)
 
 			t.Log("Creating a new Route and Configuration with build")
+			svcName := test.ObjectNameForTest(t)
 			names := test.ResourceNames{
-				Config: test.AppendRandomString(configName),
-				Route:  test.AppendRandomString(routeName),
+				Config: svcName,
+				Route:  svcName,
 				Image:  "helloworld",
 			}
 
