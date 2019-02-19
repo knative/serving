@@ -32,7 +32,7 @@ import (
 func TestShouldNotHaveHooks(t *testing.T) {
 	clients := setup(t)
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-should-not-have-hooks-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   pizzaPlanet1,
 	}
 

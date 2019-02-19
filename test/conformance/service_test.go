@@ -174,7 +174,7 @@ func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-run-latest-service-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   pizzaPlanet1,
 	}
 
@@ -351,7 +351,7 @@ func TestReleaseService(t *testing.T) {
 	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
 	releaseImagePath3 := test.ImagePath(helloworld)
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-release-service-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   pizzaPlanet1,
 	}
 	defer test.TearDown(clients, names)

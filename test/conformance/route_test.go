@@ -97,10 +97,11 @@ func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
 	var objects test.ResourceObjects
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config:        test.AppendRandomString("test-route-creation-"),
-		Route:         test.AppendRandomString("test-route-creation-"),
-		TrafficTarget: test.AppendRandomString("test-route-creation-"),
+		Config:        svcName,
+		Route:         svcName,
+		TrafficTarget: svcName,
 		Image:         pizzaPlanet1,
 	}
 

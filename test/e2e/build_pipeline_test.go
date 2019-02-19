@@ -32,14 +32,14 @@ import (
 	"github.com/knative/serving/test"
 )
 
-func TestBuildPipelineAndServe(t *testing.T) {
+func TestPipeline(t *testing.T) {
 	testCases := []struct {
 		name         string
 		rawExtension *v1alpha1.RawExtension
 		preFn        func(*testing.T, *test.Clients)
 		validateFn   func(*testing.T, string, *test.Clients)
 	}{{
-		name: "taskrun",
+		name: "task run",
 		rawExtension: &v1alpha1.RawExtension{
 			Object: &pipelinev1alpha1.TaskRun{
 				TypeMeta: metav1.TypeMeta{
@@ -76,7 +76,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			}
 		},
 	}, {
-		name: "pipelineRun",
+		name: "pipeline run",
 		rawExtension: &v1alpha1.RawExtension{
 			Object: &pipelinev1alpha1.PipelineRun{
 				TypeMeta: metav1.TypeMeta{
@@ -91,7 +91,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 						Type: pipelinev1alpha1.PipelineTriggerTypeManual,
 					},
 					PipelineRef: pipelinev1alpha1.PipelineRef{
-						Name: "hello-pipeline",
+						Name: "test-pipe",
 					},
 				},
 			},
@@ -101,7 +101,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			if _, err := clients.PipelineClient.Task.Create(&pipelinev1alpha1.Task{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "hello-task",
+					Name:      "test-task",
 				},
 				Spec: pipelinev1alpha1.TaskSpec{
 					Steps: []corev1.Container{{
@@ -116,13 +116,13 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			if _, err := clients.PipelineClient.Pipeline.Create(&pipelinev1alpha1.Pipeline{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
-					Name:      "hello-pipeline",
+					Name:      "test-pipe",
 				},
 				Spec: pipelinev1alpha1.PipelineSpec{
 					Tasks: []pipelinev1alpha1.PipelineTask{{
-						Name: "hello-pipeline-hello-task",
+						Name: "test-pipe-test-task",
 						TaskRef: pipelinev1alpha1.TaskRef{
-							Name: "hello-task",
+							Name: "test-task",
 						},
 					}},
 				},
@@ -148,9 +148,10 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			clients := Setup(t)
 
 			t.Log("Creating a new Route and Configuration with build")
+			svcName := test.ObjectNameForTest(t)
 			names := test.ResourceNames{
-				Config: test.AppendRandomString(configName),
-				Route:  test.AppendRandomString(routeName),
+				Config: svcName,
+				Route:  svcName,
 				Image:  "helloworld",
 			}
 

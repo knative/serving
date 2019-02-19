@@ -128,7 +128,7 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("observed-concurrency-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   "observed-concurrency",
 	}
 	clients := perfClients.E2EClients

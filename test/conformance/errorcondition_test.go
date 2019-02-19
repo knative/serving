@@ -44,7 +44,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-container-error-msg"),
+		Config: test.ObjectNameForTest(t),
 		Image:  "invalidhelloworld",
 	}
 	// Specify an invalid image path
@@ -118,7 +118,7 @@ func TestContainerExitingMsg(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-container-exiting-msg"),
+		Config: test.ObjectNameForTest(t),
 		Image:  "failing",
 	}
 

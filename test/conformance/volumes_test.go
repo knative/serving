@@ -33,7 +33,7 @@ func TestConfigMapVolume(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("cm-volume-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   "hellovolume",
 	}
 
@@ -105,11 +105,11 @@ func TestSecretVolume(t *testing.T) {
 	clients := setup(t)
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("secret-volume-"),
+		Service: test.ObjectNameForTest(t),
 		Image:   "hellovolume",
 	}
 
-	text := test.AppendRandomString("hello-volumes-")
+	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{

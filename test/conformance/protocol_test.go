@@ -41,7 +41,7 @@ func (pt *protocolsTest) setup(t *testing.T) {
 
 	pt.clients = setup(t)
 	pt.names = test.ResourceNames{
-		Service: test.AppendRandomString("protocols"),
+		Service: test.ObjectNameForTest(t),
 		Image:   protocols,
 	}
 
@@ -127,15 +127,15 @@ func TestProtocols(t *testing.T) {
 		PortName string
 		Want     protocol
 	}{{
-		Name:     "HTTP/2.0",
+		Name:     "h2c",
 		PortName: "h2c",
 		Want:     protocol{Major: 2, Minor: 0},
 	}, {
-		Name:     "HTTP/1.1",
+		Name:     "http1",
 		PortName: "http1",
 		Want:     protocol{Major: 1, Minor: 1},
 	}, {
-		Name:     "Default",
+		Name:     "default",
 		PortName: "",
 		Want:     protocol{Major: 1, Minor: 1},
 	}}
