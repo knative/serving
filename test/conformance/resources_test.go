@@ -64,7 +64,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesBody(want), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(want)), http.StatusNotFound),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
