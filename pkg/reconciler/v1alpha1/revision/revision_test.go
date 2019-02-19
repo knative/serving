@@ -62,6 +62,7 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
@@ -447,11 +448,10 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
 	rev := getTestRevision()
 
-	h := NewHooks()
+	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
+
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	expectedMessage := "Revision becomes ready upon all resources being ready"
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
@@ -497,9 +497,14 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 		}
 	}
 
-	// Wait for events to be delivered.
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	select {
+	case got := <-fakeRecorder.Events:
+		const want = "Normal RevisionReady Revision becomes ready upon all resources being ready"
+		if got != want {
+			t.Errorf("<-Events = %s, wanted %s", got, want)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Timeout")
 	}
 }
 

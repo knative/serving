@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -127,6 +128,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
 			StopChannel:      stopCh,
+			Recorder:         record.NewFakeRecorder(1000),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),

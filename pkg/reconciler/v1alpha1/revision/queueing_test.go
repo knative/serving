@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
@@ -42,9 +40,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -163,6 +163,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		Logger:           TestLogger(t),
 		ResyncPeriod:     0,
 		StopChannel:      stopCh,
+		Recorder:         record.NewFakeRecorder(1000),
 	}
 	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
