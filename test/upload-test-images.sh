@@ -30,8 +30,6 @@ function upload_test_images() {
   ko resolve ${tag_option} -RBf "${image_dir}" > /dev/null
 }
 
-: ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
-
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+: ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
 
 upload_test_images $@

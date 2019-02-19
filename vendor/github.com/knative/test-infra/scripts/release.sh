@@ -151,20 +151,21 @@ function prepare_auto_release() {
   [[ -n "${branches}" ]] || abort "cannot obtain release branches for the repository"
 
   for i in $branches; do
-    RELEASE_VERSION=$i
+    RELEASE_NUMBER=$i
     for j in $tags; do
       if [[ "$i" == "$j" ]]; then
-        RELEASE_VERSION=""
+        RELEASE_NUMBER=""
       fi
     done
   done
 
-  if [ -z "$RELEASE_VERSION" ]; then
+  if [ -z "$RELEASE_NUMBER" ]; then
     echo "*** No new release will be generated, as no new branches exist"
     exit  0
   fi
 
-  RELEASE_BRANCH="release-${RELEASE_VERSION}"
+  RELEASE_VERSION="${RELEASE_NUMBER}.0"
+  RELEASE_BRANCH="release-${RELEASE_NUMBER}"
   echo "Will create release ${RELEASE_VERSION} from branch ${RELEASE_BRANCH}"
   # If --release-notes not used, add a placeholder
   if [[ -z "${RELEASE_NOTES}" ]]; then
