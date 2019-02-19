@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -99,6 +100,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
+			Recorder:         record.NewFakeRecorder(1000),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
