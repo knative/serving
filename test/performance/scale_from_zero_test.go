@@ -20,6 +20,7 @@ package performance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -60,7 +61,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		2*time.Minute); err != nil {
 		m := fmt.Sprintf("%d: failed waiting for deployment to scale to zero: %v", idx, err)
 		t.Log(m)
-		return 0, fmt.Errorf(m)
+		return 0, errors.New(m)
 	}
 
 	start := time.Now()
@@ -74,7 +75,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		test.ServingFlags.ResolvableDomain); err != nil {
 		m := fmt.Sprintf("%d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
-		return 0, fmt.Errorf(m)
+		return 0, errors.New(m)
 	}
 
 	t.Logf("%d: request completed", idx)
