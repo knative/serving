@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -90,7 +91,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, stopCh chan struct{}) (
 	kubeClient *fakekubeclientset.Clientset,
 	sharedClient *fakesharedclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -112,7 +113,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
-	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	servingClient = fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -126,6 +127,8 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
+			StopChannel:      stopCh,
+			Recorder:         record.NewFakeRecorder(1000),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -135,12 +138,17 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 }
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
+	stopCh := make(chan struct{})
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
 	config := getTestConfiguration()
-	// TODO(grantr): inserting the configuration at client creation is necessary
-	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
-	// upgrade to 1.10 we can remove the config argument here and instead use the
-	// Create() method.
-	_, _, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
+	_, _, servingClient, controller, kubeInformer, servingInformer := newTestController(t, stopCh)
 
 	h := NewHooks()
 
@@ -152,20 +160,19 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	stopCh := make(chan struct{})
-	eg := errgroup.Group{}
-	defer func() {
-		close(stopCh)
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
+
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
 
 	eg.Go(func() error {
 		return controller.Run(2, stopCh)
 	})
+
+	if _, err := servingClient.ServingV1alpha1().Configurations(config.Namespace).Create(config); err != nil {
+		t.Fatalf("Unexpected error creating configuration: %v", err)
+	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
-	"github.com/knative/pkg/test/logging"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
@@ -31,37 +30,34 @@ import (
 func TestRunLatestServicePreUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-
 	var names test.ResourceNames
 	names.Service = serviceName
 	names.Image = image1
 
-	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, &test.Options{})
+	t.Log("Creating a new Service")
+	svc, err := test.CreateLatestService(t, clients, names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	t.Log("The Service will be updated with the name of the Revision once it is created")
 	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
 	}
 	names.Revision = revisionName
 
-	logger.Info("The Service will be updated with the domain of the Route once it is created")
+	t.Log("The Service will be updated with the domain of the Route once it is created")
 	routeDomain, err := waitForServiceDomain(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new route: %v", names.Service, err)
 	}
 
-	logger.Info("When the Service reports as Ready, everything should be ready.")
+	t.Log("When the Service reports as Ready, everything should be ready.")
 	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
+	assertServiceResourcesUpdated(t, clients, names, routeDomain, "1", "What a spaceport!")
 }

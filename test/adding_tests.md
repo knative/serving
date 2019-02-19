@@ -237,11 +237,14 @@ For example to create a `Configuration` object that uses a certain docker image
 with a randomized name:
 
 ```go
-var names test.ResourceNames
-names.Config := test.AppendRandomString('hotdog', logger)
-_, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
-if err != nil {
-    return err
+func TestSomeAwesomeFeature(t *testing.T) {
+  var names test.ResourceNames
+  names.Config := test.ObjectNameForTest(t)
+  _, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
+  if err != nil {
+      // handle error case
+  }
+  // more testing
 }
 ```
 

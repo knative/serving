@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -33,12 +32,10 @@ import (
 )
 
 func TestCustomResourcesLimits(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
-
-	logger.Info("Creating a new Route and Configuration")
+	t.Log("Creating a new Route and Configuration")
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("350Mi"),
@@ -49,14 +46,14 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("test-resource-limits-", logger),
+		Service: test.ObjectNameForTest(t),
 		Image:   "bloatingcow",
 	}
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{ContainerResources: resources})
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{ContainerResources: resources})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -65,7 +62,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	want := "Moo!"
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
 		pkgTest.Retrying(pkgTest.MatchesBody(want), http.StatusNotFound),
 		"ResourceTestServesText",
@@ -75,8 +72,8 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	sendPostRequest := func(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
-		logger.Infof("The domain of request is %s and its query is %s", domain, query)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
+		t.Logf("The domain of request is %s and its query is %s", domain, query)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +96,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		return nil
 	}
 
-	logger.Info("Querying the application to see if the memory limits are enforced.")
+	t.Log("Querying the application to see if the memory limits are enforced.")
 	if err := pokeCowForMB(100); err != nil {
 		t.Fatalf("Didn't get a response from bloating cow with %d MBs of Memory: %v", 100, err)
 	}

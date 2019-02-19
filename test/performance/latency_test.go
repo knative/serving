@@ -37,22 +37,22 @@ func TestTimeToServeLatency(t *testing.T) {
 	testName := t.Name()
 	logger := logging.GetContextLogger(t.Name())
 
-	perfClients, err := Setup(context.Background(), logger, true)
+	perfClients, err := Setup(context.Background(), t, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("helloworld", logger),
+		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
 	clients := perfClients.E2EClients
 
-	defer TearDown(perfClients, logger, names)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
+	defer TearDown(t, perfClients, names)
+	test.CleanupOnInterrupt(func() { TearDown(t, perfClients, names) })
 
 	logger.Info("Creating a new Service")
-	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

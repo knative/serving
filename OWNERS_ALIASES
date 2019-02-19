@@ -1,5 +1,6 @@
 aliases:
   serving-api-approvers:
+  - dgerd
   - grantr
   - mattmoor
   - tcnghia

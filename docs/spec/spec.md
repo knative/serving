@@ -50,6 +50,9 @@ metadata:
   namespace: default
   labels:
     knative.dev/service: ...  # name of the Service automatically filled in
+  annotations:
+    serving.knative.dev/creator: ...       # the user identity who created the service, system generated.
+    serving.knative.dev/lastModifier: ...  # the user identity who last modified the service, system generated.
 
   # system generated meta
   uid: ...
@@ -138,8 +141,6 @@ spec:
 
   revisionTemplate:  # template for building Revision
     metadata: ...
-      labels:
-        knative.dev/type: "function"  # One of "function" or "app"
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. DEPRECATED, use buildRef
@@ -297,8 +298,6 @@ kind: Service
 metadata:
   name: myservice
   namespace: default
-  labels:
-    knative.dev/type: "function"  # convention, one of "function" or "app"
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control

@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -38,7 +37,7 @@ const (
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
+	t.Parallel()
 	clients := setup(t)
 
 	resources := corev1.ResourceRequirements{
@@ -59,7 +58,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
-	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{ContainerResources: resources})
+	ri, err := fetchRuntimeInfo(t, clients, &test.Options{ContainerResources: resources})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -73,7 +72,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		}
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
 			// Service returned a value we don't test
-			logger.Infof("%v cgroup returned, but not validated", cgroup.Name)
+			t.Logf("%v cgroup returned, but not validated", cgroup.Name)
 			continue
 		}
 		if got, want := *cgroup.Value, expectedCgroups[cgroup.Name]; got != want {
@@ -85,9 +84,9 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
 // container.
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
+	t.Parallel()
 	clients := setup(t)
-	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
+	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

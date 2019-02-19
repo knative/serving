@@ -19,9 +19,6 @@ metadata:
   namespace: default
 spec:
   revisionTemplate:
-    metadata:
-      labels:
-        knative.dev/type: app
     spec:
       container:
         # This is the Go import path for the binary to containerize

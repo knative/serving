@@ -43,10 +43,6 @@ var (
 		GatewayName: "knative-ingress-gateway",
 		ServiceURL:  fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s", utils.GetClusterDomainName()),
 	}
-	defaultLocalGateway = Gateway{
-		GatewayName: "cluster-local-gateway",
-		ServiceURL:  fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s", utils.GetClusterDomainName()),
-	}
 )
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
@@ -92,7 +88,6 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-
 	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
 	if err != nil {
 		return nil, err
@@ -103,9 +98,6 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
 	if err != nil {
 		return nil, err
-	}
-	if len(localGateways) == 0 {
-		localGateways = append(localGateways, defaultLocalGateway)
 	}
 	return &Istio{
 		IngressGateways: gateways,

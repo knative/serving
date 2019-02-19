@@ -49,7 +49,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		name: "gateway configuration with no network input",
 		wantIstio: &Istio{
 			IngressGateways: []Gateway{defaultGateway},
-			LocalGateways:   []Gateway{defaultLocalGateway},
+			LocalGateways:   []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -78,7 +78,7 @@ func TestGatewayConfiguration(t *testing.T) {
 				GatewayName: "knative-ingress-freeway",
 				ServiceURL:  "istio-ingressfreeway.istio-system.svc.cluster.local",
 			}},
-			LocalGateways: []Gateway{defaultLocalGateway},
+			LocalGateways: []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

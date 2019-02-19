@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in
+   built in (1.12rc1 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -37,12 +37,19 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). You
-   do _not_ need install Istio or Knative using the instructions in that page -
-   simply create the cluster and come back here. However, if you _did_ install
-   Istio/Knative following those instructions, that's fine too, you'll just
-   redeploy over them, below.
-1. [Set up a docker repository you can push to](./docs/setting-up-a-docker-registry.md)
+1. [Set up a kubernetes
+   cluster](https://github.com/knative/docs/blob/master/install/README.md#install-guides)
+   - Follow an install guide up through "Creating a Kubernetes Cluster"
+   - You do _not_ need to install Istio or Knative using the instructions in the
+     guide. Simply create the cluster and come back here.
+   - If you _did_ install Istio/Knative following those instructions, that's fine too,
+     you'll just redeploy over them, below.
+1. Set up a docker repository for pushing images. You can use any container
+   image registry by adjusting the authentication methods and repository paths
+   mentioned in the sections below.
+   - [Google Container Registry
+     quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
 
 ### Setup your environment
 
@@ -126,7 +133,8 @@ Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform the setup needed
 for Knative.
 
 The value you use depends on
-[your cluster setup](./docs/creating-a-kubernetes-cluster.md):
+[your cluster
+setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
 
 ```shell
 # When using Minikube, the K8s user is your local user.

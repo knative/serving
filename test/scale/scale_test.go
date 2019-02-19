@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
+	. "github.com/knative/serving/test/e2e"
 )
 
 type nopLatencies struct {
-	logger *logging.BaseLogger
+	t *testing.T
 }
 
 var _ Latencies = (*nopLatencies)(nil)
@@ -35,7 +35,7 @@ var _ Latencies = (*nopLatencies)(nil)
 func (nl *nopLatencies) Add(metric string, start time.Time) {
 	duration := time.Since(start)
 
-	nl.logger.Infof("%q took %v", metric, duration)
+	nl.t.Logf("%q took %v", metric, duration)
 }
 
 // Limit for scale in -short mode
@@ -64,10 +64,7 @@ func TestScaleToN(t *testing.T) {
 			if testing.Short() && test.size > shortModeMaxScale {
 				t.Skip("Skipping test in short mode")
 			}
-			// Add test case specific name to its own logger
-			logger := logging.GetContextLogger(t.Name())
-
-			ScaleToWithin(t, logger, test.size, test.timeout, &nopLatencies{logger})
+			ScaleToWithin(t, test.size, test.timeout, &nopLatencies{t})
 		})
 	}
 }

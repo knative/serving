@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 )
 
 type Enclosing struct {
@@ -265,19 +264,6 @@ func TestAsDuck(t *testing.T) {
 		input: &RawExtension{Raw: []byte(`"hello"`)},
 		got:   &x,
 		want:  &hello,
-	}, {
-		name:  "non-empty generational object (field subset)",
-		input: &RawExtension{Raw: []byte(`{"apiVersion":"build.knative.dev/v1alpha1","kind":"Build","spec": {"generation":1234,"steps":[]}}`)},
-		got:   &duckv1alpha1.Generational{},
-		want: &duckv1alpha1.Generational{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "build.knative.dev/v1alpha1",
-				Kind:       "Build",
-			},
-			Spec: duckv1alpha1.GenerationalSpec{
-				Generation: 1234,
-			},
-		},
 	}}
 
 	for _, test := range tests {
@@ -294,13 +280,16 @@ func TestAsDuck(t *testing.T) {
 }
 
 func TestAsWithExtraFields(t *testing.T) {
-	obj := &duckv1alpha1.Generational{}
+	var obj struct {
+		Some string `json:"some"`
+	}
+
 	re := &RawExtension{
-		Raw: []byte(`{"apiVersion":"build.knative.dev/v1alpha1","kind":"Build","spec": {"generation":1234,"steps":[]}}`),
+		Raw: []byte(`{"another":"value"}`),
 	}
 
 	// We should get an error trying to use As with an incomplete type.
-	if err := re.As(obj); err == nil {
+	if err := re.As(&obj); err == nil {
 		t.Errorf("As() = %#v, wanted error", obj)
 	}
 }
