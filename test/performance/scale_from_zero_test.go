@@ -20,6 +20,7 @@ package performance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -45,11 +46,12 @@ type stats struct {
 	avg time.Duration
 }
 
-func runScaleFromZero(t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
+func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
+	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
 	domain := ro.Route.Status.Domain
-	t.Log("Waiting for deployment to scale to zero.")
+	t.Logf("%d: waiting for deployment to scale to zero.", idx)
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -57,7 +59,9 @@ func runScaleFromZero(t *testing.T, clients *test.Clients, ro *test.ResourceObje
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		2*time.Minute); err != nil {
-		return 0, fmt.Errorf("Failed waiting for deployment to scale to zero: %v", err)
+		m := fmt.Sprintf("%d: failed waiting for deployment to scale to zero: %v", idx, err)
+		t.Log(m)
+		return 0, errors.New(m)
 	}
 
 	start := time.Now()
@@ -69,16 +73,17 @@ func runScaleFromZero(t *testing.T, clients *test.Clients, ro *test.ResourceObje
 		pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		return 0, fmt.Errorf("The endpoint for Route %q at domain %q didn't serve the expected text %q: %v", ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		m := fmt.Sprintf("%d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		t.Log(m)
+		return 0, errors.New(m)
 	}
 
-	t.Log("Request completed")
+	t.Logf("%d: request completed", idx)
 	return time.Since(start), nil
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	ctx := context.TODO()
-	pc, err := Setup(ctx, t, false)
+	pc, err := Setup(context.Background(), t, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
@@ -97,32 +102,29 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			if testNames[i] != nil {
-				TearDown(t, pc, *testNames[i])
-			}
+			TearDown(t, pc, *testNames[i])
 		}
 	}
 	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
-	g, _ := errgroup.WithContext(ctx)
+	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
 			ro, err := test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], &test.Options{})
 			if err != nil {
-				return fmt.Errorf("failed to create Ready service: %v", err)
+				return fmt.Errorf("%d: failed to create Ready service: %v", ndx, err)
 			}
-			dur, err := runScaleFromZero(t, pc.E2EClients, ro)
+			dur, err := runScaleFromZero(ndx, t, pc.E2EClients, ro)
+			t.Logf("%d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
 				durations[ndx] = dur
 			}
 			return err
 		})
 	}
-	err = g.Wait()
-
-	return durations, err
+	return durations, g.Wait()
 }
 
 func getStats(durations []time.Duration) *stats {
@@ -134,18 +136,9 @@ func getStats(durations []time.Duration) *stats {
 	for _, dur := range durations {
 		avg += dur
 	}
-	avg = time.Duration(int64(avg) / int64(len(durations)))
-
 	return &stats{
-		avg: avg,
+		avg: time.Duration(int64(avg) / int64(len(durations))),
 	}
-}
-
-func testGrid(s *stats, tName string) error {
-	var tc []junit.TestCase
-	val := float32(s.avg.Seconds())
-	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
-	return testgrid.CreateXMLOutput(tc, tName)
 }
 
 func testScaleFromZero(t *testing.T, count int) {
@@ -156,8 +149,9 @@ func testScaleFromZero(t *testing.T, count int) {
 	}
 	stats := getStats(durs)
 	t.Logf("Average: %v", stats.avg)
-	if err = testGrid(stats, tName); err != nil {
-		t.Fatalf("Creating testgrid output: %v", err)
+	if err = testgrid.CreateXMLOutput([]junit.TestCase{
+		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)}, tName); err != nil {
+		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }
 
