@@ -27,7 +27,6 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
@@ -40,16 +39,15 @@ import (
 func TestGRPC(t *testing.T) {
 	// Setup
 	clients := Setup(t)
-	logger := logging.GetContextLogger(t.Name())
 
-	logger.Info("Creating route and configuration for grpc-ping")
+	t.Log("Creating route and configuration for grpc-ping")
 
 	options := &test.Options{
 		ContainerPorts: []corev1.ContainerPort{
 			{Name: "h2c", ContainerPort: 8080},
 		},
 	}
-	names, err := CreateRouteAndConfig(clients, logger, "grpc-ping", options)
+	names, err := CreateRouteAndConfig(t, clients, "grpc-ping", options)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -57,7 +55,7 @@ func TestGRPC(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	logger.Info("Waiting for route to be ready")
+	t.Log("Waiting for route to be ready")
 
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
@@ -78,7 +76,7 @@ func TestGRPC(t *testing.T) {
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
 		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"gRPCPingReadyToServe",
@@ -95,15 +93,15 @@ func TestGRPC(t *testing.T) {
 		}
 	}
 
-	logger.Infof("Connecting to grpc-ping using host %q and authority %q", *host, domain)
+	t.Logf("Connecting to grpc-ping using host %q and authority %q", *host, domain)
 
 	waitForScaleToZero := func() {
-		logger.Infof("Waiting for scale to zero")
+		t.Logf("Waiting for scale to zero")
 		err = pkgTest.WaitForDeploymentState(
 			clients.KubeClient,
 			deploymentName,
 			func(d *v1beta1.Deployment) (bool, error) {
-				logger.Infof("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
+				t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
 				return d.Status.ReadyReplicas == 0, nil
 			},
 			"DeploymentIsScaledDown",
@@ -137,7 +135,7 @@ func TestGRPC(t *testing.T) {
 	pc := ping.NewPingServiceClient(conn)
 
 	unaryTest := func(t *testing.T) {
-		logger.Info("Testing unary Ping")
+		t.Log("Testing unary Ping")
 
 		want := &ping.Request{Msg: "Hello!"}
 
@@ -152,7 +150,7 @@ func TestGRPC(t *testing.T) {
 	}
 
 	streamTest := func(t *testing.T) {
-		logger.Info("Testing streaming Ping")
+		t.Log("Testing streaming Ping")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
@@ -164,7 +162,7 @@ func TestGRPC(t *testing.T) {
 
 		count := 3
 		for i := 0; i < count; i++ {
-			logger.Infof("Sending stream %d of %d", i+1, count)
+			t.Logf("Sending stream %d of %d", i+1, count)
 
 			want := payload(10)
 

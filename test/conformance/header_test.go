@@ -25,17 +25,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
 // TestMustHaveHeadersSet verified that all headers declared as "MUST" in the runtime
 // contract are present from the point of view of the user container.
 func TestMustHaveHeadersSet(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
-	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
+	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -74,7 +72,6 @@ func (c *checkIPList) String() string {
 // TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
 	expectedHeaders := map[string]interface {
@@ -98,7 +95,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
+	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

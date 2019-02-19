@@ -19,39 +19,40 @@ limitations under the License.
 package test
 
 import (
-	"github.com/knative/pkg/test/logging"
+	"testing"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames, fopt ...testing.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t *testing.T, clients *Clients, names ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
 	route := Route(ServingNamespace, names, fopt...)
-	LogResourceObject(logger, ResourceObjects{Route: route})
+	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingClient.Routes.Create(route)
 }
 
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
-func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
+func CreateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(ServingNamespace, names, blue, green)
-	LogResourceObject(logger, ResourceObjects{Route: route})
+	LogResourceObject(t, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
 }
 
 // UpdateRoute updates a route in the given namespace using the route name in names
-func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
+func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
 	newRoute.ObjectMeta = route.ObjectMeta
-	LogResourceObject(logger, ResourceObjects{Route: newRoute})
+	LogResourceObject(t, ResourceObjects{Route: newRoute})
 	patchBytes, err := createPatch(route, newRoute)
 	if err != nil {
 		return nil, err

@@ -28,7 +28,6 @@ import (
 	pipelinev1alpha1 "github.com/knative/build-pipeline/pkg/apis/pipeline/v1alpha1"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 )
@@ -37,8 +36,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 	testCases := []struct {
 		name         string
 		rawExtension *v1alpha1.RawExtension
-		preFn        func(*testing.T, *test.Clients, *logging.BaseLogger)
-		validateFn   func(*testing.T, string, *test.Clients, *logging.BaseLogger)
+		preFn        func(*testing.T, *test.Clients)
+		validateFn   func(*testing.T, string, *test.Clients)
 	}{{
 		name: "taskrun",
 		rawExtension: &v1alpha1.RawExtension{
@@ -64,8 +63,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				},
 			},
 		},
-		validateFn: func(t *testing.T, buildName string, clients *test.Clients, logger *logging.BaseLogger) {
-			logger.Infof("Revision's Build is taskrun %q", buildName)
+		validateFn: func(t *testing.T, buildName string, clients *test.Clients) {
+			t.Logf("Revision's Build is taskrun %q", buildName)
 			b, err := clients.PipelineClient.TaskRun.Get(buildName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed to get build for latest revision: %v", err)
@@ -97,8 +96,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				},
 			},
 		},
-		preFn: func(t *testing.T, clients *test.Clients, logger *logging.BaseLogger) {
-			logger.Info("Creating Pipeline and Task for the build with PipelineRun")
+		preFn: func(t *testing.T, clients *test.Clients) {
+			t.Log("Creating Pipeline and Task for the build with PipelineRun")
 			if _, err := clients.PipelineClient.Task.Create(&pipelinev1alpha1.Task{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: test.ServingNamespace,
@@ -131,8 +130,8 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				t.Fatalf("Failed to create Pipeline: %v", err)
 			}
 		},
-		validateFn: func(t *testing.T, buildName string, clients *test.Clients, logger *logging.BaseLogger) {
-			logger.Infof("Revision's Build is pipelinerun %q", buildName)
+		validateFn: func(t *testing.T, buildName string, clients *test.Clients) {
+			t.Logf("Revision's Build is pipelinerun %q", buildName)
 			b, err := clients.PipelineClient.PipelineRun.Get(buildName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed to get build for latest revision: %v", err)
@@ -148,10 +147,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			clients := Setup(t)
 
-			// Add test case specific name to its own logger.
-			logger := logging.GetContextLogger(t.Name())
-
-			logger.Info("Creating a new Route and Configuration with build")
+			t.Log("Creating a new Route and Configuration with build")
 			names := test.ResourceNames{
 				Config: test.AppendRandomString(configName),
 				Route:  test.AppendRandomString(routeName),
@@ -159,7 +155,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			}
 
 			if tc.preFn != nil {
-				tc.preFn(t, clients, logger)
+				tc.preFn(t, clients)
 			}
 
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -172,7 +168,7 @@ func TestBuildPipelineAndServe(t *testing.T) {
 				t.Fatalf("Failed to create Route: %v", err)
 			}
 
-			logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+			t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 			if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 				t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 			}
@@ -184,12 +180,12 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			domain := route.Status.Domain
 
 			endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-			if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
+			if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 				t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 			}
 
 			// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-			logger.Info("Revision is ready and serving, checking Build status.")
+			t.Log("Revision is ready and serving, checking Build status.")
 			config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -200,9 +196,9 @@ func TestBuildPipelineAndServe(t *testing.T) {
 			}
 			names.Revision = rev.Name
 			if tc.validateFn != nil {
-				logger.Infof("Latest ready Revision is %q", rev.Name)
+				t.Logf("Latest ready Revision is %q", rev.Name)
 				buildName := rev.Spec.BuildRef.Name
-				tc.validateFn(t, buildName, clients, logger)
+				tc.validateFn(t, buildName, clients)
 			}
 
 			// Update the Configuration with an environment variable, which should trigger a new revision

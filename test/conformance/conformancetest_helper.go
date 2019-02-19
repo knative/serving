@@ -24,9 +24,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
@@ -38,7 +38,7 @@ import (
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options *test.Options) (*types.RuntimeInfo, error) {
+func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options) (*types.RuntimeInfo, error) {
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("runtime-test-"),
 		Image:   runtime,
@@ -47,14 +47,14 @@ func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, options)
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, options)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		objects.Service.Status.Domain,
 		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
@@ -78,12 +78,12 @@ func fetchRuntimeInfo(clients *test.Clients, logger *logging.BaseLogger, options
 }
 
 // fetchEnvInfo creates the service using test_images/environment and fetches environment info defined inside the container dictated by urlPath.
-func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath string, options *test.Options) ([]byte, *test.ResourceNames, error) {
-	logger.Info("Creating a new Service")
+func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *test.Options) ([]byte, *test.ResourceNames, error) {
+	t.Log("Creating a new Service")
 	var names test.ResourceNames
 	names.Service = test.AppendRandomString("yashiki")
 	names.Image = "environment"
-	svc, err := test.CreateLatestService(logger, clients, names, options)
+	svc, err := test.CreateLatestService(t, clients, names, options)
 	if err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("Failed to create Service: %v", err))
 	}
@@ -94,7 +94,7 @@ func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath str
 	defer test.TearDown(clients, names)
 
 	var revisionName string
-	logger.Info("The Service will be updated with the name of the Revision once it is created")
+	t.Log("The Service will be updated with the name of the Revision once it is created")
 	err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
@@ -107,12 +107,12 @@ func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath str
 	}
 	names.Revision = revisionName
 
-	logger.Info("When the Service reports as Ready, everything should be ready.")
+	t.Log("When the Service reports as Ready, everything should be ready.")
 	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err))
 	}
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err))
 	}
@@ -125,7 +125,7 @@ func fetchEnvInfo(clients *test.Clients, logger *logging.BaseLogger, urlPath str
 	url := route.Status.Domain + urlPath
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		url,
 		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {

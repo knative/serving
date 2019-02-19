@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +30,6 @@ import (
 // TestShouldNotHaveHooks validates that we receive an error back when attempting to create a Service that
 // specifies lifecycle hooks.
 func TestShouldNotHaveHooks(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 	names := test.ResourceNames{
 		Service: test.AppendRandomString("test-should-not-have-hooks-"),
@@ -59,7 +57,7 @@ func TestShouldNotHaveHooks(t *testing.T) {
 	}
 
 	for _, hook := range hooks {
-		svc, err := test.CreateLatestService(logger, clients, names, &test.Options{}, hook)
+		svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, hook)
 		if err == nil {
 			t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 		}
