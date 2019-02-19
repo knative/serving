@@ -84,17 +84,8 @@ func TestBuildSpecAndServe(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-	endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
-=======
-	endState := pkgTest.Retrying(pkgTest.Passing(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound)
-=======
 	endState := pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound)
->>>>>>> Renaming.
-	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
->>>>>>> Narrow down matchers everywhere.
+	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
