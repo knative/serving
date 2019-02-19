@@ -60,7 +60,7 @@ recommend adding them to your `.bashrc`):
    `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
-1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
+1. `KO_DOCKER_REPO`: The docker repository to which
    developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 
 - **Note**: if you are using docker hub to store your images your

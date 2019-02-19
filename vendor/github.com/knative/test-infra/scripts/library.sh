@@ -160,7 +160,7 @@ function wait_until_service_has_external_ip() {
     echo -n "."
     sleep 6
   done
-  echo -e "\n\nERROR: timeout waiting for service $svc.$ns to have an external address"
+  echo -e "\n\nERROR: timeout waiting for service $2.$1 to have an external address"
   kubectl get pods -n $1
   return 1
 }
