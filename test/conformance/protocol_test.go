@@ -122,6 +122,7 @@ func portOption(portname string) *test.Options {
 }
 
 func TestProtocols(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		Name     string
 		PortName string
@@ -141,7 +142,9 @@ func TestProtocols(t *testing.T) {
 	}}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
 			var pt protocolsTest
 
 			pt.setup(t)

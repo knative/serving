@@ -37,6 +37,7 @@ const (
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	resources := corev1.ResourceRequirements{
@@ -83,6 +84,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
 // container.
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {

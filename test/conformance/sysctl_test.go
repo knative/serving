@@ -29,6 +29,7 @@ import (
 // TestShouldHaveSysctlReadOnly verifies that the /proc/sys filesystem mounted within the container
 // is read-only.
 func TestShouldHaveSysctlReadOnly(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {

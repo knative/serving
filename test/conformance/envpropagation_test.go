@@ -29,15 +29,16 @@ import (
 )
 
 const (
-	testKey       = "testKey"
-	testValue     = "testValue"
-	secretName    = "test-secret"
-	configMapName = "test-configmap"
+	testKey   = "testKey"
+	testValue = "testValue"
 )
 
 // TestSecretsFromEnv verifies propagation of Secrets through environment variables.
 func TestSecretsFromEnv(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
+
+	secretName := test.AppendRandomString("secret-")
 
 	//Creating test secret
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
@@ -65,7 +66,7 @@ func TestSecretsFromEnv(t *testing.T) {
 				Key: testKey,
 			},
 		},
-	}, cleanupSecret)
+	}, cleanupSecret(secretName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +74,10 @@ func TestSecretsFromEnv(t *testing.T) {
 
 // TestConfigsFromEnv verifies propagation of configs through environment variables.
 func TestConfigsFromEnv(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
+
+	configMapName := test.AppendRandomString("configmap-")
 
 	//Creating test configMap
 	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
@@ -99,7 +103,7 @@ func TestConfigsFromEnv(t *testing.T) {
 				Key: testKey,
 			},
 		},
-	}, cleanupConfigMap)
+	}, cleanupConfigMap(configMapName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,16 +148,14 @@ func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, envVar corev
 	return nil
 }
 
-func cleanupSecret(clients *test.Clients) error {
-	if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secretName, nil); err != nil {
-		return err
+func cleanupSecret(name string) func(clients *test.Clients) error {
+	return func(clients *test.Clients) error {
+		return clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(name, nil)
 	}
-	return nil
 }
 
-func cleanupConfigMap(clients *test.Clients) error {
-	if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMapName, nil); err != nil {
-		return err
+func cleanupConfigMap(name string) func(clients *test.Clients) error {
+	return func(clients *test.Clients) error {
+		return clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(name, nil)
 	}
-	return nil
 }

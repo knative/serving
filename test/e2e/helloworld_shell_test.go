@@ -64,6 +64,7 @@ func ingressAddress(gateway string, addressType string) string {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
+	t.Parallel()
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")

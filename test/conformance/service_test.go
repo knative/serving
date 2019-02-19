@@ -171,6 +171,7 @@ func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 //    b. Update Annotations
 // 3. Update UserPort
 func TestRunLatestService(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	names := test.ResourceNames{
@@ -346,6 +347,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
 // 5. Two Revisions Specified, 50% rollout, candidate != latest, latest referred to as `@latest`.
 func TestReleaseService(t *testing.T) {
+	t.Parallel()
 	// Create Initial Service
 	clients := setup(t)
 	releaseImagePath2 := test.ImagePath(pizzaPlanet2)

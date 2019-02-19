@@ -82,6 +82,7 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, dom
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
 	// Set up helloworld app.

@@ -94,6 +94,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 }
 
 func TestRouteCreation(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	var objects test.ResourceObjects

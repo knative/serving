@@ -32,6 +32,7 @@ import (
 )
 
 func TestCustomResourcesLimits(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	t.Log("Creating a new Route and Configuration")

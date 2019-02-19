@@ -30,6 +30,7 @@ import (
 // TestShouldNotHaveHooks validates that we receive an error back when attempting to create a Service that
 // specifies lifecycle hooks.
 func TestShouldNotHaveHooks(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

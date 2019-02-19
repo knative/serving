@@ -35,6 +35,7 @@ import (
 )
 
 func TestSingleConcurrency(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	svcName := test.ObjectNameForTest(t)

@@ -37,6 +37,7 @@ import (
 )
 
 func TestGRPC(t *testing.T) {
+	t.Parallel()
 	// Setup
 	clients := Setup(t)
 

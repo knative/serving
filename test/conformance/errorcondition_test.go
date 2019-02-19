@@ -38,6 +38,7 @@ const (
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
+	t.Parallel()
 	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
 	}
@@ -115,6 +116,7 @@ func TestContainerErrorMsg(t *testing.T) {
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
 	names := test.ResourceNames{

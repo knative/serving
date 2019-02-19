@@ -28,6 +28,7 @@ import (
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	resp, names, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {
@@ -51,6 +52,7 @@ func TestShouldEnvVars(t *testing.T) {
 
 // TestMustEnvVars verifies environment variables that are declared as "MUST be set" in runtime-contract
 func TestMustEnvVars(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
 	if err != nil {
