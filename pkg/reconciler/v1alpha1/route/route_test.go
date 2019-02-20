@@ -152,18 +152,18 @@ func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	}
 }
 
-func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
+func newTestReconciler(t *testing.T, closeCh chan struct{}, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	reconciler *Reconciler,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher) {
-	kubeClient, servingClient, _, reconciler, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	kubeClient, servingClient, _, reconciler, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t, closeCh)
 	return
 }
 
-func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
+func newTestSetup(t *testing.T, stopCh chan struct{}, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *ctrl.Impl,
@@ -214,6 +214,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
+			StopChannel:      stopCh,
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -269,7 +270,10 @@ func addResourcesToInformers(
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestReconciler(t, closeCh)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -361,7 +365,10 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t, closeCh)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -437,7 +444,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t, closeCh)
 	// A standalone inactive revision
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkInactive("NoTraffic", "no message")
@@ -519,7 +529,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t, closeCh)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -652,7 +665,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t, closeCh)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -770,7 +786,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, watcher := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, controller, _, servingInformer, watcher := newTestReconciler(t, closeCh)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -914,8 +933,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
-
 			stopCh := make(chan struct{})
 			grp := errgroup.Group{}
 			defer func() {
@@ -924,6 +941,8 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
+
+			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t, stopCh)
 
 			h := NewHooks()
 

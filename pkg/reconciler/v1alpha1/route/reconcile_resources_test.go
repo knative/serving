@@ -33,7 +33,10 @@ import (
 )
 
 func TestReconcileClusterIngress_Insert(t *testing.T) {
-	_, servingClient, c, _, _, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, c, _, _, _ := newTestReconciler(t, closeCh)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -51,7 +54,10 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 }
 
 func TestReconcileClusterIngress_Update(t *testing.T) {
-	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t, closeCh)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -83,7 +89,10 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, c, _, _, _ := newTestReconciler(t)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+
+	_, _, c, _, _, _ := newTestReconciler(t, closeCh)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
