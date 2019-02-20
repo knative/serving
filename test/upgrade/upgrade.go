@@ -17,7 +17,6 @@ limitations under the License.
 package upgrade
 
 import (
-	"net/http"
 	"testing"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -44,7 +43,7 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 		clients.KubeClient,
 		t.Logf,
 		routeDomain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText)), http.StatusNotFound),
+		test.RetryingRouteCreation(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

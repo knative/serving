@@ -70,16 +70,13 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 
 	resp, err := pkgTest.WaitForEndpointState(
 		pt.clients.KubeClient, pt.t.Logf, domain,
-		pkgTest.Retrying(
-			func(resp *spoof.Response) (bool, error) {
-				if resp.StatusCode == http.StatusOK {
-					return true, nil
-				}
+		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
+			if resp.StatusCode == http.StatusOK {
+				return true, nil
+			}
 
-				return true, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-			},
-			http.StatusNotFound,
-		),
+			return true, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		}),
 		pt.t.Name(), test.ServingFlags.ResolvableDomain,
 	)
 	if err != nil {

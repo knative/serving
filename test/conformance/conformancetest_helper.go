@@ -56,13 +56,13 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.Domain,
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}
 
 			return true, errors.New(string(resp.Body))
-		}, http.StatusNotFound),
+		}),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -127,13 +127,13 @@ func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *
 		clients.KubeClient,
 		t.Logf,
 		url,
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}
 
 			return true, errors.New(string(resp.Body))
-		}, http.StatusNotFound),
+		}),
 		"EnvVarsServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

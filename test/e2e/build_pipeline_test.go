@@ -18,7 +18,6 @@ limitations under the License.
 package e2e
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -187,7 +186,7 @@ func TestPipeline(t *testing.T) {
 			}
 			domain := route.Status.Domain
 
-			endState := pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound)
+			endState := test.RetryingRouteCreation(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)))
 			if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 				t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 			}

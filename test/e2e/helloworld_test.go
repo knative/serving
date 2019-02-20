@@ -19,7 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"net/http"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -56,7 +55,7 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput)), http.StatusNotFound),
+		test.RetryingRouteCreation(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
