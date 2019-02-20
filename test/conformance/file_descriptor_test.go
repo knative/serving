@@ -21,17 +21,15 @@ package conformance
 import (
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
 // TestMustHaveCgroupConfigured verifies using the runtime test container that reading from the
 // stdin file descriptor results in EOF.
 func TestShouldHaveStdinEOF(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
 	clients := setup(t)
 
-	ri, err := fetchRuntimeInfo(clients, logger, &test.Options{})
+	ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
