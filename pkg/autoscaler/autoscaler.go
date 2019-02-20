@@ -69,24 +69,29 @@ type StatMessage struct {
 
 // StatsBucket keep all the stats that fall into the defined bucket.
 type StatsBucket struct {
-	stats []Stat
+	stats map[string][]Stat
 }
 
 func (b *StatsBucket) add(stat Stat) {
-	b.stats = append(b.stats, stat)
+	podStats, ok := b.stats[stat.PodName]
+	if !ok {
+		podStats = []Stat{}
+	}
+	podStats = append(podStats, stat)
+	b.stats[stat.PodName] = podStats
 }
 
-func (b *StatsBucket) averageConcurrency() float64 {
+func (b *StatsBucket) concurrency() float64 {
 	var total float64
-	var pods float64
-	for _, stat := range b.stats {
-		if !isActivator(stat.PodName) {
-			pods++
+	for _, podStats := range b.stats {
+		var subtotal float64
+		for _, stat := range podStats {
+			subtotal += stat.AverageConcurrentRequests
 		}
-		total += stat.AverageConcurrentRequests
+		total += subtotal / float64(len(podStats))
 	}
 
-	return total / math.Max(1, pods)
+	return total
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -154,7 +159,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	bucketKey := stat.Time.Round(bucketSize)
 	bucket, ok := a.bucketed[bucketKey]
 	if !ok {
-		bucket = &StatsBucket{stats: make([]Stat, 0)}
+		bucket = &StatsBucket{stats: make(map[string][]Stat)}
 		a.bucketed[bucketKey] = bucket
 	}
 	bucket.add(stat)
@@ -181,11 +186,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	for key, bucket := range a.bucketed {
 		if key.Add(config.PanicWindow).After(now) {
 			panicBuckets++
-			panicTotal += bucket.averageConcurrency()
+			panicTotal += bucket.concurrency()
 		}
 		if key.Add(config.StableWindow).After(now) {
 			stableBuckets++
-			stableTotal += bucket.averageConcurrency()
+			stableTotal += bucket.concurrency()
 		} else {
 			delete(a.bucketed, key)
 		}
@@ -205,21 +210,21 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)*/
 
-	observedStableConcurrencyPerPod := stableTotal / stableBuckets
-	observedPanicConcurrencyPerPod := panicTotal / panicBuckets
+	observedStableConcurrency := stableTotal / stableBuckets
+	observedPanicConcurrency := panicTotal / panicBuckets
 
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrencyPerPod*readyPods/target, readyPods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrencyPerPod*readyPods/target, readyPods)
+	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/target, readyPods)
+	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/target, readyPods)
 
-	a.reporter.ReportStableRequestConcurrency(observedStableConcurrencyPerPod)
-	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrencyPerPod)
+	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
+	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
 	a.reporter.ReportTargetRequestConcurrency(target)
 
-	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrencyPerPod, config.StableWindow)
-	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrencyPerPod, config.PanicWindow)
+	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, config.StableWindow)
+	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, config.PanicWindow)
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(config.StableWindow).Before(now) {
@@ -230,7 +235,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && observedPanicConcurrencyPerPod >= (target*2) {
+	if !a.panicking && observedPanicConcurrency/readyPods >= (target*2) {
 		logger.Info("PANICKING")
 		a.panicking = true
 		a.panicTime = &now
