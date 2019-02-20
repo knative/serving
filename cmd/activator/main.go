@@ -250,22 +250,14 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
 	go cr.Run(stopCh)
 
-	ah := &activatorhandler.ProbeHandler{
-		NextHandler: &activatorhandler.FilteringHandler{
-			NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
-				&activatorhandler.EnforceMaxContentLengthHandler{
-					MaxContentLengthBytes: maxUploadBytes,
-					NextHandler: &activatorhandler.ActivationHandler{
-						Activator: a,
-						Transport: rt,
-						Logger:    logger,
-						Reporter:  reporter,
-						Throttler: throttler,
-					},
-				},
-			),
-		},
-	}
+	// Create activation handler chain
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
+	var ah http.Handler
+	ah = &activatorhandler.ActivationHandler{Activator: a, Transport: rt, Logger: logger, Reporter: reporter, Throttler: throttler}
+	ah = &activatorhandler.EnforceMaxContentLengthHandler{MaxContentLengthBytes: maxUploadBytes, NextHandler: ah}
+	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = &activatorhandler.FilteringHandler{NextHandler: ah}
+	ah = &activatorhandler.ProbeHandler{ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
