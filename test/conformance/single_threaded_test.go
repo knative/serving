@@ -47,6 +47,9 @@ func TestSingleConcurrency(t *testing.T) {
 	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		ContainerConcurrency: 1,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
 	domain := objects.Service.Status.Domain
 
 	// Ready does not actually mean Ready for a Route just yet.
