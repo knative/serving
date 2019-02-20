@@ -157,7 +157,7 @@ func TestObservedConcurrency(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteConsistency(func(resp *spoof.Response) (bool, error) {
 			_, _, err := parseResponse(string(resp.Body))
 			return err == nil, nil
 		}),

@@ -39,7 +39,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteCreation(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
+		test.RetryingRouteConsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

@@ -55,7 +55,7 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteCreation(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput))),
+		test.RetryingRouteConsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

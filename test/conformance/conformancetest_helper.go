@@ -56,7 +56,7 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.Domain,
-		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteConsistency(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}
@@ -127,7 +127,7 @@ func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *
 		clients.KubeClient,
 		t.Logf,
 		url,
-		test.RetryingRouteCreation(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteConsistency(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}
