@@ -31,53 +31,23 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestSingleConcurrency(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 
-	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: svcName,
-		Route:  svcName,
-		Image:  singleThreadedImage,
+		Service: test.ObjectNameForTest(t),
+		Image:   singleThreadedImage,
 	}
-
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	configOptions := test.Options{
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		ContainerConcurrency: 1,
-	}
-	t.Log("Creating a new Configuration")
-	if _, err := test.CreateConfiguration(t, clients, names, &configOptions); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
-	}
-
-	t.Log("Creating a new Route")
-	if _, err := test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
-	t.Log("The Configuration will be updated with the name of the Revision")
-	var err error
-	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
-	}
-
-	t.Log("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
-	}
-	domain := route.Status.Domain
+	})
+	domain := objects.Service.Status.Domain
 
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582
