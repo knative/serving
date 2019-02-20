@@ -86,7 +86,7 @@ func TestSingleConcurrency(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAny),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", domain, err)

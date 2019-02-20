@@ -20,7 +20,6 @@ package conformance
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"testing"
 
@@ -89,7 +88,7 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 		clients.KubeClient,
 		t.Logf,
 		names.Domain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText)), http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

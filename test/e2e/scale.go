@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -148,7 +147,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput)), http.StatusNotFound),
+				test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

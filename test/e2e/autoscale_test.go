@@ -168,7 +168,7 @@ func setup(t *testing.T) *testContext {
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput)), http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

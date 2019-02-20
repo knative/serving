@@ -157,10 +157,10 @@ func TestObservedConcurrency(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
 			_, _, err := parseResponse(string(resp.Body))
 			return err == nil, nil
-		}, http.StatusNotFound),
+		}),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
