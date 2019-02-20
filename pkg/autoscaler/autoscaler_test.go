@@ -307,21 +307,6 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
-func TestAutoscaler_NoScaleOnLessThanOnePod(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         10 * time.Second, // 10 seconds of 2 pods
-			podCount:         2,
-		})
-	now = now.Add(50 * time.Second)
-	a.expectScale(t, now, 0, false)
-}
-
 func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -333,7 +318,15 @@ func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
 			duration:         30 * time.Second,
 			podCount:         10,
 		})
-	now = now.Add(30 * time.Second)
+	now = a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			duration:         30 * time.Second,
+			podCount:         10,
+		})
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
@@ -371,39 +364,6 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 }
 
-func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-
-	a.expectScale(t, now, 10, true)
-
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
-		RequestCount:              0,
-		AverageConcurrentRequests: 1000.0,
-	})
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
-		RequestCount:              0,
-		AverageConcurrentRequests: 1000.0,
-	})
-
-	// Scale should not change as the activator metric should
-	// be ignored
-	a.expectScale(t, now, 10, true)
-}
-
 // Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)
@@ -417,13 +377,13 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 			podCount:         1,
 		})
 	a.expectScale(t, now, 1, true)
-	if len(a.stats) != 60 {
-		t.Errorf("Unexpected stat count. Expected 60. Got %v.", len(a.stats))
+	if len(a.bucketed) != 30 {
+		t.Errorf("Unexpected stat count. Expected 60. Got %v.", len(a.bucketed))
 	}
 	now = now.Add(time.Minute)
 	a.expectScale(t, now, 0, false)
-	if len(a.stats) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	if len(a.bucketed) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
 	}
 }
 
@@ -437,8 +397,8 @@ func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
 	}
 	a.Record(TestContextWithLogger(t), stat)
 
-	if len(a.stats) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	if len(a.bucketed) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
 	}
 	a.expectScale(t, time.Now(), 0, false)
 }
