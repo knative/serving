@@ -246,6 +246,8 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
 	go cr.Run(stopCh)
 
+	// Create activation handler chain
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler
 	ah = &activatorhandler.ActivationHandler{Activator: a, Transport: rt, Logger: logger, Reporter: reporter, Throttler: throttler}
 	ah = &activatorhandler.EnforceMaxContentLengthHandler{MaxContentLengthBytes: maxUploadBytes, NextHandler: ah}
