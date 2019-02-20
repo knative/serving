@@ -74,8 +74,6 @@ recommend adding them to your `.bashrc`):
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
-export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
-export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
 ```
 
 Make sure to configure
@@ -86,12 +84,6 @@ for your `KO_DOCKER_REPO` if required. To be able to push images to
 ```shell
 gcloud auth configure-docker
 ```
-
-For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with
-authentication configured with `kubectl`. You can list the clusters you
-currently have configured via: `kubectl config get-contexts`. For the cluster
-you want to target, the value in the CLUSTER column should be put in this
-variable.
 
 ### Checkout your fork
 
@@ -129,23 +121,14 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform the setup needed
-for Knative.
-
-The value you use depends on
+The `--user` you use depends on
 [your cluster
 setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
 
 ```shell
-# When using Minikube, the K8s user is your local user.
-export K8S_USER_OVERRIDE=$USER
-
-# When using GKE, the K8s user is your GCP user.
-export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
-
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
-  --user="${K8S_USER_OVERRIDE?}"
+  --user=$(gcloud config get-value core/account)
 ```
 
 ### Deploy Istio
