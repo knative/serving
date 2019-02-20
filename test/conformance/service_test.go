@@ -88,7 +88,7 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 		clients.KubeClient,
 		t.Logf,
 		names.Domain,
-		test.RetryingRouteConsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

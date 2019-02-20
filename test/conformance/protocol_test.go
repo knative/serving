@@ -70,7 +70,7 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 
 	resp, err := pkgTest.WaitForEndpointState(
 		pt.clients.KubeClient, pt.t.Logf, domain,
-		test.RetryingRouteConsistency(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
 			if resp.StatusCode == http.StatusOK {
 				return true, nil
 			}

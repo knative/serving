@@ -63,10 +63,10 @@ func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green Res
 	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
 }
 
-// RetryingRouteConsistency retries common requests seen when creating a new route
+// RetryingRouteInconsistency retries common requests seen when creating a new route
 // - 404 until the route is propagated to the proxy
 // - 503 "no healthy upstream" until the endpoints are propagated to the proxy
-func RetryingRouteConsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
+func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		if resp.StatusCode == http.StatusNotFound {
 			return false, nil
