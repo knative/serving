@@ -156,7 +156,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
-	bucketKey := stat.Time.Round(bucketSize)
+	bucketKey := stat.Time.Truncate(bucketSize)
 	bucket, ok := a.bucketed[bucketKey]
 	if !ok {
 		bucket = &StatsBucket{stats: make(map[string][]Stat)}
