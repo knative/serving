@@ -54,7 +54,7 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.Domain,
-		pkgTest.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
