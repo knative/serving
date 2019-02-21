@@ -34,7 +34,13 @@ func TestShouldHaveStdinEOF(t *testing.T) {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
 
+	if ri.Host == nil {
+		t.Fatal("Missing host information from runtime info.")
+	}
 	stdin := ri.Host.Stdin
+	if stdin == nil {
+		t.Fatal("Missing stdin information from host info.")
+	}
 
 	if stdin.Error != "" {
 		t.Fatalf("Error reading stdin: %v", stdin.Error)
