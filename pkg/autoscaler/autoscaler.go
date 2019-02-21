@@ -100,9 +100,8 @@ type Autoscaler struct {
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
-	panicking       bool
 	panicTime       *time.Time
-	maxPanicPods    float64
+	maxPanicPods    int32
 	reporter        StatsReporter
 
 	// targetMutex guards the elements in the block below.
@@ -215,8 +214,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := math.Ceil(a.podCountLimited(observedStableConcurrency/target, readyPods))
-	desiredPanicPodCount := math.Ceil(a.podCountLimited(observedPanicConcurrency/target, readyPods))
+	desiredStablePodCount := int32(math.Ceil(a.podCountLimited(observedStableConcurrency/target, readyPods)))
+	desiredPanicPodCount := int32(math.Ceil(a.podCountLimited(observedPanicConcurrency/target, readyPods)))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -225,36 +224,35 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, config.StableWindow)
 	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, config.PanicWindow)
 
+	isOverPanicThreshold := observedPanicConcurrency/readyPods >= target*2
+
 	// Stop panicking after the surge has made its way into the stable metric.
-	if a.panicking && a.panicTime.Add(config.StableWindow).Before(now) {
+	if !isOverPanicThreshold && a.panicTime != nil && a.panicTime.Add(config.StableWindow).Before(now) {
 		logger.Info("Un-panicking.")
-		a.panicking = false
 		a.panicTime = nil
 		a.maxPanicPods = 0
 	}
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && observedPanicConcurrency/readyPods >= (target*2) {
+	if a.panicTime == nil && isOverPanicThreshold {
 		logger.Info("PANICKING")
-		a.panicking = true
 		a.panicTime = &now
 	}
 
 	var desiredPodCount int32
-
-	if a.panicking {
+	if a.panicTime != nil {
 		logger.Debug("Operating in panic mode.")
 		a.reporter.ReportPanic(1)
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", readyPods, int(desiredPanicPodCount))
+			logger.Infof("Increasing pods from %v to %v.", readyPods, desiredPanicPodCount)
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
-		desiredPodCount = int32(math.Ceil(a.maxPanicPods))
+		desiredPodCount = a.maxPanicPods
 	} else {
 		logger.Debug("Operating in stable mode.")
 		a.reporter.ReportPanic(0)
-		desiredPodCount = int32(math.Ceil(desiredStablePodCount))
+		desiredPodCount = desiredStablePodCount
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
