@@ -67,7 +67,7 @@ type StatMessage struct {
 	Stat Stat
 }
 
-// StatsBucket keep all the stats that fall into the defined bucket.
+// StatsBucket keeps all the stats that fall into a defined bucket.
 type StatsBucket struct {
 	stats map[string][]Stat
 }
@@ -216,8 +216,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
 	// The scaling up rate limited to within MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(observedStableConcurrency/target, readyPods)
-	desiredPanicPodCount := a.podCountLimited(observedPanicConcurrency/target, readyPods)
+	desiredStablePodCount := math.Ceil(a.podCountLimited(observedStableConcurrency/target, readyPods))
+	desiredPanicPodCount := math.Ceil(a.podCountLimited(observedPanicConcurrency/target, readyPods))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
