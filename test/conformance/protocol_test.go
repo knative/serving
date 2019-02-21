@@ -21,7 +21,6 @@ package conformance
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -70,13 +69,7 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 
 	resp, err := pkgTest.WaitForEndpointState(
 		pt.clients.KubeClient, pt.t.Logf, domain,
-		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
-			if resp.StatusCode == http.StatusOK {
-				return true, nil
-			}
-
-			return true, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-		}),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
 		pt.t.Name(), test.ServingFlags.ResolvableDomain,
 	)
 	if err != nil {

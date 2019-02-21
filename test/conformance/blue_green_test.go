@@ -121,7 +121,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		greenDomain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAny),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", greenDomain, err)

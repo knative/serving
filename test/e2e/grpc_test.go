@@ -78,7 +78,7 @@ func TestGRPC(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAny),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
 		"gRPCPingReadyToServe",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
