@@ -47,9 +47,8 @@ func (p *PromProxy) Setup(ctx context.Context, logger *logging.BaseLogger) error
 	return p.portForward(ctx, logger, appLabel, prometheusPort, prometheusPort)
 }
 
-// Teardown will kill the port forwarding process if running
-func (p *PromProxy) Teardown(logger *logging.BaseLogger) error {
-	logger.Info("Cleaning up prom proxy")
+// Teardown will kill the port forwarding process if running.
+func (p *PromProxy) Teardown() error {
 	if p.portFwdProcess != nil {
 		return p.portFwdProcess.Kill()
 	}
@@ -58,17 +57,15 @@ func (p *PromProxy) Teardown(logger *logging.BaseLogger) error {
 
 // PortForward sets up local port forward to the pod specified by the "app" label in the given namespace
 func (p *PromProxy) portForward(ctx context.Context, logger *logging.BaseLogger, labelSelector, localPort, remotePort string) error {
-	var pod string
-	var err error
-
 	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.Namespace, labelSelector)
-	pod, err = p.execShellCmd(ctx, logger, getName)
+	pod, err := p.execShellCmd(ctx, logger, getName)
 	if err != nil {
 		return err
 	}
-	logger.Infof("%s pod name: %s", labelSelector, pod)
 
+	logger.Infof("%s pod name: %s", labelSelector, pod)
 	logger.Infof("Setting up %s proxy", labelSelector)
+
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.Namespace)
 	if p.portFwdProcess, err = p.executeCmdBackground(logger, portFwdCmd); err != nil {
 		logger.Errorf("Failed to port forward: %s", err)
@@ -84,9 +81,8 @@ func (p *PromProxy) executeCmdBackground(logger *logging.BaseLogger, format stri
 	logger.Infof("Executing command: %s", cmd)
 	parts := strings.Split(cmd, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
-	err := c.Start()
-	if err != nil {
-		logger.Errorf("%s, command failed!", cmd)
+	if err := c.Start(); err != nil {
+		logger.Errorf("%s command failed: %v", cmd, err)
 		return nil, err
 	}
 	return c.Process, nil
@@ -98,16 +94,17 @@ func (p *PromProxy) execShellCmd(ctx context.Context, logger *logging.BaseLogger
 	logger.Infof("Executing command: %s", cmd)
 	c := exec.CommandContext(ctx, "sh", "-c", cmd) // #nosec
 	bytes, err := c.CombinedOutput()
+	s := string(bytes)
 	if err != nil {
 		logger.Infof("Command error: %v", err)
-		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
+		return s, fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 
-	if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
+	if output := strings.TrimSuffix(s, "\n"); len(output) > 0 {
 		logger.Infof("Command output: \n%s", output)
 	}
 
-	return string(bytes), nil
+	return s, nil
 }
 
 // PromAPI gets a handle to the prometheus API

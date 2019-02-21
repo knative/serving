@@ -101,7 +101,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			TearDown(t, pc, *testNames[i])
+			TearDown(pc, *testNames[i])
 		}
 	}
 	defer cleanupNames()

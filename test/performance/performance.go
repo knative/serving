@@ -64,11 +64,11 @@ func Setup(ctx context.Context, t *testing.T, promReqd bool) (*Client, error) {
 }
 
 // TearDown cleans up resources used
-func TearDown(t *testing.T, client *Client, names test.ResourceNames) {
+func TearDown(client *Client, names test.ResourceNames) {
 	test.TearDown(client.E2EClients, names)
 
 	if client.PromClient != nil {
-		client.PromClient.Teardown(logging.GetContextLogger(t.Name()))
+		client.PromClient.Teardown()
 	}
 }
 
