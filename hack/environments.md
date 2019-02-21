@@ -20,9 +20,9 @@ gcloud container clusters get-credentials knative-demo --zone us-central1-a --pr
 
 ### The playground environment
 
-This environment is recreated by a prow periodic job every Saturday 1AM PST,
-using the latest stable Knative Serving release (i.e., the images available at
-gcr.io/knative-images).
+This environment is recreated by a periodic Prow job every Saturday 1AM PST,
+using the latest nightly Knative Serving release (available at
+gs://knative-nightly/serving/latest).
 
 You can configure your access by running:
 
