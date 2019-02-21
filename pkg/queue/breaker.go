@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
-	"go.uber.org/zap"
 )
 
 var (
@@ -36,19 +34,15 @@ type BreakerParams struct {
 	QueueDepth      int32
 	MaxConcurrency  int32
 	InitialCapacity int32
-	Logger          *zap.SugaredLogger
 }
-
-type token struct{}
 
 // Breaker is a component that enforces a concurrency limit on the
 // execution of a function. It also maintains a queue of function
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	pendingRequests chan token
+	pendingRequests chan struct{}
 	sem             *semaphore
-	logger          *zap.SugaredLogger
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -63,11 +57,10 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := NewSemaphore(params.MaxConcurrency, params.InitialCapacity)
+	sem := newSemaphore(params.MaxConcurrency, params.InitialCapacity)
 	return &Breaker{
-		pendingRequests: make(chan token, params.QueueDepth+params.MaxConcurrency),
+		pendingRequests: make(chan struct{}, params.QueueDepth+params.MaxConcurrency),
 		sem:             sem,
-		logger:          params.Logger,
 	}
 }
 
@@ -76,20 +69,20 @@ func NewBreaker(params BreakerParams) *Breaker {
 // already consumed, Maybe returns immediately without calling thunk. If
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(thunk func()) bool {
-	var t token
 	select {
 	default:
 		// Pending request queue is full.  Report failure.
 		return false
-	case b.pendingRequests <- t:
+	case b.pendingRequests <- struct{}{}:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
 		b.sem.Acquire()
 		// Defer releasing capacity in the active and pending request queue.
 		defer func() {
-			if err := b.sem.Release(); err != nil {
-				b.logger.Errorw("Error while releasing a semaphore:", zap.Error(err))
-			}
+			// It's safe to ignore the error returned by Release since we
+			// make sure the semaphore is only manipulated here and Acquire
+			// + Release calls are equally paired.
+			b.sem.Release()
 			<-b.pendingRequests
 		}()
 		// Do the thing.
@@ -109,20 +102,20 @@ func (b *Breaker) Capacity() int32 {
 	return b.sem.Capacity()
 }
 
-// NewSemaphore creates a semaphore with the desired maximal and initial capacity.
+// newSemaphore creates a semaphore with the desired maximal and initial capacity.
 // Maximal capacity is the size of the buffered channel, it defines maximum number of tokens
 // in the rotation. Attempting to add more capacity then the max will result in error.
 // Initial capacity is the initial number of free tokens.
-func NewSemaphore(maxCapacity, initialCapacity int32) *semaphore {
+func newSemaphore(maxCapacity, initialCapacity int32) *semaphore {
 	if initialCapacity < 0 || initialCapacity > maxCapacity {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
 	}
-	queue := make(chan token, maxCapacity)
-	sem := semaphore{queue: queue}
+	queue := make(chan struct{}, maxCapacity)
+	sem := &semaphore{queue: queue}
 	if initialCapacity > 0 {
 		sem.UpdateCapacity(initialCapacity)
 	}
-	return &sem
+	return sem
 }
 
 // semaphore is an implementation of a semaphore based on Go channels.
@@ -130,8 +123,7 @@ func NewSemaphore(maxCapacity, initialCapacity int32) *semaphore {
 // Hence the max number of tokens to hand out equals to the size of the channel.
 // `capacity` defines the current number of tokens in the rotation.
 type semaphore struct {
-	queue    chan token
-	token    token
+	queue    chan struct{}
 	reducers int32
 	capacity int32
 	mux      sync.Mutex
@@ -157,10 +149,10 @@ func (s *semaphore) Release() error {
 
 	// We want to make sure releasing a token is always non-blocking.
 	select {
-	case s.queue <- s.token:
+	case s.queue <- struct{}{}:
 		return nil
 	default:
-		// This should never happen.
+		// This only happens if Release is called more often than Acquire.
 		return ErrRelease
 	}
 }
@@ -186,7 +178,7 @@ func (s *semaphore) UpdateCapacity(size int32) error {
 			s.reducers--
 		} else {
 			select {
-			case s.queue <- s.token:
+			case s.queue <- struct{}{}:
 				s.capacity++
 			default:
 				// This indicates that we're operating close to

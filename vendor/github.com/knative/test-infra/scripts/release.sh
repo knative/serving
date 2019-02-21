@@ -142,8 +142,9 @@ function prepare_auto_release() {
   TAG_RELEASE=1
   PUBLISH_RELEASE=1
 
+  git fetch --all
   local tags="$(git tag | cut -d 'v' -f2 | cut -d '.' -f1-2 | sort | uniq)"
-  local branches="$( { (git branch -r | grep origin/release-) ; (git branch  | grep release-); } | cut -d '-' -f2 | sort | uniq)"
+  local branches="$( { (git branch -r | grep upstream/release-) ; (git branch | grep release-); } | cut -d '-' -f2 | sort | uniq)"
   RELEASE_VERSION=""
 
   [[ -n "${tags}" ]] || abort "cannot obtain release tags for the repository"

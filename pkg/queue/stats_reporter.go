@@ -60,7 +60,7 @@ var (
 	}
 )
 
-// Reporter structure representing a prometheus expoerter.
+// Reporter structure represents a prometheus exporter.
 type Reporter struct {
 	Initialized     bool
 	ctx             context.Context
@@ -70,9 +70,8 @@ type Reporter struct {
 	podTagKey       tag.Key
 }
 
-// NewStatsReporter creates a reporter that collects and reports queue metrics
+// NewStatsReporter creates a reporter that collects and reports queue metrics.
 func NewStatsReporter(namespace string, config string, revision string, pod string) (*Reporter, error) {
-	var r = &Reporter{}
 	if len(namespace) < 1 {
 		return nil, errors.New("Namespace must not be empty")
 	}
@@ -91,22 +90,18 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 	if err != nil {
 		return nil, err
 	}
-	r.namespaceTagKey = nsTag
 	configTag, err := tag.NewKey("destination_configuration")
 	if err != nil {
 		return nil, err
 	}
-	r.configTagKey = configTag
 	revTag, err := tag.NewKey("destination_revision")
 	if err != nil {
 		return nil, err
 	}
-	r.revisionTagKey = revTag
 	podTag, err := tag.NewKey("destination_pod")
 	if err != nil {
 		return nil, err
 	}
-	r.podTagKey = podTag
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -116,13 +111,13 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 			Description: "Number of requests received since last Stat",
 			Measure:     measurements[OperationsPerSecondM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
+			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
 		},
 		&view.View{
 			Description: "Number of requests currently being handled by this pod",
 			Measure:     measurements[AverageConcurrentRequestsM],
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.podTagKey},
+			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
 		},
 	)
 	if err != nil {
@@ -131,20 +126,26 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(r.namespaceTagKey, namespace),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, revision),
-		tag.Insert(r.podTagKey, pod),
+		tag.Insert(nsTag, namespace),
+		tag.Insert(configTag, config),
+		tag.Insert(revTag, revision),
+		tag.Insert(podTag, pod),
 	)
 	if err != nil {
 		return nil, err
 	}
-	r.ctx = ctx
-	r.Initialized = true
-	return r, nil
+	return &Reporter{
+		Initialized: true,
+
+		ctx:             ctx,
+		namespaceTagKey: nsTag,
+		configTagKey:    configTag,
+		revisionTagKey:  revTag,
+		podTagKey:       podTag,
+	}, nil
 }
 
-// Report captures request metrics
+// Report captures request metrics.
 func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.Initialized {
 		return errors.New("StatsReporter is not Initialized yet")
@@ -154,7 +155,7 @@ func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests
 	return nil
 }
 
-// UnregisterViews Unregister views
+// UnregisterViews Unregister views.
 func (r *Reporter) UnregisterViews() error {
 	if r.Initialized != true {
 		return errors.New("Reporter is not initialized")

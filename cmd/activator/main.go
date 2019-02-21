@@ -33,20 +33,29 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/errors"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -64,6 +73,16 @@ const (
 
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
+
+	// The number of requests that are queued on the breaker before the 503s are sent.
+	// The value must be adjusted depending on the actual production requirements.
+	breakerQueueDepth = 10000
+
+	// The upper bound for concurrent requests sent to the revision.
+	// As new endpoints show up, the Breakers concurrency increases up to this value.
+	breakerMaxConcurrency = 1000
+
+	defaultResyncInterval = 10 * time.Hour
 )
 
 var (
@@ -133,6 +152,74 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
+	// Set up signals so we handle the first shutdown signal gracefully.
+	stopCh := signals.SetupSignalHandler()
+
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
+	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+
+	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
+	go revisionInformer.Informer().Run(stopCh)
+	go endpointInformer.Informer().Run(stopCh)
+
+	logger.Info("Waiting for informer caches to sync")
+
+	informerSyncs := []cache.InformerSynced{
+		endpointInformer.Informer().HasSynced,
+		revisionInformer.Informer().HasSynced,
+	}
+	// Make sure the caches are in sync before we add the actual handler.
+	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
+	// is already in sync and it could not perform it because of
+	// revision informer still being synchronized.
+	for i, synced := range informerSyncs {
+		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
+			logger.Fatalf("failed to wait for cache at index %d to sync", i)
+		}
+	}
+	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
+
+	// Return the number of endpoints, 0 if no endpoints are found.
+	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
+		endpoints, err := endpointInformer.Lister().Endpoints(revID.Namespace).Get(revID.Name)
+		if errors.IsNotFound(err) {
+			return 0, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		addresses := activator.EndpointsAddressCount(endpoints.Subsets)
+		return int32(addresses), nil
+	}
+
+	// Return the revision from the observer.
+	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
+		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
+	}
+
+	throttlerParams := activator.ThrottlerParams{
+		BreakerParams: params,
+		Logger:        logger,
+		GetEndpoints:  endpointsGetter,
+		GetRevision:   revisionGetter,
+	}
+	throttler := activator.NewThrottler(throttlerParams)
+
+	handler := cache.ResourceEventHandlerFuncs{
+		AddFunc:    activator.UpdateEndpoints(throttler),
+		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
+		DeleteFunc: activator.DeleteBreaker(throttler),
+	}
+
+	// Update/create the breaker in the throttler when the number of endpoints changes.
+	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		// Pass only the endpoints created by revisions.
+		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		Handler:    handler,
+	})
+
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 
@@ -147,9 +234,6 @@ func main() {
 	}
 	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
 
-	// set up signals so we handle the first shutdown signal gracefully
-	stopCh := signals.SetupSignalHandler()
-
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
@@ -162,18 +246,21 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
 	go cr.Run(stopCh)
 
-	ah := &activatorhandler.FilteringHandler{
-		NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
-			&activatorhandler.EnforceMaxContentLengthHandler{
-				MaxContentLengthBytes: maxUploadBytes,
-				NextHandler: &activatorhandler.ActivationHandler{
-					Activator: a,
-					Transport: rt,
-					Logger:    logger,
-					Reporter:  reporter,
+	ah := &activatorhandler.ProbeHandler{
+		NextHandler: &activatorhandler.FilteringHandler{
+			NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
+				&activatorhandler.EnforceMaxContentLengthHandler{
+					MaxContentLengthBytes: maxUploadBytes,
+					NextHandler: &activatorhandler.ActivationHandler{
+						Activator: a,
+						Transport: rt,
+						Logger:    logger,
+						Reporter:  reporter,
+						Throttler: throttler,
+					},
 				},
-			},
-		),
+			),
+		},
 	}
 
 	// Watch the logging config map and dynamically update logging levels.

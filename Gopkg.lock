@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:e7616ef642758549870638e204b48d6270fcb65fb73c9904cf3e0b7b795f0bd6"
+  digest = "1:9f5945ffc32194cfc3fb28f0914d7afab46a0d96445809a7e19f475b1a680627"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -487,7 +487,10 @@
     "metrics",
     "metrics/metricskey",
     "signals",
+    "system",
+    "system/testing",
     "test",
+    "test/helpers",
     "test/logging",
     "test/spoof",
     "test/zipkin",
@@ -497,11 +500,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "5db4e8e38e5682fd28c4849ffa3135da7787edb6"
+  revision = "729d5ada5f62642351b3420fd2e7bc1897c54943"
 
 [[projects]]
   branch = "master"
-  digest = "1:c4f98ad943675d137b7829ab807de3a43a6de0e14c089d9076ad844a30a26462"
+  digest = "1:7e21ca2875c349660aac9983e652b17329109ae712390ac244e6524e7495ff4a"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +517,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "036c35039cf88c9ca4e8609de5fe0592d4e8067a"
+  revision = "6972ae2803c107ef379a2e66c3efd33757f6ac0f"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -971,16 +974,18 @@
   version = "kubernetes-1.11.3"
 
 [[projects]]
-  digest = "1:e430de0896db98fb93a75f45ace427a4b6d09028777498b7c6a25d33866efdd6"
+  digest = "1:d959c77ff8fbed0e1ccc5d34f9e62775fcf85f265bebb0eddfc1786c4395b4b3"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
+    "pkg/api/validation",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
+    "pkg/apis/meta/v1/validation",
     "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
@@ -1278,6 +1283,7 @@
   input-imports = [
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
+    "github.com/golang/protobuf/proto",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-containerregistry/pkg/authn/k8schain",
@@ -1318,7 +1324,10 @@
     "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/metrics/metricskey",
     "github.com/knative/pkg/signals",
+    "github.com/knative/pkg/system",
+    "github.com/knative/pkg/system/testing",
     "github.com/knative/pkg/test",
+    "github.com/knative/pkg/test/helpers",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
@@ -1343,10 +1352,13 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
+    "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
     "golang.org/x/sync/errgroup",
+    "google.golang.org/grpc",
     "k8s.io/api/apps/v1",
+    "k8s.io/api/authentication/v1",
     "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
@@ -1354,6 +1366,7 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
+    "k8s.io/apimachinery/pkg/api/validation",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",

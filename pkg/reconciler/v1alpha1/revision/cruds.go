@@ -75,6 +75,12 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	// Otherwise attempt an update (with ONLY the spec changes).
 	desiredDeployment := have.DeepCopy()
 	desiredDeployment.Spec = deployment.Spec
+
+	// carry over new labels
+	for k, v := range deployment.Labels {
+		desiredDeployment.Labels[k] = v
+	}
+
 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(desiredDeployment)
 	if err != nil {
 		return nil, Unchanged, err

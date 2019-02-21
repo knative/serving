@@ -221,9 +221,6 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if getIsServiceReady(endpoints) {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
-		// TODO(mattmoor): How to ensure this only fires once?
-		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
-			"Revision becomes ready upon endpoint %q becoming ready", serviceName)
 	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting

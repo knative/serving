@@ -49,7 +49,7 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string, logger *logging.BaseLogger) {
+func cleanup(yamlFilename string) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
 }
@@ -64,6 +64,7 @@ func ingressAddress(gateway string, addressType string) string {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
+	t.Parallel()
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")
@@ -76,8 +77,8 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to create temporary manifest: %v", err)
 	}
 	newYamlFilename := newYaml.Name()
-	defer cleanup(newYamlFilename, logger)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
+	defer cleanup(newYamlFilename)
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) })
 
 	// Populate manifets file with the real path to the container
 	yamlBytes, err := ioutil.ReadFile(appYaml)

@@ -38,6 +38,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -50,7 +51,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
-	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 )
 

@@ -265,6 +265,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		pa.Status.MarkActive()
 	}
 
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 

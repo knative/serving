@@ -25,9 +25,8 @@ import (
 	"net/http"
 	"testing"
 
+	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
-	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,10 +44,8 @@ const (
 // Also, traffic that targets revisions *directly* will be routed to the correct
 // revision 100% of the time.
 func TestBlueGreenRoute(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
-
-	// add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
@@ -56,19 +53,19 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service
-	names.Service = test.AppendRandomString("test-blue-green-route-", logger)
+	names.Service = test.ObjectNameForTest(t)
 	names.Image = pizzaPlanet1
 
 	// Set names for traffic targets to make them directly routable.
 	blue.TrafficTarget = "blue"
 	green.TrafficTarget = "green"
 
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	// Setup Initial Service
-	logger.Info("Creating a new Service in runLatest")
-	objects, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	t.Log("Creating a new Service in runLatest")
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -76,32 +73,32 @@ func TestBlueGreenRoute(t *testing.T) {
 	// The first revision created is "blue"
 	blue.Revision = names.Revision
 
-	logger.Info("Updating to a Manual Service to allow configuration and route to be manually modified")
-	svc, err := test.PatchManualService(logger, clients, objects.Service)
+	t.Log("Updating to a Manual Service to allow configuration and route to be manually modified")
+	svc, err := test.PatchManualService(t, clients, objects.Service)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
 	}
 	objects.Service = svc
 
-	logger.Info("Updating the Configuration to use a different image")
-	cfg, err := test.PatchConfigImage(logger, clients, objects.Config, imagePaths[1])
+	t.Log("Updating the Configuration to use a different image")
+	cfg, err := test.PatchConfigImage(clients, objects.Config, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
 	}
 	objects.Config = cfg
 
-	logger.Info("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	green.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
 	}
 
-	logger.Info("Updating Route")
-	if _, err := test.UpdateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
+	t.Log("Updating Route")
+	if _, err := test.UpdateBlueGreenRoute(t, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	logger.Info("Wait for the route domains to be ready")
+	t.Log("Wait for the route domains to be ready")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -120,10 +117,10 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the route the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	logger.Info("Probing domain %s", greenDomain)
+	t.Logf("Probing domain %s", greenDomain)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		greenDomain,
 		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"WaitForSuccessfulResponse",
@@ -135,15 +132,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(concurrentRequests * minSplitPercentage))
-		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return checkDistribution(t, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(concurrentRequests * minDirectPercentage))
-		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
+		return checkDistribution(t, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(concurrentRequests * minDirectPercentage))
-		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
+		return checkDistribution(t, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)

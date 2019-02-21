@@ -104,7 +104,7 @@ to Design Goal #3: _make everything better_.
    get the same metrics as are reported to Prometheus. Or going to Prometheus to
    get the metrics it has aggregated. It means removing the metrics push from
    the [Queue Proxy to the Autoscaler](../scaling/DEVELOPMENT.md#context).
-1. **[Slow Brain](../scaling/DEVELOPMENT.md#slow-brain--fast-brain) implementation**
-   to automatically adjust target concurrency to the application's behavior.
-   Instead, we can rely on vertical pod autoscaling for now to size the pod to
-   an average of one request at a time.
+1. **[Slow Brain](../scaling/DEVELOPMENT.md#slow-brain--fast-brain)
+   implementation** to automatically adjust target concurrency to the
+   application's behavior. Instead, we can rely on vertical pod autoscaling for
+   now to size the pod to an average of one request at a time.

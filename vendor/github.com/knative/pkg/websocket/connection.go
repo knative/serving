@@ -40,6 +40,10 @@ var (
 
 	// errShuttingDown is returned internally once the shutdown signal has been sent.
 	errShuttingDown = errors.New("shutdown in progress")
+
+	// pongTimeout defines the amount of time allowed between two pongs to arrive
+	// before the connection is considered broken.
+	pongTimeout = 10 * time.Second
 )
 
 // RawConnection is an interface defining the methods needed
@@ -48,6 +52,9 @@ type rawConnection interface {
 	WriteMessage(messageType int, data []byte) error
 	NextReader() (int, io.Reader, error)
 	Close() error
+
+	SetReadDeadline(deadline time.Time) error
+	SetPongHandler(func(string) error)
 }
 
 // ManagedConnection represents a websocket connection.
@@ -57,6 +64,10 @@ type ManagedConnection struct {
 
 	closeChan chan struct{}
 	closeOnce sync.Once
+
+	// Used to capture asynchronous processes to be waited
+	// on when shutting the connection down.
+	processingWg sync.WaitGroup
 
 	// If set, messages will be forwarded to this channel
 	messageChan chan []byte
@@ -107,7 +118,10 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
+	c.processingWg.Add(1)
 	go func() {
+		defer c.processingWg.Done()
+
 		for {
 			select {
 			default:
@@ -125,6 +139,25 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 				}
 			case <-c.closeChan:
 				logger.Infof("Connection to %q is being shutdown", target)
+				return
+			}
+		}
+	}()
+
+	// Keep sending pings 3 times per pongTimeout interval.
+	c.processingWg.Add(1)
+	go func() {
+		defer c.processingWg.Done()
+
+		ticker := time.NewTicker(pongTimeout / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := c.write(websocket.PingMessage, []byte{}); err != nil {
+					logger.Errorw("Failed to send ping message", zap.Error(err))
+				}
+			case <-c.closeChan:
 				return
 			}
 		}
@@ -161,6 +194,16 @@ func (c *ManagedConnection) connect() error {
 			if err != nil {
 				return false, nil
 			}
+
+			// Setting the read deadline will cause NextReader in read
+			// to fail if it is exceeded. This deadline is reset each
+			// time we receive a pong message so we know the connection
+			// is still intact.
+			conn.SetReadDeadline(time.Now().Add(pongTimeout))
+			conn.SetPongHandler(func(string) error {
+				conn.SetReadDeadline(time.Now().Add(pongTimeout))
+				return nil
+			})
 
 			c.connectionLock.Lock()
 			defer c.connectionLock.Unlock()
@@ -234,8 +277,7 @@ func (c *ManagedConnection) read() error {
 	return nil
 }
 
-// Send sends an encodable message over the websocket connection.
-func (c *ManagedConnection) Send(msg interface{}) error {
+func (c *ManagedConnection) write(messageType int, body []byte) error {
 	c.connectionLock.RLock()
 	defer c.connectionLock.RUnlock()
 
@@ -243,16 +285,21 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 		return ErrConnectionNotEstablished
 	}
 
+	c.writerLock.Lock()
+	defer c.writerLock.Unlock()
+
+	return c.connection.WriteMessage(messageType, body)
+}
+
+// Send sends an encodable message over the websocket connection.
+func (c *ManagedConnection) Send(msg interface{}) error {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 	if err := enc.Encode(msg); err != nil {
 		return err
 	}
 
-	c.writerLock.Lock()
-	defer c.writerLock.Unlock()
-
-	return c.connection.WriteMessage(websocket.BinaryMessage, b.Bytes())
+	return c.write(websocket.BinaryMessage, b.Bytes())
 }
 
 // Shutdown closes the websocket connection.
@@ -261,5 +308,7 @@ func (c *ManagedConnection) Shutdown() error {
 		close(c.closeChan)
 	})
 
-	return c.closeConnection()
+	err := c.closeConnection()
+	c.processingWg.Wait()
+	return err
 }

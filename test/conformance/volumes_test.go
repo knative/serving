@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -31,17 +30,15 @@ import (
 
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("cm-volume-", logger),
+		Service: test.ObjectNameForTest(t),
 		Image:   "hellovolume",
 	}
 
-	text := test.AppendRandomString("hello-volumes-", logger)
+	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
 	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
@@ -55,10 +52,10 @@ func TestConfigMapVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create configmap: %v", err)
 	}
-	logger.Info("Successfully created configMap: %v", configMap)
+	t.Logf("Successfully created configMap: %v", configMap)
 
 	cleanup := func() {
-		tearDown(clients, names)
+		test.TearDown(clients, names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
@@ -66,7 +63,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	defer cleanup()
-	test.CleanupOnInterrupt(cleanup, logger)
+	test.CleanupOnInterrupt(cleanup)
 
 	addVolume := func(svc *v1alpha1.Service) {
 		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
@@ -89,34 +86,32 @@ func TestConfigMapVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(logger, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(logger, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }
 
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("cm-volume-", logger),
+		Service: test.ObjectNameForTest(t),
 		Image:   "hellovolume",
 	}
 
-	text := test.AppendRandomString("hello-volumes-", logger)
+	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
@@ -130,10 +125,10 @@ func TestSecretVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
-	logger.Info("Successfully created secret: %v", secret)
+	t.Logf("Successfully created secret: %v", secret)
 
 	cleanup := func() {
-		tearDown(clients, names)
+		test.TearDown(clients, names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
@@ -141,7 +136,7 @@ func TestSecretVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	defer cleanup()
-	test.CleanupOnInterrupt(cleanup, logger)
+	test.CleanupOnInterrupt(cleanup)
 
 	addVolume := func(svc *v1alpha1.Service) {
 		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
@@ -162,17 +157,17 @@ func TestSecretVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(logger, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(logger, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

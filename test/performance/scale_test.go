@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 
@@ -146,9 +145,6 @@ func TestScaleToN(t *testing.T) {
 
 	for _, size := range tests {
 		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
-			// Add test case specific name to its own logger
-			logger := logging.GetContextLogger(t.Name())
-
 			// Record the observed latencies.
 			l := &latencies{
 				metrics: make(map[string]metrics),
@@ -157,15 +153,11 @@ func TestScaleToN(t *testing.T) {
 				results = append(results, l.Results(t)...)
 			}()
 
-			e2e.ScaleToWithin(t, logger, size, 30*time.Minute, l)
+			e2e.ScaleToWithin(t, size, 30*time.Minute, l)
 		})
 	}
 
-	// We do this once here because it doesn't like table test names (with '/')
-	ts := junit.TestSuites{}
-	ts.AddTestSuite(&junit.TestSuite{Name: t.Name(), TestCases: results})
-
-	if err := testgrid.CreateXMLOutput(&ts, t.Name()); err != nil {
+	if err := testgrid.CreateXMLOutput(results, t.Name()); err != nil {
 		t.Errorf("Cannot create output xml: %v", err)
 	}
 }

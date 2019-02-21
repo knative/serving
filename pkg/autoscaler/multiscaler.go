@@ -36,10 +36,10 @@ const (
 	// second.
 	scaleBufferSize = 10
 
-	// SamplesPerSecond is the times to scrape metrics per second across all pods
+	// samplesPerSecond is the times to scrape metrics per second across all pods
 	// of a revision.
 	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	SamplesPerSecond = 3
+	samplesPerSecond = 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -84,6 +84,7 @@ type StatsScraperFactory func(*Metric, *DynamicConfig) (StatsScraper, error)
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
+	pokeCh chan struct{}
 
 	// mux guards access to metric
 	mux    sync.RWMutex
@@ -235,6 +236,17 @@ func (m *MultiScaler) Inform(event string) bool {
 	return false
 }
 
+// setScale directly sets the scale for a given metric key. This does not perform any ticking
+// or updating of other scaler components.
+func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
+	scaler, exists := m.scalers[metricKey]
+	if !exists {
+		return false
+	}
+	scaler.updateLatestScale(scale)
+	return true
+}
+
 func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
 
 	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
@@ -247,6 +259,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		scaler: scaler,
 		stopCh: stopCh,
 		metric: *metric,
+		pokeCh: make(chan struct{}),
 	}
 	runner.metric.Status.DesiredScale = -1
 
@@ -265,6 +278,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				return
 			case <-ticker.C:
 				m.tickScaler(ctx, scaler, scaleChan)
+			case <-runner.pokeCh:
+				m.tickScaler(ctx, scaler, scaleChan)
 			}
 		}
 	}()
@@ -273,7 +288,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
 	}
-	scraperTicker := time.NewTicker(time.Second / SamplesPerSecond)
+	scraperTicker := time.NewTicker(time.Second / samplesPerSecond)
 	go func() {
 		for {
 			select {
@@ -338,6 +353,10 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	if exists {
 		logger := m.logger.With(zap.String(logkey.Key, key))
 		ctx := logging.WithLogger(context.TODO(), logger)
+
 		scaler.scaler.Record(ctx, stat)
+		if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+			scaler.pokeCh <- struct{}{}
+		}
 	}
 }

@@ -11,6 +11,12 @@ When called, the proxy server redirects request to the target server.
 To use this image, users need to first set the host of the target server that
 the proxy redirects request to by setting environment variable `TARGET_HOST`.
 
+## Trying out
+
+To run the image as a Service outisde of the test suite:
+
+`ko apply -f service.yaml`
+
 ## Building
 
 For details about building and adding new images, see the

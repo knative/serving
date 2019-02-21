@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -49,7 +49,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		name: "gateway configuration with no network input",
 		wantIstio: &Istio{
 			IngressGateways: []Gateway{defaultGateway},
-			LocalGateways:   []Gateway{defaultLocalGateway},
+			LocalGateways:   []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -78,7 +78,7 @@ func TestGatewayConfiguration(t *testing.T) {
 				GatewayName: "knative-ingress-freeway",
 				ServiceURL:  "istio-ingressfreeway.istio-system.svc.cluster.local",
 			}},
-			LocalGateways: []Gateway{defaultLocalGateway},
+			LocalGateways: []Gateway{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

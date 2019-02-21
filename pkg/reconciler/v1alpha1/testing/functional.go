@@ -25,9 +25,9 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	confignames "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
@@ -425,6 +425,16 @@ func WithRouteLabel(key, value string) RouteOption {
 	}
 }
 
+// WithIngressClass sets the ingress class annotation on the Route.
+func WithIngressClass(ingressClass string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+	}
+}
+
 // ConfigOption enables further configuration of a Configuration.
 type ConfigOption func(*v1alpha1.Configuration)
 
@@ -492,14 +502,18 @@ func WithCreatedAndReady(created, ready string) ConfigOption {
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name
 // of the latest revision that the Configuration would have created.
-func WithLatestCreated(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestCreatedRevisionName(confignames.DeprecatedRevision(cfg))
+func WithLatestCreated(name string) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Status.SetLatestCreatedRevisionName(name)
+	}
 }
 
 // WithLatestReady initializes the .status.latestReadyRevisionName to be the name
 // of the latest revision that the Configuration would have created.
-func WithLatestReady(cfg *v1alpha1.Configuration) {
-	cfg.Status.SetLatestReadyRevisionName(confignames.DeprecatedRevision(cfg))
+func WithLatestReady(name string) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Status.SetLatestReadyRevisionName(name)
+	}
 }
 
 // MarkRevisionCreationFailed calls .Status.MarkRevisionCreationFailed.
@@ -538,6 +552,13 @@ func WithRevisionDeletionTimestamp(r *v1alpha1.Revision) {
 // WithInitRevConditions calls .Status.InitializeConditions() on a Revision.
 func WithInitRevConditions(r *v1alpha1.Revision) {
 	r.Status.InitializeConditions()
+}
+
+// WithRevName sets the name of the revision
+func WithRevName(name string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Name = name
+	}
 }
 
 // WithBuildRef sets the .Spec.BuildRef on the Revision to match what we'd get

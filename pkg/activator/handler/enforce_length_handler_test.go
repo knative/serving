@@ -74,23 +74,24 @@ func TestEnforceMaxContentLengthHandler(t *testing.T) {
 			label:     "over without ContentLength",
 			maxUpload: len(payload) - 1,
 			request:   stream(payload),
-			status:    http.StatusOK,
-			response:  payload[0 : len(payload)-1],
+			status:    http.StatusRequestEntityTooLarge,
+			response:  "",
 		},
 	}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			// Return 200 and request body
+			// Return 200 and request body if we can read the entire body.
 			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-
 				if r.Body != nil {
 					body, err := ioutil.ReadAll(r.Body)
 					if err != nil {
-						t.Fatalf("Error reading request body: %v", err)
+						w.WriteHeader(http.StatusRequestEntityTooLarge)
+						return
 					}
+					w.WriteHeader(http.StatusOK)
 					w.Write(body)
+					return
 				}
 			})
 			handler := EnforceMaxContentLengthHandler{NextHandler: baseHandler, MaxContentLengthBytes: int64(e.maxUpload)}

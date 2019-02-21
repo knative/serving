@@ -22,31 +22,29 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
-	logger := logging.GetContextLogger(t.Name())
-
 	names := test.ResourceNames{
-		Config: test.AppendRandomString("test-update-configuration-meta-", logger),
+		Config: test.ObjectNameForTest(t),
 		Image:  pizzaPlanet1,
 	}
 
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	logger.Infof("Creating new configuration %s", names.Config)
-	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
+	t.Logf("Creating new configuration %s", names.Config)
+	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
-	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
+	t.Log("The Configuration will be updated with the name of the Revision once it is created")
 	var err error
 	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
 	if err != nil {
@@ -55,7 +53,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	cfg := fetchConfiguration(names.Config, clients, t)
 
-	logger.Infof("Updating labels of Configuration %s", names.Config)
+	t.Logf("Updating labels of Configuration %s", names.Config)
 	newLabels := map[string]string{
 		"labelX": "abc",
 		"labelY": "def",
@@ -85,7 +83,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
-	logger.Infof("Validating labels were not propagated to Revision %s", names.Revision)
+	t.Logf("Validating labels were not propagated to Revision %s", names.Revision)
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
 		// Labels we placed on Configuration should _not_ appear on Revision.
 		return checkNoKeysPresent(newLabels, r.Labels, t), nil
@@ -94,7 +92,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
 	}
 
-	logger.Infof("Updating annotations of Configuration %s", names.Config)
+	t.Logf("Updating annotations of Configuration %s", names.Config)
 	newAnnotations := map[string]string{
 		"annotationA": "123",
 		"annotationB": "456",
@@ -123,7 +121,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
-	logger.Infof("Validating annotations were not propagated to Revision %s", names.Revision)
+	t.Logf("Validating annotations were not propagated to Revision %s", names.Revision)
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
 		// Annotations we placed on Configuration should _not_ appear on Revision.
 		return checkNoKeysPresent(newAnnotations, r.Annotations, t), nil

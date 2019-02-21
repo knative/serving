@@ -26,14 +26,10 @@ import (
 )
 
 func TestConfigurationDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generation",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}

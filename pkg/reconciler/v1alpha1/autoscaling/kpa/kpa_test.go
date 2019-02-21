@@ -24,6 +24,8 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -32,8 +34,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	"github.com/knative/serving/pkg/system"
-	_ "github.com/knative/serving/pkg/system/testing"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"

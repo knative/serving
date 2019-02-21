@@ -38,6 +38,9 @@ spec:
   - name: Service Name
     type: string
     JSONPath: .status.serviceName
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   - name: Ready
     type: string
     JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"

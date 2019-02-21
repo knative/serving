@@ -20,8 +20,10 @@ limitations under the License.
 package logging
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -38,6 +40,10 @@ const (
 
 	// 1 second was chosen arbitrarily
 	metricViewReportingPeriod = 1 * time.Second
+
+	// prefix attached to metric name that indicates to the
+	// ExportSpan method that span needs to be emitted.
+	emitableSpanNamePrefix = "emitspan-"
 )
 
 var baseLogger *BaseLogger
@@ -64,11 +70,21 @@ func (e *zapMetricExporter) ExportView(vd *view.Data) {
 	e.logger.Debug(spew.Sprint(vd))
 }
 
-// ExportSpan will emit the trace data to the zap logger.
+// GetEmitableSpan starts and returns a trace.Span with a name that
+// is used by the ExportSpan method to emit the span.
+func GetEmitableSpan(ctx context.Context, metricName string) *trace.Span {
+	_, span := trace.StartSpan(ctx, emitableSpanNamePrefix + metricName)
+	return span
+}
+
+// ExportSpan will emit the trace data to the zap logger. The span is emitted
+// only if the metric name is prefix with emitableSpanNamePrefix constant.
 func (e *zapMetricExporter) ExportSpan(vd *trace.SpanData) {
-	duration := vd.EndTime.Sub(vd.StartTime)
-	// We will start the log entry with `metric` to identify it as a metric for parsing
-	e.logger.Infof("metric %s %d %d %s", vd.Name, vd.StartTime.UnixNano(), vd.EndTime.UnixNano(), duration)
+	if strings.HasPrefix(vd.Name, emitableSpanNamePrefix) {
+		duration := vd.EndTime.Sub(vd.StartTime)
+		// We will start the log entry with `metric` to identify it as a metric for parsing
+		e.logger.Infof("metric %s %d %d %s", vd.Name[len(emitableSpanNamePrefix):], vd.StartTime.UnixNano(), vd.EndTime.UnixNano(), duration)
+	}
 }
 
 func newLogger(logLevel string) *BaseLogger {

@@ -9,7 +9,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
@@ -31,25 +30,19 @@ func Setup(t *testing.T) *test.Clients {
 	return clients
 }
 
-// TearDown will delete created names using clients.
-func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
-func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, image string, options *test.Options) (test.ResourceNames, error) {
+func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, options *test.Options) (test.ResourceNames, error) {
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: svcName,
+		Route:  svcName,
 		Image:  image,
 	}
 
-	if _, err := test.CreateConfiguration(logger, clients, names, options); err != nil {
+	if _, err := test.CreateConfiguration(t, clients, names, options); err != nil {
 		return test.ResourceNames{}, err
 	}
-	_, err := test.CreateRoute(logger, clients, names)
+	_, err := test.CreateRoute(t, clients, names)
 	return names, err
 }

@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 
@@ -35,17 +34,12 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
-var (
-	clients *test.Clients
-	logger  *logging.BaseLogger
-)
-
 const (
 	targetHostEnv      = "TARGET_HOST"
 	helloworldResponse = "Hello World! How about some tasty noodles?"
 )
 
-func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
+func createTargetHostEnvVars(t *testing.T, clients *test.Clients, routeName string) []corev1.EnvVar {
 	helloWorldRoute, err := clients.ServingClient.Routes.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Route of helloworld app: %v", err)
@@ -60,16 +54,16 @@ func createTargetHostEnvVars(routeName string, t *testing.T) []corev1.EnvVar {
 	if want, got := helloWorldRoute.Status.Address.Hostname, helloWorldRoute.Status.Domain; got != want {
 		t.Errorf("Route.Domain = %v, want %v", got, want)
 	}
-	logger.Infof("helloworld internal domain is %s.", helloWorldRoute.Status.Domain)
+	t.Logf("helloworld internal domain is %s.", helloWorldRoute.Status.Domain)
 	return []corev1.EnvVar{{
 		Name:  targetHostEnv,
 		Value: helloWorldRoute.Status.Domain,
 	}}
 }
 
-func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) {
-	logger.Infof("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, resolvableDomain)
+func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {
+	t.Logf("The domain of request is %s.", domain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
@@ -88,31 +82,32 @@ func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) 
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
-	logger = logging.GetContextLogger(t.Name())
-	clients = Setup(t)
+	t.Parallel()
+	clients := Setup(t)
 
 	// Set up helloworld app.
-	logger.Info("Creating a Route and Configuration for helloworld test app.")
+	t.Log("Creating a Route and Configuration for helloworld test app.")
 
+	svcName := test.ObjectNameForTest(t)
 	helloWorldNames := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: svcName,
+		Route:  svcName,
 		Image:  "helloworld",
 	}
 
-	if _, err := test.CreateConfiguration(logger, clients, helloWorldNames, &test.Options{}); err != nil {
+	if _, err := test.CreateConfiguration(t, clients, helloWorldNames, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
 	withInternalVisibility := WithRouteLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 
-	if _, err := test.CreateRoute(logger, clients, helloWorldNames, withInternalVisibility); err != nil {
+	if _, err := test.CreateRoute(t, clients, helloWorldNames, withInternalVisibility); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, helloWorldNames, logger) }, logger)
-	defer TearDown(clients, helloWorldNames, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
+	defer test.TearDown(clients, helloWorldNames)
 
 	if err := test.WaitForRouteState(clients.ServingClient, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", helloWorldNames.Route, err)
@@ -124,17 +119,17 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 
 	// Set up httpproxy app.
-	logger.Info("Creating a Route and Configuration for httpproxy test app.")
+	t.Log("Creating a Route and Configuration for httpproxy test app.")
 
-	envVars := createTargetHostEnvVars(helloWorldNames.Route, t)
-	httpProxyNames, err := CreateRouteAndConfig(clients, logger, "httpproxy", &test.Options{
+	envVars := createTargetHostEnvVars(t, clients, helloWorldNames.Route)
+	httpProxyNames, err := CreateRouteAndConfig(t, clients, "httpproxy", &test.Options{
 		EnvVars: envVars,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, httpProxyNames, logger) }, logger)
-	defer TearDown(clients, httpProxyNames, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, httpProxyNames) })
+	defer test.TearDown(clients, httpProxyNames)
 	if err := test.WaitForRouteState(clients.ServingClient, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", httpProxyNames.Route, err)
 	}
@@ -144,16 +139,16 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
 		"HttpProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
-	logger.Info("httpproxy is ready.")
+	t.Log("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
@@ -164,7 +159,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// As a final check (since we know they are both up), check that we cannot
 	// send a request directly to the helloWorldRoute.
-	response, err = sendRequest(test.ServingFlags.ResolvableDomain, helloWorldRoute.Status.Domain)
+	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloWorldRoute.Status.Domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to helloworld: %v", err)
 	}

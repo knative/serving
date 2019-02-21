@@ -36,6 +36,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	"go.opencensus.io/exporter/prometheus"
@@ -127,16 +128,47 @@ func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
 	return httpProxy
 }
 
-func isProbe(r *http.Request) bool {
+func isKnativeProbe(r *http.Request) bool {
+	return r.Header.Get(network.ProbeHeaderName) != ""
+}
+
+func isKubeletProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
 }
 
+func probeUserContainer() bool {
+	var err error
+	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+		logger.Debug("TCP probing the user-container.")
+		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+		return err == nil, nil
+	})
+
+	if err == nil {
+		logger.Info("User-container successfully probed.")
+	} else {
+		logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+	}
+
+	return err == nil
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	proxy := proxyForRequest(r)
 
-	if isProbe(r) {
+	switch {
+	case isKnativeProbe(r):
+		if probeUserContainer() {
+			// Respond with the name of the component handling the request.
+			w.Write([]byte("queue"))
+		} else {
+			http.Error(w, "container not ready", http.StatusServiceUnavailable)
+		}
+		return
+
+	case isKubeletProbe(r):
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
 		return
@@ -147,6 +179,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqOut}
 	}()
+
 	// Enforce queuing and concurrency limits
 	if breaker != nil {
 		ok := breaker.Maybe(func() {
@@ -164,23 +197,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 // Sets up /health and /quitquitquit endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
-		var err error
-		wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
-			logger.Debug("TCP probing the user-container.")
-			err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
-			return err == nil, nil
-		})
-
-		if err == nil {
-			logger.Info("User-container successfully probed.")
-		} else {
-			logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
-		}
-
-		return err == nil
-	}))
-
+	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
 	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
 		time.Sleep(quitSleepDuration)
 
@@ -214,8 +231,10 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.FlushInterval = -1
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
+	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
 	activatorutil.SetupHeaderPruning(h2cProxy)
@@ -228,7 +247,7 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency), Logger: logger}
+		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency)}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
 	}

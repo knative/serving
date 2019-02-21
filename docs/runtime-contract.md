@@ -226,8 +226,13 @@ full set of HTTP headers is constantly evolving, it is RECOMMENDED that
 platforms which strip headers define a common prefix which covers all headers
 removed by the platform.
 
-Also, the following proxy-specific request headers MUST be set, in addition to
-the base set of HTTP/1.1 headers (e.g. `Host:`)
+In addition, the following base set of HTTP/1.1 headers MUST be set on the
+request:
+
+- `Host` - As specified by
+  [RFC 7230 Section 5.4](https://tools.ietf.org/html/rfc7230#section-5.4)
+
+Also, the following proxy-specific request headers MUST be set:
 
 - `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
 

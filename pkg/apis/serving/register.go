@@ -53,13 +53,13 @@ const (
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
 
-	// DeprecatedConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
-	// generation of the Configuration that created this revision
-	DeprecatedConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
-
-	// ConfigurationMetadataGenerationLabelKey is the label key attached to a Revision indicating the
+	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// metadata generation of the Configuration that created this revision
-	ConfigurationMetadataGenerationLabelKey = GroupName + "/configurationMetadataGeneration"
+	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
+
+	// DeprecatedConfigurationMetadataGenerationLabelKey is the label key attached to a Revision indicating the
+	// metadata generation of the Configuration that created this revision
+	DeprecatedConfigurationMetadataGenerationLabelKey = GroupName + "/configurationMetadataGeneration"
 
 	// BuildHashLabelKey is the label key attached to a Build indicating the
 	// hash of the spec from which they were created.

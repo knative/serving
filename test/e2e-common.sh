@@ -28,11 +28,10 @@ INSTALL_ISTIO_CRD_YAML=""
 INSTALL_ISTIO_YAML=""
 # TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
+
 # Build is used by some tests and so is also included here.
-# TODO: Should we install build from a nightly release?
-# The latest released Build is always at this location.
-readonly INSTALL_BUILD_YAML="https://storage.googleapis.com/knative-releases/build/latest/release.yaml"
-readonly INSTALL_PIPELINE_YAML="./third_party/config/pipeline/release.yaml"
+readonly INSTALL_BUILD_DIR="./third_party/config/build/"
+readonly INSTALL_PIPELINE_DIR="./third_party/config/pipeline/"
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
@@ -113,8 +112,8 @@ function install_knative_serving_standard() {
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
-  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
+  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
@@ -122,8 +121,8 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
-  kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
-  kubectl apply -f "${INSTALL_PIPELINE_YAML}" || return 1
+  kubectl apply -f "${INSTALL_BUILD_DIR}" || return 1
+  kubectl apply -f "${INSTALL_PIPELINE_DIR}" || return 1
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
@@ -186,13 +185,13 @@ function uninstall_knative_serving() {
     echo ">> Uninstalling Knative serving"
     echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
     echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-    echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
-    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
+    echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
+    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
     ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
     echo ">> Bringing down Build"
-    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
-    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_YAML}" || return 1
+    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
+    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_DIR}" || return 1
     echo ">> Bringing down Istio"
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
     kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding

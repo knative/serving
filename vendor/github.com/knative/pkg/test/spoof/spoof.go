@@ -29,9 +29,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/zipkin"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -75,6 +74,8 @@ var _ Interface = (*SpoofingClient)(nil)
 // https://github.com/kubernetes/apimachinery/blob/cf7ae2f57dabc02a3d215f15ca61ae1446f3be8f/pkg/util/wait/wait.go#L172
 type ResponseChecker func(resp *Response) (done bool, err error)
 
+type FormatLogger func(template string, args ...interface{})
+
 // SpoofingClient is a minimal HTTP client wrapper that spoofs the domain of requests
 // for non-resolvable domains.
 type SpoofingClient struct {
@@ -85,7 +86,7 @@ type SpoofingClient struct {
 	endpoint string
 	domain   string
 
-	logger *logging.BaseLogger
+	logf FormatLogger
 }
 
 // New returns a SpoofingClient that rewrites requests if the target domain is not `resolveable`.
@@ -93,12 +94,12 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logf FormatLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
 		RequestTimeout:  requestTimeout,
-		logger:          logger,
+		logf:            logf,
 	}
 
 	if !resolvable {
@@ -214,7 +215,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		resp, err = sc.Do(req)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
-				sc.logger.Infof("Retrying %s for TCP timeout %v", req.URL.String(), err)
+				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
 				return false, nil
 			}
 			return true, err
@@ -232,7 +233,7 @@ func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
 		return errors.New("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
 	}
 
-	sc.logger.Infof("Logging Zipkin Trace: %s", traceID)
+	sc.logf("Logging Zipkin Trace: %s", traceID)
 
 	zipkinTraceEndpoint := zipkin.ZipkinTraceEndpoint + traceID
 	// Sleep to ensure all traces are correctly pushed on the backend.
@@ -252,7 +253,7 @@ func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
 	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
 		return fmt.Errorf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
 	}
-	sc.logger.Info(prettyJSON.String())
+	sc.logf("%s", prettyJSON.String())
 
 	return nil
 }

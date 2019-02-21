@@ -32,14 +32,15 @@ the following objects:
 - A VirtualService to realize the routing from the Gateway
   `knative-ingress-gateway` to the traffic target referenced in the Route.
 - A Service with the same name as the Route, so that we can access the Route
-  using `<route-name>.<route-namespace>.svc.<cluster-domain-name>`. This Service has no
-  Pod, we use it solely to have a domain name and a cluster IP to be used in the
-  VirtualService. The value of `<cluster-domain-name>` depends on a domain name
-  specified during the installation of the cluster. If no custom domain name was specified, then
-  `cluster.local` should be used as in the following example:
-  
+  using `<route-name>.<route-namespace>.svc.<cluster-domain-name>`. This Service
+  has no Pod, we use it solely to have a domain name and a cluster IP to be used
+  in the VirtualService. The value of `<cluster-domain-name>` depends on a
+  domain name specified during the installation of the cluster. If no custom
+  domain name was specified, then `cluster.local` should be used as in the
+  following example:
+
   `<route-name>.<route-namespace>.svc.cluster.local`
-  
+
   otherwise cluster's custom domain name should be used:
 
   `<route-name>.<route-namespace>.svc.real-domain-name.com`

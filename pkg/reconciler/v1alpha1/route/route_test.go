@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -35,10 +36,10 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	"github.com/knative/serving/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -173,25 +174,28 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := []*corev1.ConfigMap{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.DomainConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{
-				defaultDomainSuffix: "",
-				prodDomainSuffix:    "selector:\n  app: prod",
-			},
+	cms := []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DomainConfigName,
+			Namespace: system.Namespace(),
 		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      gc.ConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
 		},
-	}
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}}
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}
@@ -312,8 +316,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -401,8 +403,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -482,8 +482,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -582,8 +580,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -702,8 +698,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
