@@ -73,7 +73,7 @@ func (e *zapMetricExporter) ExportView(vd *view.Data) {
 // GetEmitableSpan starts and returns a trace.Span with a name that
 // is used by the ExportSpan method to emit the span.
 func GetEmitableSpan(ctx context.Context, metricName string) *trace.Span {
-	_, span := trace.StartSpan(ctx, emitableSpanNamePrefix + metricName)
+	_, span := trace.StartSpan(ctx, emitableSpanNamePrefix+metricName)
 	return span
 }
 

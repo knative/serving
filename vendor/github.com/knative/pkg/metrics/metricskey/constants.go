@@ -61,9 +61,16 @@ var (
 		LabelRevisionName,
 	)
 
-	// KnativeRevisionMetricsPrefixes stores a set of metrics prefixes that belong to resource type knative_revision
-	KnativeRevisionMetricsPrefixes = sets.NewString(
-		"knative.dev/serving/autoscaler",
-		"knative.dev/serving/activator",
+	// KnativeRevisionMetrics stores a set of metric types which are supported
+	// by resource type knative_revision.
+	KnativeRevisionMetrics = sets.NewString(
+		"knative.dev/serving/activator/request_count",
+		"knative.dev/serving/activator/request_latencies",
+		"knative.dev/serving/autoscaler/desired_pods",
+		"knative.dev/serving/autoscaler/requested_pods",
+		"knative.dev/serving/autoscaler/actual_pods",
+		"knative.dev/serving/autoscaler/stable_request_concurrency",
+		"knative.dev/serving/autoscaler/panic_request_concurrency",
+		"knative.dev/serving/autoscaler/target_concurrency_per_pod",
 	)
 )
