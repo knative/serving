@@ -122,6 +122,9 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.Ports = buildContainerPorts(userPort)
 	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+	// Explicitly disable stdin and tty allocation
+	userContainer.Stdin = false
+	userContainer.TTY = false
 
 	// Prefer imageDigest from revision if available
 	if rev.Status.ImageDigest != "" {
