@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strings"
 	"sync"
 	"time"
 
@@ -288,9 +287,4 @@ func (a *Autoscaler) readyPods() (float64, error) {
 
 	// Use 1 as minimum for multiplication and division.
 	return math.Max(1, float64(readyPods)), nil
-}
-
-func isActivator(podName string) bool {
-	// TODO(#2282): This can cause naming collisions.
-	return strings.HasPrefix(podName, ActivatorPodName)
 }
