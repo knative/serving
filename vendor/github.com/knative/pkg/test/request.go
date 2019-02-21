@@ -63,8 +63,8 @@ func IsOneOfStatusCodes(codes ...int) spoof.ResponseChecker {
 }
 
 // IsStatusOK checks that the response code is a 200.
-func IsStatusOK() spoof.ResponseChecker {
-	return IsOneOfStatusCodes(http.StatusOK)
+func IsStatusOK(resp *spoof.Response) (bool, error) {
+	return IsOneOfStatusCodes(http.StatusOK)(resp)
 }
 
 // MatchesBody checks that the *first* response body matches the "expected" body, otherwise failing.
@@ -97,7 +97,7 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 // the other functions (they will not be executed).
 //
 // This is useful for combining a body with a status check like:
-// MatchesAllOf(IsStatusOK(), MatchesBody("test"))
+// MatchesAllOf(IsStatusOK, MatchesBody("test"))
 //
 // The MatchesBody check will only be executed after the IsStatusOK has passed.
 func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
