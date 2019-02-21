@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/test/logging"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,8 +44,7 @@ const (
 // error or timeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForRouteState(client *ServingClients, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
-	metricName := fmt.Sprintf("WaitForRouteState/%s/%s", name, desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Route
@@ -85,8 +84,7 @@ func CheckRouteState(client *ServingClients, name string, inState func(r *v1alph
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForConfigurationState(client *ServingClients, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
-	metricName := fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Configuration
@@ -126,8 +124,7 @@ func CheckConfigurationState(client *ServingClients, name string, inState func(r
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForRevisionState(client *ServingClients, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
-	metricName := fmt.Sprintf("WaitForRevision/%s/%s", name, desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRevision/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Revision
@@ -167,8 +164,7 @@ func CheckRevisionState(client *ServingClients, name string, inState func(r *v1a
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForServiceState(client *ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
-	metricName := fmt.Sprintf("WaitForServiceState/%s/%s", name, desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Service
