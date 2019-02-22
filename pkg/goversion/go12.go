@@ -18,4 +18,5 @@ limitations under the License.
 
 package goversion
 
-const requiresGo1dot12 = true
+// SupportsUnbufferedHTTPProxy is set to true if Go supports -1 (unbuffered) HTTP FlushInterval
+const SupportsUnbufferedHTTPProxy = true

@@ -36,6 +36,7 @@ import (
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/goversion"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/network"
@@ -262,10 +263,15 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
-	httpProxy.FlushInterval = -1
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
-	h2cProxy.FlushInterval = -1
+
+	if goversion.SupportsUnbufferedHTTPProxy {
+		httpProxy.FlushInterval = -1
+		h2cProxy.FlushInterval = -1
+	} else {
+		logger.Warn("Using old Go version (<1.12). GRPC and HTTP/2 streams not supported. See https://github.com/knative/serving/issues/3188.")
+	}
 
 	activatorutil.SetupHeaderPruning(httpProxy)
 	activatorutil.SetupHeaderPruning(h2cProxy)

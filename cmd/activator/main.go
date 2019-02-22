@@ -45,7 +45,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/goversion"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
@@ -58,9 +57,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
-
-// Fail if using unsupported go version
-var _ = goversion.IsSupported()
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine

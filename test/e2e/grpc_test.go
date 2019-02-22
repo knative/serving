@@ -1,4 +1,6 @@
 // +build e2e
+// We need unbuffered HTTP reverse proxying for this to work
+// +build go1.12
 
 /*
 Copyright 2019 The Knative Authors

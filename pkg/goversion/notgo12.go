@@ -1,3 +1,5 @@
+// +build !go1.12
+
 /*
 Copyright 2019 The Knative Authors
 
@@ -16,8 +18,5 @@ limitations under the License.
 
 package goversion
 
-// IsSupported should fail to compile due to missing const references on
-// unsupported go versions, otherwise return true.
-func IsSupported() bool {
-	return requiresGo1dot12
-}
+// SupportsUnbufferedHTTPProxy is set to false if Go does not support -1 (unbuffered) HTTP FlushInterval
+const SupportsUnbufferedHTTPProxy = false

@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/goversion"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"go.uber.org/zap"
@@ -140,7 +141,10 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
-	proxy.FlushInterval = -1
+
+	if goversion.SupportsUnbufferedHTTPProxy {
+		proxy.FlushInterval = -1
+	}
 
 	attempts := int(1) // one attempt is always needed
 	proxy.ModifyResponse = func(r *http.Response) error {
