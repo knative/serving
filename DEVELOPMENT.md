@@ -121,14 +121,23 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-The `--user` you use depends on
-[your cluster
+Your user must be a cluster admin to perform the setup needed for Knative.
+
+The value you use depends on [your cluster
 setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
+when using Minikube, the user is your local user; when using GKE, the user is
+your GCP user.
 
 ```shell
+# For GCP
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
   --user=$(gcloud config get-value core/account)
+
+# For minikube
+kubectl create clusterrolebinding cluster-admin-binding \
+  --clusterrole=cluster-admin \
+  --user=$USER
 ```
 
 ### Deploy Istio
