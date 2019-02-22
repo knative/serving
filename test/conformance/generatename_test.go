@@ -63,12 +63,10 @@ func generateNamePrefix(t *testing.T) string {
 
 // validateName checks that a name generated using a generateName is valid. It checks
 // 1. The generateName is a prefix of the name, but they are not equal
-// 2. 5 lowercase characters or digits are added onto generateName to create the value of name.
+// 2. Any number of valid name characters (alphanumeric, -, and .) are added togenerateName to
+//    create the value of name.
 func validateName(generateName, name string) error {
-	r, err := regexp.Compile("^" + regexp.QuoteMeta(generateName) + "[a-z0-9]{5}$")
-	if err != nil {
-		return fmt.Errorf("failed to compile regex to test generated name %s: %v", name, err)
-	}
+	r := regexp.MustCompile("^" + regexp.QuoteMeta(generateName) + "[a-zA-Z0-9\\-.]+$")
 
 	if !r.MatchString(name) {
 		return fmt.Errorf("expected generated name to match \"%v\", got %s", r, name)
