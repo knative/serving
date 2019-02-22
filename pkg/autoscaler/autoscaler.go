@@ -176,8 +176,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	config := a.Current()
 
-	observedStableConcurrency, observedPanicConcurrency, lastBucket, ok := a.aggregateData(now, config.StableWindow, config.PanicWindow)
-	if !ok {
+	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, config.StableWindow, config.PanicWindow)
+	if len(a.bucketed) == 0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
@@ -236,7 +236,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 // respectively and returns the observedStableConcurrency, observedPanicConcurrency
 // and the last bucket that was aggregated. The boolean indicates whether or not
 // the aggregation was successful.
-func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, statsBucket, bool) {
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (
+	stableConcurrency float64, panicConcurrency float64, lastBucket statsBucket) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -248,7 +249,6 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 		panicTotal   float64
 
 		lastBucketTime time.Time
-		lastBucket     statsBucket
 	)
 	for bucketTime, bucket := range a.bucketed {
 		if !bucketTime.Add(panicWindow).Before(now) {
@@ -269,10 +269,14 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 		}
 	}
 
-	if stableBuckets == 0 || panicBuckets == 0 {
-		return 0, 0, nil, false
+	if stableBuckets > 0 {
+		stableConcurrency = stableTotal / stableBuckets
 	}
-	return stableTotal / stableBuckets, panicTotal / panicBuckets, lastBucket, true
+	if panicBuckets > 0 {
+		panicConcurrency = panicTotal / panicBuckets
+	}
+
+	return stableConcurrency, panicConcurrency, lastBucket
 }
 
 func (a *Autoscaler) targetConcurrency() float64 {
