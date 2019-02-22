@@ -77,7 +77,7 @@ func (b statsBucket) add(stat *Stat) {
 
 // concurrency calculates the overall concurrency as measured by this
 // bucket. All stats that belong to the same pod will be averaged.
-// The overall concurrency is the sum the measured concurrency of all
+// The overall concurrency is the sum of the measured concurrency of all
 // pods (including activator metrics).
 func (b statsBucket) concurrency() float64 {
 	var total float64
