@@ -261,7 +261,7 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
-	gotReplicas := deployment.Status.Replicas
+	gotReplicas := deployment.Status.ReadyReplicas
 	mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	ctx.t.Log(mes)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
@@ -281,7 +281,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	defer close(stopChan)
 
 	go func() {
-		if err := generateTraffic(ctx, int(numPods*10), 30*time.Second, stopChan); err != nil {
+		if err := generateTraffic(ctx, int(numPods*10), 60*time.Second, stopChan); err != nil {
 			errChan <- err
 		}
 	}()
