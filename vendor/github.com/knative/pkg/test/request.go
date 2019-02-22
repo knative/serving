@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
@@ -112,24 +113,37 @@ func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
 	}
 }
 
-// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved.
+// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved,
+// or default timeout is reached.
 // If resolvableDomain is false, it will use kubeClientset to look up the ingress and spoof
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
 func WaitForEndpointState(kubeClient *KubeClient, logf spoof.FormatLogger, domain string, inState spoof.ResponseChecker, desc string, resolvable bool) (*spoof.Response, error) {
-	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc))
-	defer span.End()
+	return WaitForEndpointStateWithTimeout(kubeClient, logf, domain, inState, desc, resolvable, spoof.RequestTimeout)
+}
 
-	client, err := NewSpoofingClient(kubeClient, logf, domain, resolvable)
-	if err != nil {
-		return nil, err
-	}
+// WaitForEndpointStateWithTimeout will poll an endpoint until inState indicates the state is achieved
+// or the provided timeout is achieved.
+// If resolvableDomain is false, it will use kubeClientset to look up the ingress and spoof
+// the domain in the request headers, otherwise it will make the request directly to domain.
+// desc will be used to name the metric that is emitted to track how long it took for the
+// domain to get into the state checked by inState.  Commas in `desc` must be escaped.
+func WaitForEndpointStateWithTimeout(
+	kubeClient *KubeClient, logf spoof.FormatLogger, domain string, inState spoof.ResponseChecker,
+	desc string, resolvable bool, timeout time.Duration) (*spoof.Response, error) {
+	defer logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc)).End()
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
 		return nil, err
 	}
+
+	client, err := NewSpoofingClient(kubeClient, logf, domain, resolvable)
+	if err != nil {
+		return nil, err
+	}
+	client.RequestTimeout = timeout
 
 	return client.Poll(req, inState)
 }
