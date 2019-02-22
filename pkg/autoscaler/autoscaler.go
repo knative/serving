@@ -66,12 +66,14 @@ type StatMessage struct {
 	Stat Stat
 }
 
-// StatsBucket keeps all the stats that fall into a defined bucket.
-type StatsBucket struct {
+// statsBucket keeps all the stats that fall into a defined bucket.
+type statsBucket struct {
 	stats map[string][]Stat
 }
 
-func (b *StatsBucket) add(stat Stat) {
+// add adds a Stat to the bucket. Stats from the same pod will be
+// collapsed.
+func (b *statsBucket) add(stat Stat) {
 	podStats, ok := b.stats[stat.PodName]
 	if !ok {
 		podStats = []Stat{}
@@ -80,7 +82,11 @@ func (b *StatsBucket) add(stat Stat) {
 	b.stats[stat.PodName] = podStats
 }
 
-func (b *StatsBucket) concurrency() float64 {
+// concurrency calculates the overall concurrency as measured by this
+// bucket. All stats that belong to the same pod will be averaged.
+// The overall concurrency is the sum the measured concurrency of all
+// pods (including activator metrics).
+func (b *statsBucket) concurrency() float64 {
 	var total float64
 	for _, podStats := range b.stats {
 		var subtotal float64
@@ -100,9 +106,11 @@ type Autoscaler struct {
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
-	panicTime       *time.Time
-	maxPanicPods    int32
 	reporter        StatsReporter
+
+	// State in panic mode. Carries over multiple Scale calls.
+	panicTime    *time.Time
+	maxPanicPods int32
 
 	// targetMutex guards the elements in the block below.
 	targetMutex sync.RWMutex
@@ -110,7 +118,7 @@ type Autoscaler struct {
 
 	// statsMutex guards the elements in the block below.
 	statsMutex sync.Mutex
-	bucketed   map[time.Time]*StatsBucket
+	bucketed   map[time.Time]*statsBucket
 }
 
 // New creates a new instance of autoscaler
@@ -122,7 +130,7 @@ func New(
 	target float64,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if endpointsInformer == nil {
-		return nil, errors.New("Empty interface of EndpointsInformer")
+		return nil, errors.New("'endpointsEnformer' must not be nil")
 	}
 	return &Autoscaler{
 		DynamicConfig:   dynamicConfig,
@@ -130,7 +138,7 @@ func New(
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
 		target:          target,
-		bucketed:        make(map[time.Time]*StatsBucket),
+		bucketed:        make(map[time.Time]*statsBucket),
 		reporter:        reporter,
 	}, nil
 }
@@ -157,7 +165,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	bucketKey := stat.Time.Truncate(bucketSize)
 	bucket, ok := a.bucketed[bucketKey]
 	if !ok {
-		bucket = &StatsBucket{stats: make(map[string][]Stat)}
+		bucket = &statsBucket{stats: make(map[string][]Stat)}
 		a.bucketed[bucketKey] = bucket
 	}
 	bucket.add(stat)
@@ -181,12 +189,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		return 0, false
 	}
 
-	// Log system totals
+	// Log system totals.
 	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.concurrency())
 
 	target := a.targetConcurrency()
-	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
-	// The scaling up rate limited to within MaxScaleUpRate.
+	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
+	// The scaling up rate is limited to the MaxScaleUpRate.
 	desiredStablePodCount := int32(math.Ceil(a.podCountLimited(observedStableConcurrency/target, readyPods)))
 	desiredPanicPodCount := int32(math.Ceil(a.podCountLimited(observedPanicConcurrency/target, readyPods)))
 
@@ -206,7 +214,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.maxPanicPods = 0
 	}
 
-	// Begin panicking when we cross the 6 second concurrency threshold.
+	// Begin panicking when we cross the concurrency threshold in the panic window.
 	if a.panicTime == nil && isOverPanicThreshold {
 		logger.Info("PANICKING")
 		a.panicTime = &now
@@ -216,6 +224,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	if a.panicTime != nil {
 		logger.Debug("Operating in panic mode.")
 		a.reporter.ReportPanic(1)
+		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
 			logger.Infof("Increasing pods from %v to %v.", readyPods, desiredPanicPodCount)
 			a.panicTime = &now
@@ -232,7 +241,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
-func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, *StatsBucket, bool) {
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, *statsBucket, bool) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -243,7 +252,7 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	var panicTotal float64
 
 	var lastBucketTime time.Time
-	var lastBucket *StatsBucket
+	var lastBucket *statsBucket
 
 	for bucketTime, bucket := range a.bucketed {
 		if !bucketTime.Add(panicWindow).Before(now) {
