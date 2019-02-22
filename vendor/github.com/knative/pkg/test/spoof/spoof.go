@@ -42,7 +42,8 @@ import (
 
 const (
 	requestInterval = 1 * time.Second
-	requestTimeout  = 5 * time.Minute
+	// RequestTimeout is the default timeout for the polling requests.
+	RequestTimeout = 5 * time.Minute
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
 	istioIngressNamespace = "istio-system"
 	istioIngressName      = "istio-ingressgateway"
@@ -74,6 +75,7 @@ var _ Interface = (*SpoofingClient)(nil)
 // https://github.com/kubernetes/apimachinery/blob/cf7ae2f57dabc02a3d215f15ca61ae1446f3be8f/pkg/util/wait/wait.go#L172
 type ResponseChecker func(resp *Response) (done bool, err error)
 
+// FormatLogger is a printf style function for logging in the Spoof client.
 type FormatLogger func(template string, args ...interface{})
 
 // SpoofingClient is a minimal HTTP client wrapper that spoofs the domain of requests
@@ -98,7 +100,7 @@ func New(kubeClientset *kubernetes.Clientset, logf FormatLogger, domain string, 
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
-		RequestTimeout:  requestTimeout,
+		RequestTimeout:  RequestTimeout,
 		logf:            logf,
 	}
 

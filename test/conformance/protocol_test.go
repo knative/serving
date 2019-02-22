@@ -69,7 +69,7 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 
 	resp, err := pkgTest.WaitForEndpointState(
 		pt.clients.KubeClient, pt.t.Logf, domain,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK()),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		pt.t.Name(), test.ServingFlags.ResolvableDomain,
 	)
 	if err != nil {

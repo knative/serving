@@ -21,7 +21,6 @@ package test
 
 import (
 	"flag"
-	"os"
 	"os/user"
 	"path"
 )
@@ -32,7 +31,7 @@ var Flags = initializeFlags()
 
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
 type EnvironmentFlags struct {
-	Cluster         string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
+	Cluster         string // K8s cluster (defaults to cluster in kubeconfig)
 	Kubeconfig      string // Path to kubeconfig (defaults to ./kube/config)
 	Namespace       string // K8s namespace (blank by default, to be overwritten by test suite)
 	IngressEndpoint string // Host to use for ingress endpoint
@@ -42,9 +41,8 @@ type EnvironmentFlags struct {
 
 func initializeFlags() *EnvironmentFlags {
 	var f EnvironmentFlags
-	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
-	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
-		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
+	flag.StringVar(&f.Cluster, "cluster", "",
+		"Provide the cluster to test against. Defaults to the current cluster in kubeconfig.")
 
 	var defaultKubeconfig string
 	if usr, err := user.Current(); err == nil {
