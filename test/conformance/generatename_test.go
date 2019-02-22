@@ -95,7 +95,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.MatchesBody(helloWorldText)), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldText)), http.StatusNotFound),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
