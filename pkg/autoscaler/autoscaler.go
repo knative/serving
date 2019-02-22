@@ -68,18 +68,17 @@ type StatMessage struct {
 
 // statsBucket keeps all the stats that fall into a defined bucket.
 type statsBucket struct {
-	stats map[string][]Stat
+	stats map[string][]*Stat
 }
 
 // add adds a Stat to the bucket. Stats from the same pod will be
 // collapsed.
-func (b *statsBucket) add(stat Stat) {
+func (b *statsBucket) add(stat *Stat) {
 	podStats, ok := b.stats[stat.PodName]
 	if !ok {
-		podStats = []Stat{}
+		podStats = []*Stat{}
 	}
-	podStats = append(podStats, stat)
-	b.stats[stat.PodName] = podStats
+	b.stats[stat.PodName] = append(podStats, stat)
 }
 
 // concurrency calculates the overall concurrency as measured by this
@@ -165,10 +164,10 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	bucketKey := stat.Time.Truncate(bucketSize)
 	bucket, ok := a.bucketed[bucketKey]
 	if !ok {
-		bucket = &statsBucket{stats: make(map[string][]Stat)}
+		bucket = &statsBucket{stats: make(map[string][]*Stat)}
 		a.bucketed[bucketKey] = bucket
 	}
-	bucket.add(stat)
+	bucket.add(&stat)
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
