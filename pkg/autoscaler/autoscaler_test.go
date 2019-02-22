@@ -387,10 +387,9 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   "pod-1",
+		PodName:                   ActivatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
-		AverageRevConcurrency:     50.0,
 	})
 
 	a.expectScale(t, now, 10, true)
@@ -408,9 +407,10 @@ func TestAutoscaler_ActivatorAndQueueProxyAreAggregated(t *testing.T) {
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
+		PodName:                   "pod-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
+		AverageRevConcurrency:     50.0,
 	})
 
 	a.expectScale(t, now, 10, true)

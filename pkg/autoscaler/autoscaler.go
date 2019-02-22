@@ -84,7 +84,10 @@ func (b statsBucket) add(stat *Stat) {
 // bucket. All stats that belong to the same pod will be averaged.
 // The overall revision concurrency is the measured average revision concurrency
 // from queue proxy plus the sum of the measured concurrency of all activator
-// pods.
+// pods. This is because the autoscaler can get all stats from all activator,
+// but it can only get stats from some sample custom pods(queue proxies) and the
+// revision concurrency is estimated based on pod concurrency from queue proxy
+// and the ready pods number at that time.
 func (b statsBucket) concurrency() float64 {
 	var (
 		activatorPodTotal             float64
