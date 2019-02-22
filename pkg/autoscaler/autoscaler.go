@@ -200,17 +200,15 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	isOverPanicThreshold := observedPanicConcurrency/readyPods >= target*2
 
-	// Stop panicking after the surge has made its way into the stable metric.
-	if !isOverPanicThreshold && a.panicTime != nil && a.panicTime.Add(config.StableWindow).Before(now) {
+	if a.panicTime == nil && isOverPanicThreshold {
+		// Begin panicking when we cross the concurrency threshold in the panic window.
+		logger.Info("PANICKING")
+		a.panicTime = &now
+	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(config.StableWindow).Before(now) {
+		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
 		a.panicTime = nil
 		a.maxPanicPods = 0
-	}
-
-	// Begin panicking when we cross the concurrency threshold in the panic window.
-	if a.panicTime == nil && isOverPanicThreshold {
-		logger.Info("PANICKING")
-		a.panicTime = &now
 	}
 
 	var desiredPodCount int32
