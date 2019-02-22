@@ -17,6 +17,7 @@ limitations under the License.
 package route
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -264,7 +265,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	// Update the information that makes us Addressable.
-	r.Status.Domain = routeDomain(ctx, r)
+	r.Status.Domain, err = routeDomain(ctx, r)
+	if err != nil {
+		return err
+	}
+
 	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Hostname: resourcenames.K8sServiceFullname(r),
@@ -413,8 +418,34 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-func routeDomain(ctx context.Context, route *v1alpha1.Route) string {
+// routeDeomain will generate the URL/Route for the Service based on
+// the "RouteTemplateKey" from the "config-network" configMap.
+func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
+
+	// These are the available properties they can choose from.
+	// We could add more over time - e.g. RevisionName if we thought that
+	// might be of interest to people.
+	data := network.RouteTemplateValues{
+		Name:      route.Name,
+		Namespace: route.Namespace,
+		Domain:    domain,
+	}
+
+	networkConfig := config.FromContext(ctx).Network
+
+	// Should never happen but if it does just use Sprintf since
+	// we're probably just testing.
+	if networkConfig.RouteTemplateParsed == nil {
+		return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain), nil
+	}
+
+	// Now do the golang text substitution to calculate the Route/URL
+	buf := bytes.Buffer{}
+	if err := networkConfig.RouteTemplateParsed.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("Error executing the RouteTemplate(%s): %s",
+			networkConfig.RouteTemplateText, err)
+	}
+	return buf.String(), nil
 }

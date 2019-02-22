@@ -17,8 +17,10 @@ limitations under the License.
 package network
 
 import (
+	"fmt"
 	"net"
 	"strings"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -45,6 +47,15 @@ const (
 	// IstioIngressClassName value for specifying knative's Istio
 	// ClusterIngress reconciler.
 	IstioIngressClassName = "istio.ingress.networking.knative.dev"
+
+	// RouteTemplateKey is the name of the configuration entry that
+	// specifies the golang template string to use to construct the
+	// Knative service's DNS name.
+	RouteTemplateKey = "routeTemplate"
+
+	// DefaultRouteTemplateText is the default golang template to use when
+	// constructing the Knative Service's Route/URL
+	DefaultRouteTemplateText = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 )
 
 // Config contains the networking configuration defined in the
@@ -56,6 +67,25 @@ type Config struct {
 
 	// DefaultClusterIngressClass specifies the default ClusterIngress class.
 	DefaultClusterIngressClass string
+
+	// RouteTemplateText is the golang text template used to generate the
+	// Route's URL for the Service. This is the raw text string provided
+	// in the Network ConfigMap.
+	RouteTemplateText string
+
+	// RouteTemplateParsed is the golang text.Template that resulted from
+	// parsing the RouteTemplatText string
+	RouteTemplateParsed *template.Template
+}
+
+// RouteTemplateValues are the available properties people can choose from
+// in their Route's "RouteTemplate" golang template string.
+// We could add more over time - e.g. RevisionName if we thought that
+// might be of interest to people.
+type RouteTemplateValues struct {
+	Name      string
+	Namespace string
+	Domain    string
 }
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
@@ -94,10 +124,31 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	} else {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
+
 	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
 		nc.DefaultClusterIngressClass = IstioIngressClassName
 	} else {
 		nc.DefaultClusterIngressClass = ingressClass
 	}
+
+	// If not in the config data then it'll be empty, which is ok, we'll
+	// just use the default value at that point
+	nc.RouteTemplateText = configMap.Data[RouteTemplateKey]
+
+	text := nc.RouteTemplateText
+	if text == "" {
+		// Blank makes no sense so use our default instead
+		text = DefaultRouteTemplateText
+	}
+
+	// I believe reusing the same template name each time is ok since
+	// it returns a pointer to a new one and any use of the old one
+	// should be untouched/uneffected.
+	var err error
+	nc.RouteTemplateParsed, err = template.New("knTemplate").Parse(text)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing the RouteTemplateText(%s): %s", text, err)
+	}
+
 	return nc, nil
 }
