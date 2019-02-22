@@ -249,11 +249,11 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	var panicTotal float64
 
 	for bucketTime, bucket := range a.bucketed {
-		if bucketTime.Add(panicWindow).After(now) {
+		if !bucketTime.Add(panicWindow).Before(now) {
 			panicBuckets++
 			panicTotal += bucket.concurrency()
 		}
-		if bucketTime.Add(stableWindow).After(now) {
+		if !bucketTime.Add(stableWindow).Before(now) {
 			stableBuckets++
 			stableTotal += bucket.concurrency()
 		} else {

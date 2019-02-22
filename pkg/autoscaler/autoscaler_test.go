@@ -220,7 +220,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 			duration:         panicWindow,
 			podCount:         1,
 		})
-	a.expectScale(t, now, 8, true)
+	a.expectScale(t, now, 6, true)
 	now = a.recordLinearSeries(
 		t,
 		now,
@@ -228,9 +228,9 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 			startConcurrency: 1,
 			endConcurrency:   10,
 			duration:         panicWindow,
-			podCount:         8,
+			podCount:         6,
 		})
-	a.expectScale(t, now, 60, true)
+	a.expectScale(t, now, 36, true)
 	now = a.recordLinearSeries(
 		t,
 		now,
@@ -238,9 +238,9 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 			startConcurrency: 1,
 			endConcurrency:   10,
 			duration:         panicWindow,
-			podCount:         60,
+			podCount:         36,
 		})
-	a.expectScale(t, now, 450, true)
+	a.expectScale(t, now, 216, true)
 	now = a.recordLinearSeries(
 		t,
 		now,
@@ -248,9 +248,9 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 			startConcurrency: 1,
 			endConcurrency:   10,
 			duration:         panicWindow,
-			podCount:         450,
+			podCount:         216,
 		})
-	a.expectScale(t, now, 3375, true)
+	a.expectScale(t, now, 1296, true)
 	now = a.recordLinearSeries(
 		t,
 		now,
@@ -258,9 +258,9 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 			startConcurrency: 1,
 			endConcurrency:   1, // achieved desired concurrency
 			duration:         panicWindow,
-			podCount:         3375,
+			podCount:         1296,
 		})
-	a.expectScale(t, now, 3375, true)
+	a.expectScale(t, now, 1296, true)
 }
 
 func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
@@ -377,8 +377,8 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 			podCount:         1,
 		})
 	a.expectScale(t, now, 1, true)
-	if len(a.bucketed) != 29 {
-		t.Errorf("Unexpected stat count. Expected 29. Got %v.", len(a.bucketed))
+	if len(a.bucketed) != 30 {
+		t.Errorf("Unexpected stat count. Expected 30. Got %v.", len(a.bucketed))
 	}
 	now = now.Add(time.Minute)
 	a.expectScale(t, now, 0, false)
