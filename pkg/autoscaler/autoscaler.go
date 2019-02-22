@@ -67,27 +67,21 @@ type StatMessage struct {
 }
 
 // statsBucket keeps all the stats that fall into a defined bucket.
-type statsBucket struct {
-	stats map[string][]*Stat
-}
+type statsBucket map[string][]*Stat
 
 // add adds a Stat to the bucket. Stats from the same pod will be
 // collapsed.
-func (b *statsBucket) add(stat *Stat) {
-	podStats, ok := b.stats[stat.PodName]
-	if !ok {
-		podStats = []*Stat{}
-	}
-	b.stats[stat.PodName] = append(podStats, stat)
+func (b statsBucket) add(stat *Stat) {
+	b[stat.PodName] = append(b[stat.PodName], stat)
 }
 
 // concurrency calculates the overall concurrency as measured by this
 // bucket. All stats that belong to the same pod will be averaged.
 // The overall concurrency is the sum the measured concurrency of all
 // pods (including activator metrics).
-func (b *statsBucket) concurrency() float64 {
+func (b statsBucket) concurrency() float64 {
 	var total float64
-	for _, podStats := range b.stats {
+	for _, podStats := range b {
 		var subtotal float64
 		for _, stat := range podStats {
 			subtotal += stat.AverageConcurrentRequests
@@ -117,7 +111,7 @@ type Autoscaler struct {
 
 	// statsMutex guards the elements in the block below.
 	statsMutex sync.Mutex
-	bucketed   map[time.Time]*statsBucket
+	bucketed   map[time.Time]statsBucket
 }
 
 // New creates a new instance of autoscaler
@@ -137,7 +131,7 @@ func New(
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
 		target:          target,
-		bucketed:        make(map[time.Time]*statsBucket),
+		bucketed:        make(map[time.Time]statsBucket),
 		reporter:        reporter,
 	}, nil
 }
@@ -164,7 +158,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	bucketKey := stat.Time.Truncate(bucketSize)
 	bucket, ok := a.bucketed[bucketKey]
 	if !ok {
-		bucket = &statsBucket{stats: make(map[string][]*Stat)}
+		bucket = statsBucket{}
 		a.bucketed[bucketKey] = bucket
 	}
 	bucket.add(&stat)
@@ -240,7 +234,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
-func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, *statsBucket, bool) {
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, statsBucket, bool) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -252,7 +246,7 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 		panicTotal   float64
 
 		lastBucketTime time.Time
-		lastBucket     *statsBucket
+		lastBucket     statsBucket
 	)
 	for bucketTime, bucket := range a.bucketed {
 		if !bucketTime.Add(panicWindow).Before(now) {
