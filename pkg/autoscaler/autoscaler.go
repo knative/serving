@@ -296,7 +296,6 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 		if !bucketTime.Add(stableWindow).Before(now) {
 			stableBuckets++
 			stableTotal += bucket.concurrency()
-			logging.FromContext(context.TODO()).Infof("bucket.concurrency()=%v", bucket.concurrency())
 		} else {
 			delete(a.bucketed, bucketTime)
 		}
