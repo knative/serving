@@ -188,8 +188,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
-	desiredStablePodCount := int32(math.Ceil(a.podCountLimited(observedStableConcurrency/target, readyPods)))
-	desiredPanicPodCount := int32(math.Ceil(a.podCountLimited(observedPanicConcurrency/target, readyPods)))
+	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPods)
+	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPods)
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -232,6 +232,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
+// aggregateData aggregates bucketed stats over the stableWindow and panicWindow
+// respectively and returns the observedStableConcurrency, observedPanicConcurrency
+// and the last bucket that was aggregated. The boolean indicates whether or not
+// the aggregation was successful.
 func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, statsBucket, bool) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
@@ -265,7 +269,7 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 		}
 	}
 
-	if stableBuckets == 0 {
+	if stableBuckets == 0 || panicBuckets == 0 {
 		return 0, 0, nil, false
 	}
 	return stableTotal / stableBuckets, panicTotal / panicBuckets, lastBucket, true
@@ -277,8 +281,8 @@ func (a *Autoscaler) targetConcurrency() float64 {
 	return a.target
 }
 
-func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) float64 {
-	return math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount)
+func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
+	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
 }
 
 func (a *Autoscaler) readyPods() (float64, error) {
