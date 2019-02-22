@@ -175,20 +175,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	config := a.Current()
 
-	observedStableConcurrency, observedPanicConcurrency, ok := a.aggregateData(now, config.StableWindow, config.PanicWindow)
+	observedStableConcurrency, observedPanicConcurrency, lastBucket, ok := a.aggregateData(now, config.StableWindow, config.PanicWindow)
 	if !ok {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
 	// Log system totals
-	/*totalCurrentQPS := int32(0)
-	totalCurrentConcurrency := float64(0)
-	for _, stat := range lastStat {
-		totalCurrentQPS = totalCurrentQPS + stat.RequestCount
-		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
-	}
-	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)*/
+	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.concurrency())
 
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of revision over desired (stable) concurrency per pod.
@@ -238,7 +232,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	return desiredPodCount, true
 }
 
-func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, bool) {
+func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (float64, float64, *StatsBucket, bool) {
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
@@ -248,23 +242,32 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	var panicBuckets float64
 	var panicTotal float64
 
+	var lastBucketTime time.Time
+	var lastBucket *StatsBucket
+
 	for bucketTime, bucket := range a.bucketed {
 		if !bucketTime.Add(panicWindow).Before(now) {
 			panicBuckets++
 			panicTotal += bucket.concurrency()
 		}
+
 		if !bucketTime.Add(stableWindow).Before(now) {
 			stableBuckets++
 			stableTotal += bucket.concurrency()
 		} else {
 			delete(a.bucketed, bucketTime)
 		}
+
+		if bucketTime.After(lastBucketTime) {
+			lastBucketTime = bucketTime
+			lastBucket = bucket
+		}
 	}
 
 	if stableBuckets == 0 {
-		return 0, 0, false
+		return 0, 0, nil, false
 	}
-	return stableTotal / stableBuckets, panicTotal / panicBuckets, true
+	return stableTotal / stableBuckets, panicTotal / panicBuckets, lastBucket, true
 }
 
 func (a *Autoscaler) targetConcurrency() float64 {
