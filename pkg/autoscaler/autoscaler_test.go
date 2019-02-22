@@ -52,14 +52,14 @@ func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
-	a.expectScale(t, time.Now(), 0, false)
+	a.expectScale(t, roundedNow(), 0, false)
 }
 
 func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
@@ -76,7 +76,7 @@ func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -90,7 +90,7 @@ func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   20,
@@ -104,7 +104,7 @@ func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 20,
 			endConcurrency:   10,
@@ -118,7 +118,7 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -132,7 +132,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 1,
 			endConcurrency:   1,
@@ -147,7 +147,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
-			duration:         stableWindow,
+			duration:         stableWindow + bucketSize,
 			podCount:         1,
 		})
 	a.expectScale(t, now, 0, true)
@@ -162,7 +162,7 @@ func TestAutoscaler_StableModeLowTraffic_NoChange(t *testing.T) {
 
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 1,
 			endConcurrency:   1,
@@ -177,7 +177,7 @@ func TestAutoscaler_StableModeLowTraffic_NoChange(t *testing.T) {
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
-			duration:         stableWindow - time.Second,
+			duration:         stableWindow - bucketSize,
 			podCount:         1,
 		})
 	a.expectScale(t, now, 1, true)
@@ -187,7 +187,7 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -213,7 +213,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 	a := newTestAutoscaler(1.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 1,
 			endConcurrency:   10,
@@ -267,7 +267,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -307,40 +307,33 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
-func TestAutoscaler_NoScaleOnLessThanOnePod(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         10 * time.Second, // 10 seconds of 2 pods
-			podCount:         2,
-		})
-	now = now.Add(50 * time.Second)
-	a.expectScale(t, now, 0, false)
-}
-
 func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
 			duration:         30 * time.Second,
 			podCount:         10,
 		})
-	now = now.Add(30 * time.Second)
+	now = a.recordLinearSeries(
+		t,
+		roundedNow(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			duration:         30 * time.Second,
+			podCount:         10,
+		})
 	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
 }
 
 func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
-	now := time.Now()
+	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName,
@@ -354,7 +347,7 @@ func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
-	now := time.Now()
+	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-0",
@@ -368,39 +361,6 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 		AverageConcurrentRequests: 50.0,
 	})
 
-	a.expectScale(t, now, 10, true)
-}
-
-func TestAutoscaler_Activator_IsIgnored(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-
-	now := a.recordLinearSeries(
-		t,
-		time.Now(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-
-	a.expectScale(t, now, 10, true)
-
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
-		RequestCount:              0,
-		AverageConcurrentRequests: 1000.0,
-	})
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
-		RequestCount:              0,
-		AverageConcurrentRequests: 1000.0,
-	})
-
-	// Scale should not change as the activator metric should
-	// be ignored
 	a.expectScale(t, now, 10, true)
 }
 
@@ -409,7 +369,7 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -417,13 +377,13 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 			podCount:         1,
 		})
 	a.expectScale(t, now, 1, true)
-	if len(a.stats) != 60 {
-		t.Errorf("Unexpected stat count. Expected 60. Got %v.", len(a.stats))
+	if len(a.bucketed) != 30 {
+		t.Errorf("Unexpected stat count. Expected 30. Got %v.", len(a.bucketed))
 	}
 	now = now.Add(time.Minute)
 	a.expectScale(t, now, 0, false)
-	if len(a.stats) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	if len(a.bucketed) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
 	}
 }
 
@@ -437,10 +397,10 @@ func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
 	}
 	a.Record(TestContextWithLogger(t), stat)
 
-	if len(a.stats) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.stats))
+	if len(a.bucketed) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
 	}
-	a.expectScale(t, time.Now(), 0, false)
+	a.expectScale(t, roundedNow(), 0, false)
 }
 
 func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
@@ -448,7 +408,7 @@ func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
 
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 1000,
 			endConcurrency:   1000,
@@ -477,7 +437,7 @@ func TestAutoscaler_UseOnePodAsMinimunIfEndpointsNotFound(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 1000,
 			endConcurrency:   1000,
@@ -511,7 +471,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		t,
-		time.Now(),
+		roundedNow(),
 		linearSeries{
 			startConcurrency: 10,
 			endConcurrency:   10,
@@ -667,4 +627,8 @@ func addIps(ep *corev1.Endpoints, ipCount int) *corev1.Endpoints {
 func createEndpoints(ep *corev1.Endpoints) {
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+}
+
+func roundedNow() time.Time {
+	return time.Now().Truncate(bucketSize)
 }
