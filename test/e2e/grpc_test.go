@@ -22,7 +22,6 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
-	"net/http"
 	"testing"
 	"time"
 
@@ -79,7 +78,7 @@ func TestGRPC(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAny, http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

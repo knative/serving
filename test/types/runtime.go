@@ -50,6 +50,15 @@ type HostInfo struct {
 	Cgroups []*Cgroup `json:"cgroups"`
 	// Mounts is a list of mounted volume information, or error.
 	Mounts []*Mount `json:"mounts"`
+	Stdin  *Stdin   `json:"stdin"`
+}
+
+// Stdin contains information about the Stdin file descriptor for the container.
+type Stdin struct {
+	// EOF is true if the first byte read from stdin results in EOF.
+	EOF *bool `json"eof,omitempty"`
+	// Error is the String representation of an error probing sdtin.
+	Error string `json:"error,omitempty"`
 }
 
 // FileInfo contains the metadata for a given file.

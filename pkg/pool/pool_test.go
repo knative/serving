@@ -24,30 +24,6 @@ import (
 	"time"
 )
 
-func TestRacingClose(t *testing.T) {
-	p := NewWithCapacity(1, 5)
-	wg := &sync.WaitGroup{}
-	var cntExecuted int32
-	const n = 5
-	wg.Add(n)
-	go func() {
-		for i := 0; i < n; i++ {
-			p.Go(func() error {
-				atomic.AddInt32(&cntExecuted, 1)
-				return nil
-			})
-			// Introduce delay so that p.Wait() has time to execute.
-			time.Sleep(10 * time.Millisecond)
-			wg.Done()
-		}
-	}()
-	p.Wait()
-	wg.Wait()
-	if cntExecuted == n {
-		t.Error("Not all items were expected to execute")
-	}
-}
-
 func TestParallelismNoErrors(t *testing.T) {
 	tests := []struct {
 		name string

@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:9f5945ffc32194cfc3fb28f0914d7afab46a0d96445809a7e19f475b1a680627"
+  digest = "1:e02673e5f75fc39a4ec48f5dbf8d70290634fba92237f729f66c774867a3faee"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -500,11 +500,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "729d5ada5f62642351b3420fd2e7bc1897c54943"
+  revision = "374dc8c6cea59ddf9d54046d4623ea14d21ef53d"
 
 [[projects]]
   branch = "master"
-  digest = "1:7e21ca2875c349660aac9983e652b17329109ae712390ac244e6524e7495ff4a"
+  digest = "1:a1828a61bf85b9d8c092628a4600792ba6bf1e772eac30bfcaf7cf6032ac3837"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -517,7 +517,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "6972ae2803c107ef379a2e66c3efd33757f6ac0f"
+  revision = "4b75a7bd1c72927062d03459c229d985d3bc2d10"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"

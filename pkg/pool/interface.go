@@ -23,7 +23,8 @@ import (
 // Interface defines an errgroup-compatible interface for interacting with
 // our threadpool.
 type Interface interface {
-	// Go queues a single unit of work for execution on this pool.
+	// Go queues a single unit of work for execution on this pool. All calls
+	// to Go must be finished before Wait is called.
 	Go(func() error)
 
 	// Wait blocks until all work is complete, returning the first

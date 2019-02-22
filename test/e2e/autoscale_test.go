@@ -168,7 +168,7 @@ func setup(t *testing.T) *testContext {
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK(), pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput)), http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -261,7 +261,7 @@ func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax i
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
-	gotReplicas := deployment.Status.Replicas
+	gotReplicas := deployment.Status.ReadyReplicas
 	mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", gotReplicas, numReplicasMin, numReplicasMax, ctx.deploymentName)
 	ctx.t.Log(mes)
 	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
@@ -281,7 +281,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	defer close(stopChan)
 
 	go func() {
-		if err := generateTraffic(ctx, int(numPods*10), 35*time.Second, stopChan); err != nil {
+		if err := generateTraffic(ctx, int(numPods*10), 60*time.Second, stopChan); err != nil {
 			errChan <- err
 		}
 	}()

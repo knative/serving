@@ -133,8 +133,8 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 	clients := perfClients.E2EClients
 
-	defer TearDown(t, perfClients, names)
-	test.CleanupOnInterrupt(func() { TearDown(t, perfClients, names) })
+	defer TearDown(perfClients, names)
+	test.CleanupOnInterrupt(func() { TearDown(perfClients, names) })
 
 	t.Log("Creating a new Service")
 	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{ContainerConcurrency: 1})
@@ -157,10 +157,10 @@ func TestObservedConcurrency(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
+		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
 			_, _, err := parseResponse(string(resp.Body))
 			return err == nil, nil
-		}, http.StatusNotFound),
+		}),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

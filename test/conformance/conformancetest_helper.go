@@ -23,11 +23,9 @@ package conformance
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
@@ -56,13 +54,7 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.Domain,
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
-			if resp.StatusCode == http.StatusOK {
-				return true, nil
-			}
-
-			return true, errors.New(string(resp.Body))
-		}, http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -127,13 +119,7 @@ func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *
 		clients.KubeClient,
 		t.Logf,
 		url,
-		pkgTest.Retrying(func(resp *spoof.Response) (bool, error) {
-			if resp.StatusCode == http.StatusOK {
-				return true, nil
-			}
-
-			return true, errors.New(string(resp.Body))
-		}, http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"EnvVarsServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

@@ -40,20 +40,11 @@ data:
         regex: knative-serving;controller;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Autoscaler endpoint
     - job_name: autoscaler
       scrape_interval: 3s
@@ -67,20 +58,11 @@ data:
         regex: knative-serving;autoscaler;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Activator pods
     - job_name: activator
       scrape_interval: 3s
@@ -94,20 +76,11 @@ data:
         regex: knative-serving;activator;metrics-port
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1        
     # Fluentd daemonset
     - job_name: fluentd-ds
       kubernetes_sd_configs:
@@ -119,20 +92,11 @@ data:
         regex: knative-monitoring;fluentd-ds;prometheus-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Istio mesh
     - job_name: istio-mesh
       scrape_interval: 5s
@@ -145,20 +109,11 @@ data:
         regex: istio-system;istio-telemetry;prometheus
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Istio Envoy
     # These are very noisy and not enabled by default.
     # - job_name: istio-envoy
@@ -172,20 +127,11 @@ data:
     #     regex: istio-system;istio-statsd-prom-bridge;statsd-prom
     #   # Rename metadata labels to be reader friendly
     #   - source_labels: [__meta_kubernetes_namespace]
-    #     action: replace
-    #     regex: (.*)
     #     target_label: namespace
-    #     replacement: $1
     #   - source_labels: [__meta_kubernetes_pod_name]
-    #     action: replace
-    #     regex: (.*)
     #     target_label: pod
-    #     replacement: $1
     #   - source_labels: [__meta_kubernetes_service_name]
-    #     action: replace
-    #     regex: (.*)
     #     target_label: service
-    #     replacement: $1
     # Istio policy
     - job_name: istio-policy
       scrape_interval: 5s
@@ -198,20 +144,11 @@ data:
         regex: istio-system;istio-policy;http-monitoring
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Istio telemetry
     - job_name: istio-telemetry
       scrape_interval: 5s
@@ -224,20 +161,11 @@ data:
         regex: istio-system;istio-telemetry;http-monitoring
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Istio pilot
     - job_name: istio-pilot
       scrape_interval: 5s
@@ -250,20 +178,11 @@ data:
         regex: istio-system;istio-pilot;http-monitoring
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kube API server
     - job_name: kube-apiserver
       scheme: https
@@ -281,20 +200,11 @@ data:
         regex: default;apiserver;kubernetes;https
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kube controller manager
     - job_name: kube-controller-manager
       kubernetes_sd_configs:
@@ -306,20 +216,11 @@ data:
         regex: knative-monitoring;kube-controller-manager;http-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kube scheduler
     - job_name: kube-scheduler
       kubernetes_sd_configs:
@@ -331,20 +232,11 @@ data:
         regex: kube-system;kube-scheduler;http-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kube state metrics on https-main port
     - job_name: kube-state-metrics-https-main
       honor_labels: true
@@ -361,20 +253,11 @@ data:
         regex: knative-monitoring;kube-state-metrics;https-main
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kube state metrics on https-self port
     - job_name: kube-state-metrics-https-self
       scheme: https
@@ -390,20 +273,11 @@ data:
         regex: knative-monitoring;kube-state-metrics;https-self
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Kubelet - nodes
     # Rather than connecting directly to the node, the scrape is proxied though the
     # Kubernetes apiserver.  This means it will work if Prometheus is running out of
@@ -422,7 +296,6 @@ data:
       - target_label: __address__
         replacement: kubernetes.default.svc:443
       - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
         target_label: __metrics_path__
         replacement: /api/v1/nodes/${1}/proxy/metrics
     # Kubelet - cAdvisor
@@ -450,7 +323,6 @@ data:
       - target_label: __address__
         replacement: kubernetes.default.svc:443
       - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
         target_label: __metrics_path__
         replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
     # Node exporter
@@ -468,20 +340,11 @@ data:
         regex: knative-monitoring;node-exporter;https
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1
     # Prometheus
     - job_name: prometheus
       kubernetes_sd_configs:
@@ -493,17 +356,8 @@ data:
         regex: knative-monitoring;prometheus;web
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
         target_label: namespace
-        replacement: $1
       - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
         target_label: pod
-        replacement: $1
       - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
         target_label: service
-        replacement: $1

@@ -151,6 +151,11 @@ func NewJob(jobName, jobType, repoName string, pullID int) *Job {
 	return &job
 }
 
+// PathExists checks if the storage path of a job exists in gcs or not
+func (j *Job) PathExists() bool {
+	return gcs.Exists(ctx, BucketName, j.StoragePath)
+}
+
 // GetLatestBuildNumber gets the latest build number for job
 func (j *Job) GetLatestBuildNumber() (int, error) {
 	logFilePath := path.Join(j.StoragePath, Latest)
@@ -263,6 +268,11 @@ func (b *Build) GetFinishTime() (int64, error) {
 	return finished.Timestamp, nil
 }
 
+// GetArtifacts gets gcs path for all artifacts of current build
+func (b *Build) GetArtifacts() []string {
+	return gcs.ListDirectChildren(ctx, BucketName, b.GetArtifactsDir())
+}
+
 // GetArtifactsDir gets gcs path for artifacts of current build
 func(b *Build) GetArtifactsDir() string {
 	return path.Join(b.StoragePath, ArtifactsDir)
@@ -271,6 +281,12 @@ func(b *Build) GetArtifactsDir() string {
 // GetBuildLogPath gets "build-log.txt" path for current build
 func (b *Build) GetBuildLogPath() string {
 	return path.Join(b.StoragePath, BuildLog)
+}
+
+// ReadFile reads given file of current build,
+// relPath is the file path relative to build directory
+func (b *Build) ReadFile(relPath string) ([]byte, error) {
+	return gcs.Read(ctx, BucketName, path.Join(b.StoragePath, relPath))
 }
 
 // ParseLog parses the build log and returns the lines where the checkLog func does not return an empty slice,

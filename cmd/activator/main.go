@@ -45,6 +45,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/goversion"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
@@ -57,6 +58,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
+
+// Fail if using unsupported go version
+var _ = goversion.IsSupported()
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
@@ -246,22 +250,14 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
 	go cr.Run(stopCh)
 
-	ah := &activatorhandler.ProbeHandler{
-		NextHandler: &activatorhandler.FilteringHandler{
-			NextHandler: activatorhandler.NewRequestEventHandler(reqChan,
-				&activatorhandler.EnforceMaxContentLengthHandler{
-					MaxContentLengthBytes: maxUploadBytes,
-					NextHandler: &activatorhandler.ActivationHandler{
-						Activator: a,
-						Transport: rt,
-						Logger:    logger,
-						Reporter:  reporter,
-						Throttler: throttler,
-					},
-				},
-			),
-		},
-	}
+	// Create activation handler chain
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
+	var ah http.Handler
+	ah = &activatorhandler.ActivationHandler{Activator: a, Transport: rt, Logger: logger, Reporter: reporter, Throttler: throttler}
+	ah = &activatorhandler.EnforceMaxContentLengthHandler{MaxContentLengthBytes: maxUploadBytes, NextHandler: ah}
+	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = &activatorhandler.FilteringHandler{NextHandler: ah}
+	ah = &activatorhandler.ProbeHandler{ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())

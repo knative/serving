@@ -23,7 +23,6 @@ import (
 type impl struct {
 	wg     sync.WaitGroup
 	workCh chan func() error
-	doneCh chan interface{}
 
 	// Ensure that we Wait exactly once and memoize
 	// the result.
@@ -52,7 +51,6 @@ func New(workers int) Interface {
 func NewWithCapacity(workers, capacity int) Interface {
 	i := &impl{
 		workCh: make(chan func() error, capacity),
-		doneCh: make(chan interface{}),
 	}
 
 	// Start a go routine for each worker, which:
@@ -79,13 +77,6 @@ func NewWithCapacity(workers, capacity int) Interface {
 
 // Go implements Interface.
 func (i *impl) Go(w func() error) {
-	select {
-	// This means, we no longer accept new work.
-	// This prevents racy client from panicing.
-	case <-i.doneCh:
-		return
-	default:
-	}
 	// Increment the amount of outstanding work we're waiting on.
 	i.wg.Add(1)
 	// Send the work along the queue.
@@ -95,9 +86,6 @@ func (i *impl) Go(w func() error) {
 // Wait implements Interface.
 func (i *impl) Wait() error {
 	i.waitOnce.Do(func() {
-		// Stop accepting new work.
-		close(i.doneCh)
-
 		// Wait for queued work to complete.
 		i.wg.Wait()
 
