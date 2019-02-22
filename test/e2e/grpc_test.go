@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"context"
-	"crypto/rand"
 	"io"
 	"testing"
 	"time"
@@ -35,7 +34,113 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestGRPC(t *testing.T) {
+type grpcTest func(*testing.T, test.ResourceNames, *test.Clients, string, string)
+
+func unaryTest(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
+	t.Helper()
+	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+	conn, err := grpc.Dial(
+		host+":80",
+		grpc.WithAuthority(domain),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+
+	pc := ping.NewPingServiceClient(conn)
+	t.Log("Testing unary Ping")
+
+	want := &ping.Request{Msg: "Hello!"}
+
+	got, err := pc.Ping(context.TODO(), want)
+	if err != nil {
+		t.Fatalf("Couldn't send request: %v", err)
+	}
+
+	if got.Msg != want.Msg {
+		t.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
+	}
+}
+
+func streamTest(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
+	t.Helper()
+	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+	conn, err := grpc.Dial(
+		host+":80",
+		grpc.WithAuthority(domain),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("Fail to dial: %v", err)
+	}
+	defer conn.Close()
+
+	pc := ping.NewPingServiceClient(conn)
+	t.Log("Testing streaming Ping")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	stream, err := pc.PingStream(ctx)
+	if err != nil {
+		t.Fatalf("Error creating stream: %v", err)
+	}
+
+	count := 3
+	for i := 0; i < count; i++ {
+		t.Logf("Sending stream %d of %d", i+1, count)
+
+		want := "This is a short message!"
+
+		err = stream.Send(&ping.Request{Msg: want})
+		if err != nil {
+			t.Fatalf("Error sending request: %v", err)
+		}
+
+		resp, err := stream.Recv()
+		if err != nil {
+			t.Fatalf("Error receiving response: %v", err)
+		}
+
+		got := resp.Msg
+
+		if want != got {
+			t.Errorf("Stream %d: response = %q, want = %q", i, got, want)
+		}
+	}
+
+	stream.CloseSend()
+
+	_, err = stream.Recv()
+	if err != io.EOF {
+		t.Errorf("Expected EOF, got %v", err)
+	}
+}
+
+func waitForScaleToZero(t *testing.T, names test.ResourceNames, clients *test.Clients) {
+	t.Helper()
+	deploymentName := names.Revision + "-deployment"
+	t.Logf("Waiting for %q to scale to zero", deploymentName)
+	err := pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		func(d *v1beta1.Deployment) (bool, error) {
+			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingNamespace,
+		3*time.Minute,
+	)
+	if err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
+}
+
+func testGRPC(t *testing.T, f grpcTest) {
+	t.Helper()
 	t.Parallel()
 	// Setup
 	clients := Setup(t)
@@ -43,9 +148,10 @@ func TestGRPC(t *testing.T) {
 	t.Log("Creating route and configuration for grpc-ping")
 
 	options := &test.Options{
-		ContainerPorts: []corev1.ContainerPort{
-			{Name: "h2c", ContainerPort: 8080},
-		},
+		ContainerPorts: []corev1.ContainerPort{{
+			Name:          "h2c",
+			ContainerPort: 8080,
+		}},
 	}
 	names, err := CreateRouteAndConfig(t, clients, "grpc-ping", options)
 	if err != nil {
@@ -72,7 +178,6 @@ func TestGRPC(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 	names.Revision = config.Status.LatestCreatedRevisionName
-	deploymentName := names.Revision + "-deployment"
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -93,111 +198,27 @@ func TestGRPC(t *testing.T) {
 		}
 	}
 
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", *host, domain)
+	f(t, names, clients, *host, domain)
+}
 
-	waitForScaleToZero := func() {
-		t.Logf("Waiting for scale to zero")
-		err = pkgTest.WaitForDeploymentState(
-			clients.KubeClient,
-			deploymentName,
-			func(d *v1beta1.Deployment) (bool, error) {
-				t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
-				return d.Status.ReadyReplicas == 0, nil
-			},
-			"DeploymentIsScaledDown",
-			test.ServingNamespace,
-			3*time.Minute,
-		)
-		if err != nil {
-			t.Fatalf("Could not scale to zero: %v", err)
-		}
-	}
+func TestGRPCUnaryPing(t *testing.T) {
+	testGRPC(t, unaryTest)
+}
 
-	payload := func(size int) string {
-		b := make([]byte, size)
-		_, err = rand.Read(b)
-		if err != nil {
-			t.Fatalf("Error generating payload: %v", err)
-		}
-		return string(b)
-	}
+func TestGRPCStreamingPing(t *testing.T) {
+	testGRPC(t, streamTest)
+}
 
-	conn, err := grpc.Dial(
-		*host+":80",
-		grpc.WithAuthority(domain),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
+func TestGRPCUnaryPingFromZero(t *testing.T) {
+	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
+		waitForScaleToZero(t, names, clients)
+		unaryTest(t, names, clients, host, domain)
+	})
+}
 
-	pc := ping.NewPingServiceClient(conn)
-
-	unaryTest := func(t *testing.T) {
-		t.Log("Testing unary Ping")
-
-		want := &ping.Request{Msg: "Hello!"}
-
-		got, err := pc.Ping(context.TODO(), want)
-		if err != nil {
-			t.Fatalf("Couldn't send request: %v", err)
-		}
-
-		if got.Msg != want.Msg {
-			t.Errorf("Unexpected response. Want %q, got %q", want.Msg, got.Msg)
-		}
-	}
-
-	streamTest := func(t *testing.T) {
-		t.Log("Testing streaming Ping")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-
-		stream, err := pc.PingStream(ctx)
-		if err != nil {
-			t.Fatalf("Error creating stream: %v", err)
-		}
-
-		count := 3
-		for i := 0; i < count; i++ {
-			t.Logf("Sending stream %d of %d", i+1, count)
-
-			want := payload(10)
-
-			err = stream.Send(&ping.Request{Msg: want})
-			if err != nil {
-				t.Fatalf("Error sending request: %v", err)
-			}
-
-			resp, err := stream.Recv()
-			if err != nil {
-				t.Fatalf("Error receiving response: %v", err)
-			}
-
-			got := resp.Msg
-
-			if want != got {
-				t.Errorf("Unexpected response. Want %q, got %q", want, got)
-			}
-		}
-
-		stream.CloseSend()
-
-		_, err = stream.Recv()
-		if err != io.EOF {
-			t.Errorf("Expected EOF, got %v", err)
-		}
-	}
-
-	t.Run("unary ping", unaryTest)
-	t.Run("streaming ping", streamTest)
-
-	waitForScaleToZero()
-	t.Run("unary ping after scale-to-zero", unaryTest)
-
-	// TODO(#3239): Fix gRPC streaming after cold start
-	// waitForScaleToZero()
-	// t.Run("streaming ping after scale-to-zero", streamTest)
+func TestGRPCStreamingPingFromZero(t *testing.T) {
+	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
+		waitForScaleToZero(t, names, clients)
+		streamTest(t, names, clients, host, domain)
+	})
 }

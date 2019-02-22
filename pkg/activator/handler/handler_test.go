@@ -29,6 +29,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 )
 
@@ -95,7 +96,10 @@ func TestActivationHandler(t *testing.T) {
 		wantBody        string
 		wantCode        int
 		wantErr         error
+		probeErr        error
+		probeCode       int
 		attempts        string
+		gpc             int
 		endpointsGetter func(activator.RevisionID) (int32, error)
 		reporterCalls   []reporterCall
 	}{{
@@ -124,6 +128,7 @@ func TestActivationHandler(t *testing.T) {
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
 		}},
+		gpc: 1,
 	}, {
 		label:           "active endpoint with missing count header",
 		namespace:       testNamespace,
@@ -158,6 +163,56 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:         nil,
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls:   nil,
+	}, {
+		label:           "active endpoint (probe failure)",
+		namespace:       testNamespace,
+		name:            testRevName,
+		probeErr:        errors.New("probe error"),
+		wantCode:        http.StatusInternalServerError,
+		endpointsGetter: goodEndpointsGetter,
+		gpc:             1,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+			Attempts:   0,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+		}},
+	}, {
+		label:           "active endpoint (probe 500)",
+		namespace:       testNamespace,
+		name:            testRevName,
+		probeCode:       http.StatusServiceUnavailable,
+		wantCode:        http.StatusInternalServerError,
+		endpointsGetter: goodEndpointsGetter,
+		gpc:             1,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+			Attempts:   0,
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+		}},
 	}, {
 		label:           "request error",
 		namespace:       testNamespace,
@@ -219,12 +274,20 @@ func TestActivationHandler(t *testing.T) {
 		attempts:        "hi there",
 		endpointsGetter: brokenEndpointGetter,
 		reporterCalls:   nil,
-	},
-	}
+	}}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
 			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				if r.Header.Get(network.ProbeHeaderName) != "" {
+					if e.probeErr != nil {
+						return nil, e.probeErr
+					}
+					fake := httptest.NewRecorder()
+					fake.WriteHeader(e.probeCode)
+					fake.WriteString("queue")
+					return fake.Result(), nil
+				}
 				if e.wantErr != nil {
 					return nil, e.wantErr
 				}
@@ -242,13 +305,19 @@ func TestActivationHandler(t *testing.T) {
 
 			reporter := &fakeReporter{}
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
-			throttlerParams := activator.ThrottlerParams{BreakerParams: params, Logger: TestLogger(t), GetRevision: stubRevisionGetter, GetEndpoints: e.endpointsGetter}
+			throttlerParams := activator.ThrottlerParams{
+				BreakerParams: params,
+				Logger:        TestLogger(t),
+				GetRevision:   stubRevisionGetter,
+				GetEndpoints:  e.endpointsGetter,
+			}
 			handler := ActivationHandler{
-				Activator: act,
-				Transport: rt,
-				Logger:    TestLogger(t),
-				Reporter:  reporter,
-				Throttler: activator.NewThrottler(throttlerParams),
+				Activator:     act,
+				Transport:     rt,
+				Logger:        TestLogger(t),
+				Reporter:      reporter,
+				Throttler:     activator.NewThrottler(throttlerParams),
+				GetProbeCount: e.gpc,
 			}
 
 			resp := httptest.NewRecorder()
@@ -256,6 +325,7 @@ func TestActivationHandler(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
 			req.Header.Set(activator.RevisionHeaderName, e.name)
+
 			handler.ServeHTTP(resp, req)
 
 			if resp.Code != e.wantCode {
