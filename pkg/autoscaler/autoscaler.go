@@ -245,15 +245,16 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	a.statsMutex.Lock()
 	defer a.statsMutex.Unlock()
 
-	var stableBuckets float64
-	var stableTotal float64
+	var (
+		stableBuckets float64
+		stableTotal   float64
 
-	var panicBuckets float64
-	var panicTotal float64
+		panicBuckets float64
+		panicTotal   float64
 
-	var lastBucketTime time.Time
-	var lastBucket *statsBucket
-
+		lastBucketTime time.Time
+		lastBucket     *statsBucket
+	)
 	for bucketTime, bucket := range a.bucketed {
 		if !bucketTime.Add(panicWindow).Before(now) {
 			panicBuckets++
