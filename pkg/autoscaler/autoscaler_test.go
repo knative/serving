@@ -382,13 +382,11 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-0",
-		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-1",
-		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 
@@ -402,18 +400,29 @@ func TestAutoscaler_ActivatorAndQueueProxyAreAggregated(t *testing.T) {
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-0",
-		RequestCount:              0,
-		AverageConcurrentRequests: 50.0,
+		AverageConcurrentRequests: 10.0,
+	})
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   ActivatorPodName + "-1",
+		AverageConcurrentRequests: 10.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   "pod-1",
-		RequestCount:              0,
-		AverageConcurrentRequests: 50.0,
-		AverageRevConcurrency:     50.0,
+		AverageConcurrentRequests: 5.0,
+		AverageRevConcurrency:     10.0,
+	})
+	now = a.recordMetric(t, Stat{
+		Time:                      &now,
+		PodName:                   "pod-2",
+		AverageConcurrentRequests: 5.0,
+		AverageRevConcurrency:     10.0,
 	})
 
-	a.expectScale(t, now, 10, true)
+	// Sum AverageConcurrentRequests from activator and average AverageRevConcurrency
+	// from customer pods.
+	a.expectScale(t, now, 3, true)
 }
 
 // Autoscaler should drop data after 60 seconds.
