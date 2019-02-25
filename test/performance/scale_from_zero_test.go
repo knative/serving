@@ -93,7 +93,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	// Initialize our service names.
 	for i := 0; i < count; i++ {
 		testNames[i] = &test.ResourceNames{
-			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i)),
+			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
 			Image: helloWorldImage,
 		}
@@ -141,7 +141,7 @@ func getStats(durations []time.Duration) *stats {
 }
 
 func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%d", count)
+	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
 	durs, err := parallelScaleFromZero(t, count)
 	if err != nil {
 		t.Fatal(err)
