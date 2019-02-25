@@ -50,7 +50,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	deploymentName := names.Deployment(ro.Revision)
 
 	domain := ro.Route.Status.Domain
-	t.Logf("%d: waiting for deployment to scale to zero.", idx)
+	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
@@ -58,7 +58,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
 		2*time.Minute); err != nil {
-		m := fmt.Sprintf("%d: failed waiting for deployment to scale to zero: %v", idx, err)
+		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
@@ -72,12 +72,12 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		m := fmt.Sprintf("%d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
 
-	t.Logf("%d: request completed", idx)
+	t.Logf("%02d: request completed", idx)
 	return time.Since(start), nil
 }
 
@@ -113,10 +113,10 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 		g.Go(func() error {
 			ro, err := test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], &test.Options{})
 			if err != nil {
-				return fmt.Errorf("%d: failed to create Ready service: %v", ndx, err)
+				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			dur, err := runScaleFromZero(ndx, t, pc.E2EClients, ro)
-			t.Logf("%d: duration: %v, err: %v", ndx, dur, err)
+			t.Logf("%02d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
 				durations[ndx] = dur
 			}
