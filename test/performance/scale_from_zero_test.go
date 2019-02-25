@@ -66,7 +66,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	}
 
 	start := time.Now()
-	t.Logf("%d: waiting for endpoint to serve request", idx)
+	t.Logf("%0d: waiting for endpoint to serve request", idx)
 	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
