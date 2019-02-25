@@ -152,7 +152,7 @@ func TestObservedConcurrency(t *testing.T) {
 
 	// Make sure we are ready to serve.
 	st := time.Now()
-	t.Log("Starting to probe the endpoint at ", st)
+	t.Log("Starting to probe the endpoint at", st)
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
