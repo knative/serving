@@ -15,6 +15,7 @@
 # limitations under the License.
 
 set -o errexit
+set +x
 
 
 : ${PROJECT_ID:="knative-environments"}
@@ -40,12 +41,23 @@ function patch_network_config_gke() {
     ${K8S_CLUSTER_ZONE:+--zone="${K8S_CLUSTER_ZONE}"} --format="value(servicesIpv4Cidr)")
   ip_ranges+="$svc_cidr"
 
+  # Since kubectl doesn't really have "dry-run" mode, we get the file
+  # temporarily and patch using "--local" strategy, for display purposes.
+  readonly tmp=$(mktemp)
+  kubectl get configmap config-network -n knative-serving -oyaml > $tmp
+
   echo "The following configuration will be applied:"
   readonly property="istio.sidecar.includeOutboundIPRanges"
   readonly patch="{\"data\":{\"${property}\":\"${ip_ranges}\"}}"
+  readonly tmpl="{{index .data \"${property}\"}}"
+
   echo -n "  ${property}: "
-  kubectl patch configmap config-network -n knative-serving -p "${patch}" --dry-run -o go-template="{{index .data \"${property}\"}}"
+  echo "$(kubectl patch --local -f ${tmp} -p ${patch} -o go-template="${tmpl}")"
   echo -e "\n"
+
+  # Cleanup the temp file in any case.
+  rm $tmp
+
   read -p "Do you want to apply the changes (y/N)? " -n 1 -r
   echo
   if [[ "$REPLY" =~ ^[Yy]$ ]]; then
