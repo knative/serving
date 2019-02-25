@@ -156,8 +156,8 @@ or platform providers MAY use hooks to implement their own lifecycle controls.
 #### File descriptors
 
 A read from the `stdin` file descriptor on the container SHOULD always result in
-`EOF`. The `stdout` and `stderr` file descriptors on the container SHOULD
-be collected and retained in a developer-accessible logging repository.
+`EOF`. The `stdout` and `stderr` file descriptors on the container SHOULD be
+collected and retained in a developer-accessible logging repository.
 (TODO:[docs#902](https://github.com/knative/docs/issues/902)).
 
 Within the container, pipes and file descriptors may be used to communicate
