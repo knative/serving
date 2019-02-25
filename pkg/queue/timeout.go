@@ -73,7 +73,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	// The recovery value of a panic is written to this channel to be
 	// propagated (panicked with) again.
-	panicChan := make(chan interface{}, 1)
+	panicChan := make(chan interface{})
 	defer close(panicChan)
 
 	tw := &timeoutWriter{w: w}
