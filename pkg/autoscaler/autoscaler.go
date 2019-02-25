@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strings"
 	"sync"
 	"time"
 
@@ -58,10 +57,6 @@ type Stat struct {
 	// Lameduck indicates this Pod has received a shutdown signal.
 	// Deprecated and no longer used by newly created Pods.
 	LameDuck bool
-
-	// Average number of requests currently being handled by all ready pods of a
-	// revision.
-	AverageRevConcurrency float64
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -80,56 +75,21 @@ func (b statsBucket) add(stat *Stat) {
 	b[stat.PodName] = append(b[stat.PodName], stat)
 }
 
-// concurrency calculates the overall revision concurrency as measured by this
+// concurrency calculates the overall concurrency as measured by this
 // bucket. All stats that belong to the same pod will be averaged.
-// The overall revision concurrency is the measured average revision concurrency
-// from queue proxy plus the sum of the measured concurrency of all activator
-// pods. This is because the autoscaler can get all stats from all activator,
-// but it can only get stats from some sample custom pods(queue proxies) and the
-// revision concurrency is estimated based on pod concurrency from queue proxy
-// and the ready pods number at that time.
+// The overall concurrency is the sum of the measured concurrency of all
+// pods (including activator metrics).
 func (b statsBucket) concurrency() float64 {
-	var (
-		activatorPodTotal             float64
-		averageQueueProxyRevTotal     float64
-		accumulatedQueueProxyRevTotal float64
-		queueProxyCount               int
-	)
-	for podName, podStats := range b {
-		if isActivator(podName) {
-			activatorPodTotal += averagePodConcurrency(podStats)
-		} else {
-			accumulatedQueueProxyRevTotal += averageRevConcurrency(podStats)
-			queueProxyCount++
+	var total float64
+	for _, podStats := range b {
+		var subtotal float64
+		for _, stat := range podStats {
+			subtotal += stat.AverageConcurrentRequests
 		}
+		total += subtotal / float64(len(podStats))
 	}
 
-	if queueProxyCount != 0 {
-		averageQueueProxyRevTotal = accumulatedQueueProxyRevTotal / float64(queueProxyCount)
-	}
-	return averageQueueProxyRevTotal + activatorPodTotal
-}
-
-// averagePodConcurrency calculates the average of AverageConcurrentRequests
-// for the given Stat point array. The point of the array MUST not be nil and
-// the array MUST not be empty.
-func averagePodConcurrency(podStats []*Stat) float64 {
-	total := 0.0
-	for _, stat := range podStats {
-		total += stat.AverageConcurrentRequests
-	}
-	return total / float64(len(podStats))
-}
-
-// averageRevConcurrency calculates the average of AverageRevConcurrency
-// for the given Stat point array. The point of the array MUST not be nil and
-// the array MUST not be empty.
-func averageRevConcurrency(podStats []*Stat) float64 {
-	total := 0.0
-	for _, stat := range podStats {
-		total += stat.AverageRevConcurrency
-	}
-	return total / float64(len(podStats))
+	return total
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -326,12 +286,8 @@ func (a *Autoscaler) targetConcurrency() float64 {
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount float64, currentPodCount int) int32 {
+	// Use 1 if there are zero current pods.
 	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*math.Max(1, float64(currentPodCount))))
-}
-
-func isActivator(podName string) bool {
-	// TODO(#2282): This can cause naming collisions.
-	return strings.HasPrefix(podName, ActivatorPodName)
 }
 
 // readyPodsCountOfEndpoints returns the ready IP count in the K8S Endpoints object returned by

@@ -307,60 +307,6 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
-func TestAutoscaler_ConcurrencyChangedDuringScalingWindow(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		roundedNow(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-	now = a.recordLinearSeries(
-		t,
-		now,
-		linearSeries{
-			startConcurrency: 16,
-			endConcurrency:   16,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-	// For first 30 seconds. all pods reports 10*10 revision concurrency.
-	// For second 30 seconds. all pods reports 16*10 revision concurrency.
-	// Average revision concurrency:
-	// (10*10 + 16*10) / 2 = 130
-	a.expectScale(t, now, 13, true)
-}
-
-func TestAutoscaler_PodsNumberChangedDuringScalingWindow(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		roundedNow(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-	now = a.recordLinearSeries(
-		t,
-		now,
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         20,
-		})
-	// For first 30 seconds. all pods reports 10*10 revision concurrency.
-	// For second 30 seconds. all pods reports 10*20 revision concurrency.
-	// Average revision concurrency:
-	// (10*10 + 10*20) / 2 = 150
-	a.expectScale(t, now, 15, true)
-}
-
 func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
@@ -382,47 +328,17 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-0",
+		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
 		PodName:                   ActivatorPodName + "-1",
+		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 
 	a.expectScale(t, now, 10, true)
-}
-
-func TestAutoscaler_ActivatorAndQueueProxyAreAggregated(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-
-	now := roundedNow()
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
-		AverageConcurrentRequests: 10.0,
-	})
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
-		AverageConcurrentRequests: 10.0,
-	})
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   "pod-1",
-		AverageConcurrentRequests: 5.0,
-		AverageRevConcurrency:     10.0,
-	})
-	now = a.recordMetric(t, Stat{
-		Time:                      &now,
-		PodName:                   "pod-2",
-		AverageConcurrentRequests: 5.0,
-		AverageRevConcurrency:     10.0,
-	})
-
-	// Sum AverageConcurrentRequests from activator and average AverageRevConcurrency
-	// from customer pods.
-	a.expectScale(t, now, 3, true)
 }
 
 // Autoscaler should drop data after 60 seconds.
@@ -638,12 +554,11 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
-				AverageRevConcurrency:     float64(point) * float64(s.podCount),
 			}
 			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
-	// Change the IP count according to podCount
+	// Change the IP count according to podCount and lameduck
 	createEndpoints(addIps(makeEndpoints(), s.podCount))
 	return now
 }

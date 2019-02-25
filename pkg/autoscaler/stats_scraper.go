@@ -39,6 +39,8 @@ const (
 	httpClientTimeout = 3 * time.Second
 
 	cacheTimeout = time.Second
+
+	scraperPodName = "service-scraper"
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -140,10 +142,19 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	}
 
 	// Assume traffic is route to pods evenly. A particular pod can stand for
-	// other pods, i.e. other pods have similar concurrency.
-	stat.AverageRevConcurrency = stat.AverageConcurrentRequests * float64(readyPodsCount)
+	// other pods, i.e. other pods have similar concurrency and QPS.
+	// Hide the actual pods behind scraper and send only one stat for all the
+	// customer pods per scraping. The pod name is set to a unique value, i.e.
+	// scraperPodName so in autoscaler all stats are either from activator or
+	// scraper.
+	newStat := Stat{
+		Time:                      stat.Time,
+		PodName:                   scraperPodName,
+		AverageConcurrentRequests: stat.AverageConcurrentRequests * float64(readyPodsCount),
+		RequestCount:              stat.RequestCount * int32(readyPodsCount),
+	}
 
-	s.sendStatMessage(*stat, statsCh)
+	s.sendStatMessage(newStat, statsCh)
 }
 
 // readyPodsCount returns the ready IP count in the K8S Endpoints object for a Revision
@@ -194,13 +205,6 @@ func extractData(body io.Reader) (*Stat, error) {
 	}
 
 	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
-		// The autoscaler should decide what to do with a Stat with empty pod name
-		for _, label := range pMetric.Label {
-			if *label.Name == "destination_pod" {
-				stat.PodName = *label.Value
-				break
-			}
-		}
 		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
 	} else {
 		return nil, errors.New("Could not find value for queue_average_concurrent_requests in response")

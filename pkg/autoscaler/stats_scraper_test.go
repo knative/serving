@@ -138,9 +138,6 @@ func TestScrapeViaURL_HappyCase(t *testing.T) {
 	if stat.RequestCount != 1 {
 		t.Errorf("stat.RequestCount=%v, want 1", stat.RequestCount)
 	}
-	if stat.PodName != testPodName {
-		t.Errorf("stat.PodName=%v, want %v", stat.RequestCount, testPodName)
-	}
 }
 
 func TestScrapeViaURL_ErrorCases(t *testing.T) {
@@ -201,7 +198,8 @@ func TestScrape_HappyCase(t *testing.T) {
 
 	// Make an Endpoints with 2 pods.
 	createEndpoints(addIps(makeEndpoints(), 2))
-
+	// Scrape will set a timestamp bigger than this.
+	now := time.Now()
 	statsCh := make(chan *StatMessage, 1)
 	defer close(statsCh)
 	scraper.Scrape(TestContextWithLogger(t), statsCh)
@@ -210,14 +208,20 @@ func TestScrape_HappyCase(t *testing.T) {
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
-	if got.Stat.AverageConcurrentRequests != 2.0 {
-		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 2.0)
+	if got.Stat.Time.Before(now) {
+		t.Errorf("StatMessage.Stat.Time=%v, want bigger than %v", got.Stat.Time, now)
+	}
+	if got.Stat.PodName != scraperPodName {
+		t.Errorf("StatMessage.Stat.PodName=%v, want %v", got.Stat.PodName, scraperPodName)
 	}
 	// 2 pods times 2.0
-	if got.Stat.AverageRevConcurrency != 4.0 {
-		t.Errorf("StatMessage.Stat.AverageRevConcurrency=%v, want %v",
-			got.Stat.AverageRevConcurrency, 4.0)
+	if got.Stat.AverageConcurrentRequests != 4.0 {
+		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
+			got.Stat.AverageConcurrentRequests, 4.0)
+	}
+	// 2 pods times 1
+	if got.Stat.RequestCount != 2 {
+		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 2)
 	}
 }
 
