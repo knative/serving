@@ -75,7 +75,6 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 			http.StatusNotFound,            /* revision not created */
 			http.StatusInternalServerError, /*revision not yet ready*/
 		),
-		//test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
 		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
@@ -162,7 +161,7 @@ func getStats(durations []time.Duration) *stats {
 }
 
 func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%0d", count)
+	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
 	durs, err := parallelScaleFromZero(t, count)
 	if err != nil {
 		t.Fatal(err)
