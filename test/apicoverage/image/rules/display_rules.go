@@ -33,7 +33,7 @@ func PackageDisplayRule(packageName string) string {
 		if len(tokens) >= 2 {
 			// As package names are built using reflect.Type.PackagePath, they are long.
 			// For better readability displaying only last two words of the package path. e.g. serving.v1alpha1
-			return strings.Join(tokens[len(tokens) - 2:], "/")
+			return strings.Join(tokens[len(tokens)-2:], "/")
 		}
 	}
 	return packageName
@@ -56,9 +56,9 @@ func FieldDisplayRule(field *coveragecalculator.FieldCoverage) string {
 }
 
 // GetDisplayRules returns the view.DisplayRules for knative serving.
-func GetDisplayRules () view.DisplayRules {
+func GetDisplayRules() view.DisplayRules {
 	return view.DisplayRules{
 		PackageNameRule: PackageDisplayRule,
-		FieldRule: FieldDisplayRule,
+		FieldRule:       FieldDisplayRule,
 	}
 }
