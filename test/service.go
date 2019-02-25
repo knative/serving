@@ -152,21 +152,21 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	t.Log("Waiting for Service to transition to Ready.")
+	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
 
-	t.Log("Checking to ensure Service Status is populated for Ready service.")
+	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
 	err = validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, err
 	}
 
-	t.Log("Getting latest objects Created by Service.")
+	t.Log("Getting latest objects Created by Service", names.Service)
 	resources, err := GetResourceObjects(clients, *names)
 	if err == nil {
-		t.Logf("Successfully created Service %s.", names.Domain)
+		t.Log("Successfully created Service", names.Service)
 	}
 	return resources, err
 }

@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ const (
 	ScaleFromZeroAvgTestGridProperty = "perf_ScaleFromZero_Average"
 	helloWorldExpectedOutput         = "Hello World!"
 	helloWorldImage                  = "helloworld"
+	waitToServe                      = 10 * time.Minute
 )
 
 type stats struct {
@@ -50,34 +52,38 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	deploymentName := names.Deployment(ro.Revision)
 
 	domain := ro.Route.Status.Domain
-	t.Logf("%d: waiting for deployment to scale to zero.", idx)
+	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
-		2*time.Minute); err != nil {
-		m := fmt.Sprintf("%d: failed waiting for deployment to scale to zero: %v", idx, err)
+		3*time.Minute); err != nil {
+		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
 
 	start := time.Now()
-	t.Log("Waiting for endpoint to serve request")
-	if _, err := pkgTest.WaitForEndpointState(
+	t.Logf("%d: waiting for endpoint to serve request", idx)
+	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
+			http.StatusNotFound,            /* revision not created */
+			http.StatusInternalServerError, /*revision not yet ready*/
+		),
+		//test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		m := fmt.Sprintf("%d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
+		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
 
-	t.Logf("%d: request completed", idx)
+	t.Logf("%02d: request completed", idx)
 	return time.Since(start), nil
 }
 
@@ -93,7 +99,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	// Initialize our service names.
 	for i := 0; i < count; i++ {
 		testNames[i] = &test.ResourceNames{
-			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i)),
+			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
 			Image: helloWorldImage,
 		}
@@ -107,16 +113,31 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
+	objs := make([]*test.ResourceObjects, count)
+	begin := time.Now()
+	defer func() {
+		t.Logf("Total time for test: %v", time.Since(begin))
+	}()
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
-			ro, err := test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], &test.Options{})
-			if err != nil {
-				return fmt.Errorf("%d: failed to create Ready service: %v", ndx, err)
+			var err error
+			if objs[ndx], err = test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], &test.Options{}); err != nil {
+				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
-			dur, err := runScaleFromZero(ndx, t, pc.E2EClients, ro)
-			t.Logf("%d: duration: %v, err: %v", ndx, dur, err)
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	t.Logf("Created all the services in %v", time.Since(begin))
+	for i := 0; i < count; i++ {
+		ndx := i
+		g.Go(func() error {
+			dur, err := runScaleFromZero(ndx, t, pc.E2EClients, objs[ndx])
+			t.Logf("%02d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
 				durations[ndx] = dur
 			}
@@ -141,7 +162,7 @@ func getStats(durations []time.Duration) *stats {
 }
 
 func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%d", count)
+	tName := fmt.Sprintf("TestScaleFromZero%0d", count)
 	durs, err := parallelScaleFromZero(t, count)
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +184,5 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
-	t.Skip()
 	testScaleFromZero(t, 50)
 }
