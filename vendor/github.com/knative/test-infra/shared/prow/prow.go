@@ -202,18 +202,28 @@ func (j *Job) GetFinishedBuilds() []Build {
 	return finishedBuilds
 }
 
-// GetBuilds gets all builds from this job on gcs
+// GetBuilds gets all builds from this job on gcs, precomputes start/finish time of builds
+// by parsing "Started.json" and "Finished.json" on gcs, could be very expensive if there are
+// large number of builds
 func (j *Job) GetBuilds() []Build {
 	var builds []Build
-	gcsBuildPaths := gcs.ListDirectChildren(ctx, j.Bucket, j.StoragePath)
-	for _, gcsBuildPath := range gcsBuildPaths {
-		buildID, err := getBuildIDFromBuildPath(gcsBuildPath)
-		if nil != err { // this last part of gcs path is not a valid int64, should not be a build
-			continue
-		}
-		builds = append(builds, *j.NewBuild(buildID))
+	for _, ID := range j.GetBuildIDs() {
+		builds = append(builds, *j.NewBuild(ID))
 	}
 	return builds
+}
+
+// GetBuildIDs gets all build IDs from this job on gcs, scans all direct child of gcs directory
+// for job, keeps the ones that can be parsed as integer
+func (j *Job) GetBuildIDs() []int {
+	var buildIDs []int
+	gcsBuildPaths := gcs.ListDirectChildren(ctx, j.Bucket, j.StoragePath)
+	for _, gcsBuildPath := range gcsBuildPaths {
+		if buildID, err := getBuildIDFromBuildPath(gcsBuildPath); nil == err {
+			buildIDs = append(buildIDs, buildID)
+		}
+	}
+	return buildIDs
 }
 
 // GetLatestBuilds get latest builds from gcs, sort by start time from newest to oldest,
