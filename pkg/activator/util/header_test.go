@@ -63,8 +63,7 @@ func TestHeaderPruning(t *testing.T) {
 			SetupHeaderPruning(proxy)
 
 			resp := httptest.NewRecorder()
-
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(test.header, "some-value")
 
 			proxy.ServeHTTP(resp, req)

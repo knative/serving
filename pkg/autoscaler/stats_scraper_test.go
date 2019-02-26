@@ -79,7 +79,7 @@ func TestNewServiceScraperWithClient_ReturnErrorIfRevisionLabelIsMissing(t *test
 
 func TestScrapeViaURL_HappyCase(t *testing.T) {
 	metric := getTestMetric()
-	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
+	client := newTestClient(getHTTPResponse(http.StatusOK, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
 	if err != nil {
 		t.Errorf("newServiceScraperWithClient=%v, want no error", err)
@@ -108,26 +108,26 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		expectedErr     string
 	}{{
 		name:         "Non 200 return code",
-		responseCode: 403,
+		responseCode: http.StatusForbidden,
 		expectedErr:  "GET request for URL \"http://test-revision-service.test-namespace:9090/metrics\" returned HTTP status 403",
 	}, {
 		name:         "Error got when sending request",
-		responseCode: 200,
+		responseCode: http.StatusOK,
 		responseErr:  errors.New("upstream closed"),
 		expectedErr:  "Get http://test-revision-service.test-namespace:9090/metrics: upstream closed",
 	}, {
 		name:            "Bad response context format",
-		responseCode:    200,
+		responseCode:    http.StatusOK,
 		responseContext: "bad context",
 		expectedErr:     "Reading text format failed: text format parsing error in line 1: unexpected end of input stream",
 	}, {
 		name:            "Missing average concurrency",
-		responseCode:    200,
+		responseCode:    http.StatusOK,
 		responseContext: testQPSContext,
 		expectedErr:     "Could not find value for queue_average_concurrent_requests in response",
 	}, {
 		name:            "Missing QPS",
-		responseCode:    200,
+		responseCode:    http.StatusOK,
 		responseContext: testAverageConcurrenyContext,
 		expectedErr:     "Could not find value for queue_operations_per_second in response",
 	}}
@@ -151,7 +151,7 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 
 func TestSendStatMessage(t *testing.T) {
 	metric := getTestMetric()
-	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
+	client := newTestClient(getHTTPResponse(http.StatusOK, testAverageConcurrenyContext+testQPSContext), nil)
 	scraper, err := newServiceScraperWithClient(&metric, TestLogger(t), client)
 	if err != nil {
 		t.Errorf("newServiceScraperWithClient=%v, want no error", err)

@@ -97,7 +97,7 @@ func (s *ServiceScraper) Scrape(statsCh chan<- *StatMessage) {
 }
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
-	req, err := http.NewRequest("GET", s.url, nil)
+	req, err := http.NewRequest(http.MethodGet, s.url, nil)
 	if err != nil {
 		return nil, err
 	}

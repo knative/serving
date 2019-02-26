@@ -322,7 +322,7 @@ func TestActivationHandler(t *testing.T) {
 
 			resp := httptest.NewRecorder()
 
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
 			req.Header.Set(activator.RevisionHeaderName, e.name)
 
@@ -406,7 +406,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	for i := 0; i < count; i++ {
 		go func() {
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 			req.Header.Set(activator.RevisionHeaderName, revName)
 			handler.ServeHTTP(resp, req)
