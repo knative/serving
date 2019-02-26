@@ -53,7 +53,7 @@ func TestFilteringHandler(t *testing.T) {
 			handler := FilteringHandler{NextHandler: baseHandler}
 
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header = e.headers
 
 			handler.ServeHTTP(resp, req)

@@ -97,7 +97,7 @@ func TestEnforceMaxContentLengthHandler(t *testing.T) {
 			handler := EnforceMaxContentLengthHandler{NextHandler: baseHandler, MaxContentLengthBytes: int64(e.maxUpload)}
 
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", e.request)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", e.request)
 
 			handler.ServeHTTP(resp, req)
 
