@@ -234,8 +234,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
 	lister := c.revisionLister.Revisions(config.Namespace)
 
-	// TODO(#643) - in serving 0.5 switch to serving.ConfigurationGenerationLabelKey
-	generationKey := serving.DeprecatedConfigurationMetadataGenerationLabelKey
+	generationKey := serving.ConfigurationGenerationLabelKey
 
 	list, err := lister.List(labels.SelectorFromSet(map[string]string{
 		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
