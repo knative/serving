@@ -27,7 +27,9 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
+	"github.com/knative/serving/pkg/network"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // ActivationHandler will wait for an active endpoint for a revision
@@ -38,6 +40,12 @@ type ActivationHandler struct {
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
 	Throttler *activator.Throttler
+
+	// GetProbeCount is the number of attempts we should
+	// make to network probe the queue-proxy after the revision becomes
+	// ready before forwarding the payload.  If zero, a network probe
+	// is not required.
+	GetProbeCount int
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +69,53 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := a.Throttler.Try(revID, func() {
-		attempts, httpStatus := a.proxyRequest(w, r, target)
+		var (
+			attempts   int
+			httpStatus int
+		)
+		// If a GET probe interval has been configured, then probe
+		// the queue-proxy with our network probe header until it
+		// returns a 200 status code.
+		success := (a.GetProbeCount == 0)
+		if !success {
+			probeReq := &http.Request{
+				Method:     http.MethodGet,
+				URL:        target,
+				Proto:      r.Proto,
+				ProtoMajor: r.ProtoMajor,
+				ProtoMinor: r.ProtoMinor,
+				Host:       r.Host,
+				Header: map[string][]string{
+					http.CanonicalHeaderKey(network.ProbeHeaderName): []string{"true"},
+				},
+			}
+			settings := wait.Backoff{
+				Duration: 100 * time.Millisecond,
+				Factor:   1.3,
+				Steps:    a.GetProbeCount,
+			}
+			err := wait.ExponentialBackoff(settings, func() (bool, error) {
+				probeResp, err := a.Transport.RoundTrip(probeReq)
+				if err != nil {
+					a.Logger.Errorw("Pod probe failed", zap.Error(err))
+					return false, nil
+				}
+				httpStatus = probeResp.StatusCode
+				if httpStatus == http.StatusServiceUnavailable {
+					a.Logger.Errorf("Pod probe sent status: %d", httpStatus)
+					return false, nil
+				}
+				return true, nil
+			})
+			success = (err == nil) && httpStatus == http.StatusOK
+		}
+		if success {
+			// Once we see a successful probe, send traffic.
+			attempts, httpStatus = a.proxyRequest(w, r, target)
+		} else {
+			httpStatus = http.StatusInternalServerError
+			w.WriteHeader(httpStatus)
+		}
 
 		// Report the metrics
 		duration := time.Since(start)

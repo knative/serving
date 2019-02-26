@@ -105,7 +105,7 @@ func TestDestroyPodInflight(t *testing.T) {
 			return err
 		}
 
-		if res.StatusCode != 200 {
+		if res.StatusCode != http.StatusOK {
 			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
 		}
 		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDurationInMillis)

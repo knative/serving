@@ -35,7 +35,7 @@ func TestRequestEventHandler(t *testing.T) {
 	handler := NewRequestEventHandler(reqChan, baseHandler)
 
 	resp := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "http://example.com", bytes.NewBufferString(""))
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
 	req.Header.Add(activator.RevisionHeaderNamespace, namespace)
 	req.Header.Add(activator.RevisionHeaderName, revision)
 
