@@ -211,7 +211,8 @@ Loadbalancer to a NodePort. The external address of such a NodePort is usually
 not easily obtained within the cluster automatically, but can be provided from
 the outside through the `--ingressendpoint` flag. For a minikube setup for
 example, you'd want to run tests against the default `ingressgateway` (port
-31380) running on the minikube node:
+
+31380. running on the minikube node:
 
 ```
 go test -v -tags=e2e -count=1 ./test/conformance --ingressendpoint "$(minikube ip):31380"
