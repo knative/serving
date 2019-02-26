@@ -203,6 +203,7 @@ function create_test_cluster() {
     gcloud compute http-health-checks delete -q --project=${gcloud_project} ${http_health_checks}
   fi
   local result="$(cat ${TEST_RESULT_FILE})"
+  echo "Artifacts were written to ${ARTIFACTS}"
   echo "Test result code is ${result}"
 
   exit ${result}
