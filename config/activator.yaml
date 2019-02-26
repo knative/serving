@@ -77,7 +77,7 @@ spec:
       volumes:
         - name: config-logging
           configMap:
-            name: config-logging
+            name: serving-config-logging
         - name: config-observability
           configMap:
             name: config-observability

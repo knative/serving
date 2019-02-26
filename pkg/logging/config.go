@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ConfigName = "config-logging"
+	ConfigName = "serving-config-logging"
 )
 
 var components = []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"}
