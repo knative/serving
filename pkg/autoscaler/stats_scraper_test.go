@@ -81,7 +81,7 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 		dynConfig:   dynConfig,
 		client:      client,
 		informer:    informer,
-		expectedErr: "empty point of Metric",
+		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Metric",
 		metric:      &invalidMetric,
@@ -94,19 +94,19 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 		metric:      &metric,
 		client:      client,
 		informer:    informer,
-		expectedErr: "empty point of DynamicConfig",
+		expectedErr: "dynamic config must not be nil",
 	}, {
 		name:        "Empty HTTP client",
 		metric:      &metric,
 		dynConfig:   dynConfig,
 		informer:    informer,
-		expectedErr: "empty point of HTTP client",
+		expectedErr: "HTTP client must not be nil",
 	}, {
 		name:        "Empty informer",
 		metric:      &metric,
 		dynConfig:   dynConfig,
 		client:      client,
-		expectedErr: "empty interface of EndpointsInformer",
+		expectedErr: "endpoints informer must not be nil",
 	}}
 
 	for _, test := range testCases {

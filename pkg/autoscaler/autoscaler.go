@@ -168,11 +168,13 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	readyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
+	originalReadyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
 	}
+	// Use 1 if there are zero current pods.
+	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	config := a.Current()
 
@@ -198,7 +200,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, config.StableWindow)
 	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, config.PanicWindow)
 
-	isOverPanicThreshold := observedPanicConcurrency/float64(readyPodsCount) >= target*2
+	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= target*2
 
 	if a.panicTime == nil && isOverPanicThreshold {
 		// Begin panicking when we cross the concurrency threshold in the panic window.
@@ -285,9 +287,8 @@ func (a *Autoscaler) targetConcurrency() float64 {
 	return a.target
 }
 
-func (a *Autoscaler) podCountLimited(desiredPodCount float64, currentPodCount int) int32 {
-	// Use 1 if there are zero current pods.
-	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*math.Max(1, float64(currentPodCount))))
+func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
+	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
 }
 
 // readyPodsCountOfEndpoints returns the ready IP count in the K8S Endpoints object returned by

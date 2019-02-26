@@ -40,6 +40,11 @@ const (
 
 	cacheTimeout = time.Second
 
+	// scraperPodName is the name used in all stats sent from the scraper to
+	// the autoscaler. The actual customer pods are hidden behind the scraper. The
+	// autoscaler does need to know how many customer pods are reporting metrics.
+	// Instead, the autoscaler knows the stats it receives are either from the
+	// scraper or the activator.
 	scraperPodName = "service-scraper"
 )
 
@@ -60,11 +65,6 @@ var cacheDisabledClient = &http.Client{
 	Timeout: httpClientTimeout,
 }
 
-type readyPods struct {
-	time  time.Time
-	count int
-}
-
 // ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
 // pod to be picked up to serve the request is decided by K8S. Please see
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
@@ -76,7 +76,6 @@ type ServiceScraper struct {
 	namespace       string
 	revisionService string
 	metricKey       string
-	cachedReadyPods readyPods
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -91,16 +90,16 @@ func newServiceScraperWithClient(
 	endpointsInformer corev1informers.EndpointsInformer,
 	httpClient *http.Client) (*ServiceScraper, error) {
 	if metric == nil {
-		return nil, errors.New("empty point of Metric")
+		return nil, errors.New("metric must not be nil")
 	}
 	if dynamicConfig == nil {
-		return nil, errors.New("empty point of DynamicConfig")
+		return nil, errors.New("dynamic config must not be nil")
 	}
 	if endpointsInformer == nil {
-		return nil, errors.New("empty interface of EndpointsInformer")
+		return nil, errors.New("endpoints informer must not be nil")
 	}
 	if httpClient == nil {
-		return nil, errors.New("empty point of HTTP client")
+		return nil, errors.New("HTTP client must not be nil")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
@@ -115,7 +114,6 @@ func newServiceScraperWithClient(
 		metricKey:       NewMetricKey(metric.Namespace, metric.Name),
 		namespace:       metric.Namespace,
 		revisionService: reconciler.GetServingK8SServiceNameForObj(revName),
-		cachedReadyPods: readyPods{},
 	}, nil
 }
 
@@ -124,14 +122,14 @@ func newServiceScraperWithClient(
 func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
 	logger := logging.FromContext(ctx)
 
-	readyPodsCount, err := s.readyPodsCount(time.Now())
+	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return
 	}
 
 	if readyPodsCount == 0 {
-		logger.Debug("No ready pods found, not to scrape.")
+		logger.Debug("No ready pods found, nothing to scrape.")
 		return
 	}
 
@@ -155,24 +153,6 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	}
 
 	s.sendStatMessage(newStat, statsCh)
-}
-
-// readyPodsCount returns the ready IP count in the K8S Endpoints object for a Revision
-// via K8S Informer. This is same as ready Pod count.
-func (s *ServiceScraper) readyPodsCount(now time.Time) (int, error) {
-	if s.cachedReadyPods.time.Add(cacheTimeout).After(now) {
-		return s.cachedReadyPods.count, nil
-	}
-
-	readyPods, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
-	if err != nil {
-		return 0, err
-	}
-
-	s.cachedReadyPods.time = now
-	s.cachedReadyPods.count = readyPods
-
-	return readyPods, nil
 }
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {

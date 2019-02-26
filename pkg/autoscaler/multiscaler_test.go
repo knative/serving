@@ -90,7 +90,7 @@ func verifyStatMessageTick(statsCh chan *StatMessage) error {
 	case <-statsCh:
 		// We got the StatMessage!
 		return nil
-	case <-time.After(time.Second / samplesPerSecond):
+	case <-time.After(2 * scrapeTickInterval):
 		return errors.New("Did not get expected StatMessage")
 	}
 }
