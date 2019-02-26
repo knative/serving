@@ -388,7 +388,11 @@ function main() {
 
   run_validation_tests ${VALIDATION_TESTS}
   banner "Building the release"
-  build_release || abort "error building the release"
+  build_release
+  # Do not use `||` above or any error will be swallowed.
+  if [[ $? -ne 0 ]]; then
+    abort "error building the release"
+  fi
   [[ -z "${YAMLS_TO_PUBLISH}" ]] && abort "no manifests were generated"
   echo "New release built successfully"
   if (( PUBLISH_RELEASE )); then

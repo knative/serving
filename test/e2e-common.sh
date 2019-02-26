@@ -85,9 +85,6 @@ function install_knative_serving() {
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
-  echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
-
   wait_until_pods_running knative-serving || return 1
 }
 
@@ -159,22 +156,17 @@ function install_knative_serving_standard() {
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 
-  echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
-
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
   wait_until_service_has_external_ip istio-system istio-ingressgateway
 }
 
 # Uninstalls Knative Serving from the current cluster.
-function uninstall_knative_serving() {
+function knative_teardown() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${INSTALL_RELEASE_YAML}" ]]; then
     echo "install_knative_serving() was not called, nothing to uninstall"
     return 0
   fi
-  echo ">> Removing test resources (test/config/)"
-  ko delete --ignore-not-found=true -f test/config/ || return 1
   if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
     echo ">> Uninstalling Knative serving from custom YAMLs"
     for yaml in ${INSTALL_CUSTOM_YAMLS}; do
@@ -198,14 +190,20 @@ function uninstall_knative_serving() {
   fi
 }
 
-# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
-function publish_test_images() {
+# Create test resources and images
+function test_setup() {
+  echo ">> Creating test resources (test/config/)"
+  ko apply -f test/config/ || return 1
   echo ">> Creating test namespace"
   kubectl create namespace serving-tests
   ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }
 
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
+# Delete test resources
+function test_teardown() {
+  echo ">> Removing test resources (test/config/)"
+  ko delete --ignore-not-found=true -f test/config/
+  echo ">> Removing test namespace"
+  kubectl delete all --all --ignore-not-found=true -n serving-tests
+  kubectl delete --ignore-not-found=true namespace serving-tests
 }

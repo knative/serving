@@ -55,14 +55,13 @@ function install_head() {
   install_knative_serving || fail_test "Knative head release installation failed"
 }
 
+function knative_setup() {
+  install_latest_release
+}
+
 # Script entry point.
 
 initialize $@
-
-header "Setting up environment"
-publish_test_images || fail_test "one or more test images weren't published"
-
-install_latest_release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
