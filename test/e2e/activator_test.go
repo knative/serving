@@ -20,15 +20,16 @@ package e2e
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
-	"net/http"
+
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/spoof"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/test"
 )
 
 // TestActivatorOverload makes sure that activator can handle the load when scaling from 0.

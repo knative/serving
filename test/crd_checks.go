@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
