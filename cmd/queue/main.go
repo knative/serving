@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -31,7 +30,6 @@ import (
 	"github.com/knative/pkg/signals"
 
 	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -41,7 +39,6 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
-	"github.com/knative/serving/pkg/utils"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -62,10 +59,6 @@ const (
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
-
-	// Only report errors about a non-existent websocket connection after
-	// having been up and running for this long.
-	startupConnectionGrace = 10 * time.Second
 )
 
 var (
@@ -83,7 +76,6 @@ var (
 	revisionTimeoutSeconds int
 	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
-	statSink               *websocket.ManagedConnection
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
 
@@ -119,36 +111,13 @@ func initEnv() {
 	reporter = _reporter
 }
 
-func statReporter() {
+func reportStats() {
 	for {
 		s := <-statChan
-		if err := sendStat(s); err != nil {
-			// Hide "not-established" errors until the startupConnectionGrace has passed.
-			if err != websocket.ErrConnectionNotEstablished || time.Since(startupTime) > startupConnectionGrace {
-				logger.Errorw("Error while sending stat", zap.Error(err))
-			}
+		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
+			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
-}
-
-// sendStat sends a single StatMessage to the autoscaler.
-func sendStat(s *autoscaler.Stat) error {
-	if statSink == nil {
-		return errors.New("stat sink not (yet) connected")
-	}
-	reporter.Report(
-		float64(s.RequestCount),
-		float64(s.AverageConcurrentRequests),
-	)
-	if healthState.IsShuttingDown() {
-		// Do not send metrics if the pods is shutting down.
-		return nil
-	}
-	sm := autoscaler.StatMessage{
-		Stat: *s,
-		Key:  servingRevisionKey,
-	}
-	return statSink.Send(sm)
 }
 
 func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
@@ -296,11 +265,7 @@ func main() {
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
-	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, autoscalerNamespace, utils.GetClusterDomainName(), servingAutoscalerPort)
-	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter()
+	go reportStats()
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
 	queue.NewStats(podName, queue.Channels{
@@ -346,12 +311,6 @@ func main() {
 		// complete, while no new work is accepted.
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
-		}
-
-		if statSink != nil {
-			if err := statSink.Shutdown(); err != nil {
-				logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
-			}
 		}
 	}
 }

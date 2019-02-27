@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,8 +156,9 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.logger.Debugf("Received stat message: %+v", sm)
-		// Drop stats from lameducked pods
-		if !sm.Stat.LameDuck {
+		// TODO(yanweiguo): Remove this after version 0.5.
+		// Drop stats not from activator
+		if isActivator(sm.Stat.PodName) {
 			s.statsCh <- &sm
 		}
 	}
@@ -194,4 +196,8 @@ func (s *Server) Shutdown(timeout time.Duration) {
 		s.logger.Warn("Shutdown timed out")
 	}
 	close(s.statsCh)
+}
+
+func isActivator(podName string) bool {
+	return strings.HasPrefix(podName, "activator")
 }

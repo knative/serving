@@ -80,6 +80,7 @@ func main() {
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
+	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
@@ -139,7 +140,8 @@ func main() {
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
+	multiScaler := autoscaler.NewMultiScaler(
+		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
 	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
@@ -170,8 +172,6 @@ func main() {
 	eg.Go(func() error {
 		return hpaCtl.Run(controllerThreads, stopCh)
 	})
-
-	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 
 	statsServer := statserver.New(statsServerAddr, statsCh, logger)
 	eg.Go(func() error {
@@ -234,6 +234,12 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 		return autoscaler.New(dynamicConfig, metric.Namespace,
 			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
 			metric.Spec.TargetConcurrency, reporter)
+	}
+}
+
+func statsScraperFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
+	return func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(metric, config, endpointsInformer)
 	}
 }
 
