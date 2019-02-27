@@ -2,8 +2,8 @@
 
 A simple WebSocket server adapted from
 https://github.com/gorilla/WebSocket/blob/master/examples/echo/server.go . The
-server simply echoes messages sent to it.  We use this server in testing that
-all our proxies on request path can handle WebSocket upgrades.
+server simply echoes messages sent to it. We use this server in testing that all
+our proxies on request path can handle WebSocket upgrades.
 
 ## Building
 
