@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
@@ -34,9 +33,6 @@ import (
 )
 
 func TestTimeToServeLatency(t *testing.T) {
-	testName := t.Name()
-	logger := logging.GetContextLogger(t.Name())
-
 	perfClients, err := Setup(context.Background(), t, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
@@ -51,7 +47,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	defer TearDown(perfClients, names)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names) })
 
-	logger.Info("Creating a new Service")
+	t.Log("Creating a new Service")
 	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
@@ -76,17 +72,17 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	// Save the json result for benchmarking
-	resp.SaveJSON(testName)
+	resp.SaveJSON(t.Name())
 
 	// Add latency metrics
 	var tc []junit.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, testName))
+		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
 	}
 
-	if err = testgrid.CreateXMLOutput(tc, testName); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
