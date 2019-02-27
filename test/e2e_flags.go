@@ -30,6 +30,9 @@ import (
 const (
 	// ServingNamespace is the default namespace for serving e2e tests
 	ServingNamespace = "serving-tests"
+
+	// E2EMetricExporter is the name for the metrics exporter logger
+	E2EMetricExporter = "e2e-metrics"
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
@@ -59,7 +62,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	logging.InitializeLogger(test.Flags.LogVerbose)
 
 	if test.Flags.EmitMetrics {
-		logging.InitializeMetricExporter()
+		logging.InitializeMetricExporter(E2EMetricExporter)
 	}
 
 	return &f

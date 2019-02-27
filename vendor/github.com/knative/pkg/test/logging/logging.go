@@ -46,7 +46,10 @@ const (
 	emitableSpanNamePrefix = "emitspan-"
 )
 
-var baseLogger *BaseLogger
+// FormatLogger is a printf style function for logging in tests.
+type FormatLogger func(template string, args ...interface{})
+
+var logger *zap.SugaredLogger
 
 var exporter *zapMetricExporter
 
@@ -55,11 +58,6 @@ var exporter *zapMetricExporter
 // It conforms to the view.Exporter and trace.Exporter interfaces.
 type zapMetricExporter struct {
 	logger *zap.SugaredLogger
-}
-
-// BaseLogger is a common knative test files logger.
-type BaseLogger struct {
-	Logger *zap.SugaredLogger
 }
 
 // ExportView will emit the view data vd (i.e. the stats that have been
@@ -87,7 +85,7 @@ func (e *zapMetricExporter) ExportSpan(vd *trace.SpanData) {
 	}
 }
 
-func newLogger(logLevel string) *BaseLogger {
+func newLogger(logLevel string) *zap.SugaredLogger {
 	configJSONTemplate := `{
 	  "level": "%s",
 	  "encoding": "console",
@@ -110,13 +108,26 @@ func newLogger(logLevel string) *BaseLogger {
 	}`
 	configJSON := fmt.Sprintf(configJSONTemplate, logLevel)
 	l, _ := logging.NewLogger(string(configJSON), logLevel, zap.AddCallerSkip(1))
-	return &BaseLogger{Logger: l}
+	return l
 }
 
 // InitializeMetricExporter initializes the metric exporter logger
-func InitializeMetricExporter() {
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+func InitializeMetricExporter(context string) {
+	// If there was a previously registered exporter, unregister it so we only emit
+	// the metrics in the current context.
+	if exporter != nil {
+		view.UnregisterExporter(exporter)
+		trace.UnregisterExporter(exporter)
+	}
+
+	logger := logger.Named(context)
+
+	exporter = &zapMetricExporter{logger: logger}
+	view.RegisterExporter(exporter)
+	trace.RegisterExporter(exporter)
+
 	view.SetReportingPeriod(metricViewReportingPeriod)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 }
 
 // InitializeLogger initializes the base logger
@@ -130,66 +141,6 @@ func InitializeLogger(logVerbose bool) {
 
 		logLevel = "debug"
 	}
-	baseLogger = newLogger(logLevel)
-}
 
-// GetContextLogger creates a Named logger (https://godoc.org/go.uber.org/zap#Logger.Named)
-// using the provided context as a name. This will also register the logger as a metric exporter,
-// which is unfortunately global, so calling `GetContextLogger` will have the side effect of
-// changing the context in which all metrics are logged from that point forward.
-func GetContextLogger(context string) *BaseLogger {
-	// If there was a previously registered exporter, unregister it so we only emit
-	// the metrics in the current context.
-	if exporter != nil {
-		view.UnregisterExporter(exporter)
-		trace.UnregisterExporter(exporter)
-	}
-
-	logger := baseLogger.Logger.Named(context)
-
-	exporter = &zapMetricExporter{logger: logger}
-	view.RegisterExporter(exporter)
-	trace.RegisterExporter(exporter)
-
-	return &BaseLogger{Logger: logger}
-}
-
-// Infof logs a templated message.
-func (b *BaseLogger) Infof(template string, args ...interface{}) {
-	b.Logger.Infof(template, args...)
-}
-
-// Info logs an info message.
-func (b *BaseLogger) Info(args ...interface{}) {
-	b.Logger.Info(args...)
-}
-
-// Fatal logs a fatal message.
-func (b *BaseLogger) Fatal(args ...interface{}) {
-	b.Logger.Fatal(args...)
-}
-
-// Fatalf logs a templated fatal message.
-func (b *BaseLogger) Fatalf(template string, args ...interface{}) {
-	b.Logger.Fatalf(template, args...)
-}
-
-// Debugf logs a templated debug message.
-func (b *BaseLogger) Debugf(template string, args ...interface{}) {
-	b.Logger.Debugf(template, args...)
-}
-
-// Debug logs a debug message.
-func (b *BaseLogger) Debug(args ...interface{}) {
-	b.Logger.Debug(args...)
-}
-
-// Errorf logs a templated error message.
-func (b *BaseLogger) Errorf(template string, args ...interface{}) {
-	b.Logger.Errorf(template, args...)
-}
-
-// Error logs an error message.
-func (b *BaseLogger) Error(args ...interface{}) {
-	b.Logger.Error(args...)
+	logger = newLogger(logLevel)
 }
