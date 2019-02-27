@@ -2188,9 +2188,10 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 10m
-            
       volumes:
       - name: certs
         secret:
@@ -2294,9 +2295,10 @@ spec:
           - --discoveryAddress
           - istio-pilot:8080
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 10m
-            
           env:
           - name: POD_NAME
             valueFrom:
@@ -2439,9 +2441,10 @@ spec:
           - --discoveryAddress
           - istio-pilot:8080
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 10m
-            
           env:
           - name: POD_NAME
             valueFrom:
@@ -2603,9 +2606,10 @@ spec:
         - name: GODEBUG
           value: "gctrace=2"
         resources:
+          limits:
+            memory: 1000Mi
           requests:
             cpu: 10m
-          
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -2654,7 +2658,6 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -2709,9 +2712,10 @@ spec:
         - name: GODEBUG
           value: "gctrace=2"
         resources:
+          limits:
+            memory: 1000Mi
           requests:
             cpu: 10m
-          
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -2760,7 +2764,6 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -2834,10 +2837,11 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "1"
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 500m
               memory: 2048Mi
-            
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -2879,7 +2883,6 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -2963,9 +2966,10 @@ spec:
             - --custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system,istio-ingressgateway-service-account.istio-system:istio-ingressgateway.istio-system
             - --self-signed-ca=true
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 10m
-            
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -4051,9 +4055,10 @@ spec:
           - --discoveryAddress
           - istio-pilot.istio-system:8080
           resources:
+            limits:
+              memory: 1000Mi
             requests:
               cpu: 10m
-            
           env:
           - name: POD_NAME
             valueFrom:
