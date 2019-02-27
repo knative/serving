@@ -133,8 +133,7 @@ func TestSecretVolume(t *testing.T) {
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
 		},
-	},
-	)
+	})
 
 	// Setup initial Service
 	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
