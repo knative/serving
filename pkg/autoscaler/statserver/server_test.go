@@ -60,8 +60,8 @@ func TestStatsReceived(t *testing.T) {
 
 	statSink := dialOk(server.ListenAddr(), t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 }
@@ -75,12 +75,12 @@ func TestServerShutdown(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
 
 	// Send a statistic to the server
-	send(statSink, newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), t)
+	send(statSink, newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), t)
 
 	// Check the statistic was not received
 	_, ok := <-statsCh
@@ -120,7 +120,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 
