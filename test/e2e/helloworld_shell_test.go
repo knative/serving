@@ -94,8 +94,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to close new manifest file: %v", err)
 	}
 
-	t.Logf("Manifest file is %q", newYamlFilename)
-	t.Log("Deploying using kubectl")
+	t.Logf("Deploying using kubectl and using manifest file %q", newYamlFilename)
 
 	// Deploy using kubectl
 	if output, err := exec.Command("kubectl", "apply", "-f", newYamlFilename).CombinedOutput(); err != nil {
