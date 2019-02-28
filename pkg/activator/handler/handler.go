@@ -86,7 +86,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ProtoMinor: r.ProtoMinor,
 				Host:       r.Host,
 				Header: map[string][]string{
-					http.CanonicalHeaderKey(network.ProbeHeaderName): []string{"true"},
+					http.CanonicalHeaderKey(network.ProbeHeaderName): {"true"},
 				},
 			}
 			settings := wait.Backoff{
