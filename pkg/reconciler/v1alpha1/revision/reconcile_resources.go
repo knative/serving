@@ -253,7 +253,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
 		configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
 		if err != nil {
-			logger.Errorw("error creating fluentd configmap", zap.Error(err))
+			logger.Errorw("Error creating fluentd configmap", zap.Error(err))
 			return err
 		}
 		logger.Infof("Created fluentd configmap: %q", name)
@@ -274,7 +274,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 			existing.Data = desiredConfigMap.Data
 			_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(existing)
 			if err != nil {
-				logger.Errorw("error updating fluentd configmap", zap.Error(err))
+				logger.Errorw("Error updating fluentd configmap", zap.Error(err))
 				return err
 			}
 		}
