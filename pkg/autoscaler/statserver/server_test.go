@@ -190,10 +190,10 @@ func send(statSink *websocket.Conn, sm *autoscaler.StatMessage, t *testing.T) {
 	enc := gob.NewEncoder(&b)
 
 	if err := enc.Encode(sm); err != nil {
-		t.Fatal("Failed to encode data from stats channel", err)
+		t.Fatal("Failed to encode data from stats channel:", err)
 	}
 	if err := statSink.WriteMessage(websocket.BinaryMessage, b.Bytes()); err != nil {
-		t.Fatal("Failed to write to stat sink.", err)
+		t.Fatal("Failed to write to stat sink:", err)
 	}
 }
 
