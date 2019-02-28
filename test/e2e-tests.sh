@@ -63,7 +63,7 @@ if [[ "${RUN_GLOO_TESTS}" -eq "1" ]]; then
   export GATEWAY_OVERRIDE="clusteringress-proxy"
   export GATEWAY_NAMESPACE_OVERRIDE="gloo-system"
 else
-      install_knative_serving || fail_test "Knative Serving installation failed"
+  install_knative_serving || fail_test "Knative Serving installation failed"
 fi
 
 publish_test_images || fail_test "one or more test images weren't published"

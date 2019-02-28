@@ -40,6 +40,8 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
 	Tag              string // Test images version tag
+	Gateway          string // The name of the Cluster Ingress service backing Knative Serving
+	GatewayNamespace string // The namespace of the Cluster Ingress service backing Knative Serving
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -53,6 +55,12 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest",
 		"Provide the version tag for the test images.")
+
+	flag.StringVar(&f.Gateway, "gateway", "istio-ingressgateway",
+		"Provide the name of the Cluster Ingress service backing Knative Serving.")
+
+	flag.StringVar(&f.GatewayNamespace, "gatewayNamespace", "istio-system",
+		"Provide the namespace of the Cluster Ingress service backing Knative Serving.")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")

@@ -105,15 +105,6 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 
 	logger.Info("Waiting for ingress to come up")
-	gateway := "istio-ingressgateway"
-	gatewayNamespace := "istio-system"
-
-	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
-		gateway = gatewayOverride
-	}
-	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
-		gatewayNamespace = gatewayNsOverride
-	}
 
 	// Wait for ingress to come up
 	ingressAddr := ""
@@ -123,7 +114,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		if serviceHost == "" {
 			serviceHost = serviceHostname()
 		}
-		if ingressAddr = ingressAddress(gateway, gatewayNamespace, "ip"); ingressAddr == "" {
+		if ingressAddr = ingressAddress(test.ServingFlags.Gateway, test.ServingFlags.GatewayNamespace, "ip"); ingressAddr == "" {
 			ingressAddr = ingressAddress(gateway, gatewayNamespace, "hostname")
 		}
 		timeout -= checkInterval
