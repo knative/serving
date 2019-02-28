@@ -128,7 +128,10 @@ func New(
 	if reporter == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
+
+	// A new instance of autoscaler is created without panic mode.
 	reporter.ReportPanic(0)
+
 	return &Autoscaler{
 		DynamicConfig:   dynamicConfig,
 		namespace:       namespace,
