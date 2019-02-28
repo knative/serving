@@ -248,7 +248,6 @@ func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
-
 	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
 	if err != nil {
 		return nil, err

@@ -125,6 +125,10 @@ func New(
 	if endpointsInformer == nil {
 		return nil, errors.New("'endpointsEnformer' must not be nil")
 	}
+	if reporter == nil {
+		return nil, errors.New("stats reporter must not be nil")
+	}
+	reporter.ReportPanic(0)
 	return &Autoscaler{
 		DynamicConfig:   dynamicConfig,
 		namespace:       namespace,
@@ -206,17 +210,18 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		// Begin panicking when we cross the concurrency threshold in the panic window.
 		logger.Info("PANICKING")
 		a.panicTime = &now
+		a.reporter.ReportPanic(1)
 	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(config.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
 		a.panicTime = nil
 		a.maxPanicPods = 0
+		a.reporter.ReportPanic(0)
 	}
 
 	var desiredPodCount int32
 	if a.panicTime != nil {
 		logger.Debug("Operating in panic mode.")
-		a.reporter.ReportPanic(1)
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
 			logger.Infof("Increasing pods from %v to %v.", originalReadyPodsCount, desiredPanicPodCount)
@@ -226,7 +231,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		desiredPodCount = a.maxPanicPods
 	} else {
 		logger.Debug("Operating in stable mode.")
-		a.reporter.ReportPanic(0)
 		desiredPodCount = desiredStablePodCount
 	}
 

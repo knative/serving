@@ -40,13 +40,23 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
+func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
 	dynConfig := &DynamicConfig{}
 	var endpointsInformer corev1informers.EndpointsInformer
 
 	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when EndpointsInformer interface is empty, but got none.")
+		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
+	}
+}
+
+func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
+	dynConfig := &DynamicConfig{}
+	var reporter StatsReporter
+
+	_, err := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), 10, reporter)
+	if err == nil {
+		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
 
