@@ -218,7 +218,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(route); err != nil {
-		logger.Warn("Failed to update route status", zap.Error(err))
+		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err

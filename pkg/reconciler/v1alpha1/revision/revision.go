@@ -279,7 +279,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(rev); err != nil {
-		logger.Warn("Failed to update revision status", zap.Error(err))
+		logger.Warnw("Failed to update revision status", zap.Error(err))
 		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Revision %q: %v", rev.Name, err)
 		return err
@@ -408,7 +408,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 		for _, phase := range phases {
 			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorf("Failed to reconcile %s: %v", phase.name, zap.Error(err))
+				logger.Errorf("Failed to reconcile %s: %v", phase.name, err)
 				return err
 			}
 		}

@@ -115,7 +115,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 
 	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
-		logger.Errorw("Unable to parse APIVersion", zap.Error(err))
+		logger.Errorw("unable to parse APIVersion", zap.Error(err))
 		return desiredScale, err
 	}
 	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
@@ -124,7 +124,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 	// Identify the current scale.
 	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(resource, resourceName)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Resource %q not found", resourceName), zap.Error(err))
+		logger.Errorw(fmt.Sprintf("resource %q not found", resourceName), zap.Error(err))
 		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
@@ -182,7 +182,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 	scl.Spec.Replicas = desiredScale
 	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(resource, scl)
 	if err != nil {
-		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
+		logger.Errorw(fmt.Sprintf("error scaling target reference %s", resourceName), zap.Error(err))
 		return desiredScale, err
 	}
 

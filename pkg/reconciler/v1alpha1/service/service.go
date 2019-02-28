@@ -147,7 +147,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 
 	} else if _, uErr := c.updateStatus(service); uErr != nil {
-		logger.Warn("Failed to update service status", zap.Error(uErr))
+		logger.Warnw("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
 		return uErr
@@ -183,14 +183,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
+		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, err)
 		return err
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
 		service.Status.MarkConfigurationNotOwned(configName)
 		return fmt.Errorf("Service: %q does not own Configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Configuration: %q; %v", service.Name, configName, zap.Error(err))
+		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Configuration: %q; %v", service.Name, configName, err)
 		return err
 	}
 
