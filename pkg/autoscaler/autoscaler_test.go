@@ -558,7 +558,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
-	// Change the IP count according to podCount and lameduck
+	// Change the IP count according to podCount
 	createEndpoints(addIps(makeEndpoints(), s.podCount))
 	return now
 }
