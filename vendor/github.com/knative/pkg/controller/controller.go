@@ -270,7 +270,7 @@ func (c *Impl) processNextWorkItem() bool {
 	// resource to be synced.
 	if err = c.Reconciler.Reconcile(ctx, key); err != nil {
 		c.handleErr(err, key)
-		logger.Infof("Reconcile failed. Time taken: %v.", time.Now().Sub(startTime))
+		logger.Errorf("Reconcile failed. Time taken: %v.", time.Now().Sub(startTime))
 		return true
 	}
 
