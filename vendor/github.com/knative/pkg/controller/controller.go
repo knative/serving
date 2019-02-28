@@ -114,7 +114,7 @@ func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string, repo
 func (c *Impl) Enqueue(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.logger.Errorw("enqueue error", zap.Error(err))
+		c.logger.Error(zap.Error(err))
 		return
 	}
 	c.EnqueueKey(key)
@@ -283,7 +283,7 @@ func (c *Impl) processNextWorkItem() bool {
 }
 
 func (c *Impl) handleErr(err error, key string) {
-	c.logger.Errorw("reconcile error", zap.Error(err))
+	c.logger.Error(zap.Error(err))
 
 	// Re-queue the key if it's an transient error.
 	if !IsPermanentError(err) {
