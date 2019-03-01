@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +47,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
@@ -248,11 +251,10 @@ func TestReconcile(t *testing.T) {
 	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:                     reconciler.NewBase(opt, controllerAgentName),
-			virtualServiceLister:     listers.GetVirtualServiceLister(),
-			clusterIngressLister:     listers.GetClusterIngressLister(),
-			gatewayLister:            listers.GetGatewayLister(),
-			enableReconcilingGateway: false,
+			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			virtualServiceLister: listers.GetVirtualServiceLister(),
+			clusterIngressLister: listers.GetClusterIngressLister(),
+			gatewayLister:        listers.GetGatewayLister(),
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
@@ -400,8 +402,6 @@ func TestReconcile_Gateway(t *testing.T) {
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			gatewayLister:        listers.GetGatewayLister(),
-			// Enable reconciling gateway.
-			enableReconcilingGateway: true,
 			configStore: &testConfigStore{
 				config: &config.Config{
 					Istio: &config.Istio{
@@ -410,6 +410,7 @@ func TestReconcile_Gateway(t *testing.T) {
 							ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 						}},
 					},
+					TLSMode: network.FORCE,
 				},
 			},
 		}
@@ -481,6 +482,7 @@ func ReconcilerTestConfig() *config.Config {
 				ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 			}},
 		},
+		TLSMode: network.MANUAL,
 	}
 }
 
@@ -535,13 +537,23 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	configMapWatcher *configmap.ManualWatcher) {
 
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := append([]*corev1.ConfigMap{{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.IstioConfigName,
-			Namespace: system.Namespace(),
+	cms := append([]*corev1.ConfigMap{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.IstioConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: originGateways,
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      network.ConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"tlsMode": "MANUAL",
+			},
 		},
-		Data: originGateways,
-	}}, configs...)
+	}, configs...)
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
@@ -655,6 +667,93 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		Data: newGateways,
 	}
 	watcher.OnChange(&domainConfig)
+
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGlobalResyncOnUpdateTLSMode(t *testing.T) {
+	_, sharedClient, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
+
+	stopCh := make(chan struct{})
+	grp := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
+
+	h := NewHooks()
+
+	// Check for Gateway created as a signal that syncHandler ran
+	h.OnUpdate(&sharedClient.Fake, "gateways", func(obj runtime.Object) HookResult {
+		updatedGateway := obj.(*v1alpha3.Gateway)
+		// The expected gateway should include the Istio TLS server.
+		expectedGateway := gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer})
+		if diff := cmp.Diff(updatedGateway, expectedGateway); diff != "" {
+			t.Logf("Want Gateway %v, but got %v", expectedGateway, updatedGateway)
+			return HookIncomplete
+		}
+
+		return HookComplete
+	})
+
+	servingInformer.Start(stopCh)
+	sharedInformer.Start(stopCh)
+	if err := watcher.Start(stopCh); err != nil {
+		t.Fatalf("failed to start cluster ingress manager: %v", err)
+	}
+
+	servingInformer.WaitForCacheSync(stopCh)
+	sharedInformer.WaitForCacheSync(stopCh)
+
+	grp.Go(func() error { return controller.Run(1, stopCh) })
+
+	ingress := ingressWithTLSAndStatus("reconciling-clusteringress", 1234,
+		ingressTLS,
+		v1alpha1.IngressStatus{
+			LoadBalancer: &v1alpha1.LoadBalancerStatus{
+				Ingress: []v1alpha1.LoadBalancerIngressStatus{
+					{DomainInternal: originDomainInternal},
+				},
+			},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   v1alpha1.ClusterIngressConditionLoadBalancerReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.ClusterIngressConditionNetworkConfigured,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   v1alpha1.ClusterIngressConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+	)
+
+	ingressClient := servingClient.NetworkingV1alpha1().ClusterIngresses()
+
+	// Create a ingress.
+	ingressClient.Create(ingress)
+
+	gatewayClient := sharedClient.NetworkingV1alpha3().Gateways(system.Namespace())
+	// Create a Gateway
+	gatewayClient.Create(gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{}))
+
+	// Test changes in gateway config map. ClusterIngress should get updated appropriately.
+	networkConfig := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"tlsMode": "AUTO",
+		},
+	}
+	watcher.OnChange(&networkConfig)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)

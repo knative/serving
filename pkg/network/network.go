@@ -17,8 +17,11 @@ limitations under the License.
 package network
 
 import (
+	"fmt"
 	"net"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -58,7 +61,19 @@ const (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+	TLSModeKey = "tlsMode"
+
+	DefaultTLSMode = MANUAL
 )
+
+const (
+	MANUAL = "MANUAL"
+	AUTO   = "AUTO"
+	FORCE  = "FORCE"
+)
+
+var supportedTLSModes = sets.NewString(MANUAL, AUTO, FORCE)
 
 // Config contains the networking configuration defined in the
 // network config map.
@@ -73,6 +88,8 @@ type Config struct {
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
 	DomainTemplate string
+
+	TLSMode string
 }
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
@@ -124,5 +141,12 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DomainTemplate = DefaultDomainTemplate
 	}
 
+	if tlsMode, ok := configMap.Data[TLSModeKey]; !ok {
+		nc.TLSMode = DefaultTLSMode
+	} else if !supportedTLSModes.Has(tlsMode) {
+		return nil, fmt.Errorf("TLS mode %s is not supported", tlsMode)
+	} else {
+		nc.TLSMode = tlsMode
+	}
 	return nc, nil
 }
