@@ -190,14 +190,24 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		WaitForScaleToZero(t, names, clients)
+		rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
+		}
+
+		WaitForScaleToZero(t, rev, clients)
 		unaryTest(t, names, clients, host, domain)
 	})
 }
 
 func TestGRPCStreamingPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		WaitForScaleToZero(t, names, clients)
+		rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
+		}
+
+		WaitForScaleToZero(t, rev, clients)
 		streamTest(t, names, clients, host, domain)
 	})
 }

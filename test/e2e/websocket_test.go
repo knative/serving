@@ -166,11 +166,15 @@ func TestWebSocketFromZero(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup a WebSocket server.
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+
+	if err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	WaitForScaleToZero(t, names, clients)
+	if err := WaitForScaleToZero(t, resources.Revision, clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
 
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)

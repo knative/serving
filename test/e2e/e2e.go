@@ -4,11 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/api/extensions/v1beta1"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
-	"k8s.io/api/extensions/v1beta1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
@@ -51,11 +54,12 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 
 // WaitForScaleToZero will wait for the deployment specified by names to scale
 // to 0 replicas. Will wait up to 3 minutes before failing.
-func WaitForScaleToZero(t *testing.T, names test.ResourceNames, clients *test.Clients) {
+func WaitForScaleToZero(t *testing.T, rev *v1alpha1.Revision, clients *test.Clients) error {
 	t.Helper()
-	deploymentName := names.Revision + "-deployment"
+	deploymentName := rnames.Deployment(rev)
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
-	err := pkgTest.WaitForDeploymentState(
+
+	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		func(d *v1beta1.Deployment) (bool, error) {
@@ -66,7 +70,4 @@ func WaitForScaleToZero(t *testing.T, names test.ResourceNames, clients *test.Cl
 		test.ServingNamespace,
 		3*time.Minute,
 	)
-	if err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
-	}
 }
