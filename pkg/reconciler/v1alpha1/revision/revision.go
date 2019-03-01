@@ -408,7 +408,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 		for _, phase := range phases {
 			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorf("Failed to reconcile %s: %v", phase.name, err)
+				logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
 				return err
 			}
 		}

@@ -166,7 +166,7 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 func dialOk(serverURL string, t *testing.T) *websocket.Conn {
 	statSink, err := dial(serverURL, t)
 	if err != nil {
-		t.Fatal("Dial failed", err)
+		t.Fatal("Dial failed:", err)
 	}
 	return statSink
 }

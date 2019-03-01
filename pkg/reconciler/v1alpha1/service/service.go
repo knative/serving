@@ -192,7 +192,9 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		service.Status.MarkConfigurationNotOwned(configName)
 		return fmt.Errorf("Service: %q does not own Configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Configuration: %q; %v", service.Name, configName, err)
+		logger.Errorw(
+			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
+				service.Name, configName), err)
 		return err
 	}
 
