@@ -183,7 +183,9 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, err)
+		logger.Errorw(
+			fmt.Sprintf("Failed to reconcile Service: %q failed to Get Configuration: %q", service.Name, configName),
+			zap.Error(err))
 		return err
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
