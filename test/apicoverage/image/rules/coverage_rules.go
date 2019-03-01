@@ -35,12 +35,11 @@ func IgnoreLowerLevelMetaFields(node resourcetree.NodeInterface) bool {
 }
 
 // NodeRules contains all resourcetree.NodeRules specified for knative serving.
-var NodeRules = resourcetree.NodeRules {
-		Rules: []func(node resourcetree.NodeInterface) bool{
-			IgnoreLowerLevelMetaFields,
-		},
-	}
-
+var NodeRules = resourcetree.NodeRules{
+	Rules: []func(node resourcetree.NodeInterface) bool{
+		IgnoreLowerLevelMetaFields,
+	},
+}
 
 // IgnoreDeprecatedFields ignores fields that are prefixed with the word "deprecated"
 func IgnoreDeprecatedFields(fieldName string) bool {
@@ -49,7 +48,7 @@ func IgnoreDeprecatedFields(fieldName string) bool {
 
 // FieldRules represent all resourcetree.FieldRules specified for knativer serving.
 var FieldRules = resourcetree.FieldRules{
-		Rules : []func(fieldName string) bool {
-			IgnoreDeprecatedFields,
-		},
+	Rules: []func(fieldName string) bool{
+		IgnoreDeprecatedFields,
+	},
 }
