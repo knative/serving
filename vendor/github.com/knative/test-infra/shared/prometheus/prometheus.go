@@ -43,8 +43,8 @@ type PromProxy struct {
 }
 
 // Setup performs a port forwarding for app prometheus-test in given namespace
-func (p *PromProxy) Setup(ctx context.Context, logger *logging.BaseLogger) error {
-	return p.portForward(ctx, logger, appLabel, prometheusPort, prometheusPort)
+func (p *PromProxy) Setup(ctx context.Context, logf logging.FormatLogger) error {
+	return p.portForward(ctx, logf, appLabel, prometheusPort, prometheusPort)
 }
 
 // Teardown will kill the port forwarding process if running.
@@ -56,52 +56,49 @@ func (p *PromProxy) Teardown() error {
 }
 
 // PortForward sets up local port forward to the pod specified by the "app" label in the given namespace
-func (p *PromProxy) portForward(ctx context.Context, logger *logging.BaseLogger, labelSelector, localPort, remotePort string) error {
+func (p *PromProxy) portForward(ctx context.Context, logf logging.FormatLogger, labelSelector, localPort, remotePort string) error {
 	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.Namespace, labelSelector)
-	pod, err := p.execShellCmd(ctx, logger, getName)
+	pod, err := p.execShellCmd(ctx, logf, getName)
 	if err != nil {
 		return err
 	}
 
-	logger.Infof("%s pod name: %s", labelSelector, pod)
-	logger.Infof("Setting up %s proxy", labelSelector)
+	logf("%s pod name: %s", labelSelector, pod)
+	logf("Setting up %s proxy", labelSelector)
 
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.Namespace)
-	if p.portFwdProcess, err = p.executeCmdBackground(logger, portFwdCmd); err != nil {
-		logger.Errorf("Failed to port forward: %s", err)
-		return err
+	if p.portFwdProcess, err = p.executeCmdBackground(logf, portFwdCmd); err != nil {
+		return fmt.Errorf("Failed to port forward: %v", err)
 	}
-	logger.Infof("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
+	logf("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
 	return nil
 }
 
 // RunBackground starts a background process and returns the Process if succeed
-func (p *PromProxy) executeCmdBackground(logger *logging.BaseLogger, format string, args ...interface{}) (*os.Process, error) {
+func (p *PromProxy) executeCmdBackground(logf logging.FormatLogger, format string, args ...interface{}) (*os.Process, error) {
 	cmd := fmt.Sprintf(format, args...)
-	logger.Infof("Executing command: %s", cmd)
+	logf("Executing command: %s", cmd)
 	parts := strings.Split(cmd, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	if err := c.Start(); err != nil {
-		logger.Errorf("%s command failed: %v", cmd, err)
-		return nil, err
+		return nil, fmt.Errorf("%s command failed: %v", cmd, err)
 	}
 	return c.Process, nil
 }
 
 // ExecuteShellCmd executes a shell command
-func (p *PromProxy) execShellCmd(ctx context.Context, logger *logging.BaseLogger, format string, args ...interface{}) (string, error) {
+func (p *PromProxy) execShellCmd(ctx context.Context, logf logging.FormatLogger, format string, args ...interface{}) (string, error) {
 	cmd := fmt.Sprintf(format, args...)
-	logger.Infof("Executing command: %s", cmd)
+	logf("Executing command: %s", cmd)
 	c := exec.CommandContext(ctx, "sh", "-c", cmd) // #nosec
 	bytes, err := c.CombinedOutput()
 	s := string(bytes)
 	if err != nil {
-		logger.Infof("Command error: %v", err)
-		return s, fmt.Errorf("command failed: %q %v", string(bytes), err)
+		return s, fmt.Errorf("command %q failed with error: %v", cmd, err)
 	}
 
 	if output := strings.TrimSuffix(s, "\n"); len(output) > 0 {
-		logger.Infof("Command output: \n%s", output)
+		logf("Command output: \n%s", output)
 	}
 
 	return s, nil
@@ -117,14 +114,14 @@ func PromAPI() (v1.API, error) {
 }
 
 // AllowPrometheusSync sleeps for sometime to allow prometheus time to scrape the metrics.
-func AllowPrometheusSync(logger *logging.BaseLogger) {
-	logger.Info("Sleeping to allow prometheus to record metrics...")
+func AllowPrometheusSync(logf logging.FormatLogger) {
+	logf("Sleeping to allow prometheus to record metrics...")
 	time.Sleep(30 * time.Second)
 }
 
 // RunQuery runs a prometheus query and returns the metric value
-func RunQuery(ctx context.Context, logger *logging.BaseLogger, promAPI v1.API, query string) (float64, error) {
-	logger.Infof("Prometheus query: %s", query)
+func RunQuery(ctx context.Context, logf logging.FormatLogger, promAPI v1.API, query string) (float64, error) {
+	logf("Running prometheus query: %s", query)
 
 	value, err := promAPI.Query(ctx, query, time.Now())
 	if err != nil {

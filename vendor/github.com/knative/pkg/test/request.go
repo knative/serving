@@ -119,7 +119,7 @@ func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClient *KubeClient, logf spoof.FormatLogger, domain string, inState spoof.ResponseChecker, desc string, resolvable bool) (*spoof.Response, error) {
+func WaitForEndpointState(kubeClient *KubeClient, logf logging.FormatLogger, domain string, inState spoof.ResponseChecker, desc string, resolvable bool) (*spoof.Response, error) {
 	return WaitForEndpointStateWithTimeout(kubeClient, logf, domain, inState, desc, resolvable, spoof.RequestTimeout)
 }
 
@@ -130,7 +130,7 @@ func WaitForEndpointState(kubeClient *KubeClient, logf spoof.FormatLogger, domai
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
 func WaitForEndpointStateWithTimeout(
-	kubeClient *KubeClient, logf spoof.FormatLogger, domain string, inState spoof.ResponseChecker,
+	kubeClient *KubeClient, logf logging.FormatLogger, domain string, inState spoof.ResponseChecker,
 	desc string, resolvable bool, timeout time.Duration) (*spoof.Response, error) {
 	defer logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc)).End()
 
