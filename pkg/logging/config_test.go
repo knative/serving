@@ -120,7 +120,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "knative-something",
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 	})
 	if err != nil {
@@ -140,7 +140,7 @@ func TestNewConfig(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 		Data: map[string]string{
 			"zap-logger-config":   wantCfg,
@@ -159,7 +159,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ConfigMapName())
 
 	if cfg, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
@@ -186,7 +186,7 @@ func TestEmptyLevel(t *testing.T) {
 	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 		Data: map[string]string{
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
@@ -206,7 +206,7 @@ func TestInvalidLevel(t *testing.T) {
 	_, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 		Data: map[string]string{
 			"zap-logger-config":   wantCfg,
@@ -224,7 +224,7 @@ func getTestConfig() (*logging.Config, string, string) {
 	c, _ := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 		Data: map[string]string{
 			"zap-logger-config":   wantCfg,
@@ -244,7 +244,7 @@ func TestUpdateLevelFromConfigMap(t *testing.T) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      "serving-config-logging",
+			Name:      "config-logging",
 		},
 		Data: map[string]string{
 			"zap-logger-config":   "",

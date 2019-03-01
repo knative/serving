@@ -81,7 +81,7 @@ func main() {
 	// Set up watcher to watch for config changes.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	// Watch the autoscaler config map and dynamically update autoscaler config.

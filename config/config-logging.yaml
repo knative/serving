@@ -15,7 +15,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: serving-config-logging
+  name: config-logging
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel

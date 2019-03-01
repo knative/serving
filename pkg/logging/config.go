@@ -17,15 +17,16 @@ limitations under the License.
 package logging
 
 import (
+	"fmt"
+	"os"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/pkg/logging"
 )
 
-const (
-	ConfigName = "serving-config-logging"
-)
+const ConfigMapNameEnv = "CONFIG_LOGGING_NAME"
 
 var components = []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"}
 
@@ -58,4 +59,20 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*logging.Config, error
 // when a config map is updated
 func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, levelKey string) func(configMap *corev1.ConfigMap) {
 	return logging.UpdateLevelFromConfigMap(logger, atomicLevel, levelKey, components...)
+}
+
+func ConfigMapName() string {
+	if cm := os.Getenv(ConfigMapNameEnv); cm != "" {
+		return cm
+	}
+
+	panic(fmt.Sprintf(`The environment variable %q is not set
+
+If this is a process running on Kubernetes, then it should be using the downward
+API to initialize this variable via:
+
+  env:
+  - name: CONFIG_LOGGING_NAME
+    value: config-logging
+`, ConfigMapNameEnv))
 }

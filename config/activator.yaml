@@ -69,6 +69,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: CONFIG_LOGGING_NAME
+            value: config-logging
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging
@@ -77,7 +79,7 @@ spec:
       volumes:
         - name: config-logging
           configMap:
-            name: serving-config-logging
+            name: config-logging
         - name: config-observability
           configMap:
             name: config-observability
