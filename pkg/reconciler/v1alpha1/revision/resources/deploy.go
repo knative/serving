@@ -147,6 +147,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: &revisionTimeout,
 	}
+	// In case secret(s) for accessing image registry is provided, adding it to the POD spec.
+	if rev.Spec.ImagePullSecrets != nil {
+		podSpec.ImagePullSecrets = rev.Spec.ImagePullSecrets
+	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {

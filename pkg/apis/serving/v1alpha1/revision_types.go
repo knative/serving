@@ -229,6 +229,12 @@ type RevisionSpec struct {
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
 
+	// ImagePullSecrets defines a list of secrets which can be used to authenticate
+	// against a private secure registry. Secret(s) must exist in the same namespace
+	// as a revision's pod.
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
 	// Volumes defines a set of Kubernetes volumes to be mounted into the
 	// specified Container.  Currently only ConfigMap and Secret volumes are
 	// supported.
