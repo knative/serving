@@ -198,7 +198,10 @@ func TestGRPCUnaryPingFromZero(t *testing.T) {
 
 		deploymentName := rnames.Deployment(rev)
 
-		WaitForScaleToZero(t, deploymentName, clients)
+		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+
 		unaryTest(t, names, clients, host, domain)
 	})
 }
@@ -212,7 +215,10 @@ func TestGRPCStreamingPingFromZero(t *testing.T) {
 
 		deploymentName := rnames.Deployment(rev)
 
-		WaitForScaleToZero(t, deploymentName, clients)
+		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+
 		streamTest(t, names, clients, host, domain)
 	})
 }
