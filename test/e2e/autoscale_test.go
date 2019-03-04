@@ -176,6 +176,7 @@ func setup(t *testing.T) *testContext {
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
+	t.Logf("Revision under test: %s", names.Revision)
 	return &testContext{
 		t:              t,
 		clients:        clients,
@@ -191,7 +192,7 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	ctx.t.Log("Waiting for scale up")
+	ctx.t.Logf("Waiting for scale up revsion %s", ctx.names.Revision)
 	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
@@ -202,6 +203,17 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
+
+	dep, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
+	if err != nil {
+		ctx.t.Fatalf("Could not get deployment %v", ctx.deploymentName)
+	}
+
+	// verify scale-up has happened
+	if dep.Status.ReadyReplicas <= 0 {
+		ctx.t.Fatalf("Deployment %s failed to scale up", ctx.deploymentName)
+	}
+
 }
 
 func assertScaleDown(ctx *testContext) {
