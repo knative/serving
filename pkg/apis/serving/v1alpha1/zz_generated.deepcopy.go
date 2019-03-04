@@ -305,6 +305,11 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		}
 	}
 	in.Container.DeepCopyInto(&out.Container)
+	if in.ImagePullSecrets != nil {
+		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
+		*out = make([]v1.LocalObjectReference, len(*in))
+		copy(*out, *in)
+	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]v1.Volume, len(*in))
