@@ -329,6 +329,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
+	defer ClearAllLoggers()
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
