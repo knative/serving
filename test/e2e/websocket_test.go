@@ -139,7 +139,6 @@ func TestWebSocket(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	// Setup a WebSocket server.
 	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
@@ -166,9 +165,7 @@ func TestWebSocketFromZero(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	// Setup a WebSocket server.
 	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
-
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
