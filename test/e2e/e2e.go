@@ -52,8 +52,8 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 	return names, err
 }
 
-// WaitForScaleToZero will wait for the deployment specified by names to scale
-// to 0 replicas. Will wait up to 3 minutes before failing.
+// WaitForScaleToZero will wait for the deployment specified by names to scale to
+// 0 replicas. Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
 func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
 	t.Helper()
 
