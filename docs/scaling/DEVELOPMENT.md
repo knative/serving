@@ -174,14 +174,14 @@ Deployment to achieve the stable, desired average (or a maximum of 10 times the
 current observed Pod count, whichever is smaller). To prevent rapid fluctuations
 in the Pod count, the Autoscaler will only increase Deployment size during Panic
 Mode, never decrease. 60 seconds after the last Panic Mode increase to the
-Deployment size, the Autoscaler transistions back to Stable Mode and begins
+Deployment size, the Autoscaler transitions back to Stable Mode and begins
 evaluating the 60-second windows again.
 
 #### Deactivation
 
 When the Autoscaler has observed an average concurrency per pod of 0.0 for some
 time ([#305](https://github.com/knative/serving/issues/305)), it will
-transistion the Revision into the Reserve state. This scales the Deployment to
+transition the Revision into the Reserve state. This scales the Deployment to
 0, stops any single tenant Autoscaler associated with the Revision, and routes
 all traffic for the Revision to the Activator.
 
@@ -192,7 +192,7 @@ Reserve Revisions. It is responsible for activating the Revisions and then
 proxying the caught requests to the appropriate Pods. It woud be preferable to
 have a hook in Istio to do this so we can get rid of the Activator (see
 [Design Goal #3](#design-goals)). When the Activator gets a request for a
-Reserve Revision, it calls the Knative Serving control plane to transistion the
+Reserve Revision, it calls the Knative Serving control plane to transition the
 Revision to an Active state. It will take a few seconds for all the resources to
 be provisioned, so more requests might arrive at the Activator in the meantime.
 The Activator establishes a watch for Pods belonging to the target Revision.
