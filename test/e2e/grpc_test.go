@@ -26,6 +26,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	"google.golang.org/grpc"
@@ -195,7 +196,9 @@ func TestGRPCUnaryPingFromZero(t *testing.T) {
 			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
 		}
 
-		WaitForScaleToZero(t, rev, clients)
+		deploymentName := rnames.Deployment(rev)
+
+		WaitForScaleToZero(t, deploymentName, clients)
 		unaryTest(t, names, clients, host, domain)
 	})
 }
@@ -207,7 +210,9 @@ func TestGRPCStreamingPingFromZero(t *testing.T) {
 			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
 		}
 
-		WaitForScaleToZero(t, rev, clients)
+		deploymentName := rnames.Deployment(rev)
+
+		WaitForScaleToZero(t, deploymentName, clients)
 		streamTest(t, names, clients, host, domain)
 	})
 }

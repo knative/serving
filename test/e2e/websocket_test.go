@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -172,7 +173,9 @@ func TestWebSocketFromZero(t *testing.T) {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	if err := WaitForScaleToZero(t, resources.Revision, clients); err != nil {
+	deploymentName := rnames.Deployment(resources.Revision)
+
+	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}
 
