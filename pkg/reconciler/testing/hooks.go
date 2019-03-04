@@ -82,6 +82,10 @@ type Hooks struct {
 	completionCh    chan int32
 	completionIndex int32
 
+	// Denotes whether or not the registered hooks should no longer be called
+	// because they have already been waited upon.
+	// This uses a Mutex over a channel to guarantee that after WaitForHooks
+	// returns no hooked functions will be called.
 	closed bool
 	mutex  sync.RWMutex
 }
