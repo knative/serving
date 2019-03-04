@@ -47,10 +47,11 @@ func MakeImageCache(rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching
 				// Key off of the Deployment for the resolved image digest.
 				Image:              container.Image,
 				ServiceAccountName: deploy.Spec.Template.Spec.ServiceAccountName,
-				// We don't support ImagePullSecrets today.
 			},
 		}
-
+		if rev.Spec.ImagePullSecrets != nil {
+			img.Spec.ImagePullSecrets = rev.Spec.ImagePullSecrets
+		}
 		return img, nil
 	}
 	return nil, fmt.Errorf("user container %q not found: %v", UserContainerName, deploy)

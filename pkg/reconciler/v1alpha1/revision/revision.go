@@ -346,9 +346,15 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	opt := k8schain.Options{
 		Namespace:          rev.Namespace,
 		ServiceAccountName: rev.Spec.ServiceAccountName,
-		// ImagePullSecrets: Not possible via RevisionSpec, since we
-		// don't expose such a field.
 	}
+	var secrets []string
+	if rev.Spec.ImagePullSecrets != nil {
+		secrets = make([]string, len(rev.Spec.ImagePullSecrets))
+		for _, s := range rev.Spec.ImagePullSecrets {
+			secrets = append(secrets, s.Name)
+		}
+	}
+	opt.ImagePullSecrets = secrets
 	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
 		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
