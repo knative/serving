@@ -180,7 +180,7 @@ these flags:
 
 The `--dockerrepo` argument lets you specify the docker repo from which images
 used by your tests should be pulled. This will default to the value of your
-[`DOCKER_REPO_OVERRIDE` environment variable](../DEVELOPMENT.md#setup-your-environment)
+[`KO_DOCKER_REPO` environment variable](../DEVELOPMENT.md#setup-your-environment)
 if not specified.
 
 ```bash
