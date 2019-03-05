@@ -26,7 +26,6 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
-	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	"google.golang.org/grpc"
@@ -191,12 +190,7 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
-		}
-
-		deploymentName := rnames.Deployment(rev)
+		deploymentName := names.Revision + "-deployment"
 
 		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 			t.Fatalf("Could not scale to zero: %v", err)
@@ -208,12 +202,7 @@ func TestGRPCUnaryPingFromZero(t *testing.T) {
 
 func TestGRPCStreamingPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Error fetching Revision %s: %v", names.Revision, err)
-		}
-
-		deploymentName := rnames.Deployment(rev)
+		deploymentName := names.Revision + "-deployment"
 
 		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 			t.Fatalf("Could not scale to zero: %v", err)
