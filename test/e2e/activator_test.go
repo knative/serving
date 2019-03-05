@@ -20,15 +20,15 @@ package e2e
 
 import (
 	"fmt"
+	"net/http"
+	"sync"
 	"testing"
 	"time"
-	"net/http"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/test"
 )
 
 // TestActivatorOverload makes sure that activator can handle the load when scaling from 0.
@@ -45,12 +45,8 @@ func TestActivatorOverload(t *testing.T) {
 		// How long the service will process the request in ms.
 		serviceSleep = 300
 	)
-	var (
-		clients    = Setup(t)
-		group      errgroup.Group
-		resChannel = make(chan *spoof.Response, concurrency)
-	)
 
+	clients := Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "observed-concurrency",
@@ -73,12 +69,10 @@ func TestActivatorOverload(t *testing.T) {
 	}
 	domain := resources.Route.Status.Domain
 
-	deploymentName := resources.Revision.Name + "-deployment"
-
 	t.Log("Waiting for deployment to scale to zero.")
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
-		deploymentName,
+		rnames.Deployment(resources.Revision),
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
@@ -86,39 +80,33 @@ func TestActivatorOverload(t *testing.T) {
 		t.Fatalf("Failed waiting for deployment to scale to zero: %v", err)
 	}
 
-	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
-
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	client.RequestTimeout = timeout
 
+	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("error creating http request: %v", err)
+	}
+
 	t.Log("Starting to send out the requests")
 
+	var group sync.WaitGroup
 	// Send requests async and wait for the responses.
 	for i := 0; i < concurrency; i++ {
-		group.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, url, nil)
-			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
-			}
+		group.Add(1)
+		go func() {
+			defer group.Done()
 			res, err := client.Do(req)
 			if err != nil {
-				return fmt.Errorf("unexpected error sending a request, %v", err)
+				t.Errorf("unexpected error sending a request, %v", err)
 			}
-			resChannel <- res
-			return nil
-		})
-	}
-	if err := group.Wait(); err != nil {
-		t.Fatalf("unexpected error making requests against activator: %v", err)
-	}
-	t.Log("Done sending out requests")
-	close(resChannel)
 
-	t.Log("Process the responses")
-
-	for resp := range resChannel {
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Response code = %d, want: %d", resp.StatusCode, http.StatusOK)
-		}
+			if res.StatusCode != http.StatusOK {
+				body := string(res.Body)
+				t.Errorf("Response code = %d, want: %d, body: %s", res.StatusCode, http.StatusOK, body)
+			}
+		}()
 	}
+	group.Wait()
 }
