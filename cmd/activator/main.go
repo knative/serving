@@ -64,7 +64,10 @@ var _ = goversion.IsSupported()
 const (
 	component = "activator"
 
-	maxRetries = 18 // the sum of all retries would add up to 1 minute
+	// This is the number of times we will perform network probes to
+	// see if the Revision is accessible before forwarding the actual
+	// request.
+	maxRetries = 18
 
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
@@ -247,7 +250,6 @@ func main() {
 		GetProbeCount: maxRetries,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = &activatorhandler.FilteringHandler{NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{ah}
 
 	// Watch the logging config map and dynamically update logging levels.
