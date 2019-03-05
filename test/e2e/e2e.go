@@ -73,19 +73,21 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 }
 
 func scaleToZeroGracePeriod(t *testing.T, client *pkgTest.KubeClient) time.Duration {
+	const gracePeriodMultiplier = 6
+
 	t.Helper()
 
 	autoscalerCM, err := client.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
 	if err != nil {
-		t.Log("failed to Get autoscaler configmap, falling back to DefaultScaleToZeroGracePeriod")
-		return autoscaler.DefaultScaleToZeroGracePeriod * 6
+		t.Logf("Failed to Get autoscaler configmap = %v, falling back to DefaultScaleToZeroGracePeriod", err)
+		return autoscaler.DefaultScaleToZeroGracePeriod * gracePeriodMultiplier
 	}
 
 	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
 	if err != nil {
-		t.Log("failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
-		return autoscaler.DefaultScaleToZeroGracePeriod * 6
+		t.Log("Failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
+		return autoscaler.DefaultScaleToZeroGracePeriod * gracePeriodMultiplier
 	}
 
-	return config.ScaleToZeroGracePeriod * 6
+	return config.ScaleToZeroGracePeriod * gracePeriodMultiplier
 }
