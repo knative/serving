@@ -68,7 +68,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := a.Throttler.Try(revID, func() {
-		var httpStatus int
+		var (
+			httpStatus int
+			attempts   int
+		)
 
 		// If a GET probe interval has been configured, then probe
 		// the queue-proxy with our network probe header until it
@@ -92,25 +95,26 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Steps:    a.GetProbeCount,
 			}
 			err := wait.ExponentialBackoff(settings, func() (bool, error) {
+				attempts++
 				probeResp, err := a.Transport.RoundTrip(probeReq)
 				if err != nil {
-					a.Logger.Errorw("Pod probe failed", zap.Error(err))
+					a.Logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
 				}
 				httpStatus = probeResp.StatusCode
 				if httpStatus == http.StatusServiceUnavailable {
-					a.Logger.Errorf("Pod probe sent status: %d", httpStatus)
+					a.Logger.Warnf("Pod probe sent status: %d", httpStatus)
 					return false, nil
 				}
 				return true, nil
 			})
 			success = (err == nil) && httpStatus == http.StatusOK
 		}
-		attempts := 0
+
 		if success {
 			// Once we see a successful probe, send traffic.
+			attempts++
 			httpStatus = a.proxyRequest(w, r, target)
-			attempts = 1
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)

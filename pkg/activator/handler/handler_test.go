@@ -116,7 +116,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-			Attempts:   1,
+			Attempts:   2, // probe + request
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -176,7 +176,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   0,
+			Attempts:   1,
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -201,7 +201,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   0,
+			Attempts:   1,
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
