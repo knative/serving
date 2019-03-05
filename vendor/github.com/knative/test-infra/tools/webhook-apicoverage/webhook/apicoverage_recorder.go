@@ -50,8 +50,15 @@ const (
 
 	// TotalCoverageEndPoint is the endpoint for Total Coverage API
 	TotalCoverageEndPoint = "/totalcoverage"
+
+	// resourceChannelQueueSize size of the queue maintained for resource channel.
+	resourceChannelQueueSize = 10
 )
 
+type resourceChannelMsg struct {
+	resourceType schema.GroupVersionKind
+	rawResourceValue []byte
+}
 // APICoverageRecorder type contains resource tree to record API coverage for resources.
 type APICoverageRecorder struct {
 	Logger *zap.SugaredLogger
@@ -60,12 +67,29 @@ type APICoverageRecorder struct {
 	NodeRules resourcetree.NodeRules
 	FieldRules resourcetree.FieldRules
 	DisplayRules view.DisplayRules
+	resourceChannel chan resourceChannelMsg
 }
 
 // Init initializes the resources trees for set resources.
 func (a *APICoverageRecorder) Init() {
 	for resourceKind, resourceObj := range a.ResourceMap {
 		a.ResourceForest.AddResourceTree(resourceKind.Kind, reflect.ValueOf(resourceObj).Elem().Type())
+	}
+	a.resourceChannel = make(chan resourceChannelMsg, resourceChannelQueueSize)
+	go a.updateResourceCoverageTree()
+}
+
+// updateResourceCoverageTree updates the resource coverage tree.
+func (a *APICoverageRecorder) updateResourceCoverageTree() {
+	for {
+		channelMsg := <- a.resourceChannel
+		if err := json.Unmarshal(channelMsg.rawResourceValue, a.ResourceMap[channelMsg.resourceType]); err != nil {
+			a.Logger.Errorf("Failed unmarshalling review.Request.Object.Raw for type: %s Error: %v", channelMsg.resourceType.Kind, err)
+			continue
+		}
+		resourceTree := a.ResourceForest.TopLevelTrees[channelMsg.resourceType.Kind]
+		resourceTree.UpdateCoverage(reflect.ValueOf(a.ResourceMap[channelMsg.resourceType]).Elem())
+		a.Logger.Info("Successfully recorded coverage for resource ", channelMsg.resourceType.Kind)
 	}
 }
 
@@ -101,14 +125,10 @@ func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *h
 		return
 	}
 
-	if err := json.Unmarshal(review.Request.Object.Raw, a.ResourceMap[gvk]); err != nil {
-		a.Logger.Errorf("Failed unmarshalling review.Request.Object.Raw for type: %s Error: %v", a.ResourceMap[gvk], err)
-		a.appendAndWriteAdmissionResponse(review, false, "Admission Denied", w)
-		return
+	a.resourceChannel <- resourceChannelMsg{
+		resourceType: gvk,
+		rawResourceValue: review.Request.Object.Raw,
 	}
-	resourceTree := a.ResourceForest.TopLevelTrees[gvk.Kind]
-	resourceTree.UpdateCoverage(reflect.ValueOf(a.ResourceMap[gvk]).Elem())
-	a.Logger.Info("Successfully recorded coverage for resource ", gvk.Kind)
 	a.appendAndWriteAdmissionResponse(review, true, "Welcome Aboard", w)
 }
 
