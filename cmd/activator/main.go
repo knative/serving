@@ -28,7 +28,6 @@ import (
 
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/logging/logkey"
 
@@ -63,12 +62,12 @@ import (
 var _ = goversion.IsSupported()
 
 const (
-	maxUploadBytes = 32e6 // 32MB - same as app engine
-	component      = "activator"
+	component = "activator"
 
-	maxRetries             = 18 // the sum of all retries would add up to 1 minute
-	minRetryInterval       = 100 * time.Millisecond
-	exponentialBackoffBase = 1.3
+	// This is the number of times we will perform network probes to
+	// see if the Revision is accessible before forwarding the actual
+	// request.
+	maxRetries = 18
 
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
@@ -92,8 +91,6 @@ const (
 var (
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-
-	enableNetworkProbe = flag.Bool("enable-network-probe", true, "Whether to replace request retries with network level probing.")
 
 	logger *zap.SugaredLogger
 
@@ -229,25 +226,6 @@ func main() {
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 
-	// Retry on 503's for up to 60 seconds. The reason is there is
-	// a small delay for k8s to include the ready IP in service.
-	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
-	backoffSettings := wait.Backoff{
-		Duration: minRetryInterval,
-		Factor:   exponentialBackoffBase,
-		Steps:    maxRetries,
-	}
-	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, backoffSettings, shouldRetry)
-	getProbeCount := 0
-	// When network probing is enabled remove the retrying transport
-	// and pass in the retry count for our network probes instead.
-	if *enableNetworkProbe {
-		logger.Info("Enabling network probing for activation.")
-		getProbeCount = maxRetries
-		rt = activatorutil.AutoTransport
-	}
-
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
@@ -265,15 +243,13 @@ func main() {
 	var ah http.Handler
 	ah = &activatorhandler.ActivationHandler{
 		Activator:     a,
-		Transport:     rt,
+		Transport:     activatorutil.AutoTransport,
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
-		GetProbeCount: getProbeCount,
+		GetProbeCount: maxRetries,
 	}
-	ah = &activatorhandler.EnforceMaxContentLengthHandler{MaxContentLengthBytes: maxUploadBytes, NextHandler: ah}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = &activatorhandler.FilteringHandler{NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{ah}
 
 	// Watch the logging config map and dynamically update logging levels.
