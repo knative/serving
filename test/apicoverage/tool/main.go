@@ -32,8 +32,8 @@ import (
 func main() {
 	var (
 		kubeConfigPath string
-		serviceIP string
-		err error
+		serviceIP      string
+		err            error
 	)
 
 	// Ensure artifactsDir exist, in case not invoked from this script
@@ -52,8 +52,8 @@ func main() {
 		log.Fatalf("Error retrieving Service IP: %v", err)
 	}
 
-	for resource, _ := range common.ResourceMap {
-		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind, path.Join(artifactsDir, strings.ToLower(resource.Kind) + ".dat"), rules.GetDisplayRules())
+	for resource := range common.ResourceMap {
+		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind, path.Join(artifactsDir, strings.ToLower(resource.Kind)+".dat"), rules.GetDisplayRules())
 		if err != nil {
 			log.Println(fmt.Sprintf("resource coverage for resource: %s failed. %v ", resource.Kind, err))
 		}
