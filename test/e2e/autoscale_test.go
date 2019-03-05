@@ -210,7 +210,7 @@ func assertScaleUp(ctx *testContext) {
 	}
 
 	// verify scale-up has happened
-	if dep.Status.ReadyReplicas <= 0 {
+	if dep.Status.ReadyReplicas == 0 {
 		ctx.t.Fatalf("Deployment %s failed to scale up", ctx.deploymentName)
 	}
 
