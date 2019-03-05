@@ -177,6 +177,12 @@ func setup(t *testing.T) *testContext {
 	}
 
 	t.Logf("Revision under test: %s", names.Revision)
+
+	// verify that revision is consistent and is ready
+	if err := test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady); err != nil {
+		t.Fatalf("The Revision %s is not in ready state: %v", names.Revision, err)
+	}
+
 	return &testContext{
 		t:              t,
 		clients:        clients,
@@ -202,16 +208,6 @@ func assertScaleUp(ctx *testContext) {
 		2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
-	}
-
-	dep, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
-	if err != nil {
-		ctx.t.Fatalf("Could not get deployment %v", ctx.deploymentName)
-	}
-
-	// verify scale-up has happened
-	if dep.Status.ReadyReplicas == 0 {
-		ctx.t.Fatalf("Deployment %s failed to scale up", ctx.deploymentName)
 	}
 
 }
@@ -250,7 +246,7 @@ func assertScaleDown(ctx *testContext) {
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
 	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
-		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
+		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zerozero: %v", ctx.names.Revision, err)
 	}
 
 	ctx.t.Log("Scaled down.")
