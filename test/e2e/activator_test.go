@@ -84,10 +84,6 @@ func TestActivatorOverload(t *testing.T) {
 	client.RequestTimeout = timeout
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		t.Fatalf("error creating http request: %v", err)
-	}
 
 	t.Log("Starting to send out the requests")
 
@@ -97,6 +93,14 @@ func TestActivatorOverload(t *testing.T) {
 		group.Add(1)
 		go func() {
 			defer group.Done()
+
+			// We need to create a new request per HTTP request because
+			// the spoofing client mutates them.
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				t.Errorf("error creating http request: %v", err)
+			}
+
 			res, err := client.Do(req)
 			if err != nil {
 				t.Errorf("unexpected error sending a request, %v", err)
