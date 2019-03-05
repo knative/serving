@@ -68,7 +68,7 @@ function install_knative_serving() {
   fi
   # TODO: Should we install build from a nightly release?
   # The latest released Build is always at this location.
-  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/release.yaml
+  INSTALL_BUILD_YAML=https://storage.googleapis.com/knative-releases/build/latest/build.yaml
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
