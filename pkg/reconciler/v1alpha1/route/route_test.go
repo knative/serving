@@ -857,6 +857,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
+	defer ClearAllLoggers()
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
@@ -914,7 +915,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
+			_, servingClient, controller, rcnclr, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
 			stopCh := make(chan struct{})
 			grp := errgroup.Group{}
@@ -924,6 +925,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
+			defer rcnclr.Stop()
 
 			h := NewHooks()
 

@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -95,6 +96,16 @@ type Base struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	Logger *zap.SugaredLogger
+
+	// watchers that can be stopped via Stop().
+	watchers []watch.Interface
+}
+
+// Stop stops all the watchers that reconciler has.
+func (b *Base) Stop() {
+	for _, w := range b.watchers {
+		w.Stop()
+	}
 }
 
 // NewBase instantiates a new instance of Base implementing
@@ -104,12 +115,15 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	recorder := opt.Recorder
+	watches := make([]watch.Interface, 0, 2)
 	if recorder == nil {
 		// Create event broadcaster
 		logger.Debug("Creating event broadcaster")
 		eventBroadcaster := record.NewBroadcaster()
-		eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+		watches = append(watches,
+			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
+			eventBroadcaster.StartRecordingToSink(
+				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}))
 		recorder = eventBroadcaster.NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 	}
@@ -134,6 +148,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		Recorder:         recorder,
 		StatsReporter:    statsReporter,
 		Logger:           logger,
+		watchers:         watches,
 	}
 
 	return base
