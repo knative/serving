@@ -194,7 +194,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
 		logger.Errorw(
 			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
-				service.Name, configName), err)
+				service.Name, configName), zap.Error(err))
 		return err
 	}
 
