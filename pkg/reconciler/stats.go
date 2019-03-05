@@ -25,7 +25,7 @@ import (
 func MustNewStatsReporter(reconciler string, logger *zap.SugaredLogger) controller.StatsReporter {
 	stats, err := controller.NewStatsReporter(reconciler)
 	if err != nil {
-		logger.Fatal("Failed to initialize the stats reporter.", zap.Error(err))
+		logger.Fatalw("Failed to initialize the stats reporter", zap.Error(err))
 	}
 	return stats
 }

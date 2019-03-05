@@ -105,7 +105,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Error("Error upgrading websocket.", zap.Error(err))
+		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
 	}
 

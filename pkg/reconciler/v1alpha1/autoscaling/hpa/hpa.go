@@ -121,7 +121,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else {
 		if _, err := c.updateStatus(pa); err != nil {
-			logger.Warn("Failed to update pa status", zap.Error(err))
+			logger.Warnw("Failed to update pa status", zap.Error(err))
 			return err
 		}
 	}
