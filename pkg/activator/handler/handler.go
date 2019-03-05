@@ -52,7 +52,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
-	revID := activator.RevisionID{namespace, name}
+	revID := activator.RevisionID{Namespace:namespace, Name:name}
 
 	// ActiveEndpoint() will block until the first endpoint is available.
 	ar := a.Activator.ActiveEndpoint(namespace, name)
