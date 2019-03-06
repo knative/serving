@@ -456,20 +456,15 @@ data:
           [[ end -]]
         restartPolicy: Always
         resources:
-          limits:
-            [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyLimitMemory") -]]
-            memory: 1000Mi
-            [[ else -]]
-            memory: "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyLimitMemory" ]]"
-            [[ end -]]
-          [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyCPU") -]]
+          [[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]
           requests:
             cpu: "[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` ]]"
             memory: "[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` ]]"
-          [[ else -]]
+        [[ else -]]
           requests:
             cpu: 10m
-          [[ end -]]
+          
+        [[ end -]]
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -2436,10 +2431,9 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
       volumes:
       - name: certs
         secret:
@@ -2543,10 +2537,9 @@ spec:
           - --discoveryAddress
           - istio-pilot:8080
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
           env:
           - name: POD_NAME
             valueFrom:
@@ -2689,10 +2682,9 @@ spec:
           - --discoveryAddress
           - istio-pilot:8080
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
           env:
           - name: POD_NAME
             valueFrom:
@@ -2854,10 +2846,9 @@ spec:
         - name: GODEBUG
           value: "gctrace=2"
         resources:
-          limits:
-            memory: 1000Mi
           requests:
             cpu: 10m
+          
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -2906,6 +2897,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+          
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -2960,10 +2952,9 @@ spec:
         - name: GODEBUG
           value: "gctrace=2"
         resources:
-          limits:
-            memory: 1000Mi
           requests:
             cpu: 10m
+          
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -3012,6 +3003,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+          
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -3088,6 +3080,7 @@ spec:
             requests:
               cpu: 500m
               memory: 2048Mi
+            
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -3127,10 +3120,9 @@ spec:
                 apiVersion: v1
                 fieldPath: status.podIP
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -3214,10 +3206,9 @@ spec:
             - --custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system,istio-ingressgateway-service-account.istio-system:istio-ingressgateway.istio-system
             - --self-signed-ca=true
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -3317,10 +3308,9 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
       volumes:
       - name: config-volume
         configMap:
@@ -4449,10 +4439,9 @@ spec:
           - --discoveryAddress
           - istio-pilot.istio-system:8080
           resources:
-            limits:
-              memory: 1000Mi
             requests:
               cpu: 10m
+            
           env:
           - name: POD_NAME
             valueFrom:
