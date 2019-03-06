@@ -57,10 +57,6 @@ import (
 
 const (
 	controllerAgentName = "route-controller"
-
-	// DefaultRouteTemplate is the default golang template to use when
-	// constructing the Knative Service's Route/URL
-	DefaultRouteTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -77,11 +73,11 @@ type configStore interface {
 	WatchConfigs(w configmap.Watcher)
 }
 
-// RouteTemplateValues are the available properties people can choose from
-// in their Route's "RouteTemplate" golang template sting.
+// DomainTemplateValues are the available properties people can choose from
+// in their Route's "DomainTemplate" golang template sting.
 // We could add more over time - e.g. RevisionName if we thought that
 // might be of interest to people.
-type RouteTemplateValues struct {
+type DomainTemplateValues struct {
 	Name      string
 	Namespace string
 	Domain    string
@@ -433,8 +429,8 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-// routeDeomain will generate the URL/Route for the Service based on
-// the "RouteTemplateKey" from the "config-network" configMap.
+// routeDeomain will generate the Route's Domain(host) for the Service based on
+// the "DomainTemplateKey" from the "config-network" configMap.
 func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
@@ -442,29 +438,29 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
-	data := RouteTemplateValues{
+	data := DomainTemplateValues{
 		Name:      route.Name,
 		Namespace: route.Namespace,
 		Domain:    domain,
 	}
 
 	networkConfig := config.FromContext(ctx).Network
-	text := networkConfig.RouteTemplate
+	text := networkConfig.DomainTemplate
 
-	// Blank makes no sense so use our default
+	// Should never get here except during testing
 	if text == "" {
-		text = DefaultRouteTemplate
+		text = network.DefaultDomainTemplate
 	}
 
 	// It's ok if we keep using the same name
 	templ, err := template.New("knTemplate").Parse(text)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing the RouteTemplate(%s): %s", text, err)
+		return "", fmt.Errorf("Error parsing the DomainTemplate(%s): %s", text, err)
 	}
 
 	buf := bytes.Buffer{}
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("Error executing the RouteTemplate(%s): %s", text, err)
+		return "", fmt.Errorf("Error executing the DomainTemplate(%s): %s", text, err)
 	}
 	return buf.String(), nil
 }
