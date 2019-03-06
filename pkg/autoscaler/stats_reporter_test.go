@@ -99,7 +99,7 @@ func TestReporter_Report(t *testing.T) {
 
 func TestReporter_EmptyServiceName(t *testing.T) {
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
-	r, _ := NewStatsReporter("testns", /*service=*/"", "testconfig", "testrev")
+	r, _ := NewStatsReporter("testns" /*service=*/, "", "testconfig", "testrev")
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,

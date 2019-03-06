@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import(
+import (
 	"github.com/knative/serving/test/apicoverage/image/webhook"
 )
 
