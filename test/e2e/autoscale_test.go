@@ -209,7 +209,6 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
-
 }
 
 func assertScaleDown(ctx *testContext) {
