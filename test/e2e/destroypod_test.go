@@ -132,6 +132,13 @@ func TestDestroyPodInflight(t *testing.T) {
 	}
 }
 
+const (
+	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
+	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
+	// This is still well below the 5 minutes it might take them to disappear max.
+	maxTimeToDelete := 60 * time.Second
+)
+
 func TestDestroyPodTimely(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
@@ -168,10 +175,6 @@ func TestDestroyPodTimely(t *testing.T) {
 		},
 		"WaitForPodsToDisappear", test.ServingNamespace)
 
-	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
-	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
-	// This is still well below the 5 minutes it might take them to disappear max.
-	maxTimeToDelete := 60 * time.Second
 	timeToDelete := time.Since(start)
 	if timeToDelete > maxTimeToDelete {
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
