@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
 
@@ -56,7 +55,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	t.Run("network", func(t *testing.T) {
 		expected, _ := network.NewConfigFromConfigMap(networkConfig)
-		if diff := cmp.Diff(expected, config.Network, cmpopts.IgnoreFields(network.Config{}, "RouteTemplateParsed")); diff != "" {
+		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
 	})

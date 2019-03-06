@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,7 @@ func TestConfiguration(t *testing.T) {
 	networkConfigTests := []struct {
 		name           string
 		wantErr        bool
-		wantController *Config
+		wantController interface{}
 		config         *corev1.ConfigMap
 	}{{
 		name:    "network configuration with no network input",
@@ -246,56 +245,6 @@ func TestConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
 			},
-		}}, {
-		name:    "network configuration with default RouteTemplate",
-		wantErr: false,
-		wantController: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			RouteTemplateText:          "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				RouteTemplateKey:              "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			},
-		}}, {
-		name:    "network configuration with diff/valid RouteTemplate",
-		wantErr: false,
-		wantController: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			RouteTemplateText:          "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				RouteTemplateKey:              "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-			},
-		}}, {
-		name:           "network configuration with syntax error RouteTemplate",
-		wantErr:        true,
-		wantController: nil,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				RouteTemplateKey:              "{{.BadBadBad{}}.{{.Domain}}",
-			},
 		}},
 	}
 
@@ -306,11 +255,7 @@ func TestConfiguration(t *testing.T) {
 			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 		}
 
-		if err != nil {
-			continue
-		}
-
-		if diff := cmp.Diff(actualController, tt.wantController, cmpopts.IgnoreFields(Config{}, "RouteTemplateParsed")); diff != "" {
+		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
 			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
 		}
 	}
