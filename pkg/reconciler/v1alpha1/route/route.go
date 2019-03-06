@@ -447,11 +447,6 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	networkConfig := config.FromContext(ctx).Network
 	text := networkConfig.DomainTemplate
 
-	// Should never get here except during testing
-	if text == "" {
-		text = network.DefaultDomainTemplate
-	}
-
 	// It's ok if we keep using the same name
 	templ, err := template.New("knTemplate").Parse(text)
 	if err != nil {
