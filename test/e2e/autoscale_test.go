@@ -198,7 +198,7 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	ctx.t.Logf("Waiting for scale up revsion %s", ctx.names.Revision)
+	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
 	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
