@@ -98,6 +98,7 @@ func main() {
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
+	secretInformer := kubeInformerFactory.Core().V1().Secrets()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
@@ -148,6 +149,7 @@ func main() {
 			clusterIngressInformer,
 			virtualServiceInformer,
 			gatewayInformer,
+			secretInformer,
 		),
 		serverlessservice.NewController(
 			opt,
@@ -184,6 +186,7 @@ func main() {
 		routeInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
+		secretInformer.Informer(),
 		virtualServiceInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)

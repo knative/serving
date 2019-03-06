@@ -42,4 +42,12 @@ const (
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.
 	SKSLabelKey = GroupName + "/serverlessservice"
+
+	// OriginSecretNameLabelKey is the label key attached to the secret used for terminating TLS connection
+	// to indicate the name of the origin secret that the TLS termination secret is copied from.
+	OriginSecretNameLabelKey = GroupName + "/originSecretName"
+
+	// OriginSecretNamespaceLabelKey is the label key attached to the secret used for terminating TLS connection
+	// to indicate the namespace of the origin secret that the TLS termination secret is copied from.
+	OriginSecretNamespaceLabelKey = GroupName + "/originSecretNamespace"
 )

@@ -21,7 +21,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+<<<<<<< HEAD
+=======
+	"strings"
+	"sync"
+>>>>>>> db429c06... initial version of reconciling secrets
 
+	"github.com/knative/pkg/tracker"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -45,6 +53,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -74,7 +84,10 @@ type Reconciler struct {
 	clusterIngressLister listers.ClusterIngressLister
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
+	secretLister         corev1listers.SecretLister
 	configStore          configStore
+
+	tracker tracker.Interface
 
 	enableReconcilingGateway bool
 }
@@ -89,6 +102,7 @@ func NewController(
 	clusterIngressInformer informers.ClusterIngressInformer,
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
 	gatewayInformer istioinformers.GatewayInformer,
+	secretInfomer corev1informers.SecretInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -96,6 +110,7 @@ func NewController(
 		clusterIngressLister:     clusterIngressInformer.Lister(),
 		virtualServiceLister:     virtualServiceInformer.Lister(),
 		gatewayLister:            gatewayInformer.Lister(),
+		secretLister:             secretInfomer.Lister(),
 		enableReconcilingGateway: false,
 	}
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
@@ -110,6 +125,14 @@ func NewController(
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
+	})
+
+	c.tracker = tracker.NewNonExpiration(impl.EnqueueKey)
+	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
+	secretInfomer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
+		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
+		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -215,10 +238,6 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	ci.Status.ObservedGeneration = ci.Generation
 
-	// TODO(zhiminx): Istio requires to put certificates under the namespace where Istio ingress
-	// (pods) are deployed so that Istio ingress pods can consume them.
-	// So we need to copy certificates from their origin namespace to the Istio ingress namespace.
-
 	// TODO(zhiminx): currently we turn off Gateway reconciliation as it relies
 	// on Istio 1.1, which is not ready.
 	// We should eventually use a feature flag (in ConfigMap) to turn this on/off.
@@ -232,6 +251,8 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 
 		desiredServers := resources.MakeServers(ci)
 		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
+			return err
+		if err := c.reconcileCertSecrets(ctx, ci); err != nil {
 			return err
 		}
 	}
@@ -415,4 +436,133 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 		"Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
 	return nil
+}
+
+func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
+	inusedSecretKeys := resources.GetOriginSecrets(ci)
+	gatewaySvcNamespaces := getGatewaySvcNamespaces(ctx)
+	for _, ns := range gatewaySvcNamespaces {
+		if err := c.cleanUpUnsedSecret(ctx, ci, ns, inusedSecretKeys); err != nil {
+			return err
+		}
+		for _, tls := range ci.Spec.TLS {
+			if err := c.reconcileCertSecret(ctx, ci, &tls, ns); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, tls *v1alpha1.ClusterIngressTLS, gatewayNamespace string) error {
+	logger := logging.FromContext(ctx)
+	originSecret, err := c.secretLister.Secrets(tls.SecretNamespace).Get(tls.SecretName)
+	if err != nil {
+		return err
+	}
+
+	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
+	c.tracker.Track(objectRef(originSecret, gvk), ci)
+
+	desiredSecret := resources.MakeTargetSecret(originSecret, ci, "istio-system")
+	existingSecret, err := c.secretLister.Secrets(desiredSecret.Namespace).Get(desiredSecret.Name)
+	if apierrs.IsNotFound(err) {
+		_, err = c.KubeClientSet.CoreV1().Secrets(desiredSecret.Namespace).Create(desiredSecret)
+		if err != nil {
+			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Secret %q/%q: %v", desiredSecret.Namespace, desiredSecret.Name, err)
+			return err
+		}
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Created",
+			"Created Secret %q/%q", desiredSecret.Namespace, desiredSecret.Name)
+	} else if err != nil {
+		return err
+	} else if !equality.Semantic.DeepEqual(existingSecret.Data, desiredSecret.Data) {
+		// Don't modify the informers copy
+		existing := existingSecret.DeepCopy()
+		existing.Data = desiredSecret.Data
+		//_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
+		_, err = c.KubeClientSet.CoreV1().Secrets(existing.Namespace).Update(existing)
+		if err != nil {
+			logger.Errorw("Failed to update target secret", zap.Error(err))
+			return err
+		}
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+			"Updated status for Secret %q/%q", existing.Namespace, existing.Name)
+	}
+	return nil
+}
+
+func (c *Reconciler) cleanUpUnsedSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNamespace string, inuseSecrets sets.String) error {
+	secrets, err := c.secretLister.Secrets(gatewayNamespace).List(resources.MakeSecretSelector(ci))
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	// We make copy of secrets to avoid modifying the informers copy.
+	copySecrets := resources.CopySecrets(secrets)
+	for _, secret := range copySecrets {
+		originSecretKey := fmt.Sprintf("%s/%s", secret.Labels[networking.OriginSecretNamespaceLabelKey], secret.Labels[networking.OriginSecretNameLabelKey])
+		if inuseSecrets.Has(originSecretKey) {
+			continue
+		}
+
+		gvk := corev1.SchemeGroupVersion.WithKind("Secret")
+		c.tracker.UnTrack(objectRefFromKey(originSecretKey, gvk), ci)
+
+		if err := c.KubeClientSet.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{}); err != nil {
+			return err
+		}
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Deleted",
+			"Deleted Secret %q/%q", secret.Namespace, secret.Name)
+	}
+	return nil
+}
+
+func getGatewaySvcNamespaces(ctx context.Context) []string {
+	cfg := config.FromContext(ctx).Istio
+	namespaces := []string{}
+	for _, ingressgateway := range cfg.IngressGateways {
+		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces
+}
+
+/////////////////////////////////////////
+// Misc helpers.
+/////////////////////////////////////////
+
+// TODO(zhiminx): move this part into a shareable directory.
+type accessor interface {
+	GroupVersionKind() schema.GroupVersionKind
+	GetNamespace() string
+	GetName() string
+}
+
+func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
+	// We can't always rely on the TypeMeta being populated.
+	// See: https://github.com/knative/serving/issues/2372
+	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
+	// gvk := a.GroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  a.GetNamespace(),
+		Name:       a.GetName(),
+	}
+}
+
+func objectRefFromKey(key string, gvk schema.GroupVersionKind) corev1.ObjectReference {
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	str := strings.Split(key, "/")
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  str[0],
+		Name:       str[1],
+	}
 }
