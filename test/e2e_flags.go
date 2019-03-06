@@ -48,8 +48,8 @@ type ServingEnvironmentFlags struct {
 func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
-	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
-		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", true,
+		"Set this flag to false if you do not have a properly configured domain for your Route controller.")
 
 	flag.StringVar(&f.DockerRepo, "dockerrepo", os.Getenv("KO_DOCKER_REPO"),
 		"Provide the uri of the docker repo you have uploaded the test image to using `upload-test-images.sh`. Defaults to $KO_DOCKER_REPO")
