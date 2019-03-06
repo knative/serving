@@ -32,34 +32,50 @@ import (
 
 func TestMakeMetric(t *testing.T) {
 	cases := []struct {
-		name string
-		pa   *v1alpha1.PodAutoscaler
-		want *autoscaler.Metric
+		name   string
+		pa     *v1alpha1.PodAutoscaler
+		config *autoscaler.Config
+		want   *autoscaler.Metric
 	}{{
-		name: "defaults",
-		pa:   pa(),
-		want: metric(withTarget(100.0)),
+		name:   "defaults",
+		pa:     pa(),
+		config: config(),
+		want:   metric(withTarget(100.0)),
 	}, {
-		name: "with container concurrency 1",
-		pa:   pa(WithContainerConcurrency(1)),
-		want: metric(withTarget(1.0)),
+		name:   "with container concurrency 1",
+		pa:     pa(WithContainerConcurrency(1)),
+		config: config(),
+		want:   metric(withTarget(1.0)),
 	}, {
-		name: "with target annotation 1",
-		pa:   pa(WithTargetAnnotation("1")),
-		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+		name:   "with target annotation 1",
+		pa:     pa(WithTargetAnnotation("1")),
+		config: config(),
+		want:   metric(withTarget(1.0), withTargetAnnotation("1")),
 	}, {
-		name: "with container concurrency greater than target annotation (ok)",
-		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+		name:   "with container concurrency greater than target annotation (ok)",
+		pa:     pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
+		config: config(),
+		want:   metric(withTarget(1.0), withTargetAnnotation("1")),
 	}, {
-		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
-		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: metric(withTarget(1.0), withTargetAnnotation("10")),
+		name:   "with target annotation greater than container concurrency (ignore annotation for safety)",
+		pa:     pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
+		config: config(),
+		want:   metric(withTarget(1.0), withTargetAnnotation("10")),
+	}, {
+		name:   "fallback on cluster default target",
+		pa:     pa(),
+		config: config(withDefaultTarget(100)),
+		want:   metric(withTarget(100.0)),
+	}, {
+		name:   "target percentage of concurrency limit",
+		pa:     pa(WithContainerConcurrency(100)),
+		config: config(withTargetPercentage(0.5)),
+		want:   metric(withTarget(50.0)),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.TODO(), tc.pa, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeMetric(context.TODO(), tc.pa, tc.config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -119,13 +135,33 @@ func withTargetAnnotation(target string) MetricOption {
 	}
 }
 
-var config = &autoscaler.Config{
-	EnableScaleToZero:                    true,
-	ContainerConcurrencyTargetPercentage: 1.0,
-	ContainerConcurrencyTargetDefault:    100.0,
-	MaxScaleUpRate:                       10.0,
-	StableWindow:                         60 * time.Second,
-	PanicWindow:                          6 * time.Second,
-	TickInterval:                         2 * time.Second,
-	ScaleToZeroGracePeriod:               30 * time.Second,
+type AutoscalerConfigOption func(*autoscaler.Config)
+
+func config(options ...AutoscalerConfigOption) *autoscaler.Config {
+	c := &autoscaler.Config{
+		EnableScaleToZero:                    true,
+		ContainerConcurrencyTargetPercentage: 1.0,
+		ContainerConcurrencyTargetDefault:    100.0,
+		MaxScaleUpRate:                       10.0,
+		StableWindow:                         60 * time.Second,
+		PanicWindow:                          6 * time.Second,
+		TickInterval:                         2 * time.Second,
+		ScaleToZeroGracePeriod:               30 * time.Second,
+	}
+	for _, fn := range options {
+		fn(c)
+	}
+	return c
+}
+
+func withDefaultTarget(t float64) AutoscalerConfigOption {
+	return func(c *autoscaler.Config) {
+		c.ContainerConcurrencyTargetDefault = t
+	}
+}
+
+func withTargetPercentage(p float64) AutoscalerConfigOption {
+	return func(c *autoscaler.Config) {
+		c.ContainerConcurrencyTargetPercentage = p
+	}
 }
