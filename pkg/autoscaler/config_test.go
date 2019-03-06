@@ -23,44 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
-
-func TestTargetConcurrency(t *testing.T) {
-	c := &Config{
-		ContainerConcurrencyTargetPercentage: 0.5,
-		ContainerConcurrencyTargetDefault:    10.0,
-	}
-
-	tests := []struct {
-		name                 string
-		containerConcurrency int
-		want                 float64
-	}{{
-		name:                 "default",
-		containerConcurrency: 0,
-		want:                 10.0,
-	}, {
-		name:                 "single",
-		containerConcurrency: 1,
-		want:                 0.5,
-	}, {
-		name:                 "multi",
-		containerConcurrency: 10,
-		want:                 5.0,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := c.TargetConcurrency(v1alpha1.RevisionContainerConcurrencyType(test.containerConcurrency))
-			if got != test.want {
-				t.Errorf("TargetConcurrency() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
 
 func TestNewConfig(t *testing.T) {
 	tests := []struct {

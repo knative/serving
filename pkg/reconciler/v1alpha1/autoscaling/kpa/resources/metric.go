@@ -30,7 +30,17 @@ import (
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
 	logger := logging.FromContext(ctx)
 
-	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
+	// Start with the cluster default target.
+	target := config.ContainerConcurrencyTargetDefault
+
+	// If the container has a concurrency limitation, target a
+	// percentage of that limit.
+	if pa.Spec.ContainerConcurrency != 0 {
+		target = float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetPercentage
+	}
+
+	// If the PodAutoscaler has a specific target annotation, use
+	// that if it's safe to do so.
 	if mt, ok := pa.Target(); ok {
 		annotationTarget := float64(mt)
 		if annotationTarget > target {
@@ -43,6 +53,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 			target = annotationTarget
 		}
 	}
+
 	return &autoscaler.Metric{
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.MetricSpec{
