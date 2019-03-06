@@ -68,7 +68,7 @@ func (b *BasicTypeKindNode) string(v reflect.Value) string {
 		if v.Int() != 0 {
 			return strconv.Itoa(int(v.Int()))
 		}
-	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if v.Uint() != 0 {
 			return strconv.FormatUint(v.Uint(), 10)
 		}
