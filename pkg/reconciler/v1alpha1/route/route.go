@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"text/template"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -56,6 +57,10 @@ import (
 
 const (
 	controllerAgentName = "route-controller"
+
+	// DefaultRouteTemplate is the default golang template to use when
+	// constructing the Knative Service's Route/URL
+	DefaultRouteTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -70,6 +75,16 @@ var (
 type configStore interface {
 	ToContext(ctx context.Context) context.Context
 	WatchConfigs(w configmap.Watcher)
+}
+
+// RouteTemplateValues are the available properties people can choose from
+// in their Route's "RouteTemplate" golang template sting.
+// We could add more over time - e.g. RevisionName if we thought that
+// might be of interest to people.
+type RouteTemplateValues struct {
+	Name      string
+	Namespace string
+	Domain    string
 }
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -418,8 +433,15 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
+// Save these as global to save time on each call to routeDomain()
+var savedTemplate *template.Template = nil
+var savedText string = ""
+
 // routeDeomain will generate the URL/Route for the Service based on
 // the "RouteTemplateKey" from the "config-network" configMap.
+// This function is not multi-threaded enabled - I'm assuming the
+// controller will only call this for one Service at a time. If this
+// assumption is not correct let me know.
 func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
@@ -427,25 +449,42 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
-	data := network.RouteTemplateValues{
+	data := type RouteTemplateValues {
 		Name:      route.Name,
 		Namespace: route.Namespace,
 		Domain:    domain,
 	}
 
 	networkConfig := config.FromContext(ctx).Network
+	text := networkConfig.RouteTemplate
 
-	// Should never happen but if it does just use Sprintf since
-	// we're probably just testing.
-	if networkConfig.RouteTemplateParsed == nil {
-		return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain), nil
+	// Either this is the first time or the user-provided RouteTemplate changed
+	if savedTemplate == nil || text != savedText {
+		// Blank makes no sense so use our default
+		if text == "" {
+			text = DefaultRouteTemplate
+		}
+
+		// It's ok if we keep using the same name, we have a ref to the old
+		// one which should keep it around.
+		templ, err := template.New("knTemplate").Parse(text)
+		if err != nil {
+			return "", fmt.Errorf("Error parsing the RouteTemplate(%s): %s", text, err)
+		}
+
+		// Only update the saved values if it parsed ok. We don't want to
+		// change what's saved if they gave us a bad value and then switch
+		// back to the previous value.
+		// Note that we save RouteTemplate, not 'text' because we don't want
+		// to think that a value of "" in the configMap is a changed value
+		// the next time we come in here. So, save what's in the configMap.
+		savedTemplate = templ
+		savedText = networkConfig.RouteTemplate
 	}
 
-	// Now do the golang text substitution to calculate the Route/URL
 	buf := bytes.Buffer{}
-	if err := networkConfig.RouteTemplateParsed.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("Error executing the RouteTemplate(%s): %s",
-			networkConfig.RouteTemplateText, err)
+	if err := savedTemplate.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("Error executing the RouteTemplate(%s): %s", text, err)
 	}
 	return buf.String(), nil
 }
