@@ -287,11 +287,10 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 
 func TestRouteReleaseTwoRevisions(t *testing.T) {
 	const (
-		rolloutPercent = 48
 		currentPercent = 52
 		numRevisions   = 2
 	)
-	s := createServiceWithRelease(numRevisions, rolloutPercent)
+	s := createServiceWithRelease(numRevisions, 100-currentPercent)
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
@@ -304,58 +303,28 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	// Should have 3 named traffic targets (current, candidate, latest)
-	if got, want := len(r.Spec.Traffic), 3; got != want {
-		t.Fatalf("Expected %d traffic targets, got %d", want, got)
-	}
-	ttCurrent := r.Spec.Traffic[0]
-	if got, want := ttCurrent.Percent, currentPercent; got != want {
-		t.Errorf("Expected %d percent got %d", want, got)
-	}
-	if got, want := ttCurrent.Name, v1alpha1.CurrentTrafficTarget; got != want {
-		t.Errorf("Expected %q name got %q", want, got)
-	}
-	if got, want := ttCurrent.RevisionName, testRevisionName; got != want {
-		t.Errorf("Expected %q revisionName got %q", want, got)
-	}
-	if got, want := ttCurrent.ConfigurationName, ""; got != want {
-		t.Errorf("Expected %q configurationname got %q", want, got)
-	}
-	ttCandidate := r.Spec.Traffic[1]
-	if got, want := ttCandidate.Percent, rolloutPercent; got != want {
-		t.Errorf("Expected %d percent got %d", want, got)
-	}
-	if got, want := ttCandidate.Name, v1alpha1.CandidateTrafficTarget; got != want {
-		t.Errorf("Expected %q name got %q", want, got)
-	}
-	if got, want := ttCandidate.RevisionName, testCandidateRevisionName; got != want {
-		t.Errorf("Expected %q revisionName got %q", want, got)
-	}
-	if got, want := ttCandidate.ConfigurationName, ""; got != want {
-		t.Errorf("Expected %q configurationname got %q", want, got)
-	}
-	ttLatest := r.Spec.Traffic[2]
-	if got, want := ttLatest.Percent, 0; got != want {
-		t.Errorf("Expected %d percent got %d", want, got)
-	}
-	if got, want := ttLatest.Name, v1alpha1.LatestTrafficTarget; got != want {
-		t.Errorf("Expected %q name got %q", want, got)
-	}
-	if got, want := ttLatest.RevisionName, ""; got != want {
-		t.Errorf("Expected %q configurationname got %q", want, got)
-	}
-	if got, want := ttLatest.ConfigurationName, testConfigName; got != want {
-		t.Errorf("Expected %q configurationname got %q", want, got)
+	wantT := []v1alpha1.TrafficTarget{{
+		Name:         v1alpha1.CurrentTrafficTarget,
+		Percent:      currentPercent,
+		RevisionName: testRevisionName,
+	}, {
+		Name:         v1alpha1.CandidateTrafficTarget,
+		Percent:      100 - currentPercent,
+		RevisionName: testCandidateRevisionName,
+	}, {
+		Name:              v1alpha1.LatestTrafficTarget,
+		ConfigurationName: testConfigName,
+	}}
+	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
+		t.Errorf("Traffic mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
 	}
 	expectOwnerReferencesSetCorrectly(t, r.OwnerReferences)
-
-	if got, want := len(r.Labels), 2; got != want {
-		t.Errorf("Expected %d labels got %d", want, got)
+	wantL := map[string]string{
+		testLabelKey:            testLabelValueRelease,
+		serving.ServiceLabelKey: testServiceName,
 	}
-	if got, want := r.Labels[testLabelKey], testLabelValueRelease; got != want {
-		t.Errorf("Expected %q labels got %q", want, got)
-	}
-	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
-		t.Errorf("Expected %q labels got %q", want, got)
+	if got, want := r.Labels, wantL; !cmp.Equal(got, want) {
+		t.Errorf("Labels mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
 	}
 }
 
