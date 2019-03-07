@@ -104,6 +104,7 @@ func TestActivatorOverload(t *testing.T) {
 			res, err := client.Do(req)
 			if err != nil {
 				t.Errorf("unexpected error sending a request, %v", err)
+				return
 			}
 
 			if res.StatusCode != http.StatusOK {
