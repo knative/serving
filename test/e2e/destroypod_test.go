@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +30,9 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -126,5 +129,54 @@ func TestDestroyPodInflight(t *testing.T) {
 
 	if err := g.Wait(); err != nil {
 		t.Errorf("Something went wrong with the request: %v", err)
+	}
+}
+
+const (
+	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
+	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
+	// This is still well below the 5 minutes it might take them to disappear max.
+	maxTimeToDelete = 60 * time.Second
+)
+
+func TestDestroyPodTimely(t *testing.T) {
+	t.Parallel()
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{RevisionTimeoutSeconds: 5 * 60})
+	if err != nil {
+		t.Fatalf("Failed to create a service: %v", err)
+	}
+
+	start := time.Now()
+
+	// Deleting the service will also delete all pods.
+	clients.ServingClient.Services.Delete(names.Service, nil)
+
+	// Wait until the pods have disappeared.
+	deploymentName := rnames.Deployment(objects.Revision)
+	pkgTest.WaitForPodListState(
+		clients.KubeClient,
+		func(p *v1.PodList) (bool, error) {
+			for _, pod := range p.Items {
+				if strings.Contains(pod.Name, deploymentName) {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		"WaitForPodsToDisappear", test.ServingNamespace)
+
+	timeToDelete := time.Since(start)
+	if timeToDelete > maxTimeToDelete {
+		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
 	}
 }
