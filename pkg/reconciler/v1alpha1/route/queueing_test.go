@@ -51,6 +51,7 @@ import (
 */
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
+	defer  ClearAllLoggers()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
