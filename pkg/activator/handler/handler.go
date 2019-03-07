@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/knative/pkg/websocket"
@@ -52,7 +51,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
-	revID := activator.RevisionID{namespace, name}
+	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
 	// ActiveEndpoint() will block until the first endpoint is available.
 	ar := a.Activator.ActiveEndpoint(namespace, name)
@@ -70,9 +69,10 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := a.Throttler.Try(revID, func() {
 		var (
-			attempts   int
 			httpStatus int
+			attempts   int
 		)
+
 		// If a GET probe interval has been configured, then probe
 		// the queue-proxy with our network probe header until it
 		// returns a 200 status code.
@@ -86,7 +86,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ProtoMinor: r.ProtoMinor,
 				Host:       r.Host,
 				Header: map[string][]string{
-					http.CanonicalHeaderKey(network.ProbeHeaderName): []string{"true"},
+					http.CanonicalHeaderKey(network.ProbeHeaderName): {"true"},
 				},
 			}
 			settings := wait.Backoff{
@@ -95,23 +95,26 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Steps:    a.GetProbeCount,
 			}
 			err := wait.ExponentialBackoff(settings, func() (bool, error) {
+				attempts++
 				probeResp, err := a.Transport.RoundTrip(probeReq)
 				if err != nil {
-					a.Logger.Errorw("Pod probe failed", zap.Error(err))
+					a.Logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
 				}
 				httpStatus = probeResp.StatusCode
 				if httpStatus == http.StatusServiceUnavailable {
-					a.Logger.Errorf("Pod probe sent status: %d", httpStatus)
+					a.Logger.Warnf("Pod probe sent status: %d", httpStatus)
 					return false, nil
 				}
 				return true, nil
 			})
 			success = (err == nil) && httpStatus == http.StatusOK
 		}
+
 		if success {
 			// Once we see a successful probe, send traffic.
-			attempts, httpStatus = a.proxyRequest(w, r, target)
+			attempts++
+			httpStatus = a.proxyRequest(w, r, target)
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
@@ -133,7 +136,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) (int, int) {
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
 	capture := &statusCapture{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
@@ -142,27 +145,10 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	proxy.Transport = a.Transport
 	proxy.FlushInterval = -1
 
-	attempts := int(1) // one attempt is always needed
-	proxy.ModifyResponse = func(r *http.Response) error {
-		if numTries := r.Header.Get(activator.RequestCountHTTPHeader); numTries != "" {
-			if count, err := strconv.Atoi(numTries); err == nil {
-				a.Logger.Infof("got %d attempts", count)
-				attempts = count
-			} else {
-				a.Logger.Errorf("Value in %v header is not a valid integer. Error: %v", activator.RequestCountHTTPHeader, err)
-			}
-		}
-
-		// We don't return this header to the user. It's only used to transport
-		// state in the activator.
-		r.Header.Del(activator.RequestCountHTTPHeader)
-
-		return nil
-	}
 	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(capture, r)
-	return attempts, capture.statusCode
+	return capture.statusCode
 }
 
 type statusCapture struct {

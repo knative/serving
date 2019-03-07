@@ -48,28 +48,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	cleanupCh := make(chan test.ResourceNames, scale)
 	defer close(cleanupCh)
 
-	fopt := []ServiceOption{
-		// We set a small resource alloc so that we can pack more pods into the cluster.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("50Mi"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}
-		},
-		// See #2946 for why we do this.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = map[string]string{
-				"autoscaling.knative.dev/minScale": "1",
-				"autoscaling.knative.dev/maxScale": "1",
-			}
-		},
-	}
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
 	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
 	// us to have 2.5 9s overall.
@@ -114,7 +92,24 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := test.CreateLatestService(t, clients, names, options, fopt...)
+			svc, err := test.CreateLatestService(t, clients, names, options,
+				WithResourceRequirements(corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("50Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("20Mi"),
+					},
+				}),
+				// See #2946 for why we do this.
+				// turns off auto scaling by setting max and min scale to 1
+				WithConfigAnnotations(map[string]string{
+					"autoscaling.knative.dev/minScale": "1",
+					"autoscaling.knative.dev/maxScale": "1",
+				}))
+
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
 				return nil

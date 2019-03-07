@@ -202,6 +202,7 @@ func TestReconcile(t *testing.T) {
 		Key: "reconcile-virtualservice",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),
@@ -329,6 +330,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
+	defer ClearAllLoggers()
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})

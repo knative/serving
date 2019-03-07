@@ -90,7 +90,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 						ctx.t.Logf("error making request %v", err)
 						continue
 					}
-					duration := time.Now().Sub(start)
+					duration := time.Since(start)
 					ctx.t.Logf("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {

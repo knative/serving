@@ -167,17 +167,25 @@ type Reporter struct {
 	initialized bool
 }
 
+func valueOrUnknown(v string) string {
+	if v != "" {
+		return v
+	}
+	return metricskey.ValueUnknown
+}
+
 // NewStatsReporter creates a reporter that collects and reports autoscaler metrics
 func NewStatsReporter(podNamespace string, service string, config string, revision string) (*Reporter, error) {
 
 	r := &Reporter{}
 
 	// Our tags are static. So, we can get away with creating a single context
-	// and reuse it for reporting all of our metrics.
+	// and reuse it for reporting all of our metrics. Note that service names
+	// can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(namespaceTagKey, podNamespace),
-		tag.Insert(serviceTagKey, service),
+		tag.Insert(serviceTagKey, valueOrUnknown(service)),
 		tag.Insert(configTagKey, config),
 		tag.Insert(revisionTagKey, revision))
 	if err != nil {

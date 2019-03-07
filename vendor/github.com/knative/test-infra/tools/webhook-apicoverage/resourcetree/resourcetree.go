@@ -40,8 +40,8 @@ func (r *ResourceTree) createNode(field string, parent NodeInterface, t reflect.
 	case reflect.Ptr, reflect.UnsafePointer, reflect.Uintptr:
 		n = new(PtrKindNode)
 	case reflect.Bool, reflect.String, reflect.Float32, reflect.Float64,
-		reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint,
+		reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		n = new(BasicTypeKindNode)
 	default:
 		n = new(OtherKindNode) // Maps, interfaces, etc

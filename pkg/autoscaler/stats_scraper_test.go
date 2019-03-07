@@ -34,7 +34,6 @@ const (
 	testRevision  = "test-revision"
 	testService   = "test-revision-service"
 	testNamespace = "test-namespace"
-	testPodName   = "test-revision-1234"
 	testKPAKey    = "test-namespace/test-revision"
 	testURL       = "http://test-revision-service.test-namespace:9090/metrics"
 
@@ -150,7 +149,7 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  "GET request for URL \"http://test-revision-service.test-namespace:9090/metrics\" returned HTTP status 403",
+		expectedErr:  `GET request for URL "http://test-revision-service.test-namespace:9090/metrics" returned HTTP status 403`,
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
@@ -160,17 +159,17 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		name:            "Bad response context format",
 		responseCode:    http.StatusOK,
 		responseContext: "bad context",
-		expectedErr:     "Reading text format failed: text format parsing error in line 1: unexpected end of input stream",
+		expectedErr:     "reading text format failed: text format parsing error in line 1: unexpected end of input stream",
 	}, {
 		name:            "Missing average concurrency",
 		responseCode:    http.StatusOK,
 		responseContext: testQPSContext,
-		expectedErr:     "Could not find value for queue_average_concurrent_requests in response",
+		expectedErr:     "could not find value for queue_average_concurrent_requests in response",
 	}, {
 		name:            "Missing QPS",
 		responseCode:    http.StatusOK,
 		responseContext: testAverageConcurrenyContext,
-		expectedErr:     "Could not find value for queue_operations_per_second in response",
+		expectedErr:     "could not find value for queue_operations_per_second in response",
 	}}
 
 	for _, test := range testCases {

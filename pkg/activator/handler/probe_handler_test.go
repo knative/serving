@@ -88,3 +88,11 @@ func TestProbeHandler(t *testing.T) {
 		})
 	}
 }
+
+func mapToHeader(m map[string]string) http.Header {
+	h := http.Header{}
+	for k, v := range m {
+		h.Add(k, v)
+	}
+	return h
+}

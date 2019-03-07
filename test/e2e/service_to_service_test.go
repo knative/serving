@@ -115,6 +115,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	// As a final check (since we know they are both up), check that we cannot send a request directly to the helloworld app.
 	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldDomain)
 	if err != nil {
+		if test.ServingFlags.ResolvableDomain {
+			// When we're testing with resolvable domains, we might fail earlier trying
+			// to resolve the shorter domain(s) off-cluster.
+			return
+		}
 		t.Fatalf("Unexpected error when sending request to helloworld: %v", err)
 	}
 

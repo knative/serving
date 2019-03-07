@@ -105,7 +105,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Error("Error upgrading websocket.", zap.Error(err))
+		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
 	}
 
@@ -192,7 +192,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	select {
 	case <-done:
 		s.logger.Info("Shutdown complete")
-	case <-time.After(shutdownStart.Add(timeout).Sub(time.Now())):
+	case <-time.After(time.Until(shutdownStart.Add(timeout))):
 		s.logger.Warn("Shutdown timed out")
 	}
 	close(s.statsCh)

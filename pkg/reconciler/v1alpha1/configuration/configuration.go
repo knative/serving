@@ -138,7 +138,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(config); err != nil {
-		logger.Warn("Failed to update configuration status", zap.Error(err))
+		logger.Warnw("Failed to update configuration status", zap.Error(err))
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Configuration %q: %v", config.Name, err)
 		return err

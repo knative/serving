@@ -91,7 +91,6 @@ func (b statsBucket) concurrency() float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	key             string
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister

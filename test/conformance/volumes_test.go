@@ -22,8 +22,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/test"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -65,28 +66,18 @@ func TestConfigMapVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup)
 
-	addVolume := func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
-
-		rt.Container.VolumeMounts = []corev1.VolumeMount{{
-			Name:      "asdf",
-			MountPath: filepath.Dir(test.HelloVolumePath),
-		}}
-
-		rt.Volumes = []corev1.Volume{{
-			Name: "asdf",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMap.Name,
-					},
-				},
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: configMap.Name,
 			},
-		}}
-	}
+		},
+	},
+	)
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
+
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -138,26 +129,15 @@ func TestSecretVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup)
 
-	addVolume := func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
-
-		rt.Container.VolumeMounts = []corev1.VolumeMount{{
-			Name:      "asdf",
-			MountPath: filepath.Dir(test.HelloVolumePath),
-		}}
-
-		rt.Volumes = []corev1.Volume{{
-			Name: "asdf",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secret.Name,
-				},
-			},
-		}}
-	}
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName: secret.Name,
+		},
+	})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, addVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
+
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 

@@ -225,7 +225,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// If the endpoints is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
-		revisionAge := time.Now().Sub(getRevisionLastTransitionTime(rev))
+		revisionAge := time.Since(getRevisionLastTransitionTime(rev))
 		if revisionAge >= serviceTimeoutDuration {
 			rev.Status.MarkServiceTimeout()
 			// TODO(mattmoor): How to ensure this only fires once?
@@ -253,7 +253,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
 		configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
 		if err != nil {
-			logger.Error("Error creating fluentd configmap", zap.Error(err))
+			logger.Errorw("Error creating fluentd configmap", zap.Error(err))
 			return err
 		}
 		logger.Infof("Created fluentd configmap: %q", name)
@@ -274,7 +274,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 			existing.Data = desiredConfigMap.Data
 			_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(existing)
 			if err != nil {
-				logger.Error("Error updating fluentd configmap", zap.Error(err))
+				logger.Errorw("Error updating fluentd configmap", zap.Error(err))
 				return err
 			}
 		}

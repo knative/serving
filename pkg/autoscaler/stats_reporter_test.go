@@ -97,6 +97,19 @@ func TestReporter_Report(t *testing.T) {
 	checkData(t, "panic_mode", wantTags, 0)
 }
 
+func TestReporter_EmptyServiceName(t *testing.T) {
+	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
+	r, _ := NewStatsReporter("testns" /*service=*/, "", "testconfig", "testrev")
+	wantTags := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+	}
+	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
+	checkData(t, "desired_pods", wantTags, 10)
+}
+
 func expectSuccess(t *testing.T, funcName string, f func() error) {
 	if err := f(); err != nil {
 		t.Errorf("Reporter.%v() expected success but got error %v", funcName, err)
@@ -107,10 +120,12 @@ func checkData(t *testing.T, name string, wantTags map[string]string, wantValue 
 	if d, err := view.RetrieveData(name); err != nil {
 		t.Errorf("Got unexpected error from view.RetrieveData error: %v", err)
 	} else {
-		if len(d) != 1 {
-			t.Errorf("Want 1 data row but got %d from view.RetrieveData", len(d))
+		if len(d) > 2 {
+			t.Errorf("Want at most 2 data rows but got %d from view.RetrieveData", len(d))
 		}
-		for _, got := range d[0].Tags {
+		// The last row has the latest data, which is from the current test case.
+		last := len(d) - 1
+		for _, got := range d[last].Tags {
 			if want, ok := wantTags[got.Key.Name()]; !ok {
 				t.Errorf("Got an extra tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
 			} else {
@@ -120,7 +135,7 @@ func checkData(t *testing.T, name string, wantTags map[string]string, wantValue 
 			}
 		}
 
-		if s, ok := d[0].Data.(*view.LastValueData); !ok {
+		if s, ok := d[last].Data.(*view.LastValueData); !ok {
 			t.Error("Expected a LastValueData type from view.RetrieveData")
 		} else {
 			if s.Value != wantValue {

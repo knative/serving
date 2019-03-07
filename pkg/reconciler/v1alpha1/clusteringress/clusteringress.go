@@ -146,7 +146,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(ci); err != nil {
-		logger.Warn("Failed to update clusterIngress status", zap.Error(err))
+		logger.Warnw("Failed to update clusterIngress status", zap.Error(err))
 		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 		return err
@@ -267,7 +267,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	if apierrs.IsNotFound(err) {
 		vs, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
-			logger.Error("Failed to create VirtualService", zap.Error(err))
+			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %q/%q: %v", ns, name, err)
 			return err
@@ -286,7 +286,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 		existing.Spec = desired.Spec
 		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
-			logger.Error("Failed to update VirtualService", zap.Error(err))
+			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",

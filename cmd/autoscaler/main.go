@@ -228,7 +228,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 
 		revName := metric.Labels[serving.RevisionLabelKey]
 		if revName == "" {
-			return nil, fmt.Errorf("No Revision label found in Metric: %v", metric)
+			return nil, fmt.Errorf("no Revision label found in Metric: %v", metric)
 		}
 
 		return autoscaler.New(dynamicConfig, metric.Namespace,

@@ -30,6 +30,7 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 
 	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
@@ -83,6 +84,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))

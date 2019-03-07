@@ -196,9 +196,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		Data: map[string]string{},
 	}}
-	for _, cm := range configs {
-		cms = append(cms, cm)
-	}
+	cms = append(cms, configs...)
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	servingClient = fakeclientset.NewSimpleClientset()
