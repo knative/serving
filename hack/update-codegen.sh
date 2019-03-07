@@ -57,3 +57,8 @@ ${GOPATH}/bin/deepcopy-gen \
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
+
+# Generate CRD validation schema, needs to execute at project root.
+cd ${REPO_ROOT_DIR} || return 1
+go install ${REPO_ROOT_DIR}/vendor/sigs.k8s.io/controller-tools/cmd/crd
+${GOPATH}/bin/crd generate --domain knative.dev
