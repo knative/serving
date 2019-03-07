@@ -42,6 +42,7 @@ func HTTPProbe(addr string, timeout time.Duration) error {
 	if err != nil {
 		return err
 	}
+	req.URL.Path = "*"
 
 	client := http.Client{
 		Timeout: timeout,

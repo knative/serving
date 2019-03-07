@@ -144,7 +144,7 @@ func probeUserContainer() bool {
 		logger.Debug("Probing the user-container.")
 		err = health.HTTPProbe(userTargetAddress, 100*time.Millisecond)
 		if err != nil {
-			logger.Debug("Probe failed")
+			logger.Debugw("Probe failed", zap.Error(err))
 			return false, nil
 		}
 		return true, nil
