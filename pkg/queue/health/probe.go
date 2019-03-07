@@ -17,7 +17,9 @@ limitations under the License.
 package health
 
 import (
+	"fmt"
 	"net"
+	"net/http"
 	"time"
 )
 
@@ -30,5 +32,29 @@ func TCPProbe(addr string, socketTimeout time.Duration) error {
 		return err
 	}
 	conn.Close()
+	return nil
+}
+
+// HTTPProbe checks that an OPTIONS http call is answered correctly with
+// a '200'.
+func HTTPProbe(addr string, timeout time.Duration) error {
+	req, err := http.NewRequest(http.MethodOptions, "http://"+addr, nil)
+	if err != nil {
+		return err
+	}
+
+	client := http.Client{
+		Timeout: timeout,
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %v", res.StatusCode)
+	}
+
 	return nil
 }

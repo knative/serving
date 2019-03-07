@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func TestTcpProbe(t *testing.T) {
+func TestTCPProbe(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -38,6 +38,25 @@ func TestTcpProbe(t *testing.T) {
 	// Close the server so probing fails afterwards
 	server.Close()
 	if err := TCPProbe(serverAddr, 1*time.Second); err == nil {
+		t.Error("Expected probe to fail but it didn't")
+	}
+}
+
+func TestHTTPProbe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	serverAddr := server.Listener.Addr().String()
+
+	// Connecting to the server should work
+	if err := HTTPProbe(serverAddr, 1*time.Second); err != nil {
+		t.Errorf("Expected probe to succeed but it failed with %v", err)
+	}
+
+	// Close the server so probing fails afterwards
+	server.Close()
+	if err := HTTPProbe(serverAddr, 1*time.Second); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }

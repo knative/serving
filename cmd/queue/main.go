@@ -141,18 +141,21 @@ func isKubeletProbe(r *http.Request) bool {
 func probeUserContainer() bool {
 	var err error
 	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
-		logger.Debug("TCP probing the user-container.")
-		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
-		return err == nil, nil
+		logger.Debug("Probing the user-container.")
+		err = health.HTTPProbe(userTargetAddress, 100*time.Millisecond)
+		if err != nil {
+			logger.Debug("Probe failed")
+			return false, nil
+		}
+		return true, nil
 	})
 
-	if err == nil {
-		logger.Info("User-container successfully probed.")
-	} else {
+	if err != nil {
 		logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+		return false
 	}
-
-	return err == nil
+	logger.Info("User-container successfully probed.")
+	return true
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
