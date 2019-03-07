@@ -968,3 +968,73 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 		})
 	}
 }
+
+func TestRouteDomain(t *testing.T) {
+	route := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+			Name:      "myapp",
+			Namespace: "default",
+			Labels: map[string]string{
+				"route": "myapp",
+			},
+		},
+	}
+
+	context := context.TODO()
+	cfg := ReconcilerTestConfig()
+	context = config.ToContext(context, cfg)
+
+	tests := []struct {
+		Name     string
+		Template string
+		Pass     bool
+		Expected string
+	}{
+		{"Default",
+			"{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			true,
+			"myapp.default.example.com",
+		},
+		{"Dash",
+			"{{.Name}}-{{.Namespace}}.{{.Domain}}",
+			true,
+			"myapp-default.example.com",
+		},
+		{"Short",
+			"{{.Name}}.{{.Domain}}",
+			true,
+			"myapp.example.com",
+		},
+		{"SuperShort",
+			"{{.Name}}",
+			true,
+			"myapp",
+		},
+		{"SyntaxError",
+			"{{.Name{}}.{{.Namespace}}.{{.Domain}}",
+			false,
+			"",
+		},
+		{"BadVarName",
+			"{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
+			false,
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		cfg.Network.DomainTemplate = test.Template
+
+		res, err := routeDomain(context, route)
+
+		if test.Pass != (err == nil) {
+			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",
+				test.Name)
+		}
+		if res != test.Expected {
+			t.Fatalf("TestRouteDomain %q test: got: %q exp: %q",
+				test.Name, res, test.Expected)
+		}
+	}
+}
