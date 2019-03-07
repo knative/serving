@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	ResourceMap = map[schema.GroupVersionKind]pkgWebhook.GenericCRD {
+	ResourceMap = map[schema.GroupVersionKind]pkgWebhook.GenericCRD{
 		v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
 		v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
 		v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
