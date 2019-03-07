@@ -106,14 +106,14 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 
 	recorder := opt.Recorder
 	if recorder == nil {
-		watches := make([]watch.Interface, 0, 2)
 		// Create event broadcaster
 		logger.Debug("Creating event broadcaster")
 		eventBroadcaster := record.NewBroadcaster()
-		watches = append(watches,
+		watches := []watch.Interface{
 			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
 			eventBroadcaster.StartRecordingToSink(
-				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}))
+				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}),
+		}
 		recorder = eventBroadcaster.NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 		go func() {
