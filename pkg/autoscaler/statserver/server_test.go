@@ -31,8 +31,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const testAddress = "127.0.0.1:0"
-
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)

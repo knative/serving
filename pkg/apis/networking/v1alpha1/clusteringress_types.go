@@ -373,9 +373,7 @@ func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus)
 	cis.LoadBalancer = &LoadBalancerStatus{
 		Ingress: []LoadBalancerIngressStatus{},
 	}
-	for _, lb := range lbs {
-		cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lb)
-	}
+	cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lbs...)
 	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionLoadBalancerReady)
 }
 

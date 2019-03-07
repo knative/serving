@@ -85,8 +85,6 @@ var (
 	server      *http.Server
 	healthState = &health.State{}
 	reporter    *queue.Reporter // Prometheus stats reporter.
-
-	startupTime = time.Now()
 )
 
 func initEnv() {
