@@ -127,9 +127,9 @@ func UpdateExporterFromConfigMap(domain string, component string, logger *zap.Su
 		if err != nil {
 			if ce := getCurMetricsExporter(); ce == nil {
 				// Fail the process if there doesn't exist an exporter.
-				logger.Error("Failed to get a valid metrics config", zap.Error(err))
+				logger.Errorw("Failed to get a valid metrics config", zap.Error(err))
 			} else {
-				logger.Error("Failed to get a valid metrics config; Skip updating the metrics exporter", zap.Error(err))
+				logger.Errorw("Failed to get a valid metrics config; Skip updating the metrics exporter", zap.Error(err))
 			}
 			return
 		}

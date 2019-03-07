@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:96668306757feff41921a310fd40dc87106cb803a5ab3297870e3837e4e8108f"
+  digest = "1:859db0b308a91086f43938573d9b7ab4865ebb699ee9c09a0a346a9dfc8b132e"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -492,6 +492,7 @@
     "test",
     "test/helpers",
     "test/logging",
+    "test/monitoring",
     "test/spoof",
     "test/zipkin",
     "tracker",
@@ -500,7 +501,8 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "2a8c1b0e5ad2719b00e20fef8594d63fa202640f"
+  revision = "e3954f08206bc00f7b1dd80f0492ce592b0171b8"
+  source = "github.com/mattmoor/pkg-1"
 
 [[projects]]
   branch = "master"

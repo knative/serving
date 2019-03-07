@@ -283,6 +283,22 @@ type HTTPMatchRequest struct {
 	//
 	// **Note:** The keys `uri`, `scheme`, `method`, and `authority` will be ignored.
 	Headers map[string]v1alpha1.StringMatch `json:"headers,omitempty"`
+
+	// Specifies the ports on the host that is being addressed. Many services
+	// only expose a single port or label ports with the protocols they support,
+	// in these cases it is not required to explicitly select the port.
+	Port uint32 `json:"port,omitempty"`
+
+	// One or more labels that constrain the applicability of a rule to
+	// workloads with the given labels. If the VirtualService has a list of
+	// gateways specified at the top, it should include the reserved gateway
+	// `mesh` in order for this field to be applicable.
+	SourceLabels map[string]string `json:"sourceLabels,omitempty"`
+
+	// Names of gateways where the rule should be applied to. Gateway names
+	// at the top of the VirtualService (if any) are overridden. The gateway match is
+	// independent of sourceLabels.
+	Gateways []string `json:"gateways,omitempty"`
 }
 
 type DestinationWeight struct {

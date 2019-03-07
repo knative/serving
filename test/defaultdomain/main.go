@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	// Uncomment the following line to load the gcp plugin (only required
+	// The following line is to load the gcp plugin (only required
 	// to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -89,7 +89,7 @@ func main() {
 	serviceURL := istioConfig.IngressGateways[0].ServiceURL
 	parts := strings.SplitN(serviceURL, ".", 3)
 	if len(parts) != 3 {
-		logger.Fatalf("Unexpected service URL form: %v", serviceURL)
+		logger.Fatalf("Unexpected service URL form: %s", serviceURL)
 	}
 
 	// Use the first two name parts to lookup the Kubernetes Service resource.

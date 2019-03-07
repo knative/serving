@@ -392,6 +392,18 @@ func (in *HTTPMatchRequest) DeepCopyInto(out *HTTPMatchRequest) {
 			(*out)[key] = val
 		}
 	}
+	if in.SourceLabels != nil {
+		in, out := &in.SourceLabels, &out.SourceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Gateways != nil {
+		in, out := &in.Gateways, &out.Gateways
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

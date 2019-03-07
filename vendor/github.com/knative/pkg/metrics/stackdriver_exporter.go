@@ -53,7 +53,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		DefaultMonitoringLabels: &stackdriver.Labels{},
 	})
 	if err != nil {
-		logger.Error("Failed to create the Stackdriver exporter: ", zap.Error(err))
+		logger.Errorw("Failed to create the Stackdriver exporter: ", zap.Error(err))
 		return nil, err
 	}
 	logger.Infof("Created Opencensus Stackdriver exporter with config %v", config)
