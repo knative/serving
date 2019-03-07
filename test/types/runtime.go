@@ -56,7 +56,7 @@ type HostInfo struct {
 // Stdin contains information about the Stdin file descriptor for the container.
 type Stdin struct {
 	// EOF is true if the first byte read from stdin results in EOF.
-	EOF *bool `json"eof,omitempty"`
+	EOF *bool `json:"eof,omitempty"`
 	// Error is the String representation of an error probing sdtin.
 	Error string `json:"error,omitempty"`
 }

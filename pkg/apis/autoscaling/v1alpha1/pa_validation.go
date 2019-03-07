@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (rt *PodAutoscaler) Validate() *apis.FieldError {
-	return servingv1alpha1.ValidateObjectMetadata(rt.GetObjectMeta()).
+func (pa *PodAutoscaler) Validate() *apis.FieldError {
+	return servingv1alpha1.ValidateObjectMetadata(pa.GetObjectMeta()).
 		ViaField("metadata").
-		Also(rt.Spec.Validate().ViaField("spec")).
-		Also(rt.validateMetric())
+		Also(pa.Spec.Validate().ViaField("spec")).
+		Also(pa.validateMetric())
 }
 
 func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
