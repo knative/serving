@@ -96,16 +96,6 @@ type Base struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	Logger *zap.SugaredLogger
-
-	// watchers that can be stopped via Stop().
-	watchers []watch.Interface
-}
-
-// Stop stops all the watchers that reconciler has.
-func (b *Base) Stop() {
-	for _, w := range b.watchers {
-		w.Stop()
-	}
 }
 
 // NewBase instantiates a new instance of Base implementing
@@ -115,8 +105,8 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	recorder := opt.Recorder
-	watches := make([]watch.Interface, 0, 2)
 	if recorder == nil {
+		watches := make([]watch.Interface, 0, 2)
 		// Create event broadcaster
 		logger.Debug("Creating event broadcaster")
 		eventBroadcaster := record.NewBroadcaster()
@@ -126,6 +116,12 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}))
 		recorder = eventBroadcaster.NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+		go func() {
+			<-opt.StopChannel
+			for _, w := range watches {
+				w.Stop()
+			}
+		}()
 	}
 
 	statsReporter := opt.StatsReporter
@@ -134,7 +130,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		var err error
 		statsReporter, err = NewStatsReporter(controllerAgentName)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err)
 		}
 	}
 
@@ -148,7 +144,6 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		Recorder:         recorder,
 		StatsReporter:    statsReporter,
 		Logger:           logger,
-		watchers:         watches,
 	}
 
 	return base

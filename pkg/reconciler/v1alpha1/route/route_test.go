@@ -913,7 +913,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			_, servingClient, controller, rcnclr, kubeInformer, servingInformer, watcher := newTestSetup(t)
+			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
 			stopCh := make(chan struct{})
 			grp := errgroup.Group{}
@@ -923,8 +923,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
-			defer rcnclr.Stop()
-
 			h := NewHooks()
 
 			// Check for ClusterIngress created as a signal that syncHandler ran
