@@ -25,7 +25,6 @@ import (
 	"time"
 
 	. "github.com/knative/pkg/logging/testing"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -461,11 +460,6 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat Stat) {
 
 func (u *fakeUniScaler) Update(MetricSpec) error {
 	return nil
-}
-
-type scaleParameterValues struct {
-	kpa      *kpa.PodAutoscaler
-	replicas int32
 }
 
 func newMetric() *Metric {

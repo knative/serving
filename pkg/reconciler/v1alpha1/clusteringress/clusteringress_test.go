@@ -202,6 +202,7 @@ func TestReconcile(t *testing.T) {
 		Key: "reconcile-virtualservice",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),

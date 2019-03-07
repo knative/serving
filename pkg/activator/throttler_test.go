@@ -105,8 +105,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 				}
 			}
 			if s.want > 0 {
-				breaker, _ := throttler.breakers[revID]
-				if got := breaker.Capacity(); got != s.want {
+				if got := throttler.breakers[revID].Capacity(); got != s.want {
 					t.Errorf("Breaker Capacity = %d, want: %d", got, s.want)
 				}
 			}

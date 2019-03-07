@@ -286,9 +286,11 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 }
 
 func TestRouteReleaseTwoRevisions(t *testing.T) {
-	rolloutPercent := 48
-	currentPercent := 52
-	numRevisions := 2
+	const (
+		rolloutPercent = 48
+		currentPercent = 52
+		numRevisions   = 2
+	)
 	s := createServiceWithRelease(numRevisions, rolloutPercent)
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)

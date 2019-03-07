@@ -240,8 +240,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler
-	ah = &activatorhandler.ActivationHandler{
+	var ah http.Handler = &activatorhandler.ActivationHandler{
 		Activator:     a,
 		Transport:     activatorutil.AutoTransport,
 		Logger:        logger,

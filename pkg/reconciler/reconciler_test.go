@@ -29,6 +29,7 @@ import (
 var reconcilerName = "test-reconciler"
 
 func TestNew(t *testing.T) {
+	defer logtesting.ClearAll()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()

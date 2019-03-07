@@ -192,7 +192,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	select {
 	case <-done:
 		s.logger.Info("Shutdown complete")
-	case <-time.After(shutdownStart.Add(timeout).Sub(time.Now())):
+	case <-time.After(time.Until(shutdownStart.Add(timeout))):
 		s.logger.Warn("Shutdown timed out")
 	}
 	close(s.statsCh)

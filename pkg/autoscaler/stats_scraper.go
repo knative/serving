@@ -38,8 +38,6 @@ import (
 const (
 	httpClientTimeout = 3 * time.Second
 
-	cacheTimeout = time.Second
-
 	// scraperPodName is the name used in all stats sent from the scraper to
 	// the autoscaler. The actual customer pods are hidden behind the scraper. The
 	// autoscaler does need to know how many customer pods are reporting metrics.
@@ -176,7 +174,7 @@ func extractData(body io.Reader) (*Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {
-		return nil, fmt.Errorf("Reading text format failed: %v", err)
+		return nil, fmt.Errorf("reading text format failed: %v", err)
 	}
 
 	now := time.Now()
@@ -187,13 +185,13 @@ func extractData(body io.Reader) (*Stat, error) {
 	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
 		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
 	} else {
-		return nil, errors.New("Could not find value for queue_average_concurrent_requests in response")
+		return nil, errors.New("could not find value for queue_average_concurrent_requests in response")
 	}
 
 	if pMetric := getPrometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
 		stat.RequestCount = int32(*pMetric.Gauge.Value)
 	} else {
-		return nil, errors.New("Could not find value for queue_operations_per_second in response")
+		return nil, errors.New("could not find value for queue_operations_per_second in response")
 	}
 
 	return &stat, nil

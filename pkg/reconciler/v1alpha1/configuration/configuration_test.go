@@ -351,6 +351,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/double-trouble",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -488,6 +489,7 @@ func TestGCReconcile(t *testing.T) {
 		Key: "foo/keep-all",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),

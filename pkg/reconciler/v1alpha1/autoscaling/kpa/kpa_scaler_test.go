@@ -45,6 +45,7 @@ const (
 )
 
 func TestKPAScaler(t *testing.T) {
+	defer ClearAll()
 	examples := []struct {
 		label         string
 		startReplicas int

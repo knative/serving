@@ -917,6 +917,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -928,6 +929,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
+	defer ClearAllLoggers()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
