@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -71,10 +70,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
-			http.StatusNotFound,            /* revision not created */
-			http.StatusInternalServerError, /*revision not yet ready*/
-		),
+		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
 		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
@@ -183,5 +179,6 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
+	t.Skip()
 	testScaleFromZero(t, 50)
 }
