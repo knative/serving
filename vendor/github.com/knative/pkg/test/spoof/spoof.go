@@ -62,6 +62,10 @@ type Response struct {
 	Body       []byte
 }
 
+func (r *Response) String() string {
+	return fmt.Sprintf("status: %d, body: %q, headers: %v", r.StatusCode, string(r.Body), r.Header)
+}
+
 // Interface defines the actions that can be performed by the spoofing client.
 type Interface interface {
 	Do(*http.Request) (*Response, error)
