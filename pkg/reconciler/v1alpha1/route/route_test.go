@@ -923,7 +923,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
-
 			h := NewHooks()
 
 			// Check for ClusterIngress created as a signal that syncHandler ran

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,8 +32,9 @@ import (
 )
 
 const (
-	connectRetryInterval = 1 * time.Second
-	connectTimeout       = 6 * time.Minute
+	connectRetryInterval  = 1 * time.Second
+	connectTimeout        = 6 * time.Minute
+	wsServerTestImageName = "wsserver"
 )
 
 // connect attempts to establish WebSocket connection with the Service.
@@ -130,19 +132,50 @@ func TestWebSocket(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "wsserver",
+		Image:   wsServerTestImageName,
 	}
 
 	// Clean up in both abnormal and normal exits.
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	// Setup a WebSocket server.
 	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
 	// Validate the websocket connection.
+	if err := validateWebSocketConnection(t, clients, names); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestWebSocketFromZero (1) creates a service based on the `wsserver` image,
+// (2) waits for the service to be scaled down to zero replicas
+// (3) connects to the service using websocket, (4) sends a message, and
+// (5) verifies that we receive back the same message.
+func TestWebSocketFromZero(t *testing.T) {
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   wsServerTestImageName,
+	}
+
+	// Clean up in both abnormal and normal exits.
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create WebSocket server: %v", err)
+	}
+
+	deploymentName := rnames.Deployment(resources.Revision)
+
+	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
+
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
