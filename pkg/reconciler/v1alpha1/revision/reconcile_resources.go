@@ -251,7 +251,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
 		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
-		configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
+		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
 		if err != nil {
 			logger.Errorw("Error creating fluentd configmap", zap.Error(err))
 			return err

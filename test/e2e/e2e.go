@@ -18,8 +18,6 @@ import (
 )
 
 const (
-	configName               = "prod"
-	routeName                = "noodleburg"
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 

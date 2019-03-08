@@ -26,6 +26,6 @@ type NullTracker struct{}
 
 var _ tracker.Interface = (*NullTracker)(nil)
 
-func (_ *NullTracker) OnChanged(interface{}) {}
+func (*NullTracker) OnChanged(interface{}) {}
 
-func (_ *NullTracker) Track(corev1.ObjectReference, interface{}) error { return nil }
+func (*NullTracker) Track(corev1.ObjectReference, interface{}) error { return nil }

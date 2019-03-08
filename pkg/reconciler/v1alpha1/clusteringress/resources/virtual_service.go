@@ -159,11 +159,9 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 }
 
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := []string{}
+	hosts := make([]string, 0, len(ci.Spec.Rules))
 	for _, rule := range ci.Spec.Rules {
-		for _, h := range rule.Hosts {
-			hosts = append(hosts, h)
-		}
+		hosts = append(hosts, rule.Hosts...)
 	}
 	return dedup(hosts)
 }

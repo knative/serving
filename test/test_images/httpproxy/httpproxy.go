@@ -37,12 +37,11 @@ var (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Http proxy received a request.")
+	log.Print("HTTP proxy received a request.")
 	// Reverse proxy does not automatically reset the Host header.
 	// We need to manually reset it.
 	r.Host = getTargetHostEnv()
 	httpProxy.ServeHTTP(w, r)
-	return
 }
 
 func getTargetHostEnv() string {
@@ -53,10 +52,10 @@ func getTargetHostEnv() string {
 	return value
 }
 
-func initialHttpProxy(proxyUrl string) *httputil.ReverseProxy {
-	target, err := url.Parse(proxyUrl)
+func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
+	target, err := url.Parse(proxyURL)
 	if err != nil {
-		log.Fatalf("Failed to parse url %v", proxyUrl)
+		log.Fatalf("Failed to parse url %v", proxyURL)
 	}
 	return httputil.NewSingleHostReverseProxy(target)
 }
@@ -66,8 +65,8 @@ func main() {
 	log.Print("Http Proxy app started.")
 
 	targetHost := getTargetHostEnv()
-	targetUrl := fmt.Sprintf("http://%s", targetHost)
-	httpProxy = initialHttpProxy(targetUrl)
+	targetURL := fmt.Sprintf("http://%s", targetHost)
+	httpProxy = initialHTTPProxy(targetURL)
 
 	test.ListenAndServeGracefully(":8080", handler)
 }

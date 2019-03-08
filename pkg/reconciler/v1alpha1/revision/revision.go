@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -58,13 +57,6 @@ import (
 
 const (
 	controllerAgentName = "revision-controller"
-)
-
-var (
-	foregroundDeletion = metav1.DeletePropagationForeground
-	fgDeleteOptions    = &metav1.DeleteOptions{
-		PropagationPolicy: &foregroundDeletion,
-	}
 )
 
 type Changed bool

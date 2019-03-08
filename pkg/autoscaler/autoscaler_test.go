@@ -51,6 +51,7 @@ func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
 }
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
+	defer ClearAll()
 	a := newTestAutoscaler(10.0)
 	a.expectScale(t, roundedNow(), 0, false)
 }

@@ -25,11 +25,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
-	"github.com/knative/serving/pkg/activator"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -138,18 +136,6 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 	rev.Status.MarkResourcesAvailable()
 	rev.Status.MarkContainerHealthy()
 	return rev
-}
-
-func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
-	return v1alpha3.DestinationWeight{
-		Destination: v1alpha3.Destination{
-			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace()),
-			Port: v1alpha3.PortSelector{
-				Number: 80,
-			},
-		},
-		Weight: w,
-	}
 }
 
 func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (

@@ -37,22 +37,22 @@ func envvarsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp, err := json.Marshal(envvars); err != nil {
-		fmt.Fprintf(w, fmt.Sprintf("error building response : %v", err))
+		fmt.Fprintf(w, "error building response: %v", err)
 	} else {
-		fmt.Fprintf(w, string(resp))
+		fmt.Fprint(w, string(resp))
 	}
 }
 
 func filepathInfoHandler(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Query().Get(test.EnvImageFilePathQueryParam)
 	if len(filePath) == 0 {
-		fmt.Fprintf(w, "no filepath found in queryparam")
+		fmt.Fprint(w, "no filepath found in queryparam")
 		return
 	}
 
 	info, err := os.Stat(filePath)
 	if err != nil {
-		fmt.Fprintf(w, fmt.Sprintf("Error encountered retrieving info for path '%s': %v", filePath, err))
+		fmt.Fprintf(w, "Error encountered retrieving info for path '%s': %v", filePath, err)
 		return
 	}
 
@@ -62,9 +62,9 @@ func filepathInfoHandler(w http.ResponseWriter, r *http.Request) {
 		PermString:  info.Mode().Perm().String(),
 	})
 	if err != nil {
-		fmt.Fprintf(w, fmt.Sprintf("error building response : %v", err))
+		fmt.Fprintf(w, "error building response: %v", err)
 	} else {
-		fmt.Fprintf(w, string(resp))
+		fmt.Fprint(w, string(resp))
 	}
 }
 

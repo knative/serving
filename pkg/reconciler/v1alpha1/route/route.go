@@ -227,7 +227,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
-	if ingressClass, _ := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
+	if ingressClass := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
 		return ingressClass
 	}
 	return config.FromContext(ctx).Network.DefaultClusterIngressClass

@@ -154,11 +154,10 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			v := makeClusterIngressSpec(&c.route, nil).Visibility
 			if diff := cmp.Diff(c.expectedVisbility, v); diff != "" {
-				t.Errorf("Unexpected visibility (-want, +got): %v", diff)
+				t.Errorf("Unexpected visibility (-want, +got): %s", diff)
 			}
 		})
 	}
-	return
 }
 
 func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
@@ -178,7 +177,7 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 	}
 	domains := routeDomains("", r)
 	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
+		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
 	}
 }
 func TestGetRouteDomains_NamelessTarget(t *testing.T) {
@@ -198,7 +197,7 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 	}
 	domains := routeDomains("", r)
 	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
+		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
 	}
 }
 
@@ -219,7 +218,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 	expected := []string{"v1.domain.com"}
 	domains := routeDomains(name, r)
 	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
+		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
 	}
 }
 
