@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 
 	"github.com/knative/pkg/logging"
@@ -27,7 +28,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -47,16 +47,7 @@ var (
 		Name:          v1alpha1.RequestQueueMetricsPortName,
 		ContainerPort: int32(v1alpha1.RequestQueueMetricsPort),
 	}}
-	// This handler (1) marks the service as not ready and (2)
-	// adds a small delay before the container is killed.
-	queueLifecycle = &corev1.Lifecycle{
-		PreStop: &corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
-				Path: queue.RequestQueueQuitPath,
-			},
-		},
-	}
+
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -97,7 +88,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          queuePorts,
-		Lifecycle:      queueLifecycle,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
