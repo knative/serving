@@ -109,7 +109,7 @@ func TestActivatorOverload(t *testing.T) {
 
 			if res.StatusCode != http.StatusOK {
 				body := string(res.Body)
-				t.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res.String())
+				t.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res)
 			}
 		}()
 	}

@@ -95,7 +95,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 
 					if res.StatusCode != http.StatusOK {
 						ctx.t.Logf("status = %d, want: %d", res.StatusCode, http.StatusOK)
-						ctx.t.Logf("response: %s", res.String())
+						ctx.t.Logf("response: %s", res)
 						continue
 					}
 					mux.Lock()

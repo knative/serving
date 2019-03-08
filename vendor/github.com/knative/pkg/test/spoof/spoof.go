@@ -252,7 +252,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 	}
 
 	if err != nil {
-		return resp, errors.Wrapf(err, "response: %s did not pass checks", resp.String())
+		return resp, errors.Wrapf(err, "response: %s did not pass checks", resp)
 	}
 	return resp, nil
 }
