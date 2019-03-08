@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -103,12 +104,12 @@ func TestReporter_Report(t *testing.T) {
 
 func TestReporter_EmptyServiceName(t *testing.T) {
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
-	r, _ := NewStatsReporter("testns2", "" /*service=*/, "testconfig2", "testrev2")
+	r, _ := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "testns2",
+		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
-		metricskey.LabelConfigurationName: "testconfig2",
-		metricskey.LabelRevisionName:      "testrev2",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
 	}
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
 	assertData(t, "desired_pods", wantTags, 10)
@@ -140,21 +141,25 @@ func checkData(name string, wantTags map[string]string, wantValue float64) error
 		return err
 	}
 
+	if len(d) < 1 {
+		return errors.New("len(d) = 0, want: >= 0")
+	}
 	last := d[len(d)-1]
 
 	for _, got := range last.Tags {
 		want, ok := wantTags[got.Key.Name()]
 		if !ok {
-			return fmt.Errorf("Got an unexpected tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
+			return fmt.Errorf("got an unexpected tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
 		}
 		if got.Value != want {
 			return fmt.Errorf("Tags[%v] = %v, want: %v", got.Key.Name(), got.Value, want)
 		}
 	}
 
+	var value *view.LastValueData
 	value, ok := last.Data.(*view.LastValueData)
 	if !ok {
-		return fmt.Errorf("last.Data.(Type) = %T, want: %s", last.Data, "*view.LastValueData")
+		return fmt.Errorf("last.Data.(Type) = %T, want: %T", last.Data, value)
 	}
 
 	if value.Value != wantValue {
