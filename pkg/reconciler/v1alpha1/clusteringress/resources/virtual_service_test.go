@@ -140,16 +140,16 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "domain.com"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^domain.com(?::\\d{1,5})?$"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^test-route.test-ns(?::\\d{1,5})?$"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns.svc"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^test-route.test-ns.svc(?::\\d{1,5})?$"},
 		}, {
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^test-route.test-ns.svc.cluster.local(?::\\d{1,5})?$"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -167,7 +167,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Exact: "v1.domain.com"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^v1.domain.com(?::\\d{1,5})?$"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -212,9 +212,9 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	route := makeVirtualServiceRoute(hosts, ingressPath)
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Authority: &istiov1alpha1.StringMatch{Exact: "a.com"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^a.com(?::\\d{1,5})?$"},
 		}, {
-			Authority: &istiov1alpha1.StringMatch{Exact: "b.org"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^b.org(?::\\d{1,5})?$"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -263,7 +263,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 	route := makeVirtualServiceRoute(hosts, ingressPath)
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Authority: &istiov1alpha1.StringMatch{Exact: "test.org"},
+			Authority: &istiov1alpha1.StringMatch{Regex: "^test.org(?::\\d{1,5})?$"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
