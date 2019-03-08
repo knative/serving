@@ -94,7 +94,6 @@ spec:
         name: elasticsearch-logging
         resources:
           limits:
-            memory: 1000Mi
             cpu: 1000m
           requests:
             cpu: 100m

@@ -386,9 +386,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/config-logging
           name: config-logging
-        resources:
-          limits:
-            memory: 1000Mi
       serviceAccountName: build-controller
       volumes:
       - configMap:
@@ -426,9 +423,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/config-logging
           name: config-logging
-        resources:
-          limits:
-            memory: 1000Mi
       serviceAccountName: build-controller
       volumes:
       - configMap:

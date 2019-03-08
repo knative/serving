@@ -41,7 +41,6 @@ spec:
         image: docker.elastic.co/kibana/kibana:5.6.4
         resources:
           limits:
-            memory: 1000Mi
             cpu: 1000m
           requests:
             cpu: 100m
