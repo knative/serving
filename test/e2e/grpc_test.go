@@ -30,7 +30,6 @@ import (
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -119,26 +118,6 @@ func streamTest(t *testing.T, names test.ResourceNames, clients *test.Clients, h
 	}
 }
 
-func waitForScaleToZero(t *testing.T, names test.ResourceNames, clients *test.Clients) {
-	t.Helper()
-	deploymentName := names.Revision + "-deployment"
-	t.Logf("Waiting for %q to scale to zero", deploymentName)
-	err := pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
-		func(d *v1beta1.Deployment) (bool, error) {
-			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
-			return d.Status.ReadyReplicas == 0, nil
-		},
-		"DeploymentIsScaledDown",
-		test.ServingNamespace,
-		3*time.Minute,
-	)
-	if err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
-	}
-}
-
 func testGRPC(t *testing.T, f grpcTest) {
 	t.Helper()
 	t.Parallel()
@@ -211,14 +190,24 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		waitForScaleToZero(t, names, clients)
+		deploymentName := names.Revision + "-deployment"
+
+		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+
 		unaryTest(t, names, clients, host, domain)
 	})
 }
 
 func TestGRPCStreamingPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
-		waitForScaleToZero(t, names, clients)
+		deploymentName := names.Revision + "-deployment"
+
+		if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+
 		streamTest(t, names, clients, host, domain)
 	})
 }
