@@ -28,15 +28,14 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:b73244f6a5ab381f938bfd2d831c57eeea884b0fab333126cc175914ec82dec5"
+  digest = "1:b6eb7c2538ec2999a072c0e372a18d7b7e3aedac249f26e159586fa5f892909f"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "2b7f4fc93daf5ec3048fa4fc1c15573466711a17"
-  version = "v0.8.0"
+  revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [[projects]]
   digest = "1:94eff9ba92a0bf4938a2ec911c44b58b5c366a94f5f72b2b3c454629781c506f"
@@ -128,11 +127,12 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
-  digest = "1:65b0d980b428a6ad4425f2df4cd5410edd81f044cf527bd1c345368444649e58"
+  digest = "1:7b306d2c6d792f8e71bf123669ee967cdeec633ca8944c627b50db13cc36c5ec"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
     "gen-go/agent/common/v1",
     "gen-go/agent/trace/v1",
+    "gen-go/metrics/v1",
     "gen-go/resource/v1",
     "gen-go/trace/v1",
   ]
@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:96668306757feff41921a310fd40dc87106cb803a5ab3297870e3837e4e8108f"
+  digest = "1:1f9d4a5f364e9662c006c6623bea78bdbf5aa81c9e93595125a68a560e8a5db7"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -492,6 +492,7 @@
     "test",
     "test/helpers",
     "test/logging",
+    "test/monitoring",
     "test/spoof",
     "test/zipkin",
     "tracker",
@@ -500,7 +501,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "2a8c1b0e5ad2719b00e20fef8594d63fa202640f"
+  revision = "07cb28db97fccde49edf0bb66e2bd2308d88ca6f"
 
 [[projects]]
   branch = "master"

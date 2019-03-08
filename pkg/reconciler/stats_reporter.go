@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/metrics"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -113,8 +114,8 @@ func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration
 		return err
 	}
 
-	stats.Record(ctx, serviceReadyCountStat.M(1))
-	stats.Record(ctx, serviceReadyLatencyStat.M(v))
+	metrics.Record(ctx, serviceReadyCountStat.M(1))
+	metrics.Record(ctx, serviceReadyLatencyStat.M(v))
 	return nil
 }
 
