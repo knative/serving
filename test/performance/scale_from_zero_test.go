@@ -25,13 +25,17 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
+	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
+	"github.com/knative/test-infra/shared/testgrid"
 )
 
 const (
@@ -65,7 +69,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	}
 
 	start := time.Now()
-	t.Logf("%0d: waiting for endpoint to serve request", idx)
+	t.Logf("%02d: waiting for endpoint to serve request", idx)
 	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
@@ -113,12 +117,27 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	defer func() {
 		t.Logf("Total time for test: %v", time.Since(begin))
 	}()
+	sos := []ktest.ServiceOption{
+		// We set a small resource alloc so that we can pack more pods into the cluster.
+		func(svc *v1alpha1.Service) {
+			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		}}
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], &test.Options{}); err != nil {
+			if objs[ndx], err = test.CreateRunLatestServiceReady(
+				t, pc.E2EClients, testNames[ndx], &test.Options{}, sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
