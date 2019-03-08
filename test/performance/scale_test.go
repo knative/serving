@@ -144,7 +144,7 @@ func TestScaleToN(t *testing.T) {
 	var results []junit.TestCase
 
 	for _, size := range tests {
-		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
+		t.Run(fmt.Sprintf("scale-%02d", size), func(t *testing.T) {
 			// Record the observed latencies.
 			l := &latencies{
 				metrics: make(map[string]metrics),
