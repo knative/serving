@@ -98,7 +98,6 @@ func TestActivationHandler(t *testing.T) {
 		wantErr         error
 		probeErr        error
 		probeCode       int
-		attempts        string
 		gpc             int
 		endpointsGetter func(activator.RevisionID) (int32, error)
 		reporterCalls   []reporterCall
@@ -109,7 +108,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:        "everything good!",
 		wantCode:        http.StatusOK,
 		wantErr:         nil,
-		attempts:        "123",
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -118,7 +116,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-			Attempts:   123,
+			Attempts:   2, // probe + request
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -178,7 +176,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   0,
+			Attempts:   1,
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -203,7 +201,7 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   0,
+			Attempts:   1,
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -245,7 +243,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:        "everything good!",
 		wantCode:        http.StatusOK,
 		wantErr:         nil,
-		attempts:        "hi there",
 		endpointsGetter: goodEndpointsGetter,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -271,7 +268,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:        "",
 		wantCode:        http.StatusInternalServerError,
 		wantErr:         nil,
-		attempts:        "hi there",
 		endpointsGetter: brokenEndpointGetter,
 		reporterCalls:   nil,
 	}}
@@ -293,10 +289,6 @@ func TestActivationHandler(t *testing.T) {
 				}
 
 				fake := httptest.NewRecorder()
-
-				if e.attempts != "" {
-					fake.Header().Add(activator.RequestCountHTTPHeader, e.attempts)
-				}
 
 				fake.WriteHeader(http.StatusOK)
 				fake.WriteString(wantBody)
@@ -322,7 +314,7 @@ func TestActivationHandler(t *testing.T) {
 
 			resp := httptest.NewRecorder()
 
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
 			req.Header.Set(activator.RevisionHeaderName, e.name)
 
@@ -330,10 +322,6 @@ func TestActivationHandler(t *testing.T) {
 
 			if resp.Code != e.wantCode {
 				t.Errorf("Unexpected response status. Want %d, got %d", e.wantCode, resp.Code)
-			}
-
-			if resp.Header().Get(activator.RequestCountHTTPHeader) != "" {
-				t.Errorf("Expected the %q header to be filtered", activator.RequestCountHTTPHeader)
 			}
 
 			gotBody, _ := ioutil.ReadAll(resp.Body)
@@ -406,7 +394,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	for i := 0; i < count; i++ {
 		go func() {
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 			req.Header.Set(activator.RevisionHeaderName, revName)
 			handler.ServeHTTP(resp, req)

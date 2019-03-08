@@ -747,6 +747,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/legacy-label",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		t := &rtesting.NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
@@ -885,6 +886,8 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 
 	config := ReconcilerTestConfig()
 	EnableVarLog(config)
+
+	defer ClearAllLoggers()
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{

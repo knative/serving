@@ -13,5 +13,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-// This package has the automatically generated typed clients.
-package v1alpha1
+
+package testing
+
+import (
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// Service creates a service with ServiceOptions
+func Service(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
+	s := &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
+}

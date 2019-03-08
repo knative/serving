@@ -53,10 +53,6 @@ type Stat struct {
 
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
-
-	// Lameduck indicates this Pod has received a shutdown signal.
-	// Deprecated and no longer used by newly created Pods.
-	LameDuck bool
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -95,7 +91,6 @@ func (b statsBucket) concurrency() float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	key             string
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
@@ -168,11 +163,13 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	readyPods, err := a.readyPods()
+	originalReadyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
 	}
+	// Use 1 if there are zero current pods.
+	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	config := a.Current()
 
@@ -188,8 +185,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPods)
-	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPods)
+	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPodsCount)
+	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPodsCount)
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -198,7 +195,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, config.StableWindow)
 	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, config.PanicWindow)
 
-	isOverPanicThreshold := observedPanicConcurrency/readyPods >= target*2
+	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= target*2
 
 	if a.panicTime == nil && isOverPanicThreshold {
 		// Begin panicking when we cross the concurrency threshold in the panic window.
@@ -217,7 +214,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.reporter.ReportPanic(1)
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", readyPods, desiredPanicPodCount)
+			logger.Infof("Increasing pods from %v to %v.", originalReadyPodsCount, desiredPanicPodCount)
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
@@ -289,9 +286,11 @@ func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) i
 	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
 }
 
-func (a *Autoscaler) readyPods() (float64, error) {
+// readyPodsCountOfEndpoints returns the ready IP count in the K8S Endpoints object returned by
+// the given K8S Informer with given namespace and name. This is same as ready Pod count.
+func readyPodsCountOfEndpoints(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
 	readyPods := 0
-	endpoints, err := a.endpointsLister.Endpoints(a.namespace).Get(a.revisionService)
+	endpoints, err := lister.Endpoints(ns).Get(name)
 	if apierrors.IsNotFound(err) {
 		// Treat not found as zero endpoints, it either hasn't been created
 		// or it has been torn down.
@@ -303,6 +302,5 @@ func (a *Autoscaler) readyPods() (float64, error) {
 		}
 	}
 
-	// Use 1 as minimum for multiplication and division.
-	return math.Max(1, float64(readyPods)), nil
+	return readyPods, nil
 }

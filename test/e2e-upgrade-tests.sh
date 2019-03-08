@@ -37,7 +37,7 @@ source $(dirname $0)/e2e-common.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly LATEST_SERVING_RELEASE_VERSION=0.3.0
+readonly LATEST_SERVING_RELEASE_VERSION=0.4.0
 
 function install_latest_release() {
   header "Installing Knative latest public release"
@@ -55,14 +55,13 @@ function install_head() {
   install_knative_serving || fail_test "Knative head release installation failed"
 }
 
+function knative_setup() {
+  install_latest_release
+}
+
 # Script entry point.
 
 initialize $@
-
-header "Setting up environment"
-publish_test_images || fail_test "one or more test images weren't published"
-
-install_latest_release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m

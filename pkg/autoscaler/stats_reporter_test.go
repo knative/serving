@@ -17,8 +17,13 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/stats/view"
@@ -63,38 +68,51 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
 	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })
-	checkData(t, "desired_pods", wantTags, 10)
-	checkData(t, "requested_pods", wantTags, 7)
-	checkData(t, "actual_pods", wantTags, 5)
-	checkData(t, "panic_mode", wantTags, 0)
-	checkData(t, "observed_pods", wantTags, 1)
-	checkData(t, "stable_request_concurrency", wantTags, 2)
-	checkData(t, "panic_request_concurrency", wantTags, 3)
-	checkData(t, "target_concurrency_per_pod", wantTags, 0.9)
+	assertData(t, "desired_pods", wantTags, 10)
+	assertData(t, "requested_pods", wantTags, 7)
+	assertData(t, "actual_pods", wantTags, 5)
+	assertData(t, "panic_mode", wantTags, 0)
+	assertData(t, "observed_pods", wantTags, 1)
+	assertData(t, "stable_request_concurrency", wantTags, 2)
+	assertData(t, "panic_request_concurrency", wantTags, 3)
+	assertData(t, "target_concurrency_per_pod", wantTags, 0.9)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(1) })
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(2) })
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(3) })
-	checkData(t, "desired_pods", wantTags, 3)
+	assertData(t, "desired_pods", wantTags, 3)
 
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(4) })
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(5) })
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(6) })
-	checkData(t, "requested_pods", wantTags, 6)
+	assertData(t, "requested_pods", wantTags, 6)
 
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(7) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(8) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(9) })
-	checkData(t, "actual_pods", wantTags, 9)
+	assertData(t, "actual_pods", wantTags, 9)
 
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
-	checkData(t, "panic_mode", wantTags, 1)
+	assertData(t, "panic_mode", wantTags, 1)
 
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
-	checkData(t, "panic_mode", wantTags, 0)
+	assertData(t, "panic_mode", wantTags, 0)
+}
+
+func TestReporter_EmptyServiceName(t *testing.T) {
+	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
+	r, _ := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
+	wantTags := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+	}
+	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
+	assertData(t, "desired_pods", wantTags, 10)
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {
@@ -103,29 +121,50 @@ func expectSuccess(t *testing.T, funcName string, f func() error) {
 	}
 }
 
-func checkData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
-	if d, err := view.RetrieveData(name); err != nil {
-		t.Errorf("Got unexpected error from view.RetrieveData error: %v", err)
-	} else {
-		if len(d) != 1 {
-			t.Errorf("Want 1 data row but got %d from view.RetrieveData", len(d))
+func assertData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
+	var err error
+	wait.PollImmediate(1*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err = checkData(name, wantTags, wantValue); err != nil {
+			return false, nil
 		}
-		for _, got := range d[0].Tags {
-			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Got an extra tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
-			} else {
-				if got.Value != want {
-					t.Errorf("Expected a different tag value from view.RetrieveData for key:%v. Got=%v, want=%v", got.Key.Name(), got.Value, want)
-				}
-			}
-		}
+		return true, nil
+	})
 
-		if s, ok := d[0].Data.(*view.LastValueData); !ok {
-			t.Error("Expected a LastValueData type from view.RetrieveData")
-		} else {
-			if s.Value != wantValue {
-				t.Errorf("Expected value=%v for metric %v from view.RetrieveData, but got=%v", wantValue, name, s.Value)
-			}
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func checkData(name string, wantTags map[string]string, wantValue float64) error {
+	d, err := view.RetrieveData(name)
+	if err != nil {
+		return err
+	}
+
+	if len(d) < 1 {
+		return errors.New("len(d) = 0, want: >= 0")
+	}
+	last := d[len(d)-1]
+
+	for _, got := range last.Tags {
+		want, ok := wantTags[got.Key.Name()]
+		if !ok {
+			return fmt.Errorf("got an unexpected tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
+		}
+		if got.Value != want {
+			return fmt.Errorf("Tags[%v] = %v, want: %v", got.Key.Name(), got.Value, want)
 		}
 	}
+
+	var value *view.LastValueData
+	value, ok := last.Data.(*view.LastValueData)
+	if !ok {
+		return fmt.Errorf("last.Data.(Type) = %T, want: %T", last.Data, value)
+	}
+
+	if value.Value != wantValue {
+		return fmt.Errorf("Value = %v, want: %v", value.Value, wantValue)
+	}
+
+	return nil
 }

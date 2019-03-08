@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,7 +105,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Error("Error upgrading websocket.", zap.Error(err))
+		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
 	}
 
@@ -155,8 +156,9 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.logger.Debugf("Received stat message: %+v", sm)
-		// Drop stats from lameducked pods
-		if !sm.Stat.LameDuck {
+		// TODO(yanweiguo): Remove this after version 0.5.
+		// Drop stats not from activator
+		if isActivator(sm.Stat.PodName) {
 			s.statsCh <- &sm
 		}
 	}
@@ -190,8 +192,12 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	select {
 	case <-done:
 		s.logger.Info("Shutdown complete")
-	case <-time.After(shutdownStart.Add(timeout).Sub(time.Now())):
+	case <-time.After(time.Until(shutdownStart.Add(timeout))):
 		s.logger.Warn("Shutdown timed out")
 	}
 	close(s.statsCh)
+}
+
+func isActivator(podName string) bool {
+	return strings.HasPrefix(podName, "activator")
 }

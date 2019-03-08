@@ -73,16 +73,16 @@ type Reporter struct {
 // NewStatsReporter creates a reporter that collects and reports queue metrics.
 func NewStatsReporter(namespace string, config string, revision string, pod string) (*Reporter, error) {
 	if len(namespace) < 1 {
-		return nil, errors.New("Namespace must not be empty")
+		return nil, errors.New("namespace must not be empty")
 	}
 	if len(config) < 1 {
-		return nil, errors.New("Config must not be empty")
+		return nil, errors.New("config must not be empty")
 	}
 	if len(revision) < 1 {
-		return nil, errors.New("Revision must not be empty")
+		return nil, errors.New("revision must not be empty")
 	}
 	if len(pod) < 1 {
-		return nil, errors.New("Pod must not be empty")
+		return nil, errors.New("pod must not be empty")
 	}
 
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -148,7 +148,7 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 // Report captures request metrics.
 func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.Initialized {
-		return errors.New("StatsReporter is not Initialized yet")
+		return errors.New("statsReporter is not Initialized yet")
 	}
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
@@ -157,8 +157,8 @@ func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests
 
 // UnregisterViews Unregister views.
 func (r *Reporter) UnregisterViews() error {
-	if r.Initialized != true {
-		return errors.New("Reporter is not initialized")
+	if !r.Initialized {
+		return errors.New("reporter is not initialized")
 	}
 	var views []*view.View
 	if v := view.Find(operationsPerSecondN); v != nil {

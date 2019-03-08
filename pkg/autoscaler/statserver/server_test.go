@@ -28,11 +28,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/knative/serving/pkg/autoscaler"
 	stats "github.com/knative/serving/pkg/autoscaler/statserver"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
-
-const testAddress = "127.0.0.1:0"
 
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
@@ -60,8 +57,8 @@ func TestStatsReceived(t *testing.T) {
 
 	statSink := dialOk(server.ListenAddr(), t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 }
@@ -75,12 +72,12 @@ func TestServerShutdown(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
 
 	// Send a statistic to the server
-	send(statSink, newStatMessage("test-namespace/test-revision2", "pod2", 2.2, 30), t)
+	send(statSink, newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), t)
 
 	// Check the statistic was not received
 	_, ok := <-statsCh
@@ -120,7 +117,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "pod1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 
@@ -167,7 +164,7 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 func dialOk(serverURL string, t *testing.T) *websocket.Conn {
 	statSink, err := dial(serverURL, t)
 	if err != nil {
-		t.Fatalf("Dial failed: %v", zap.Error(err))
+		t.Fatal("Dial failed:", err)
 	}
 	return statSink
 }
@@ -189,13 +186,12 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 func send(statSink *websocket.Conn, sm *autoscaler.StatMessage, t *testing.T) {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
-	err := enc.Encode(sm)
-	if err != nil {
-		t.Fatal("Failed to encode data from stats channel", zap.Error(err))
+
+	if err := enc.Encode(sm); err != nil {
+		t.Fatal("Failed to encode data from stats channel:", err)
 	}
-	err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
-	if err != nil {
-		t.Fatal("Failed to write to stat sink.", zap.Error(err))
+	if err := statSink.WriteMessage(websocket.BinaryMessage, b.Bytes()); err != nil {
+		t.Fatal("Failed to write to stat sink:", err)
 	}
 }
 

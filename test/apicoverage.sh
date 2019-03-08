@@ -37,7 +37,6 @@ initialize $@
 header "Setting up environment"
 
 install_knative_serving || fail_test "Knative Serving installation failed"
-publish_test_images || fail_test "one or more test images weren't published"
 
 header "Setting up API Coverage Webhook"
 kubectl apply -f $APICOVERAGE_IMAGE/service-account.yaml || fail_test "Failed setting up service account for apicoverage-webhook"

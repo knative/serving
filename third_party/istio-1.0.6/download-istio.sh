@@ -1,13 +1,10 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.0.2
+ISTIO_VERSION=1.0.6
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
 cd istio-${ISTIO_VERSION}
-
-# Fix the istio-pilot HPA to be in the istio-system namespace.
-cp ../istio-pilot-hpa.yaml install/kubernetes/helm/istio/charts/pilot/templates/autoscale.yaml
 
 # Copy CRDs template
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
@@ -44,7 +41,10 @@ helm template --namespace=istio-system \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
-  install/kubernetes/helm/istio > ../istio.yaml
+  install/kubernetes/helm/istio \
+  `# Remove all hardcoded NodePorts` \
+  | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
+  > ../istio.yaml
 cat cluster-local-gateway.yaml >> ../istio.yaml
 
 # A lighter template, with no sidecar injection.  We could probably remove
@@ -60,7 +60,10 @@ helm template --namespace=istio-system \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
-  install/kubernetes/helm/istio > ../istio-lean.yaml
+  install/kubernetes/helm/istio \
+  `# Remove all hardcoded NodePorts` \
+  | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
+  > ../istio-lean.yaml
 cat cluster-local-gateway.yaml >> ../istio-lean.yaml
 
 # Clean up.

@@ -372,7 +372,7 @@ The following environment variables SHOULD be set:
 | Name              | Meaning                                                                                                          |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `K_REVISION`      | Name of the current Revision.                                                                                    |
-| `K_CONFIGURATION` | Name of the Configuraiton that created the current Revision.                                                     |
+| `K_CONFIGURATION` | Name of the Configuration that created the current Revision.                                                     |
 | `K_SERVICE`       | If the current Revision has been created by manipulating a Knative Service object, name of this Knative Service. |
 
 Platform providers MAY set additional environment variables. Standardization of

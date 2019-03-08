@@ -307,29 +307,6 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
-func TestAutoscaler_PodsAreWeightedBasedOnLatestStatTime(t *testing.T) {
-	a := newTestAutoscaler(10.0)
-	now := a.recordLinearSeries(
-		t,
-		roundedNow(),
-		linearSeries{
-			startConcurrency: 10,
-			endConcurrency:   10,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-	now = a.recordLinearSeries(
-		t,
-		roundedNow(),
-		linearSeries{
-			startConcurrency: 0,
-			endConcurrency:   0,
-			duration:         30 * time.Second,
-			podCount:         10,
-		})
-	a.expectScale(t, now, 5, true) // 10 pods lameducked half the time count for 5
-}
-
 func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 
@@ -581,7 +558,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
-	// Change the IP count according to podCount and lameduck
+	// Change the IP count according to podCount
 	createEndpoints(addIps(makeEndpoints(), s.podCount))
 	return now
 }

@@ -182,7 +182,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 	scl.Spec.Replicas = desiredScale
 	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(resource, scl)
 	if err != nil {
-		logger.Errorf("Error scaling target reference %v.", resourceName, zap.Error(err))
+		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
 		return desiredScale, err
 	}
 

@@ -117,16 +117,24 @@ func NewStatsReporter() (*Reporter, error) {
 	return r, nil
 }
 
+func valueOrUnknown(v string) string {
+	if v != "" {
+		return v
+	}
+	return metricskey.ValueUnknown
+}
+
 // ReportRequestCount captures request count metric with value v.
 func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
+	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, service),
+		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
@@ -146,10 +154,11 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
+	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, service),
+		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),

@@ -18,13 +18,14 @@ package webhook
 
 import (
 	"container/list"
+	"log"
+	"net/http"
+
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/test/apicoverage/image/common"
 	"github.com/knative/serving/test/apicoverage/image/rules"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
-	"log"
-	"net/http"
 )
 
 // SetupWebhookServer builds the necessary webhook configuration, HttpServer and starts the webhook.
@@ -34,17 +35,17 @@ func SetupWebhookServer() {
 		log.Fatal("Namespace value to used by the webhook is not set")
 	}
 
-	webhookConf := webhook.BuildWebhookConfiguration(common.CommonComponentName, common.CommonComponentName + ".knative.serving.dev", common.WebhookNamespace)
+	webhookConf := webhook.BuildWebhookConfiguration(common.CommonComponentName, common.CommonComponentName+".knative.serving.dev", common.WebhookNamespace)
 	ac := webhook.APICoverageRecorder{
 		Logger: webhookConf.Logger,
-		ResourceForest: resourcetree.ResourceForest {
-			Version: "v1alpha1",
+		ResourceForest: resourcetree.ResourceForest{
+			Version:        "v1alpha1",
 			ConnectedNodes: make(map[string]*list.List),
-			TopLevelTrees: make(map[string]resourcetree.ResourceTree),
+			TopLevelTrees:  make(map[string]resourcetree.ResourceTree),
 		},
-		ResourceMap: common.ResourceMap,
-		NodeRules: rules.NodeRules,
-		FieldRules: rules.FieldRules,
+		ResourceMap:  common.ResourceMap,
+		NodeRules:    rules.NodeRules,
+		FieldRules:   rules.FieldRules,
 		DisplayRules: rules.GetDisplayRules(),
 	}
 	ac.Init()

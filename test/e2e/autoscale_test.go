@@ -90,7 +90,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 						ctx.t.Logf("error making request %v", err)
 						continue
 					}
-					duration := time.Now().Sub(start)
+					duration := time.Since(start)
 					ctx.t.Logf("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
@@ -320,9 +320,9 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
 
-	// Increase workload for 2 replicas for 30s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 30s.
-	// Assert the number of expected replicas is n and n+1 at the end of 30s, where n is the # of desired replicas.
+	// Increase workload for 2 replicas for 60s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
 	assertAutoscaleUpToNumPods(ctx, 2)
 	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
 	assertAutoscaleUpToNumPods(ctx, 3)

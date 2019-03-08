@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ package spoof
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -29,6 +28,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/zipkin"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +47,9 @@ const (
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
 	istioIngressNamespace = "istio-system"
 	istioIngressName      = "istio-ingressgateway"
+	// Name of the temporary HTTP header that is added to http.Request to indicate that
+	// it is a SpoofClient.Poll request. This header is removed before making call to backend.
+	pollReqHeader = "X-Kn-Poll-Request-Do-Not-Trace"
 )
 
 // Response is a stripped down subset of http.Response. The is primarily useful
@@ -75,9 +78,6 @@ var _ Interface = (*SpoofingClient)(nil)
 // https://github.com/kubernetes/apimachinery/blob/cf7ae2f57dabc02a3d215f15ca61ae1446f3be8f/pkg/util/wait/wait.go#L172
 type ResponseChecker func(resp *Response) (done bool, err error)
 
-// FormatLogger is a printf style function for logging in the Spoof client.
-type FormatLogger func(template string, args ...interface{})
-
 // SpoofingClient is a minimal HTTP client wrapper that spoofs the domain of requests
 // for non-resolvable domains.
 type SpoofingClient struct {
@@ -88,7 +88,7 @@ type SpoofingClient struct {
 	endpoint string
 	domain   string
 
-	logf FormatLogger
+	logf logging.FormatLogger
 }
 
 // New returns a SpoofingClient that rewrites requests if the target domain is not `resolveable`.
@@ -96,7 +96,7 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logf FormatLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
@@ -185,6 +185,12 @@ func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
 	defer span.End()
 
+	// Check to see if the call to this method is coming from a Poll call.
+	logZipkinTrace := true
+	if req.Header.Get(pollReqHeader) != "" {
+		req.Header.Del(pollReqHeader)
+		logZipkinTrace = false
+	}
 	resp, err := sc.Client.Do(req.WithContext(traceContext))
 	if err != nil {
 		return nil, err
@@ -198,12 +204,18 @@ func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 		return nil, err
 	}
 
-	return &Response{
+	spoofResp := &Response{
 		Status:     resp.Status,
 		StatusCode: resp.StatusCode,
 		Header:     resp.Header,
 		Body:       body,
-	}, nil
+	}
+
+	if logZipkinTrace {
+		sc.logZipkinTrace(spoofResp)
+	}
+
+	return spoofResp, nil
 }
 
 // Poll executes an http request until it satisfies the inState condition or encounters an error.
@@ -214,6 +226,10 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 	)
 
 	err = wait.PollImmediate(sc.RequestInterval, sc.RequestTimeout, func() (bool, error) {
+		// As we may do multiple Do calls as part of a single Poll we add this temporary header
+		// to the request to indicate to Do method not to log Zipkin trace, instead it is
+		// handled by this method itself.
+		req.Header.Add(pollReqHeader, "True")
 		resp, err = sc.Do(req)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -226,13 +242,24 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		return inState(resp)
 	})
 
+	if resp != nil {
+		sc.logZipkinTrace(resp)
+	}
+
 	return resp, err
 }
 
-// LogZipkinTrace provides support to log Zipkin Trace for param: traceID
-func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
+// logZipkinTrace provides support to log Zipkin Trace for param: spoofResponse
+// We only log Zipkin trace for HTTP server errors i.e for HTTP status codes between 500 to 600
+func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
+	if !zipkin.ZipkinTracingEnabled || spoofResp.StatusCode < http.StatusInternalServerError || spoofResp.StatusCode >= 600 {
+		return
+	}
+
+	traceID := spoofResp.Header.Get(zipkin.ZipkinTraceIDHeader)
 	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
-		return errors.New("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
+		sc.logf("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
+		return
 	}
 
 	sc.logf("Logging Zipkin Trace: %s", traceID)
@@ -242,20 +269,21 @@ func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
 	time.Sleep(5 * time.Second)
 	resp, err := http.Get(zipkinTraceEndpoint)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Zipkin trace: %v", err)
+		sc.logf("Error retrieving Zipkin trace: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 
 	trace, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Error reading Zipkin trace response: %v", err)
+		sc.logf("Error reading Zipkin trace response: %v", err)
+		return
 	}
 
 	var prettyJSON bytes.Buffer
 	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
-		return fmt.Errorf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
+		sc.logf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
+		return
 	}
 	sc.logf("%s", prettyJSON.String())
-
-	return nil
 }

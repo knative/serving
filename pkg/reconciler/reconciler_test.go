@@ -29,15 +29,19 @@ import (
 var reconcilerName = "test-reconciler"
 
 func TestNew(t *testing.T) {
+	defer logtesting.ClearAll()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
+	sc := make(chan struct{})
+	defer close(sc)
 
 	r := NewBase(Options{
 		KubeClientSet:    kubeClient,
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           logtesting.TestLogger(t),
+		StopChannel:      sc,
 	}, reconcilerName)
 
 	if r == nil {

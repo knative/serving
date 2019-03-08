@@ -23,7 +23,6 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/prometheus"
@@ -58,7 +57,7 @@ func Setup(ctx context.Context, t *testing.T, promReqd bool) (*Client, error) {
 	if promReqd {
 		t.Log("Creating prometheus proxy client")
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
-		p.Setup(ctx, logging.GetContextLogger(t.Name()))
+		p.Setup(ctx, t.Logf)
 	}
 	return &Client{E2EClients: clients, PromClient: p}, nil
 }

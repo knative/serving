@@ -21,8 +21,6 @@ import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 const (
 	// K8sServiceName is the name of the activator service
 	K8sServiceName = "activator-service"
-	// RequestCountHTTPHeader is the header key for number of tries
-	RequestCountHTTPHeader string = "knative-activator-num-retries"
 	// RevisionHeaderName is the header key for revision name
 	RevisionHeaderName string = "knative-serving-revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace

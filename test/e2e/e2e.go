@@ -2,6 +2,10 @@ package e2e
 
 import (
 	"testing"
+	"time"
+
+	"k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
@@ -9,6 +13,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 )
 
@@ -45,4 +50,42 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 	}
 	_, err := test.CreateRoute(t, clients, names)
 	return names, err
+}
+
+// WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
+// Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
+func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
+	t.Helper()
+
+	t.Logf("Waiting for %q to scale to zero", deploymentName)
+
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		func(d *v1beta1.Deployment) (bool, error) {
+			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingNamespace,
+		scaleToZeroGracePeriod(t, clients.KubeClient)*6,
+	)
+}
+
+func scaleToZeroGracePeriod(t *testing.T, client *pkgTest.KubeClient) time.Duration {
+	t.Helper()
+
+	autoscalerCM, err := client.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
+	if err != nil {
+		t.Logf("Failed to Get autoscaler configmap = %v, falling back to DefaultScaleToZeroGracePeriod", err)
+		return autoscaler.DefaultScaleToZeroGracePeriod
+	}
+
+	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
+	if err != nil {
+		t.Log("Failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
+		return autoscaler.DefaultScaleToZeroGracePeriod
+	}
+
+	return config.ScaleToZeroGracePeriod
 }

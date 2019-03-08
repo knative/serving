@@ -19,6 +19,7 @@ limitations under the License.
 package test
 
 import (
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +34,7 @@ type KubeClient struct {
 }
 
 // NewSpoofingClient returns a spoofing client to make requests
-func NewSpoofingClient(client *KubeClient, logf spoof.FormatLogger, domain string, resolvable bool) (*spoof.SpoofingClient, error) {
+func NewSpoofingClient(client *KubeClient, logf logging.FormatLogger, domain string, resolvable bool) (*spoof.SpoofingClient, error) {
 	return spoof.New(client.Kube, logf, domain, resolvable, Flags.IngressEndpoint)
 }
 

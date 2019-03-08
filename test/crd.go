@@ -186,46 +186,17 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func LatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
-	svc := &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      names.Service,
-		},
-		Spec: v1alpha1.ServiceSpec{
-			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
-			},
-		},
-	}
+	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options))}, fopt...)
+	return v1alpha1testing.Service(names.Service, namespace, a...)
 
-	// Apply any mutations we have been provided.
-	for _, opt := range fopt {
-		opt(svc)
-	}
-	return svc
 }
 
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
 func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
-	svc := &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      names.Service,
-		},
-		Spec: v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
-				Revisions:     []string{v1alpha1.ReleaseLatestRevisionKeyword},
-				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
-			},
-		},
-	}
-
-	// Apply any mutations we have been provided.
-	for _, opt := range fopt {
-		opt(svc)
-	}
-	return svc
+	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options),
+		[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
+	return v1alpha1testing.Service(names.Service, namespace, a...)
 }
 
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses

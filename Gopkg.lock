@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:e02673e5f75fc39a4ec48f5dbf8d70290634fba92237f729f66c774867a3faee"
+  digest = "1:96668306757feff41921a310fd40dc87106cb803a5ab3297870e3837e4e8108f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -500,11 +500,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "374dc8c6cea59ddf9d54046d4623ea14d21ef53d"
+  revision = "2a8c1b0e5ad2719b00e20fef8594d63fa202640f"
 
 [[projects]]
   branch = "master"
-  digest = "1:5107cbbdde8b5ebc8930f58cbb044a4551d9ede8f4a52aa3fe11f15640033bd5"
+  digest = "1:df9443c98d22beaa82e9415792e11a4921b0d4b699467957bb21b01ee0010cd9"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -522,7 +522,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "c39a55c42c92897adb484a3b15b65ff26c607931"
+  revision = "3fd8236ecc212038bfbdac2118aa92e53e4c8a62"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"

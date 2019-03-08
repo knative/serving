@@ -117,7 +117,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else {
 		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, build))
 		if _, err := c.updateStatus(build); err != nil {
-			logger.Warn("Failed to update build status", zap.Error(err))
+			logger.Warnw("Failed to update build status", zap.Error(err))
 			return err
 		}
 	}

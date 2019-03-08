@@ -196,9 +196,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		Data: map[string]string{},
 	}}
-	for _, cm := range configs {
-		cms = append(cms, cm)
-	}
+	cms = append(cms, configs...)
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	servingClient = fakeclientset.NewSimpleClientset()
@@ -857,6 +855,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
+	defer ClearAllLoggers()
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
@@ -924,7 +923,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
-
 			h := NewHooks()
 
 			// Check for ClusterIngress created as a signal that syncHandler ran

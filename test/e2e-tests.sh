@@ -28,14 +28,6 @@
 source $(dirname $0)/e2e-common.sh
 
 # Helper functions.
-function dump_app_logs() {
-  echo ">>> Knative Serving $1 logs:"
-  for pod in $(get_app_pods "$1" knative-serving)
-  do
-    echo ">>> Pod: $pod"
-    kubectl -n knative-serving logs "$pod" -c "$1"
-  done
-}
 
 function dump_extra_cluster_state() {
   echo ">>> Routes:"
@@ -45,20 +37,18 @@ function dump_extra_cluster_state() {
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
 
-  dump_app_logs controller
-  dump_app_logs webhook
-  dump_app_logs autoscaler
-  dump_app_logs activator
+  for app in controller webhook autoscaler activator; do
+    dump_app_logs ${app} knative-serving
+  done
+}
+
+function knative_setup() {
+  install_knative_serving
 }
 
 # Script entry point.
 
 initialize $@
-
-header "Setting up environment"
-
-install_knative_serving || fail_test "Knative Serving installation failed"
-publish_test_images || fail_test "one or more test images weren't published"
 
 # Run the tests
 header "Running tests"

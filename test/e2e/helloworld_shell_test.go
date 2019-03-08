@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
@@ -65,11 +64,9 @@ func ingressAddress(gateway string, addressType string) string {
 
 func TestHelloWorldFromShell(t *testing.T) {
 	t.Parallel()
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")
 
-	logger.Info("Creating manifest")
+	t.Log("Creating manifest")
 
 	// Create manifest file.
 	newYaml, err := ioutil.TempFile("", "helloworld")
@@ -97,15 +94,14 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to close new manifest file: %v", err)
 	}
 
-	logger.Infof("Manifest file is %q", newYamlFilename)
-	logger.Info("Deploying using kubectl")
+	t.Logf("Deploying using kubectl and using manifest file %q", newYamlFilename)
 
 	// Deploy using kubectl
 	if output, err := exec.Command("kubectl", "apply", "-f", newYamlFilename).CombinedOutput(); err != nil {
 		t.Fatalf("Error running kubectl: %v", strings.TrimSpace(string(output)))
 	}
 
-	logger.Info("Waiting for ingress to come up")
+	t.Log("Waiting for ingress to come up")
 	gateway := "istio-ingressgateway"
 	// Wait for ingress to come up
 	ingressAddr := ""
@@ -125,7 +121,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		// serviceHost or ingressAddr might contain a useful error, dump them.
 		t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
 	}
-	logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
+	t.Logf("Curling %s/%s", ingressAddr, serviceHost)
 
 	outputString := ""
 	timeout = servingTimeout
@@ -142,7 +138,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 			errorString = err.Error()
 		}
 		outputString = strings.TrimSpace(string(output))
-		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+		t.Logf("App replied with '%s' (error: %s)", outputString, errorString)
 		timeout -= checkInterval
 		time.Sleep(checkInterval)
 	}
@@ -150,5 +146,5 @@ func TestHelloWorldFromShell(t *testing.T) {
 	if outputString != helloWorldExpectedOutput {
 		t.Fatal("Timeout waiting for app to start serving")
 	}
-	logger.Info("App is serving")
+	t.Log("App is serving")
 }

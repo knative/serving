@@ -138,7 +138,7 @@ func (r *revisionActivator) revisionEndpoint(revision *v1alpha1.Revision) (end E
 	}, nil
 }
 
-// ActiveEndpoint activates the revision `name` and returnts the result.
+// ActiveEndpoint activates the revision `name` and returns the result.
 func (r *revisionActivator) ActiveEndpoint(namespace, name string) ActivationResult {
 	key := fmt.Sprintf("%s/%s", namespace, name)
 	logger := r.logger.With(zap.String(logkey.Key, key))

@@ -100,11 +100,6 @@ func checkConditionSucceededClusterIngress(cis IngressStatus, c duckv1alpha1.Con
 	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionFalse, t)
-}
-
 func checkConditionOngoingClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionUnknown, t)
