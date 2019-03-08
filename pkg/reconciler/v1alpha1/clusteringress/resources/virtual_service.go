@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -162,9 +163,9 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 // hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 func hostRegExp(host string) string {
 	// Should only match 1..65535, but for simplicity it matches 0-99999
-	portMatch := "(?::\\d{1,5})?"
+	portMatch := `(?::\d{1,5})?`
 
-	return fmt.Sprintf("^%s%s$", host, portMatch)
+	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
 }
 
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
