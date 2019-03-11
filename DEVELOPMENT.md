@@ -37,18 +37,16 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes
-   cluster](https://github.com/knative/docs/blob/master/install/README.md#install-guides)
+1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/install/README.md#install-guides)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
    - You do _not_ need to install Istio or Knative using the instructions in the
      guide. Simply create the cluster and come back here.
-   - If you _did_ install Istio/Knative following those instructions, that's fine too,
-     you'll just redeploy over them, below.
+   - If you _did_ install Istio/Knative following those instructions, that's
+     fine too, you'll just redeploy over them, below.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
-   - [Google Container Registry
-     quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
+   - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
 
 ### Setup your environment
@@ -60,8 +58,8 @@ recommend adding them to your `.bashrc`):
    `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
-1. `KO_DOCKER_REPO`: The docker repository to which
-   developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
+   pushed (e.g. `gcr.io/[gcloud-project]`).
 
 - **Note**: if you are using docker hub to store your images your
   `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
@@ -123,8 +121,8 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 Your user must be a cluster admin to perform the setup needed for Knative.
 
-The value you use depends on [your cluster
-setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
+The value you use depends on
+[your cluster setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
 when using Minikube, the user is your local user; when using GKE, the user is
 your GCP user.
 
