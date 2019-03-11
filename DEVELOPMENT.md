@@ -71,7 +71,7 @@ recommend adding them to your `.bashrc`):
 ```shell
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
-export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
+export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 ```
 
 Make sure to configure
