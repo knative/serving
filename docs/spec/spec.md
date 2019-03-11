@@ -409,7 +409,7 @@ status:
 This is a
 [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#container-v1-core).
 Fields not specified in the container object below are disallowed. Examples of
-disallowed fields include name and lifecycle.
+disallowed fields include `name` and `lifecycle`.
 
 This type is not used on its own but is found composed inside
 [Service](#service), [Configuration](#configuration), and [Revision](#revision).
@@ -424,8 +424,8 @@ container: # v1.Container
   env: ... # Optional
   envFrom: ... # Optional
 
-  # image either provided as pre-built container, or built by Knative Serving from
-  # source. When built by knative, set to the same as build template, e.g.
+  # image is either provided as pre-built container, or built by Knative Serving from
+  # source. When built by Knative, set to the same as build template, e.g.
   # build.template.arguments[_IMAGE], as the "promise" of a future build.
   # If buildRef is provided, it is expected that this image will be
   # present when the referenced build is complete.
