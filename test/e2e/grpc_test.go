@@ -40,7 +40,7 @@ func unaryTest(t *testing.T, names test.ResourceNames, clients *test.Clients, ho
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := grpc.Dial(
 		host+":80",
-		grpc.WithAuthority(domain),
+		grpc.WithAuthority(domain+":80"),
 		grpc.WithInsecure(),
 	)
 	if err != nil {
@@ -68,7 +68,7 @@ func streamTest(t *testing.T, names test.ResourceNames, clients *test.Clients, h
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := grpc.Dial(
 		host+":80",
-		grpc.WithAuthority(domain),
+		grpc.WithAuthority(domain+":80"),
 		grpc.WithInsecure(),
 	)
 	if err != nil {
