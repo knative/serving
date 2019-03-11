@@ -108,6 +108,11 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Weight: split.Percent,
 		})
 	}
+
+	headers := http.AppendHeaders
+	headers["x-envoy-max-retries"] = "10"
+	headers["x-envoy-retry-on"] = "gateway-error,connect-failure,refused-stream"
+
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
 		Route:   weights,
