@@ -28,7 +28,7 @@ var (
 )
 
 // newMetricsExporter gets a metrics exporter based on the config.
-func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) error {
+func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
 	// If there is a Prometheus Exporter server running, stop it.
 	resetCurPromSrv()
 	ce := getCurMetricsExporter()
@@ -48,12 +48,9 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) error 
 		err = fmt.Errorf("Unsupported metrics backend %v", config.backendDestination)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	existingConfig := getCurMetricsConfig()
-	setCurMetricsExporterAndConfig(e, config)
-	logger.Infof("Successfully updated the metrics exporter; old config: %v; new config %v", existingConfig, config)
-	return nil
+	return e, nil
 }
 
 func getCurMetricsExporter() view.Exporter {
@@ -62,22 +59,27 @@ func getCurMetricsExporter() view.Exporter {
 	return curMetricsExporter
 }
 
-func setCurMetricsExporterAndConfig(e view.Exporter, c *metricsConfig) {
+func setCurMetricsExporter(e view.Exporter) {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
 	view.RegisterExporter(e)
-	if c != nil {
-		view.SetReportingPeriod(c.reportingPeriod)
-	} else {
-		// Setting to 0 enables the default behavior.
-		view.SetReportingPeriod(0)
-	}
 	curMetricsExporter = e
-	curMetricsConfig = c
 }
 
 func getCurMetricsConfig() *metricsConfig {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
 	return curMetricsConfig
+}
+
+func setCurMetricsConfig(c *metricsConfig) {
+	metricsMux.Lock()
+	defer metricsMux.Unlock()
+	if c != nil {
+		view.SetReportingPeriod(c.reportingPeriod)
+	} else {
+		// Setting to 0 enables the default behavior.
+		view.SetReportingPeriod(0)
+	}
+	curMetricsConfig = c
 }
