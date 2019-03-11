@@ -70,7 +70,6 @@ var (
 		Name:           QueueContainerName,
 		Resources:      queueResources,
 		Ports:          queuePorts,
-		Lifecycle:      queueLifecycle,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",

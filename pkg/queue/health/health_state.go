@@ -27,6 +27,9 @@ type State struct {
 	alive        bool
 	shuttingDown bool
 	mutex        sync.RWMutex
+
+	drainCh        chan struct{}
+	drainCompleted bool
 }
 
 // IsAlive returns whether or not the health server is in a known
@@ -65,6 +68,19 @@ func (h *State) shutdown() {
 	h.shuttingDown = true
 }
 
+// drainFinish updates that we finished draining.
+func (h *State) drainFinished() {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	if !h.drainCompleted && h.drainCh != nil {
+		close(h.drainCh)
+	}
+
+	h.drainCompleted = true
+
+}
+
 // HealthHandler constructs a handler that returns the current state of
 // the health server.
 func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
@@ -92,16 +108,27 @@ func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r 
 	}
 }
 
-// QuitHandler constructs a handler that shuts the current server down.
-// Optional cleanup logic can be added via the given cleaner function.
-func (h *State) QuitHandler(cleaner func()) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		h.shutdown()
-
-		if cleaner != nil {
-			cleaner()
-		}
-
-		io.WriteString(w, "alive: false")
+// DrainHandler constructs a handler that waits until the proxy server is shut down.
+func (h *State) DrainHandler() func(_ http.ResponseWriter, _ *http.Request) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	if h.drainCh == nil {
+		h.drainCh = make(chan struct{})
 	}
+
+	return func(_ http.ResponseWriter, _ *http.Request) {
+		<-h.drainCh
+	}
+}
+
+// Shutdown marks the proxy server as no ready and begins its shutdown process. This
+// results in unblocking any connections waiting for drain.
+func (h *State) Shutdown(drain func()) {
+	h.shutdown()
+
+	if drain != nil {
+		drain()
+	}
+
+	h.drainFinished()
 }
