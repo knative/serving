@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/metrics/metricskey"
 
 	"go.opencensus.io/stats"
