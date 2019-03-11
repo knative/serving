@@ -121,7 +121,7 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		AppendHeaders:    http.AppendHeaders,
+		AppendHeaders:    headers,
 		WebsocketUpgrade: true,
 	}
 }
