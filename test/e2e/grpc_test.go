@@ -125,7 +125,7 @@ func TestGRPC(t *testing.T) {
 
 	conn, err := grpc.Dial(
 		*host+":80",
-		grpc.WithAuthority(domain),
+		grpc.WithAuthority(domain+":80"),
 		grpc.WithInsecure(),
 	)
 	if err != nil {
