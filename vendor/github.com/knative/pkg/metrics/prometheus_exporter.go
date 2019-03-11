@@ -30,7 +30,7 @@ var (
 func newPrometheusExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
 	e, err := prometheus.NewExporter(prometheus.Options{Namespace: config.component})
 	if err != nil {
-		logger.Error("Failed to create the Prometheus exporter.", zap.Error(err))
+		logger.Errorw("Failed to create the Prometheus exporter.", zap.Error(err))
 		return nil, err
 	}
 	logger.Infof("Created Opencensus Prometheus exporter with config: %v. Start the server for Prometheus exporter.", config)

@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:96668306757feff41921a310fd40dc87106cb803a5ab3297870e3837e4e8108f"
+  digest = "1:306cec308e58012d34ca7dd6f4a4800828c470510e97c96e98da6fe72f4487e5"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -492,6 +492,7 @@
     "test",
     "test/helpers",
     "test/logging",
+    "test/monitoring",
     "test/spoof",
     "test/zipkin",
     "tracker",
@@ -500,7 +501,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "2a8c1b0e5ad2719b00e20fef8594d63fa202640f"
+  revision = "f8007289b228598dfdf7e6de67ee5f5c391c9d34"
 
 [[projects]]
   branch = "master"
