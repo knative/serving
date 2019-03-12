@@ -78,9 +78,11 @@ func main() {
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
+	// statsCh is the main communication channel between the stats channel and multiscaler.
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
+	defer close(statsCh)
 
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {

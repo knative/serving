@@ -178,7 +178,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 		if err == context.DeadlineExceeded {
 			s.logger.Warn("Shutdown timed out")
 		} else {
-			s.logger.Error("Shutdown failed.", err)
+			s.logger.Errorw("Shutdown failed.", zap.Error(err))
 		}
 	}
 
@@ -195,7 +195,6 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	case <-time.After(time.Until(shutdownStart.Add(timeout))):
 		s.logger.Warn("Shutdown timed out")
 	}
-	close(s.statsCh)
 }
 
 func isActivator(podName string) bool {
