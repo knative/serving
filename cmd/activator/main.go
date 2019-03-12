@@ -157,7 +157,7 @@ func main() {
 	statChan := make(chan *autoscaler.StatMessage, statReportingQueueLength)
 	defer close(statChan)
 
-	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	reqChan  := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
