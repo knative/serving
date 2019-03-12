@@ -89,7 +89,6 @@ const (
 	autoscalerPort = 8080
 
 	defaultResyncInterval = 10 * time.Hour
-	
 )
 
 var (
