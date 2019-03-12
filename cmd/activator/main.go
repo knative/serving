@@ -108,6 +108,8 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 				logger.Errorw("Error while sending stat", zap.Error(err))
 			}
 		case <-stopCh:
+			// It's a sending connection, so no drainage required.
+			statSink.Shutdown()
 			return
 		}
 	}
@@ -156,7 +158,7 @@ func main() {
 	statChan := make(chan *autoscaler.StatMessage, statReportingQueueLength)
 	defer close(statChan)
 
-	reqChan  := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	reqChan := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
@@ -236,8 +238,8 @@ func main() {
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
 
 	// Create and run our concurrency reporter
-reportTicker:=time.NewTicker(time.Second)
-defer reportTicker.Stop()
+	reportTicker := time.NewTicker(time.Second)
+	defer reportTicker.Stop()
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
 	go cr.Run(stopCh)
 
