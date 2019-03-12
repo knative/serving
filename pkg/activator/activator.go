@@ -28,7 +28,7 @@ const (
 
 	// ServicePortHTTP1 is the port number for activating HTTP1 revisions
 	ServicePortHTTP1 int32 = 80
-	// ServicePortHTTP1 is the port number for activating H2C revisions
+	// ServicePortH2C is the port number for activating H2C revisions
 	ServicePortH2C int32 = 81
 )
 
