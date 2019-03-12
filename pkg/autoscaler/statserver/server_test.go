@@ -75,6 +75,8 @@ func TestServerShutdown(t *testing.T) {
 	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
+	// We own the channel.
+	close(statsCh)
 
 	// Send a statistic to the server
 	send(statSink, newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), t)
