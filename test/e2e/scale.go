@@ -183,6 +183,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 		case err := <-doneCh:
 			if err != nil {
+				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
+				// as we tear down the things they are probing.
+				defer pm.Stop()
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
