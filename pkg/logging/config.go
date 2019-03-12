@@ -17,7 +17,6 @@ limitations under the License.
 package logging
 
 import (
-	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -62,17 +61,9 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 }
 
 func ConfigMapName() string {
-	if cm := os.Getenv(ConfigMapNameEnv); cm != "" {
-		return cm
+	cm := os.Getenv(ConfigMapNameEnv)
+	if cm == "" {
+		return "config-logging"
 	}
-
-	panic(fmt.Sprintf(`The environment variable %q is not set
-
-If this is a process running on Kubernetes, then it should be using the downward
-API to initialize this variable via:
-
-  env:
-  - name: CONFIG_LOGGING_NAME
-    value: config-logging
-`, ConfigMapNameEnv))
+	return cm
 }
