@@ -63,7 +63,7 @@ func newResolverTransport(path string) (*http.Transport, error) {
 	// Copied from https://github.com/golang/go/blob/release-branch.go1.12/src/net/http/transport.go#L42-L53
 	// We want to use the DefaultTransport but change its TLSClientConfig. There
 	// isn't a clean way to do this yet: https://github.com/golang/go/issues/26013
-	resolverTransport := &http.Transport{
+	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -75,13 +75,11 @@ func newResolverTransport(path string) (*http.Transport, error) {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	resolverTransport.TLSClientConfig = &tls.Config{
-		RootCAs: pool,
-	}
-
-	return resolverTransport, nil
+		// Use the cert pool with k8s cert bundle appended.
+		TLSClientConfig: &tls.Config{
+			RootCAs: pool,
+		},
+	}, nil
 }
 
 // Resolve resolves the image references that use tags to digests.
