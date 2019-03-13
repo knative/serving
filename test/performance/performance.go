@@ -22,6 +22,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/prometheus"
@@ -39,6 +40,20 @@ const (
 	duration    = 1 * time.Minute
 )
 
+type RequirePrometheus bool
+
+const (
+	EnablePrometheus  RequirePrometheus = true
+	DisablePrometheus                   = false
+)
+
+type RequireZipkin bool
+
+const (
+	EnableZipkin  RequireZipkin = true
+	DisableZipkin               = false
+)
+
 // Client is the client used in the performance tests.
 type Client struct {
 	E2EClients *test.Clients
@@ -46,7 +61,7 @@ type Client struct {
 }
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(logf logging.FormatLogger, promReqd bool) (*Client, error) {
+func Setup(logf logging.FormatLogger, promReqd RequirePrometheus, zipkinReq RequireZipkin) (*Client, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -58,6 +73,11 @@ func Setup(logf logging.FormatLogger, promReqd bool) (*Client, error) {
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
 		p.Setup(clients.KubeClient.Kube, logf)
 	}
+
+	if zipkinReq {
+		zipkin.SetupZipkinTracing(clients.KubeClient.Kube, logf)
+	}
+
 	return &Client{E2EClients: clients, PromClient: p}, nil
 }
 
@@ -68,6 +88,8 @@ func TearDown(client *Client, names test.ResourceNames, logf logging.FormatLogge
 	if client.PromClient != nil {
 		client.PromClient.Teardown(logf)
 	}
+
+	zipkin.CleanupZipkinTracingSetup(logf)
 }
 
 // CreatePerfTestCase creates a perf test case with the provided name and value

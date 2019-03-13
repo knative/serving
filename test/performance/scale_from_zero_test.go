@@ -86,7 +86,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(t.Logf, false)
+	pc, err := Setup(t.Logf, EnablePrometheus, DisableZipkin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
