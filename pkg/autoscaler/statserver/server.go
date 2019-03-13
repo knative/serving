@@ -168,7 +168,6 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Shutdown(timeout time.Duration) {
 	<-s.servingCh
 	s.logger.Info("Shutting down")
-	shutdownStart := time.Now()
 
 	close(s.stopCh)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -192,7 +191,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	select {
 	case <-done:
 		s.logger.Info("Shutdown complete")
-	case <-time.After(time.Until(shutdownStart.Add(timeout))):
+	case <-ctx.Done():
 		s.logger.Warn("Shutdown timed out")
 	}
 }
