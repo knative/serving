@@ -425,7 +425,7 @@ container: # v1.Container
   envFrom: ... # Optional
 
   # image is either provided as pre-built container, or built by Knative Serving from
-  # source. When built by Knative, set to the same as build template, e.g.
+  # source. When built by Knative, this should match what the Build is directed to produce, e.g.
   # build.template.arguments[_IMAGE], as the "promise" of a future build.
   # If buildRef is provided, it is expected that this image will be
   # present when the referenced build is complete.
