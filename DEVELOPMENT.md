@@ -168,7 +168,7 @@ Next, run:
 
 ```shell
 ko apply -f config/
-./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
+PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
