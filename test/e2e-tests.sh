@@ -59,7 +59,14 @@ failed=0
 go_test_e2e -timeout=30m ./test/conformance ./test/e2e || failed=1
 
 # Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
+#
+# We want to run them without sidecar injection, since (1) we
+# want to test that our controllers can handle the reconciliation
+# needed to make these Service works, and (2) there is scale
+# limitation with sidecar injection that we can't overcome right
+# now causing much flakiness.
+kubectl label ns serving-tests istio-injection=disabled
+go_test_e2e -timeout=15m ./test/scale || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
