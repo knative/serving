@@ -274,40 +274,31 @@ func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
 	minPods := numPods - 1
 	maxPods := numPods + 1
 
-	// Allow some error to accumulate without locking
-	errChan := make(chan error, 100)
 	stopChan := make(chan struct{})
-	defer close(stopChan)
+	var grp errgroup.Group
+	grp.Go(func() error {
+		return generateTraffic(ctx, int(numPods*10), 60*time.Second, stopChan)
+	})
+	grp.Go(func() error {
+		// Short-circuit traffic generation once we exit from the check logic.
+		defer close(stopChan)
 
-	go func() {
-		if err := generateTraffic(ctx, int(numPods*10), 60*time.Second, stopChan); err != nil {
-			errChan <- err
-		}
-	}()
-
-	done := make(chan struct{})
-	timer := time.Tick(2 * time.Second)
-	go func() {
+		timer := time.Tick(2 * time.Second)
 		for {
 			select {
-			case <-stopChan:
-				return
 			case <-timer:
 				if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
-					errChan <- err
+					return err
 				}
 				if err := assertNumberOfPods(ctx, numPods, maxPods); err == nil {
-					close(done)
+					return nil
 				}
 			}
 		}
-	}()
+	})
 
-	select {
-	case err := <-errChan:
-		ctx.t.Error(err.Error())
-	case <-done:
-		// Success!
+	if err := grp.Wait(); err != nil {
+		ctx.t.Error(err)
 	}
 }
 
