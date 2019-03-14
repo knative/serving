@@ -20,6 +20,9 @@
 E2E_MIN_CLUSTER_NODES=4
 E2E_MAX_CLUSTER_NODES=4
 
+# Temporarily switch to a different region to avoid GCE out of stock.
+E2E_CLUSTER_REGION=us-central1
+
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
