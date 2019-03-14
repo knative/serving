@@ -65,17 +65,7 @@ var (
 func main() {
 	flag.Parse()
 
-	loggingConfigMap, err := configmap.Load("/etc/config-logging")
-	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
-	}
-	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
-	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
-	}
-
-	var atomicLevel zap.AtomicLevel
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
+	logger, atomicLevel := setupLogger()
 	defer logger.Sync()
 
 	// Set up signals so we handle the first shutdown signal gracefully.
@@ -84,75 +74,56 @@ func main() {
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		logger.Fatalw("Error building kubeconfig", zap.Error(err))
-	}
+	kubeClientSet, servingClientSet, scaleClient := setupClients(logger, stopCh)
 
-	kubeClientSet, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalw("Error building kubernetes clientset", zap.Error(err))
-	}
+	dynConfig := scalerConfig(logger)
 
-	if err := version.CheckMinimumVersion(kubeClientSet.Discovery()); err != nil {
-		logger.Fatalf("Version check failed: %v", err)
-	}
-
-	// Watch the logging config map and dynamically update logging levels.
+	// Set up watcher to watch for config changes.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClientSet, system.Namespace())
+	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
-	// This is based on how Kubernetes sets up its scale client based on discovery:
-	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
-	restMapper := buildRESTMapper(kubeClientSet, stopCh)
-	scaleClient, err := scale.NewForConfig(cfg, restMapper, dynamic.LegacyAPIPathResolverFunc,
-		scale.NewDiscoveryScaleKindResolver(kubeClientSet.Discovery()))
-	if err != nil {
-		logger.Fatalw("Error building scale clientset", zap.Error(err))
-	}
-
-	servingClientSet, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalw("Error building serving clientset", zap.Error(err))
-	}
-
-	rawConfig, err := configmap.Load("/etc/config-autoscaler")
-	if err != nil {
-		logger.Fatalw("Error reading autoscaler configuration", zap.Error(err))
-	}
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
-	if err != nil {
-		logger.Fatalw("Error parsing autoscaler configuration", zap.Error(err))
-	}
 	// Watch the autoscaler config map and dynamically update autoscaler config.
 	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
+	// Set up informer factories.
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, time.Second*30)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, time.Second*30)
+
+	// Set up informers.
+	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
+
+	// Set up scalers.
+	// uniScalerFactory depends endpointsInformer to be set.
+	multiScaler := autoscaler.NewMultiScaler(
+		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
+	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
+
+	// Set up controllers.
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
 		Logger:           logger,
 	}
-
-	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, time.Second*30)
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, time.Second*30)
-
-	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
-
-	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(
-		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
-	kpaScaler := kpa.NewKPAScaler(servingClientSet, scaleClient, logger, configMapWatcher)
 	kpaCtl := kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig)
 	hpaCtl := hpa.NewController(&opt, paInformer, hpaInformer)
+
+	// Set up a statserver.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger)
+	defer statsServer.Shutdown(time.Second * 5)
+
+	// Now run the components.
 
 	// Start the serving informer factory.
 	kubeInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
+
+	// Start watching the configs.
 	if err := configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalw("Failed to start watching logging config", zap.Error(err))
+		logger.Fatalw("Failed to start watching configs", zap.Error(err))
 	}
 
 	// Wait for the caches to be synced before starting controllers.
@@ -167,6 +138,7 @@ func main() {
 		}
 	}
 
+	// Run the controllers and the statserver in a group.
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return kpaCtl.Run(controllerThreads, stopCh)
@@ -174,8 +146,6 @@ func main() {
 	eg.Go(func() error {
 		return hpaCtl.Run(controllerThreads, stopCh)
 	})
-
-	statsServer := statserver.New(statsServerAddr, statsCh, logger)
 	eg.Go(func() error {
 		return statsServer.ListenAndServe()
 	})
@@ -203,8 +173,61 @@ func main() {
 	case <-egCh:
 	case <-stopCh:
 	}
+}
 
-	statsServer.Shutdown(time.Second * 5)
+func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	return logging.NewLoggerFromConfig(loggingConfig, component)
+}
+
+func setupClients(logger *zap.SugaredLogger, stopCh <-chan struct{}) (kubernetes.Interface, clientset.Interface, scale.ScalesGetter) {
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	if err != nil {
+		logger.Fatalw("Error building kubeconfig", zap.Error(err))
+	}
+
+	kubeClientSet, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalw("Error building kubernetes clientset", zap.Error(err))
+	}
+	if err := version.CheckMinimumVersion(kubeClientSet.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
+	}
+
+	// This is based on how Kubernetes sets up its scale client based on discovery:
+	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
+	restMapper := buildRESTMapper(kubeClientSet, stopCh)
+	scaleClient, err := scale.NewForConfig(cfg, restMapper, dynamic.LegacyAPIPathResolverFunc,
+		scale.NewDiscoveryScaleKindResolver(kubeClientSet.Discovery()))
+	if err != nil {
+		logger.Fatalw("Error building scale clientset", zap.Error(err))
+	}
+
+	servingClientSet, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalw("Error building serving clientset", zap.Error(err))
+	}
+
+	return kubeClientSet, servingClientSet, scaleClient
+}
+
+func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
+	rawConfig, err := configmap.Load("/etc/config-autoscaler")
+	if err != nil {
+		logger.Fatalw("Error reading autoscaler configuration", zap.Error(err))
+	}
+	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
+	if err != nil {
+		logger.Fatalw("Error parsing autoscaler configuration", zap.Error(err))
+	}
+	return dynConfig
 }
 
 func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{}) *restmapper.DeferredDiscoveryRESTMapper {
