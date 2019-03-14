@@ -217,7 +217,8 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// on Istio 1.1, which is not ready.
 	// We should eventually use a feature flag (in ConfigMap) to turn this on/off.
 	if c.enableReconcilingGateway {
-		if err := c.reconcileGateways(ctx, ci, gatewayNames); err != nil {
+		desiredServers := resources.MakeServers(ci)
+		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
 			return err
 		}
 	}
@@ -321,16 +322,16 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	return nil
 }
 
-func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNames []string) error {
+func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNames []string, desiredServers []v1alpha3.Server) error {
 	for _, gatewayName := range gatewayNames {
-		if err := c.reconcileGateway(ctx, ci, gatewayName); err != nil {
+		if err := c.reconcileGateway(ctx, ci, gatewayName, desiredServers); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string) error {
+func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 
@@ -344,14 +345,12 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	}
 
 	existing := resources.GetServers(gateway, ci)
-	want := resources.MakeServers(ci)
-
-	if equality.Semantic.DeepEqual(existing, want) {
+	if equality.Semantic.DeepEqual(existing, desired) {
 		return nil
 	}
 
 	copy := gateway.DeepCopy()
-	copy = resources.UpdateGateway(copy, want, existing)
+	copy = resources.UpdateGateway(copy, desired, existing)
 	if _, err := c.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
 		return err
