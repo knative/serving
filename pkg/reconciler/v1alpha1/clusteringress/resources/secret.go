@@ -17,20 +17,49 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	sets "k8s.io/apimachinery/pkg/util/sets"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// MakeTargetSecret creates a copy of originSecret with the given namespace.
-func MakeTargetSecret(originSecret *corev1.Secret, ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) *corev1.Secret {
+func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) ([]*corev1.Secret, error) {
+	gatewaySvcNamespaces := GetGatewaySvcNamespaces(ctx)
+	secrets := []*corev1.Secret{}
+	for _, tls := range ci.Spec.TLS {
+		originSecret, err := secretLister.Secrets(tls.SecretNamespace).Get(tls.SecretName)
+		if err != nil {
+			return nil, err
+		}
+		for _, ns := range gatewaySvcNamespaces {
+			secrets = append(secrets, makeTargetSecret(originSecret, ci, ns))
+		}
+	}
+	return secrets, nil
+}
+
+func GetGatewaySvcNamespaces(ctx context.Context) []string {
+	cfg := config.FromContext(ctx).Istio
+	namespaces := []string{}
+	for _, ingressgateway := range cfg.IngressGateways {
+		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces
+}
+
+// makeTargetSecret creates a copy of originSecret with the given namespace.
+func makeTargetSecret(originSecret *corev1.Secret, ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.TargetSecret(originSecret.Namespace, originSecret.Name, ci),
@@ -65,10 +94,10 @@ func GetOriginSecrets(ci *v1alpha1.ClusterIngress) sets.String {
 	return secretKeys
 }
 
-func CopySecrets(secrets []*corev1.Secret) []corev1.Secret {
-	copy := []corev1.Secret{}
+func CopySecrets(secrets []*corev1.Secret) []*corev1.Secret {
+	copy := []*corev1.Secret{}
 	for _, secret := range secrets {
-		copy = append(copy, *secret)
+		copy = append(copy, secret.DeepCopy())
 	}
 	return copy
 }

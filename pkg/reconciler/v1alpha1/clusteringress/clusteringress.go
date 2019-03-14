@@ -21,11 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-<<<<<<< HEAD
-=======
-	"strings"
-	"sync"
->>>>>>> db429c06... initial version of reconciling secrets
 
 	"github.com/knative/pkg/tracker"
 
@@ -252,13 +247,17 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 		desiredServers := resources.MakeServers(ci)
 		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
 			return err
-		if err := c.reconcileCertSecrets(ctx, ci); err != nil {
+		}
+		desiredSecrets, err := resources.MakeDesiredSecrets(ctx, ci, c.secretLister)
+		if err != nil {
+			return err
+		}
+		if err := c.reconcileCertSecrets(ctx, ci, desiredSecrets); err != nil {
 			return err
 		}
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
-
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
@@ -394,7 +393,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 		return err
 	}
 
-	// Update the ClusterIngress to remove the Finalizer.
+	// Update the Route to remove the Finalizer.
 	logger.Info("Removing Finalizer")
 	ci.Finalizers = ci.Finalizers[1:]
 	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
@@ -438,97 +437,79 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	return nil
 }
 
-func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
-	inusedSecretKeys := resources.GetOriginSecrets(ci)
-	gatewaySvcNamespaces := getGatewaySvcNamespaces(ctx)
-	for _, ns := range gatewaySvcNamespaces {
-		if err := c.cleanUpUnsedSecret(ctx, ci, ns, inusedSecretKeys); err != nil {
+func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, desiredSecrets []*corev1.Secret) error {
+	for _, certSecret := range desiredSecrets {
+		if err := c.reconcileCertSecret(ctx, ci, certSecret); err != nil {
 			return err
 		}
-		for _, tls := range ci.Spec.TLS {
-			if err := c.reconcileCertSecret(ctx, ci, &tls, ns); err != nil {
-				return err
-			}
-		}
+	}
+	if err := c.deleteUnusedSecrets(ctx, ci, desiredSecrets); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, tls *v1alpha1.ClusterIngressTLS, gatewayNamespace string) error {
-	logger := logging.FromContext(ctx)
-	originSecret, err := c.secretLister.Secrets(tls.SecretNamespace).Get(tls.SecretName)
-	if err != nil {
-		return err
-	}
-
+func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
 	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-	c.tracker.Track(objectRef(originSecret, gvk), ci)
+	c.tracker.Track(objectRef(desired, gvk), ci)
+	c.tracker.Track(objectRefFromNamespaceName(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
 
-	desiredSecret := resources.MakeTargetSecret(originSecret, ci, "istio-system")
-	existingSecret, err := c.secretLister.Secrets(desiredSecret.Namespace).Get(desiredSecret.Name)
+	logger := logging.FromContext(ctx)
+	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		_, err = c.KubeClientSet.CoreV1().Secrets(desiredSecret.Namespace).Create(desiredSecret)
+		_, err = c.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create Secret %q/%q: %v", desiredSecret.Namespace, desiredSecret.Name, err)
+				"Failed to create Secret %q/%q: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Created",
-			"Created Secret %q/%q", desiredSecret.Namespace, desiredSecret.Name)
+			"Created Secret %q/%q", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return err
-	} else if !equality.Semantic.DeepEqual(existingSecret.Data, desiredSecret.Data) {
+	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
 		// Don't modify the informers copy
-		existing := existingSecret.DeepCopy()
-		existing.Data = desiredSecret.Data
+		copy := existing.DeepCopy()
+		copy.Data = desired.Data
 		//_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
-		_, err = c.KubeClientSet.CoreV1().Secrets(existing.Namespace).Update(existing)
+		_, err = c.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
 			logger.Errorw("Failed to update target secret", zap.Error(err))
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-			"Updated status for Secret %q/%q", existing.Namespace, existing.Name)
+			"Updated status for Secret %q/%q", copy.Namespace, copy.Name)
 	}
 	return nil
 }
 
-func (c *Reconciler) cleanUpUnsedSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNamespace string, inuseSecrets sets.String) error {
-	secrets, err := c.secretLister.Secrets(gatewayNamespace).List(resources.MakeSecretSelector(ci))
-	if apierrs.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
+func (c *Reconciler) deleteUnusedSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, desiredSecrets []*corev1.Secret) error {
+	desiredSecretKeys := sets.String{}
+	for _, desired := range desiredSecrets {
+		desiredSecretKeys.Insert(fmt.Sprintf("%s/%s", desired.Namespace, desired.Name))
 	}
-	// We make copy of secrets to avoid modifying the informers copy.
-	copySecrets := resources.CopySecrets(secrets)
-	for _, secret := range copySecrets {
-		originSecretKey := fmt.Sprintf("%s/%s", secret.Labels[networking.OriginSecretNamespaceLabelKey], secret.Labels[networking.OriginSecretNameLabelKey])
-		if inuseSecrets.Has(originSecretKey) {
-			continue
-		}
 
-		gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-		c.tracker.UnTrack(objectRefFromKey(originSecretKey, gvk), ci)
-
-		if err := c.KubeClientSet.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{}); err != nil {
-			return err
+	gatewaySvcNamespaces := resources.GetGatewaySvcNamespaces(ctx)
+	for _, ns := range gatewaySvcNamespaces {
+		secrets, err := c.secretLister.Secrets(ns).List(resources.MakeSecretSelector(ci))
+		// We make the copies of all secrets to avoid modifying the informers cache.
+		secrets = resources.CopySecrets(secrets)
+		for _, s := range secrets {
+			if desiredSecretKeys.Has(fmt.Sprintf("%s/%s", s.Namespace, s.Name)) {
+				continue
+			}
+			gvk := corev1.SchemeGroupVersion.WithKind("Secret")
+			c.tracker.UnTrack(objectRef(s, gvk), ci)
+			c.tracker.UnTrack(objectRefFromNamespaceName(s.Labels[networking.OriginSecretNamespaceLabelKey], s.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
+			if err := c.KubeClientSet.CoreV1().Secrets(s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Deleted",
+				"Deleted Secret %q/%q", s.Namespace, s.Name)
 		}
-		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Deleted",
-			"Deleted Secret %q/%q", secret.Namespace, secret.Name)
 	}
 	return nil
-}
-
-func getGatewaySvcNamespaces(ctx context.Context) []string {
-	cfg := config.FromContext(ctx).Istio
-	namespaces := []string{}
-	for _, ingressgateway := range cfg.IngressGateways {
-		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
-		namespaces = append(namespaces, ns)
-	}
-	return namespaces
 }
 
 /////////////////////////////////////////
@@ -556,13 +537,12 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-func objectRefFromKey(key string, gvk schema.GroupVersionKind) corev1.ObjectReference {
+func objectRefFromNamespaceName(namespace, name string, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	str := strings.Split(key, "/")
 	return corev1.ObjectReference{
 		APIVersion: apiVersion,
 		Kind:       kind,
-		Namespace:  str[0],
-		Name:       str[1],
+		Namespace:  namespace,
+		Name:       name,
 	}
 }
