@@ -47,25 +47,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.3"
+  version = "kubernetes-1.12.6"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.3"
+  version = "kubernetes-1.12.6"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.11.3"
+  version = "kubernetes-1.12.6"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.11.3"
-
-[[override]]
-  name = "github.com/json-iterator/go"
-  # This is the commit at which k8s depends on this in 1.11
-  # It seems to be broken at HEAD.
-  revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+  version = "kubernetes-1.12.6"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"

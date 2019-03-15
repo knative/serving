@@ -50,11 +50,5 @@ rm -rf $(find vendor/ -name '*_test.go')
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 
-# Patch the Kubernetes dynamic client to fix listing. This patch is from
-# https://github.com/kubernetes/kubernetes/pull/68552/files, which is a
-# cherrypick of #66078.  Remove this once that reaches a client version
-# we have pulled in.
-git apply ${REPO_ROOT_DIR}/hack/66078.patch
-
 # Remove all invalid symlinks under ./vendor
 remove_broken_symlinks
