@@ -17,15 +17,15 @@ limitations under the License.
 package logging
 
 import (
+	"os"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/pkg/logging"
 )
 
-const (
-	ConfigName = "config-logging"
-)
+const ConfigMapNameEnv = "CONFIG_LOGGING_NAME"
 
 var components = []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"}
 
@@ -58,4 +58,12 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*logging.Config, error
 // when a config map is updated
 func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, levelKey string) func(configMap *corev1.ConfigMap) {
 	return logging.UpdateLevelFromConfigMap(logger, atomicLevel, levelKey, components...)
+}
+
+func ConfigMapName() string {
+	cm := os.Getenv(ConfigMapNameEnv)
+	if cm == "" {
+		return "config-logging"
+	}
+	return cm
 }

@@ -109,8 +109,8 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 
 	p.requests++
 	if response.StatusCode != http.StatusOK {
-		p.t.Logf("%q got bad status: %d\nHeaders:%v\nBody: %s", p.domain, response.StatusCode,
-			response.Header, string(response.Body))
+		p.t.Logf("%q status = %d, want: %d", p.domain, response.StatusCode, http.StatusOK)
+		p.t.Logf("response: %s", response)
 		p.failures++
 	}
 	if p.requests == p.minimumProbes {

@@ -192,22 +192,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// Sets up /health and /quitquitquit endpoints.
+// Sets up /health and /wait-for-drain endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
-	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
-		time.Sleep(quitSleepDuration)
-
-		// Shutdown the proxy server.
-		if server != nil {
-			if err := server.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
-			} else {
-				logger.Debug("Proxy server shutdown successfully.")
-			}
-		}
-	}))
+	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
 }
@@ -274,9 +263,8 @@ func main() {
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
-		Handler: nil,
+		Handler: createAdminHandlers(),
 	}
-	adminServer.Handler = createAdminHandlers()
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
@@ -305,8 +293,17 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 
-		// Calling server.Shutdown() allows pending requests to
-		// complete, while no new work is accepted.
+		healthState.Shutdown(func() {
+			// Give istio time to sync our "not ready" state
+			time.Sleep(quitSleepDuration)
+
+			// Calling server.Shutdown() allows pending requests to
+			// complete, while no new work is accepted.
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+			}
+		})
+
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}

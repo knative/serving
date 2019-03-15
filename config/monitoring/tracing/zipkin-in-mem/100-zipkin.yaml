@@ -60,4 +60,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        resources:
+          limits:
+            memory: 1000Mi
 ---

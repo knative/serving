@@ -30,6 +30,11 @@ import (
 	"github.com/knative/pkg/test/spoof"
 )
 
+// MatchesAny is a NOP matcher. This is useful for polling until a 200 is returned.
+func MatchesAny(_ *spoof.Response) (bool, error) {
+	return true, nil
+}
+
 // Retrying modifies a ResponseChecker to retry certain response codes.
 func Retrying(rc spoof.ResponseChecker, codes ...int) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {

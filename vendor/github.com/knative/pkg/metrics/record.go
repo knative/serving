@@ -20,37 +20,29 @@ import (
 	"context"
 	"path"
 
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 )
 
-// Record decides whether to record one measurement via OpenCensus based on the
-// following conditions:
-//   1) No package level metrics config. In this case it just proxies to OpenCensus
-//      based on the assumption that users expect the metrics to be recorded when
-//      they call this function. Users must ensure metrics config are set before
-//      using this function to get expected behavior.
-//   2) The backend is not Stackdriver.
-//   3) The backend is Stackdriver and it is allowed to use custom metrics.
-//   4) The backend is Stackdriver and the metric is "knative_revison" built-in metric.
+// Record decides whether to record one measurement based on current
+// metrics config. If yes, it records measurements via OpenCensus.
 func Record(ctx context.Context, ms stats.Measurement) {
 	mc := getCurMetricsConfig()
-
-	// Condition 1)
 	if mc == nil {
-		stats.Record(ctx, ms)
+		logging.FromContext(ctx).Warn("The current metrics config has not been successfully set yet, not record the metric %v.", ms)
 		return
 	}
-
-	// Condition 2) and 3)
+	// Should record if one of the following conditions satisfies:
+	// 1) the backend is not Stackdriver
+	// 2) the backend is Stackdriver and it is allowed to use custom metrics
+	// 3) the backend is Stackdriver and the metric is "knative_revison" built-in metric.
 	if !mc.isStackdriverBackend || mc.allowStackdriverCustomMetrics {
 		stats.Record(ctx, ms)
-		return
-	}
-
-	// Condition 4)
-	metricType := path.Join(mc.stackdriverMetricTypePrefix, ms.Measure().Name())
-	if metricskey.KnativeRevisionMetrics.Has(metricType) {
-		stats.Record(ctx, ms)
+	} else {
+		metricType := path.Join(mc.stackdriverMetricTypePrefix, ms.Measure().Name())
+		if metricskey.KnativeRevisionMetrics.Has(metricType) {
+			stats.Record(ctx, ms)
+		}
 	}
 }

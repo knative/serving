@@ -70,7 +70,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -140,7 +139,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -216,7 +214,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -289,7 +286,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -357,7 +353,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{

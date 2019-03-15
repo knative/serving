@@ -22,7 +22,8 @@ gcloud container clusters get-credentials knative-demo --zone us-central1-a --pr
 
 This environment is recreated by a periodic Prow job every Saturday 1AM PST,
 using the latest nightly Knative Serving release. The latest nightly release is
-available at [gs://knative-nightly/serving/latest](https://console.cloud.google.com/storage/knative-nightly).
+available at
+[gs://knative-nightly/serving/latest](https://console.cloud.google.com/storage/knative-nightly).
 
 You can configure your access by running:
 
