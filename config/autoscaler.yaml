@@ -63,6 +63,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
       volumes:
         - name: config-autoscaler
           configMap:

@@ -185,7 +185,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      logging.ConfigName,
+			Name:      logging.ConfigMapName(),
 		},
 		Data: map[string]string{
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
