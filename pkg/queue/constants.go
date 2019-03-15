@@ -17,6 +17,8 @@ limitations under the License.
 package queue
 
 const (
+	// Name is the name of the component.
+	Name = "queue"
 	// RequestQueueHealthPath specifies the path for health checks for
 	// queue-proxy.
 	RequestQueueHealthPath = "/health"
