@@ -19,6 +19,7 @@ import (
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 )
 
 func TestProbeHandler(t *testing.T) {
@@ -36,7 +37,7 @@ func TestProbeHandler(t *testing.T) {
 		method:         http.MethodPost,
 	}, {
 		label:          "filter a POST request containing probe header, even if probe is for a different target",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: queue.Name}),
 		passed:         false,
 		expectedStatus: http.StatusServiceUnavailable,
 		method:         http.MethodPost,
