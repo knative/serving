@@ -38,7 +38,7 @@ func TestProbeHandler(t *testing.T) {
 		label:          "filter a POST request containing probe header, even if probe is for a different target",
 		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
 		passed:         false,
-		expectedStatus: http.StatusNotFound,
+		expectedStatus: http.StatusServiceUnavailable,
 		method:         http.MethodPost,
 	}, {
 		label:          "filter a POST request containing probe header",
@@ -56,7 +56,7 @@ func TestProbeHandler(t *testing.T) {
 		label:          "filter a GET request containing probe header, with wrong target system",
 		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
 		passed:         false,
-		expectedStatus: http.StatusNotFound,
+		expectedStatus: http.StatusServiceUnavailable,
 		method:         http.MethodGet,
 	}, {
 		label:          "filter a GET request containing probe header",

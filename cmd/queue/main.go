@@ -159,7 +159,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case ph != "":
 		if ph != queue.Name {
-			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
 			return
 		}
 		if probeUserContainer() {
