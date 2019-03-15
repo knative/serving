@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
 )
 

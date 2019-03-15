@@ -19,6 +19,8 @@ package activator
 import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
 const (
+	// Name is the name of the component.
+	Name = "activator"
 	// K8sServiceName is the name of the activator service
 	K8sServiceName = "activator-service"
 	// RevisionHeaderName is the header key for revision name
