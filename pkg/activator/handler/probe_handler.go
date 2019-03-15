@@ -16,6 +16,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
 )
 
@@ -28,7 +29,7 @@ func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If this header is set the request was sent by a Knative component
 	// probing the network, respond with a 200 and our component name.
 	if r.Header.Get(network.ProbeHeaderName) != "" {
-		w.Write([]byte("activator"))
+		w.Write([]byte(activator.Name))
 		return
 	}
 

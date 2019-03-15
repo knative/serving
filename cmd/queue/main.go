@@ -160,7 +160,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case isKnativeProbe(r):
 		if probeUserContainer() {
 			// Respond with the name of the component handling the request.
-			w.Write([]byte("queue"))
+			w.Write([]byte(queue.Name))
 		} else {
 			http.Error(w, "container not ready", http.StatusServiceUnavailable)
 		}

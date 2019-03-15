@@ -16,3 +16,8 @@ limitations under the License.
 // Package queue provides components for the queue-proxy binary.
 
 package queue
+
+const (
+	// Name is the name of the component.
+	Name = "queue"
+)
