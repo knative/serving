@@ -125,7 +125,7 @@ func TestGetIsServiceReady(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			ready := getIsServiceReady(test.endpoints)
+			ready := isServiceReady(test.endpoints)
 			if ready != test.ready {
 				t.Errorf("getIsServiceReady(%v) = %v, want %v", test.endpoints, ready, test.ready)
 			}
