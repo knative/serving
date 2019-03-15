@@ -53,13 +53,13 @@ func main() {
 	}
 
 	for resource := range common.ResourceMap {
-		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind, path.Join(artifactsDir, strings.ToLower(resource.Kind)+".dat"), rules.GetDisplayRules())
+		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind, path.Join(artifactsDir, strings.ToLower(resource.Kind)+".html"), rules.GetDisplayRules())
 		if err != nil {
 			log.Println(fmt.Sprintf("resource coverage for resource: %s failed. %v ", resource.Kind, err))
 		}
 	}
 
-	if err := tools.GetAndWriteTotalCoverage(serviceIP, path.Join(artifactsDir, "totalcoverage.dat")); err != nil {
+	if err := tools.GetAndWriteTotalCoverage(serviceIP, path.Join(artifactsDir, "totalcoverage.html")); err != nil {
 		log.Fatalf("total coverage retrieval failed: %v", err)
 	}
 }

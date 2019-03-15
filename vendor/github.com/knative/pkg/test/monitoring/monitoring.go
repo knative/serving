@@ -29,10 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	namespace = "istio-system"
-)
-
 // CheckPortAvailability checks to see if the port is available on the machine.
 func CheckPortAvailability(port int) error {
 	server, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -47,7 +43,7 @@ func CheckPortAvailability(port int) error {
 
 // GetPods retrieves the current existing podlist for the app in monitoring namespace
 // This uses app=<app> as labelselector for selecting pods
-func GetPods(kubeClientset *kubernetes.Clientset, app string) (*v1.PodList, error) {
+func GetPods(kubeClientset *kubernetes.Clientset, app, namespace string) (*v1.PodList, error) {
 	pods, err := kubeClientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", app)})
 	if err == nil && len(pods.Items) == 0 {
 		err = fmt.Errorf("No %s Pod found on the cluster. Ensure monitoring is switched on for your Knative Setup", app)
@@ -63,7 +59,7 @@ func Cleanup(pid int) error {
 }
 
 // PortForward sets up local port forward to the pod specified by the "app" label in the given namespace
-func PortForward(logf logging.FormatLogger, podList *v1.PodList, localPort, remotePort int) (int, error) {
+func PortForward(logf logging.FormatLogger, podList *v1.PodList, localPort, remotePort int, namespace string) (int, error) {
 	podName := podList.Items[0].Name
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %d:%d -n %s", podName, localPort, remotePort, namespace)
 	portFwdProcess, err := executeCmdBackground(logf, portFwdCmd)

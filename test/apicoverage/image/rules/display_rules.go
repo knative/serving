@@ -17,10 +17,8 @@ limitations under the License.
 package rules
 
 import (
-	"strconv"
 	"strings"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
 )
 
@@ -39,26 +37,9 @@ func PackageDisplayRule(packageName string) string {
 	return packageName
 }
 
-// FieldDisplayRule rule specifies how the field needs to be displayed for json type like result display.
-func FieldDisplayRule(field *coveragecalculator.FieldCoverage) string {
-	var buffer strings.Builder
-	buffer.WriteString("\t" + field.Field)
-	if field.Ignored {
-		buffer.WriteString("\tIgnored")
-	} else {
-		buffer.WriteString("\tCovered: " + strconv.FormatBool(field.Coverage))
-		if len(field.Values) > 0 && !strings.Contains(strings.ToLower(field.Field), "uid") {
-			buffer.WriteString("\tValues: [" + strings.Join(field.GetValues(), ",") + "]")
-		}
-	}
-	buffer.WriteString("\n")
-	return buffer.String()
-}
-
 // GetDisplayRules returns the view.DisplayRules for knative serving.
 func GetDisplayRules() view.DisplayRules {
 	return view.DisplayRules{
 		PackageNameRule: PackageDisplayRule,
-		FieldRule:       FieldDisplayRule,
 	}
 }

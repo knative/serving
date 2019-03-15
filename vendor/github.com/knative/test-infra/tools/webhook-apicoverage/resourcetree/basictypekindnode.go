@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 )
 
 // BasicTypeKindNode represents resource tree node of basic types like int, float, etc.
@@ -59,8 +57,7 @@ func (b *BasicTypeKindNode) updateCoverage(v reflect.Value) {
 }
 
 // no-op as the coverage is calculated as field coverage in parent node.
-func (b *BasicTypeKindNode) buildCoverageData(typeCoverage *[]coveragecalculator.TypeCoverage, nodeRules NodeRules,
-	fieldRules FieldRules, ignoredFields coveragecalculator.IgnoredFields) {}
+func (b *BasicTypeKindNode) buildCoverageData(coverageHelper coverageDataHelper) {}
 
 func (b *BasicTypeKindNode) string(v reflect.Value) string {
 	switch v.Kind() {
