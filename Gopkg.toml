@@ -29,7 +29,7 @@ required = [
 [[override]]
   name = "github.com/knative/pkg"
   # HEAD as of 2019-03-11
-  revision = "f8007289b228598dfdf7e6de67ee5f5c391c9d34"
+  revision = "060135fc89f62c8c7c050ed3fd5a7677e9126549"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -71,6 +71,12 @@ required = [
   # HEAD as of 2019-01-09
   # Needed because release 1.0.0 does not contain a LICENSE file
   revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
+
+[[override]]
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  # HEAD as of 2019-02-11
+  # Needed because this includes a fix to support Stackdriver built-in metrics
+  revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [prune]
   go-tests = true

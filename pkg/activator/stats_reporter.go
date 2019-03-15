@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -144,7 +145,7 @@ func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseC
 		return err
 	}
 
-	stats.Record(ctx, requestCountM.M(v))
+	metrics.Record(ctx, requestCountM.M(v))
 	return nil
 }
 
@@ -168,7 +169,7 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 	}
 
 	// convert time.Duration in nanoseconds to milliseconds
-	stats.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
+	metrics.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
 	return nil
 }
 
