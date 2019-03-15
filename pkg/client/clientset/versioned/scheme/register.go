@@ -23,15 +23,16 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	util_runtime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
-
-func init() {
-	v1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
-	AddToScheme(Scheme)
+var localSchemeBuilder = runtime.SchemeBuilder{
+	autoscalingv1alpha1.AddToScheme,
+	networkingv1alpha1.AddToScheme,
+	servingv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
@@ -44,12 +45,13 @@ func init() {
 //   )
 //
 //   kclientset, _ := kubernetes.NewForConfig(c)
-//   aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
+//   _ = aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
 //
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
-func AddToScheme(scheme *runtime.Scheme) {
-	autoscalingv1alpha1.AddToScheme(scheme)
-	networkingv1alpha1.AddToScheme(scheme)
-	servingv1alpha1.AddToScheme(scheme)
+var AddToScheme = localSchemeBuilder.AddToScheme
+
+func init() {
+	v1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
+	util_runtime.Must(AddToScheme(Scheme))
 }
