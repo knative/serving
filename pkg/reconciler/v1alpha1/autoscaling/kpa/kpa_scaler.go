@@ -131,7 +131,6 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
 	}
-	logger.Errorf("##### DESIRED SCALE: %d", desiredScale)
 
 	if desiredScale == 0 {
 		// We should only scale to zero when both of the following conditions are true:
@@ -160,7 +159,6 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 			}
 		}
 	}
-	logger.Errorf("##### DESIRED SCALE2: %d", desiredScale)
 
 	// Scale from zero. When there are no metrics scale to 1.
 	if currentScale == 0 && desiredScale == scaleUnknown {
