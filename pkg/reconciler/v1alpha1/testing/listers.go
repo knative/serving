@@ -44,20 +44,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var buildAddToScheme = func(scheme *runtime.Scheme) {
+var buildAddToScheme = func(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &unstructured.Unstructured{})
+	return nil
 }
 
-// The signature of this was changed to return an error, so normalize the signature.
-var fakesharedclientsetAddToScheme = func(scheme *runtime.Scheme) {
-	if err := fakesharedclientset.AddToScheme(scheme); err != nil {
-		panic(err.Error())
-	}
-}
-
-var clientSetSchemes = []func(*runtime.Scheme){
+var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
-	fakesharedclientsetAddToScheme,
+	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	buildAddToScheme,
@@ -104,7 +98,7 @@ func (l *Listers) GetBuildObjects() []runtime.Object {
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakesharedclientsetAddToScheme)
+	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
 }
 
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
