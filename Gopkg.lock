@@ -430,7 +430,7 @@
   revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
 
 [[projects]]
-  digest = "1:ad0cca2383dc5678f6711c51cd38594906701e07d713998e3c9240e926f22867"
+  digest = "1:c0b413fd7dbdd734e5ca4c645770c28c7abddfaf929de85b31b3d21c44a79115"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -447,7 +447,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "06e9787157505a649b07677e77d26202ac91431c"
+  revision = "b9d80eaec52c6ee5841271438cb020a80be72cb2"
 
 [[projects]]
   digest = "1:0d15efb38156071d88ce2672e44658f6a94c41e6632b21f8cae40c368848e9f4"
