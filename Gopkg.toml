@@ -37,7 +37,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/caching"
-  revision = "06e9787157505a649b07677e77d26202ac91431c"
+  # HEAD as of 2019-03-14
+   revision = "b9d80eaec52c6ee5841271438cb020a80be72cb2"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
