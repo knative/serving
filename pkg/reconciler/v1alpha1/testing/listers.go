@@ -133,6 +133,11 @@ func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
 }
 
+// GetGatewayLister gets lister for Istio Gateway resource.
+func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
+	return istiolisters.NewGatewayLister(l.indexerFor(&istiov1alpha3.Gateway{}))
+}
+
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
 	return cachinglisters.NewImageLister(l.indexerFor(&cachingv1alpha1.Image{}))
 }

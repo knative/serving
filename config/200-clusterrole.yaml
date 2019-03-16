@@ -52,5 +52,5 @@ rules:
     resources: ["clusteringresses", "clusteringresses/status"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices"]
+    resources: ["virtualservices", "gateways"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
