@@ -730,7 +730,7 @@ func WithEmptyLTTs(r *v1alpha1.Revision) {
 		c.LastTransitionTime = apis.VolatileTime{}
 		conds[i] = c
 	}
-	r.Status.SetConditions(conds)
+	r.Status.Conditions = conds
 }
 
 // WithLastPinned updates the "last pinned" annotation to the provided timestamp.

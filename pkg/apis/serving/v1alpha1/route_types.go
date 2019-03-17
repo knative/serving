@@ -59,9 +59,6 @@ var _ apis.Defaultable = (*Route)(nil)
 // Check that we can create OwnerReferences to a Route.
 var _ kmeta.OwnerRefable = (*Route)(nil)
 
-// Check that RouteStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
-
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
@@ -247,16 +244,4 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 	case cc.Status == corev1.ConditionFalse:
 		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }

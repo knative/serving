@@ -57,9 +57,6 @@ var _ apis.Validatable = (*PodAutoscaler)(nil)
 var _ apis.Defaultable = (*PodAutoscaler)(nil)
 var _ apis.Immutable = (*PodAutoscaler)(nil)
 
-// Check that ConfigurationStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
-
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -251,16 +248,4 @@ func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 		}
 	}
 	return false
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *PodAutoscalerStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *PodAutoscalerStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }

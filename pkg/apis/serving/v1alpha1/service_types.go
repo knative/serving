@@ -62,9 +62,6 @@ var _ apis.Defaultable = (*Service)(nil)
 // Check that we can create OwnerReferences to a Service.
 var _ kmeta.OwnerRefable = (*Service)(nil)
 
-// Check that ServiceStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
-
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
 // track the latest ready revision of a configuration or be pinned to a specific
@@ -346,18 +343,6 @@ func (ss *ServiceStatus) SetManualStatus() {
 	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
 
 	*ss = *newStatus
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {
-	return ss.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	ss.Conditions = conditions
 }
 
 const (

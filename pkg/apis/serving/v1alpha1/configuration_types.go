@@ -54,9 +54,6 @@ var _ apis.Defaultable = (*Configuration)(nil)
 // Check that we can create OwnerReferences to a Configuration.
 var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
-// Check that ConfigurationStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
-
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -185,16 +182,4 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		ConfigurationConditionReady,
 		"RevisionDeleted",
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *ConfigurationStatus) GetConditions() duckv1alpha1.Conditions {
-	return cs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *ConfigurationStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	cs.Conditions = conditions
 }
