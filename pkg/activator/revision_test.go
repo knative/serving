@@ -293,10 +293,12 @@ func newRevisionBuilder(labels map[string]string) *revisionBuilder {
 				},
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: duckv1alpha1.Conditions{{
-					Type:   v1alpha1.RevisionConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
+				Status: duckv1alpha1.Status{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 			},
 		},
 	}

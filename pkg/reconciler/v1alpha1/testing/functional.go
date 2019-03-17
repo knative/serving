@@ -267,10 +267,12 @@ func WithManualStatus(s *v1alpha1.Service) {
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   "Ready",
-			Status: "True",
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   "Ready",
+				Status: "True",
+			}},
+		},
 	})
 }
 
@@ -299,12 +301,14 @@ func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-			Conditions: []duckv1alpha1.Condition{{
-				Type:    "Ready",
-				Status:  "False",
-				Reason:  reason,
-				Message: message,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:    "Ready",
+					Status:  "False",
+					Reason:  reason,
+					Message: message,
+				}},
+			},
 		})
 	}
 }
@@ -317,10 +321,12 @@ func WithReadyConfig(name string) ServiceOption {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
 			LatestReadyRevisionName:   name,
-			Conditions: []duckv1alpha1.Condition{{
-				Type:   "Ready",
-				Status: "True",
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:   "Ready",
+					Status: "True",
+				}},
+			},
 		})
 	}
 }
@@ -331,13 +337,15 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			LatestCreatedRevisionName: name,
-			Conditions: []duckv1alpha1.Condition{{
-				Type:   "Ready",
-				Status: "False",
-				Reason: reason,
-				Message: fmt.Sprintf("Revision %q failed with message: %s.",
-					name, message),
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:   "Ready",
+					Status: "False",
+					Reason: reason,
+					Message: fmt.Sprintf("Revision %q failed with message: %s.",
+						name, message),
+				}},
+			},
 		})
 	}
 }
@@ -460,10 +468,12 @@ func MarkTrafficAssigned(r *v1alpha1.Route) {
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   "Ready",
-			Status: "True",
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   "Ready",
+				Status: "True",
+			}},
+		},
 	})
 }
 
@@ -677,7 +687,7 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 // WithNoBuild updates the status conditions to propagate a Build status as-if
 // no BuildRef was specified.
 func WithNoBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
@@ -688,7 +698,7 @@ func WithNoBuild(r *v1alpha1.Revision) {
 
 // WithOngoingBuild propagates the status of an in-progress Build to the Revision's status.
 func WithOngoingBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
@@ -698,7 +708,7 @@ func WithOngoingBuild(r *v1alpha1.Revision) {
 
 // WithSuccessfulBuild propagates the status of a successful Build to the Revision's status.
 func WithSuccessfulBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
@@ -709,7 +719,7 @@ func WithSuccessfulBuild(r *v1alpha1.Revision) {
 // WithFailedBuild propagates the status of a failed Build to the Revision's status.
 func WithFailedBuild(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 			Conditions: []duckv1alpha1.Condition{{
 				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,

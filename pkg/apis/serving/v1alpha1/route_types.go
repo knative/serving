@@ -122,6 +122,8 @@ var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAs
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
@@ -144,18 +146,6 @@ type RouteStatus struct {
 	// LatestReadyRevisionName that we last observed.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
-
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

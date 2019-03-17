@@ -60,51 +60,61 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isActivationRequired: false,
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionActive,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionActive,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isActivationRequired: true,
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}, {
-				Type:   RevisionConditionActive,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionUnknown,
+					Reason: "Updating",
+				}, {
+					Type:   RevisionConditionActive,
+					Status: corev1.ConditionUnknown,
+					Reason: "Updating",
+				}},
+			},
 		},
 		isActivationRequired: true,
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isActivationRequired: false,
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
 		},
 		isActivationRequired: false,
 	}}
@@ -130,69 +140,83 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionBuildSucceeded,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type: RevisionConditionReady,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type: RevisionConditionReady,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionBuildSucceeded,
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionBuildSucceeded,
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}}
@@ -218,7 +242,7 @@ func TestGetSetCondition(t *testing.T) {
 		Severity: duckv1alpha1.ConditionSeverityError,
 	}
 
-	rs.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	rs.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
@@ -242,13 +266,13 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	// Empty BuildStatus keeps things as-is.
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{})
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{})
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
@@ -264,7 +288,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
 	}
 
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
@@ -339,7 +363,7 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
@@ -351,7 +375,7 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	wantReason, wantMessage := "this is the reason", "and this the message"
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionFalse,
@@ -441,7 +465,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	r.Status.MarkActive()
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
-	r.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,

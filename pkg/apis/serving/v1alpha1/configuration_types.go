@@ -90,11 +90,7 @@ var confCondSet = duckv1alpha1.NewLivingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -105,12 +101,6 @@ type ConfigurationStatus struct {
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

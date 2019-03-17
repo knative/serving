@@ -104,19 +104,7 @@ const (
 var podCondSet = duckv1alpha1.NewLivingConditionSet(PodAutoscalerConditionActive)
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus struct {
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the PodAutoscaler that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
+type PodAutoscalerStatus duckv1alpha1.Status
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

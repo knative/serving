@@ -170,8 +170,7 @@ var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigur
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -210,11 +209,6 @@ type ServiceStatus struct {
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Service that
-	// was last processed by the controller.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

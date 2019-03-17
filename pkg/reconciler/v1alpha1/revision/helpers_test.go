@@ -42,7 +42,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		// If the conditions indicate that things are running, we should get nil.
 		description: "build running",
 		build: &duckv1alpha1.KResource{
-			Status: duckv1alpha1.KResourceStatus{
+			Status: duckv1alpha1.Status{
 				Conditions: []duckv1alpha1.Condition{{
 					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionUnknown,
@@ -53,7 +53,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		// If the build succeeded, return the success condition.
 		description: "build succeeded",
 		build: &duckv1alpha1.KResource{
-			Status: duckv1alpha1.KResourceStatus{
+			Status: duckv1alpha1.Status{
 				Conditions: []duckv1alpha1.Condition{{
 					Type:   duckv1alpha1.ConditionSucceeded,
 					Status: corev1.ConditionTrue,
@@ -68,7 +68,7 @@ func TestGetBuildDoneCondition(t *testing.T) {
 		// If the build failed, return the failure condition.
 		description: "build failed",
 		build: &duckv1alpha1.KResource{
-			Status: duckv1alpha1.KResourceStatus{
+			Status: duckv1alpha1.Status{
 				Conditions: []duckv1alpha1.Condition{{
 					Type:    duckv1alpha1.ConditionSucceeded,
 					Status:  corev1.ConditionTrue,
@@ -152,11 +152,13 @@ func TestGetRevisionLastTransitionTime(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Conditions: duckv1alpha1.Conditions{{
-					Type:               v1alpha1.RevisionConditionReady,
-					Status:             corev1.ConditionTrue,
-					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(expectedTime)},
-				}},
+				Status: duckv1alpha1.Status{
+					Conditions: duckv1alpha1.Conditions{{
+						Type:               v1alpha1.RevisionConditionReady,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(expectedTime)},
+					}},
+				},
 			},
 		},
 	}}
