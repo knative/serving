@@ -5,3 +5,6 @@ approvers:
 
 reviewers:
 - networking-reviewers
+
+labels:
+- area/networking

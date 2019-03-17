@@ -4,3 +4,6 @@ approvers:
 - evankanderson
 - mattmoor
 - vaikas-google
+
+labels:
+- area/API

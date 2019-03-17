@@ -5,3 +5,6 @@ approvers:
 
 reviewers:
 - serving-api-reviewers
+
+labels:
+- area/API
