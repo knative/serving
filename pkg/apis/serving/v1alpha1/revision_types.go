@@ -58,9 +58,6 @@ var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
-// Check that RevisionStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
-
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
 
@@ -426,18 +423,6 @@ func (rs *RevisionStatus) MarkInactive(reason, message string) {
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image
