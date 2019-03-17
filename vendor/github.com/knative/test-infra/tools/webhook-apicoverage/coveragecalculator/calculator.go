@@ -28,10 +28,10 @@ func CalculateTypeCoverage(typeCoverage []TypeCoverage) *CoverageValues {
 	cv := CoverageValues{}
 	for _, coverage := range typeCoverage {
 		for _, field := range coverage.Fields {
+			cv.TotalFields++
 			if field.Ignored {
 				cv.IgnoredFields++
 			} else {
-				cv.TotalFields++
 				if field.Coverage {
 					cv.CoveredFields++
 				}

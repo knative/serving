@@ -61,7 +61,7 @@ function publish_yamls() {
     gsutil cp $@ ${DEST}
   }
   # Before publishing the YAML files, cleanup the `latest` dir.
-  echo "Cleaning up the `latest` directory first"
+  echo "Cleaning up the 'latest' directory first"
   gsutil -m rm gs://${RELEASE_GCS_BUCKET}/latest/**
   verbose_gsutil_cp latest $@
   [[ -n ${TAG} ]] && verbose_gsutil_cp previous/${TAG} $@
@@ -69,6 +69,7 @@ function publish_yamls() {
 
 # These are global environment variables.
 SKIP_TESTS=0
+PRESUBMIT_TEST_FAIL_FAST=1
 TAG_RELEASE=0
 PUBLISH_RELEASE=0
 PUBLISH_TO_GITHUB=0
@@ -382,12 +383,16 @@ function main() {
     abort "error building the release"
   fi
   [[ -z "${YAMLS_TO_PUBLISH}" ]] && abort "no manifests were generated"
+  # Ensure no empty YAML file will be published.
+  for yaml in ${YAMLS_TO_PUBLISH}; do
+    [[ -s ${yaml} ]] || abort "YAML file ${yaml} is empty"
+  done
   echo "New release built successfully"
   if (( PUBLISH_RELEASE )); then
     tag_images_in_yamls ${YAMLS_TO_PUBLISH}
     publish_yamls ${YAMLS_TO_PUBLISH}
     publish_to_github ${YAMLS_TO_PUBLISH}
-    echo "New release published successfully"
+    banner "New release published successfully"
   fi
 }
 

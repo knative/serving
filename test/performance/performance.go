@@ -17,12 +17,11 @@ limitations under the License.
 package performance
 
 import (
-	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/prometheus"
@@ -47,7 +46,7 @@ type Client struct {
 }
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(ctx context.Context, t *testing.T, promReqd bool) (*Client, error) {
+func Setup(logf logging.FormatLogger, promReqd bool) (*Client, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -55,19 +54,19 @@ func Setup(ctx context.Context, t *testing.T, promReqd bool) (*Client, error) {
 
 	var p *prometheus.PromProxy
 	if promReqd {
-		t.Log("Creating prometheus proxy client")
+		logf("Creating prometheus proxy client")
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
-		p.Setup(ctx, t.Logf)
+		p.Setup(clients.KubeClient.Kube, logf)
 	}
 	return &Client{E2EClients: clients, PromClient: p}, nil
 }
 
 // TearDown cleans up resources used
-func TearDown(client *Client, names test.ResourceNames) {
+func TearDown(client *Client, names test.ResourceNames, logf logging.FormatLogger) {
 	test.TearDown(client.E2EClients, names)
 
 	if client.PromClient != nil {
-		client.PromClient.Teardown()
+		client.PromClient.Teardown(logf)
 	}
 }
 

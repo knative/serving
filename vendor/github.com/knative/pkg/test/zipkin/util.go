@@ -41,6 +41,9 @@ const (
 	// App is the name of this component.
 	// This will be used as a label selector
 	app = "zipkin"
+
+	// Namespace we are using for istio components
+	istioNs = "istio-system"
 )
 
 var (
@@ -67,13 +70,13 @@ func SetupZipkinTracing(kubeClientset *kubernetes.Clientset, logf logging.Format
 			return
 		}
 
-		zipkinPods, err := monitoring.GetPods(kubeClientset, app)
+		zipkinPods, err := monitoring.GetPods(kubeClientset, app, istioNs)
 		if err != nil {
 			logf("Error retrieving Zipkin pod details: %v", err)
 			return
 		}
 
-		zipkinPortForwardPID, err = monitoring.PortForward(logf, zipkinPods, ZipkinPort, ZipkinPort)
+		zipkinPortForwardPID, err = monitoring.PortForward(logf, zipkinPods, ZipkinPort, ZipkinPort, istioNs)
 		if err != nil {
 			logf("Error starting kubectl port-forward command: %v", err)
 			return

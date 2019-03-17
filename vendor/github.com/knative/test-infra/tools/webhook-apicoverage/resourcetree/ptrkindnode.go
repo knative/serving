@@ -18,8 +18,6 @@ package resourcetree
 
 import (
 	"reflect"
-
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 )
 
 const (
@@ -56,10 +54,9 @@ func (p *PtrKindNode) updateCoverage(v reflect.Value) {
 	}
 }
 
-func (p *PtrKindNode) buildCoverageData(typeCoverage *[]coveragecalculator.TypeCoverage, nodeRules NodeRules,
-	fieldRules FieldRules, ignoredFields coveragecalculator.IgnoredFields) {
+func (p *PtrKindNode) buildCoverageData(coverageHelper coverageDataHelper) {
 	if p.objKind == reflect.Struct {
-		p.Children[p.Field + ptrNodeNameSuffix].buildCoverageData(typeCoverage, nodeRules, fieldRules, ignoredFields)
+		p.Children[p.Field + ptrNodeNameSuffix].buildCoverageData(coverageHelper)
 	}
 }
 

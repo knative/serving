@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os/user"
 	"path"
+	"strings"
 
 	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
@@ -175,8 +176,12 @@ func GetAndWriteTotalCoverage(webhookIP string, outputFile string) error {
 		return err
 	}
 
-	totalCoverageDisplay := view.GetCoverageValuesDisplay(totalCoverage)
-	if err = ioutil.WriteFile(outputFile, []byte(totalCoverageDisplay), 0400); err !=nil {
+	var buffer strings.Builder
+	buffer.WriteString(view.HTMLHeader)
+	totalCoverageDisplay := view.GetHTMLCoverageValuesDisplay(totalCoverage)
+	buffer.WriteString(totalCoverageDisplay)
+	buffer.WriteString(view.HTMLFooter)
+	if err = ioutil.WriteFile(outputFile, []byte(buffer.String()), 0400); err !=nil {
 		return fmt.Errorf("error writing total coverage to output file: %s, error: %v coverage: %s", outputFile, err, totalCoverageDisplay)
 	}
 

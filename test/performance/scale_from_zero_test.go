@@ -19,7 +19,6 @@ limitations under the License.
 package performance
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -87,7 +86,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(context.Background(), t, false)
+	pc, err := Setup(t.Logf, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
@@ -106,7 +105,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			TearDown(pc, *testNames[i])
+			TearDown(pc, *testNames[i], t.Logf)
 		}
 	}
 	defer cleanupNames()

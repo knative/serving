@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:20d532335dbe328b6e97d9a507a2a8301084e53b8f50fae7f41eeaef590bb938"
+  digest = "1:6a1c0ba8941daa950823efed0e86d18038c682f85f4f8f3d32daee2b8b614d4b"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -501,11 +501,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "060135fc89f62c8c7c050ed3fd5a7677e9126549"
+  revision = "684620ff81ae137be5cda634a03831b373adc4eb"
 
 [[projects]]
   branch = "master"
-  digest = "1:df9443c98d22beaa82e9415792e11a4921b0d4b699467957bb21b01ee0010cd9"
+  digest = "1:37372ae74214d400b7efb4b1b9839d99d8e2c6fc4e2a1ddf6c38431c979c91f1"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -523,7 +523,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "3fd8236ecc212038bfbdac2118aa92e53e4c8a62"
+  revision = "cc62d7b1296b8ae5c93f1dec2cbfbaa84624304b"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1347,7 +1347,6 @@
     "github.com/knative/test-infra/shared/prow",
     "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator",
     "github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree",
     "github.com/knative/test-infra/tools/webhook-apicoverage/tools",
     "github.com/knative/test-infra/tools/webhook-apicoverage/view",
