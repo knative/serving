@@ -254,7 +254,7 @@ func main() {
 		GetProbeCount: maxRetries,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = &activatorhandler.ProbeHandler{NextHandler:ah}
+	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
