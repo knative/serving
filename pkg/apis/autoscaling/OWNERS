@@ -5,3 +5,6 @@ approvers:
 
 reviewers:
 - autoscaling-reviewers
+
+labels:
+- area/autoscale
