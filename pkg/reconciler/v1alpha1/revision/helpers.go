@@ -36,7 +36,7 @@ func getBuildDoneCondition(build *duckv1alpha1.KResource) *duckv1alpha1.Conditio
 	return nil
 }
 
-func getIsServiceReady(e *corev1.Endpoints) bool {
+func isServiceReady(e *corev1.Endpoints) bool {
 	for _, es := range e.Subsets {
 		if len(es.Addresses) > 0 {
 			return true
