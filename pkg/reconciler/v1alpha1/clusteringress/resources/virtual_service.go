@@ -161,7 +161,7 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 }
 
 // Should only match 1..65535, but for simplicity it matches 0-99999.
-const portMatch = `(?::\d{0,5})?`
+const portMatch = `(?::\d{1,5})?`
 
 // hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 func hostRegExp(host string) string {

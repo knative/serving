@@ -33,7 +33,7 @@ func NewServer(addr string, h http.Handler) *http.Server {
 	return h1s
 }
 
-// ListenAndServe starts a new server and listents on the `addr`.
+// ListenAndServe starts a new server and listens on the `addr`
 func ListenAndServe(addr string, h http.Handler) error {
 	s := NewServer(addr, h)
 	return s.ListenAndServe()

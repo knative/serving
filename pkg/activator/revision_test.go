@@ -46,6 +46,7 @@ var defaultRevisionLabels = map[string]string{
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
+	defer ClearAll()
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder(defaultRevisionLabels).
