@@ -17,10 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -78,43 +76,5 @@ type CertificateStatus struct {
 	// +optional
 	NotAfter *metav1.Time `json:"notAfter,omitempty"`
 
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Certificate that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
-// InitializeConditions initializes the certificate conditions.
-func (cs *CertificateStatus) InitializeConditions() {
-	certificateCondSet.Manage(cs).InitializeConditions()
-}
-
-// MarkReady marks the certificate as ready to use.
-func (cs *CertificateStatus) MarkReady() {
-	certificateCondSet.Manage(cs).MarkTrue(CertificateCondidtionReady)
-}
-
-// GetCondition gets a speicifc condition of the Certificate status.
-func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return certificateCondSet.Manage(cs).GetCondition(t)
-}
-
-// ConditionType represents a Certificate condition value
-const (
-	// CertificateConditionReady is set when the requested certificate
-	// is provioned and valid.
-	CertificateCondidtionReady = duckv1alpha1.ConditionReady
-)
-
-var certificateCondSet = duckv1alpha1.NewLivingConditionSet(CertificateCondidtionReady)
-
-var _ apis.Validatable = (*Certificate)(nil)
-
-// GetGroupVersionKind returns the GroupVersionKind of Certificate.
-func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind("Certificate")
+	duckv1alpha1.Status `json:",inline"`
 }

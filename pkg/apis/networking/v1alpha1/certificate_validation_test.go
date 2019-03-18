@@ -36,10 +36,6 @@ func TestCertificateSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "empty",
-		cs:   &CertificateSpec{},
-		want: apis.ErrMissingField(apis.CurrentField),
-	}, {
 		name: "missing-dnsnames",
 		cs: &CertificateSpec{
 			DNSNames:   []string{},
@@ -52,7 +48,7 @@ func TestCertificateSpecValidation(t *testing.T) {
 			DNSNames:   []string{"host.example", ""},
 			SecretName: "secret",
 		},
-		want: apis.ErrInvalidArrayValue("DNS Name cannot be empty string.", "dnsNames", 1),
+		want: apis.ErrInvalidArrayValue("", "dnsNames", 1),
 	}, {
 		name: "missing-secret-name",
 		cs: &CertificateSpec{
