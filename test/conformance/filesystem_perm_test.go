@@ -45,8 +45,8 @@ func verifyPermString(resp string, expected string) error {
 func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[string]FilePathInfo) error {
 	for key, value := range paths {
 		resp, _, err := fetchEnvInfo(t, clients,
-			fmt.Sprintf("%s?%s=%s", test.EnvImageFilePathInfoPath, test.EnvImageFilePathQueryParam, key,
-				&test.Options{}))
+			fmt.Sprintf("%s?%s=%s", test.EnvImageFilePathInfoPath, test.EnvImageFilePathQueryParam, key),
+			&test.Options{})
 		if err != nil {
 			return err
 		}
