@@ -35,6 +35,11 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
+
+	// scrapeTickInterval is the interval of time between scraping metrics across
+	// all pods of a revision.
+	// TODO(yanweiguo): tuning this value. To be based on pod population?
+	scrapeTickInterval = time.Second / 3
 )
 
 // Metric is a resource which observes the request load of a Revision and
@@ -72,10 +77,14 @@ type UniScaler interface {
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
 
+// StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
+type StatsScraperFactory func(*Metric, *DynamicConfig) (StatsScraper, error)
+
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
+	pokeCh chan struct{}
 
 	// mux guards access to metric
 	mux    sync.RWMutex
@@ -109,10 +118,12 @@ type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
+	statsCh       chan<- *StatMessage
 
 	dynConfig *DynamicConfig
 
-	uniScalerFactory UniScalerFactory
+	uniScalerFactory    UniScalerFactory
+	statsScraperFactory StatsScraperFactory
 
 	logger *zap.SugaredLogger
 
@@ -121,14 +132,22 @@ type MultiScaler struct {
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(dynConfig *DynamicConfig, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+func NewMultiScaler(
+	dynConfig *DynamicConfig,
+	stopCh <-chan struct{},
+	statsCh chan<- *StatMessage,
+	uniScalerFactory UniScalerFactory,
+	statsScraperFactory StatsScraperFactory,
+	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:          make(map[string]*scalerRunner),
-		scalersStopCh:    stopCh,
-		dynConfig:        dynConfig,
-		uniScalerFactory: uniScalerFactory,
-		logger:           logger,
+		scalers:             make(map[string]*scalerRunner),
+		scalersStopCh:       stopCh,
+		statsCh:             statsCh,
+		dynConfig:           dynConfig,
+		uniScalerFactory:    uniScalerFactory,
+		statsScraperFactory: statsScraperFactory,
+		logger:              logger,
 	}
 }
 
@@ -217,6 +236,17 @@ func (m *MultiScaler) Inform(event string) bool {
 	return false
 }
 
+// setScale directly sets the scale for a given metric key. This does not perform any ticking
+// or updating of other scaler components.
+func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
+	scaler, exists := m.scalers[metricKey]
+	if !exists {
+		return false
+	}
+	scaler.updateLatestScale(scale)
+	return true
+}
+
 func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
 
 	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
@@ -229,6 +259,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		scaler: scaler,
 		stopCh: stopCh,
 		metric: *metric,
+		pokeCh: make(chan struct{}),
 	}
 	runner.metric.Status.DesiredScale = -1
 
@@ -247,6 +278,28 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				return
 			case <-ticker.C:
 				m.tickScaler(ctx, scaler, scaleChan)
+			case <-runner.pokeCh:
+				m.tickScaler(ctx, scaler, scaleChan)
+			}
+		}
+	}()
+
+	scraper, err := m.statsScraperFactory(metric, m.dynConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
+	}
+	scraperTicker := time.NewTicker(scrapeTickInterval)
+	go func() {
+		for {
+			select {
+			case <-m.scalersStopCh:
+				scraperTicker.Stop()
+				return
+			case <-stopCh:
+				scraperTicker.Stop()
+				return
+			case <-scraperTicker.C:
+				scraper.Scrape(ctx, m.statsCh)
 			}
 		}
 	}()
@@ -300,6 +353,10 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	if exists {
 		logger := m.logger.With(zap.String(logkey.Key, key))
 		ctx := logging.WithLogger(context.TODO(), logger)
+
 		scaler.scaler.Record(ctx, stat)
+		if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+			scaler.pokeCh <- struct{}{}
+		}
 	}
 }

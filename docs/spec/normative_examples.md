@@ -594,8 +594,8 @@ simple development flows, the Service can also reference Revisions directly in
 been running, and the new revision the user would like test or canary a portion
 of traffic to, prior to rolling out entirely. This mode is also useful to roll
 back to a known-good previous revision. (Note: see
-[Appendix B](complex_examples.md) for a semi-automatic variation of managed
-rollouts).
+[example 3](#3-managed-release-of-a-new-revision---config-change-only) for a
+semi-automatic variation of managed rollouts).
 
 The client updates the service to switch to release mode.
 

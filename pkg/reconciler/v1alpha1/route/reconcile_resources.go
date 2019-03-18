@@ -90,7 +90,7 @@ func (c *Reconciler) reconcileClusterIngress(
 	if apierrs.IsNotFound(err) {
 		clusterIngress, err = c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Create(desired)
 		if err != nil {
-			logger.Error("Failed to create ClusterIngress", zap.Error(err))
+			logger.Errorw("Failed to create ClusterIngress", zap.Error(err))
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create ClusterIngress for route %s/%s: %v", r.Namespace, r.Name, err)
 			return nil, err
@@ -110,7 +110,7 @@ func (c *Reconciler) reconcileClusterIngress(
 
 			updated, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(origin)
 			if err != nil {
-				logger.Error("Failed to update ClusterIngress", zap.Error(err))
+				logger.Errorw("Failed to update ClusterIngress", zap.Error(err))
 				return nil, err
 			}
 			return updated, nil
@@ -137,7 +137,7 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 		// Doesn't exist, create it.
 		service, err = c.KubeClientSet.CoreV1().Services(ns).Create(desiredService)
 		if err != nil {
-			logger.Error("Failed to create service", zap.Error(err))
+			logger.Errorw("Failed to create service", zap.Error(err))
 			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create service %q: %v", name, err)
 			return err

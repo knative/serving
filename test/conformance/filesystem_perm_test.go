@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
 )
 
@@ -43,27 +42,44 @@ func verifyPermString(resp string, expected string) error {
 	return nil
 }
 
-func TestMustFileSystemPermissions(t *testing.T) {
-	logger := logging.GetContextLogger(t.Name())
-	clients := setup(t)
-	for key, value := range MustFilePathSpecs {
-		resp, _, err := fetchEnvInfo(clients, logger, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
+func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[string]FilePathInfo) error {
+	for key, value := range paths {
+		resp, _, err := fetchEnvInfo(t, clients, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		var f FilePathInfo
 		err = json.Unmarshal(resp, &f)
 		if err != nil {
-			t.Fatalf("Error unmarshalling response: %v", err)
+			return fmt.Errorf("Error unmarshalling response: %v", err)
 		}
 
 		if f.IsDirectory != value.IsDirectory {
-			t.Fatalf("%s isDirectory mismatch. Expect : %t Received : %t", key, value.IsDirectory, f.IsDirectory)
+			return fmt.Errorf("%s isDirectory = %t, want: %t", key, f.IsDirectory, value.IsDirectory)
 		}
 
 		if err = verifyPermString(f.PermString[1:], value.PermString); err != nil {
-			t.Fatal(err)
+			return err
 		}
+	}
+	return nil
+}
+
+// TestMustHaveFileSystemPermissions asserts that the file system has all the MUST have paths and they have appropriate permissions.
+func TestMustHaveFileSystemPermissions(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+	if err := testFileSystemPermissions(t, clients, MustFilePathSpecs); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestShouldHaveFileSystemPermissions asserts that the file system has all the SHOULD have paths and they have appropriate permissions.
+func TestShouldHaveFileSystemPermissions(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+	if err := testFileSystemPermissions(t, clients, ShouldFilePathSpecs); err != nil {
+		t.Error(err)
 	}
 }

@@ -21,16 +21,20 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
@@ -43,10 +47,6 @@ import (
 )
 
 const (
-	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
-	IstioIngressClassName = "istio.ingress.networking.knative.dev"
-
 	controllerAgentName = "clusteringress-controller"
 )
 
@@ -62,7 +62,10 @@ type Reconciler struct {
 	// listers index properties about resources
 	clusterIngressLister listers.ClusterIngressLister
 	virtualServiceLister istiolisters.VirtualServiceLister
+	gatewayLister        istiolisters.GatewayLister
 	configStore          configStore
+
+	enableReconcilingGateway bool
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -74,17 +77,20 @@ func NewController(
 	opt reconciler.Options,
 	clusterIngressInformer informers.ClusterIngressInformer,
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
+	gatewayInformer istioinformers.GatewayInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(opt, controllerAgentName),
-		clusterIngressLister: clusterIngressInformer.Lister(),
-		virtualServiceLister: virtualServiceInformer.Lister(),
+		Base:                     reconciler.NewBase(opt, controllerAgentName),
+		clusterIngressLister:     clusterIngressInformer.Lister(),
+		virtualServiceLister:     virtualServiceInformer.Lister(),
+		gatewayLister:            gatewayInformer.Lister(),
+		enableReconcilingGateway: false,
 	}
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, IstioIngressClassName, true)
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -147,7 +153,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(ci); err != nil {
-		logger.Warn("Failed to update clusterIngress status", zap.Error(err))
+		logger.Warnw("Failed to update clusterIngress status", zap.Error(err))
 		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 		return err
@@ -185,7 +191,8 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults()
 
 	ci.Status.InitializeConditions()
-	vs := resources.MakeVirtualService(ci, gatewayNamesFromContext(ctx, ci))
+	gatewayNames := gatewayNamesFromContext(ctx, ci)
+	vs := resources.MakeVirtualService(ci, gatewayNames)
 
 	logger.Infof("Reconciling clusterIngress :%v", ci)
 	logger.Info("Creating/Updating VirtualService")
@@ -194,11 +201,30 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 		// when error reconciling VirtualService?
 		return err
 	}
+
 	// As underlying network programming (VirtualService now) is stateless,
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
+	ci.Status.ObservedGeneration = ci.Generation
+
+	// TODO(zhiminx): Istio requires to put certificates under the namespace where Istio ingress
+	// (pods) are deployed so that Istio ingress pods can consume them.
+	// So we need to copy certificates from their origin namespace to the Istio ingress namespace.
+
+	// TODO(zhiminx): currently we turn off Gateway reconciliation as it relies
+	// on Istio 1.1, which is not ready.
+	// We should eventually use a feature flag (in ConfigMap) to turn this on/off.
+	if c.enableReconcilingGateway {
+		desiredServers := resources.MakeServers(ci)
+		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
+			return err
+		}
+	}
+
+	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
+
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
@@ -245,11 +271,12 @@ func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) [
 }
 
 func dedup(strs []string) []string {
-	existed := make(map[string]struct{})
+	existed := sets.NewString()
 	unique := []string{}
+	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
 	for _, s := range strs {
-		if _, ok := existed[s]; !ok {
-			existed[s] = struct{}{}
+		if !existed.Has(s) {
+			existed.Insert(s)
 			unique = append(unique, s)
 		}
 	}
@@ -266,7 +293,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	if apierrs.IsNotFound(err) {
 		vs, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
-			logger.Error("Failed to create VirtualService", zap.Error(err))
+			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %q/%q: %v", ns, name, err)
 			return err
@@ -285,12 +312,50 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 		existing.Spec = desired.Spec
 		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
-			logger.Error("Failed to update VirtualService", zap.Error(err))
+			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 			"Updated status for VirtualService %q/%q", ns, name)
 	}
 
+	return nil
+}
+
+func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNames []string, desiredServers []v1alpha3.Server) error {
+	for _, gatewayName := range gatewayNames {
+		if err := c.reconcileGateway(ctx, ci, gatewayName, desiredServers); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string, desired []v1alpha3.Server) error {
+	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
+	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
+
+	logger := logging.FromContext(ctx)
+	gateway, err := c.gatewayLister.Gateways(system.Namespace()).Get(gatewayName)
+	if err != nil {
+		// Not like VirtualService, A default gateway needs to be existed.
+		// It should be installed when installing Knative.
+		logger.Errorw("Failed to get Gateway.", zap.Error(err))
+		return err
+	}
+
+	existing := resources.GetServers(gateway, ci)
+	if equality.Semantic.DeepEqual(existing, desired) {
+		return nil
+	}
+
+	copy := gateway.DeepCopy()
+	copy = resources.UpdateGateway(copy, desired, existing)
+	if _, err := c.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+		logger.Errorw("Failed to update Gateway", zap.Error(err))
+		return err
+	}
+	c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+		"Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
 	return nil
 }

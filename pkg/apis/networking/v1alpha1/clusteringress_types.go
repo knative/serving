@@ -256,8 +256,8 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the ClusterIngress.
 type IngressStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
+
 	// LoadBalancer contains the current status of the load-balancer.
 	// +optional
 	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
@@ -367,9 +367,7 @@ func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus)
 	cis.LoadBalancer = &LoadBalancerStatus{
 		Ingress: []LoadBalancerIngressStatus{},
 	}
-	for _, lb := range lbs {
-		cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lb)
-	}
+	cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lbs...)
 	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionLoadBalancerReady)
 }
 

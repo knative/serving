@@ -22,15 +22,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,20 +43,18 @@ const (
 )
 
 func TestDestroyPodInflight(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger(t.Name())
-
-	logger.Info("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, "timeout", &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
+	t.Log("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(t, clients, "timeout", &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -78,16 +78,16 @@ func TestDestroyPodInflight(t *testing.T) {
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesBody(timeoutExpectedOutput), http.StatusNotFound),
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -102,13 +102,13 @@ func TestDestroyPodInflight(t *testing.T) {
 	g, _ := errgroup.WithContext(context.TODO())
 
 	g.Go(func() error {
-		logger.Info("Sending in a long running request")
+		t.Log("Sending in a long running request")
 		res, err := client.Do(req)
 		if err != nil {
 			return err
 		}
 
-		if res.StatusCode != 200 {
+		if res.StatusCode != http.StatusOK {
 			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
 		}
 		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDurationInMillis)
@@ -123,11 +123,60 @@ func TestDestroyPodInflight(t *testing.T) {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
 
-		logger.Info("Destroying the configuration (also destroys the pods)")
+		t.Log("Destroying the configuration (also destroys the pods)")
 		return clients.ServingClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
 		t.Errorf("Something went wrong with the request: %v", err)
+	}
+}
+
+const (
+	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
+	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
+	// This is still well below the 5 minutes it might take them to disappear max.
+	maxTimeToDelete = 60 * time.Second
+)
+
+func TestDestroyPodTimely(t *testing.T) {
+	t.Parallel()
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{RevisionTimeoutSeconds: 5 * 60})
+	if err != nil {
+		t.Fatalf("Failed to create a service: %v", err)
+	}
+
+	start := time.Now()
+
+	// Deleting the service will also delete all pods.
+	clients.ServingClient.Services.Delete(names.Service, nil)
+
+	// Wait until the pods have disappeared.
+	deploymentName := rnames.Deployment(objects.Revision)
+	pkgTest.WaitForPodListState(
+		clients.KubeClient,
+		func(p *v1.PodList) (bool, error) {
+			for _, pod := range p.Items {
+				if strings.Contains(pod.Name, deploymentName) {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		"WaitForPodsToDisappear", test.ServingNamespace)
+
+	timeToDelete := time.Since(start)
+	if timeToDelete > maxTimeToDelete {
+		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
 	}
 }

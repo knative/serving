@@ -19,20 +19,22 @@ limitations under the License.
 package performance
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
+	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
+	"github.com/knative/test-infra/shared/testgrid"
 )
 
 const (
@@ -40,46 +42,51 @@ const (
 	ScaleFromZeroAvgTestGridProperty = "perf_ScaleFromZero_Average"
 	helloWorldExpectedOutput         = "Hello World!"
 	helloWorldImage                  = "helloworld"
+	waitToServe                      = 10 * time.Minute
 )
 
 type stats struct {
 	avg time.Duration
 }
 
-func runScaleFromZero(clients *test.Clients, logger *logging.BaseLogger, ro *test.ResourceObjects) (time.Duration, error) {
+func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
+	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
 	domain := ro.Route.Status.Domain
-	logger.Info("Waiting for deployment to scale to zero.")
+	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
 	if err := pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
-		2*time.Minute); err != nil {
-		return 0, fmt.Errorf("Failed waiting for deployment to scale to zero: %v", err)
+		3*time.Minute); err != nil {
+		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
+		t.Log(m)
+		return 0, errors.New(m)
 	}
 
 	start := time.Now()
-	logger.Info("Waiting for endpoint to serve request")
-	if _, err := pkgTest.WaitForEndpointState(
+	t.Logf("%02d: waiting for endpoint to serve request", idx)
+	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
-		logger,
+		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		return 0, fmt.Errorf("The endpoint for Route %q at domain %q didn't serve the expected text %q: %v", ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
+		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		t.Log(m)
+		return 0, errors.New(m)
 	}
 
-	logger.Info("Request completed")
+	t.Logf("%02d: request completed", idx)
 	return time.Since(start), nil
 }
 
-func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Duration, error) {
-	ctx := context.TODO()
-	pc, err := Setup(ctx, logger, false)
+func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
+	pc, err := Setup(t.Logf, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
@@ -90,7 +97,7 @@ func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Durati
 	// Initialize our service names.
 	for i := 0; i < count; i++ {
 		testNames[i] = &test.ResourceNames{
-			Service: test.AppendRandomString(fmt.Sprintf("%s-%d", serviceName, i), logger),
+			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
 			Image: helloWorldImage,
 		}
@@ -98,32 +105,59 @@ func parallelScaleFromZero(logger *logging.BaseLogger, count int) ([]time.Durati
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			if testNames[i] != nil {
-				TearDown(pc, logger, *testNames[i])
-			}
+			TearDown(pc, *testNames[i], t.Logf)
 		}
 	}
 	defer cleanupNames()
-	test.CleanupOnInterrupt(cleanupNames, logger)
+	test.CleanupOnInterrupt(cleanupNames)
 
-	g, _ := errgroup.WithContext(ctx)
+	objs := make([]*test.ResourceObjects, count)
+	begin := time.Now()
+	defer func() {
+		t.Logf("Total time for test: %v", time.Since(begin))
+	}()
+	sos := []ktest.ServiceOption{
+		// We set a small resource alloc so that we can pack more pods into the cluster.
+		func(svc *v1alpha1.Service) {
+			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		}}
+	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
-			ro, err := test.CreateRunLatestServiceReady(logger, pc.E2EClients, testNames[ndx], &test.Options{})
-			if err != nil {
-				return fmt.Errorf("failed to create Ready service: %v", err)
+			var err error
+			if objs[ndx], err = test.CreateRunLatestServiceReady(
+				t, pc.E2EClients, testNames[ndx], &test.Options{}, sos...); err != nil {
+				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
-			dur, err := runScaleFromZero(pc.E2EClients, logger, ro)
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	t.Logf("Created all the services in %v", time.Since(begin))
+	for i := 0; i < count; i++ {
+		ndx := i
+		g.Go(func() error {
+			dur, err := runScaleFromZero(ndx, t, pc.E2EClients, objs[ndx])
+			t.Logf("%02d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
 				durations[ndx] = dur
 			}
 			return err
 		})
 	}
-	err = g.Wait()
-
-	return durations, err
+	return durations, g.Wait()
 }
 
 func getStats(durations []time.Duration) *stats {
@@ -135,33 +169,22 @@ func getStats(durations []time.Duration) *stats {
 	for _, dur := range durations {
 		avg += dur
 	}
-	avg = time.Duration(int64(avg) / int64(len(durations)))
-
 	return &stats{
-		avg: avg,
+		avg: time.Duration(int64(avg) / int64(len(durations))),
 	}
 }
 
-func testGrid(s *stats, tName string) error {
-	var tc []junit.TestCase
-	val := float32(s.avg.Seconds() / 1000)
-	tc = append(tc, CreatePerfTestCase(val, "Average", tName))
-	ts := junit.TestSuites{}
-	ts.AddTestSuite( &junit.TestSuite{Name:"TestPerformanceLatency", TestCases:tc} )
-	return testgrid.CreateXMLOutput(&ts, tName)
-}
-
 func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%d", count)
-	logger := logging.GetContextLogger(t.Name())
-	durs, err := parallelScaleFromZero(logger, count)
+	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
+	durs, err := parallelScaleFromZero(t, count)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stats := getStats(durs)
-	logger.Infof("Average: %v", stats.avg)
-	if err = testGrid(stats, tName); err != nil {
-		t.Fatalf("Creating testgrid output: %v", err)
+	t.Logf("Average: %v", stats.avg)
+	if err = testgrid.CreateXMLOutput([]junit.TestCase{
+		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)}, tName); err != nil {
+		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }
 
@@ -174,6 +197,7 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
+	// See: #3021
 	t.Skip()
 	testScaleFromZero(t, 50)
 }

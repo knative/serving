@@ -68,4 +68,7 @@ spec:
           value: zipkin
         - name: ZIPKIN_UI_LOGS_URL
           value: http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/
+        resources:
+          limits:
+            memory: 1000Mi
 ---

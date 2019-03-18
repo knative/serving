@@ -25,15 +25,11 @@ import (
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generational",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}
@@ -102,11 +98,6 @@ func checkIsReady(cis IngressStatus, t *testing.T) {
 func checkConditionSucceededClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
-}
-
-func checkConditionFailedClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionFalse, t)
 }
 
 func checkConditionOngoingClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {

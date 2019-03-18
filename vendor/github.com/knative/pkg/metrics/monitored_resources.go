@@ -14,7 +14,6 @@ limitations under the License.
 package metrics
 
 import (
-	"cloud.google.com/go/compute/metadata"
 	"github.com/knative/pkg/metrics/metricskey"
 )
 
@@ -22,15 +21,6 @@ type gcpMetadata struct {
 	project  string
 	location string
 	cluster  string
-}
-
-func newGcpMetadata() gcpMetadata {
-	gm := gcpMetadata{
-		project:  metricskey.ValueUnknown,
-		location: metricskey.ValueUnknown,
-		cluster:  metricskey.ValueUnknown,
-	}
-	return gm
 }
 
 type KnativeRevision struct {
@@ -56,26 +46,8 @@ func (kr *KnativeRevision) MonitoredResource() (resType string, labels map[strin
 	return "knative_revision", labels
 }
 
-type Global struct {
-}
+type Global struct{}
 
 func (g *Global) MonitoredResource() (resType string, labels map[string]string) {
 	return "global", nil
-}
-
-func retrieveGCPMetadata() *gcpMetadata {
-	gm := newGcpMetadata()
-	project, err := metadata.NumericProjectID()
-	if err == nil && project != "" {
-		gm.project = project
-	}
-	location, err := metadata.Zone()
-	if err == nil && location != "" {
-		gm.location = location
-	}
-	cluster, err := metadata.InstanceAttributeValue("cluster-name")
-	if err == nil && cluster != "" {
-		gm.cluster = cluster
-	}
-	return &gm
 }

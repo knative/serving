@@ -20,12 +20,14 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	authv1 "k8s.io/api/authentication/v1"
 )
 
 // +genclient
@@ -59,9 +61,6 @@ var _ apis.Defaultable = (*Service)(nil)
 
 // Check that we can create OwnerReferences to a Service.
 var _ kmeta.OwnerRefable = (*Service)(nil)
-
-// Check that ServiceStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*ServiceStatus)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -171,8 +170,7 @@ var serviceCondSet = duckv1alpha1.NewLivingConditionSet(ServiceConditionConfigur
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -211,11 +209,6 @@ type ServiceStatus struct {
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Service that
-	// was last processed by the controller.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -286,6 +279,15 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 const (
 	trafficNotMigratedReason  = "TrafficNotMigrated"
 	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."
+
+	// LatestTrafficTarget is the named constant of the `latest` traffic target.
+	LatestTrafficTarget = "latest"
+
+	// CurrentTrafficTarget is the named constnat of the `current` traffic target.
+	CurrentTrafficTarget = "current"
+
+	// CandidateTrafficTarget is the named constnat of the `candidate` traffic target.
+	CandidateTrafficTarget = "candidate"
 )
 
 // MarkRouteNotYetReady marks the service `RouteReady` condition to the `Unknown` state.
@@ -337,14 +339,38 @@ func (ss *ServiceStatus) SetManualStatus() {
 	*ss = *newStatus
 }
 
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *ServiceStatus) GetConditions() duckv1alpha1.Conditions {
-	return ss.Conditions
-}
+const (
+	// CreatorAnnotation is the annotation key to describe the user that
+	// created the resource.
+	CreatorAnnotation = "serving.knative.dev/creator"
+	// UpdaterAnnotation is the annotation key to describe the user that
+	// last updated the resource.
+	UpdaterAnnotation = "serving.knative.dev/lastModifier"
+)
 
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *ServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	ss.Conditions = conditions
+// AnnotateUserInfo satisfay the apis.Annotatable interface, and set the proper annotations
+// on the Service resource about the user that performed the action.
+func (s *Service) AnnotateUserInfo(prev apis.Annotatable, ui *authv1.UserInfo) {
+	ans := s.GetAnnotations()
+	if ans == nil {
+		ans = map[string]string{}
+		defer s.SetAnnotations(ans)
+	}
+
+	// WebHook makes sure we get the proper type here.
+	ps, _ := prev.(*Service)
+
+	// Creation.
+	if ps == nil {
+		ans[CreatorAnnotation] = ui.Username
+		ans[UpdaterAnnotation] = ui.Username
+		return
+	}
+
+	// Compare the Spec's, we update the `lastModifier` key iff
+	// there's a change in the spec.
+	if equality.Semantic.DeepEqual(ps.Spec, s.Spec) {
+		return
+	}
+	ans[UpdaterAnnotation] = ui.Username
 }

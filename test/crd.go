@@ -19,16 +19,24 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"math/rand"
-	"sync"
-	"time"
+	"strings"
+	"testing"
+	"unicode"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// Default for user containers in e2e tests. This value is lower than the general
+	// Knative's default so as to run more effectively in CI with limited resources.
+	defaultRequestCPU = "100m"
+
+	testNamePrefix = "Test"
 )
 
 // ResourceNames holds names of various resources.
@@ -52,8 +60,8 @@ type ResourceObjects struct {
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(namespace string, names ResourceNames) *v1alpha1.Route {
-	return &v1alpha1.Route{
+func Route(namespace string, names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
+	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      names.Route,
@@ -66,6 +74,12 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 			}},
 		},
 	}
+
+	for _, opt := range fopt {
+		opt(route)
+	}
+
+	return route
 }
 
 // BlueGreenRoute returns a Route object in namespace using the route and configuration
@@ -93,6 +107,14 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
+		options.ContainerResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
+			},
+		}
+	}
+
 	spec := &v1alpha1.ConfigurationSpec{
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
@@ -100,6 +122,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 					Image:          imagePath,
 					Resources:      options.ContainerResources,
 					ReadinessProbe: options.ReadinessProbe,
+					Ports:          options.ContainerPorts,
 				},
 				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
 			},
@@ -119,7 +142,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(namespace string, names ResourceNames, options *Options) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -130,6 +153,11 @@ func Configuration(namespace string, names ResourceNames, options *Options) *v1a
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
 	}
+
+	for _, opt := range fopt {
+		opt(config)
+	}
+
 	return config
 }
 
@@ -157,47 +185,18 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
-	svc := &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      names.Service,
-		},
-		Spec: v1alpha1.ServiceSpec{
-			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
-			},
-		},
-	}
+func LatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
+	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options))}, fopt...)
+	return v1alpha1testing.Service(names.Service, namespace, a...)
 
-	// Apply any mutations we have been provided.
-	for _, opt := range fopt {
-		opt(svc)
-	}
-	return svc
 }
 
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
-func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...testing.ServiceOption) *v1alpha1.Service {
-	svc := &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      names.Service,
-		},
-		Spec: v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
-				Revisions: []string{v1alpha1.ReleaseLatestRevisionKeyword},
-				Configuration: *ConfigurationSpec(ImagePath(names.Image), options),
-			},
-		},
-	}
-
-	// Apply any mutations we have been provided.
-	for _, opt := range fopt {
-		opt(svc)
-	}
-	return svc
+func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
+	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options),
+		[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
+	return v1alpha1testing.Service(names.Service, namespace, a...)
 }
 
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses
@@ -234,41 +233,39 @@ func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
 	}
 }
 
-const (
-	letterBytes   = "abcdefghijklmnopqrstuvwxyz"
-	randSuffixLen = 8
-)
-
-// r is used by AppendRandomString to generate a random string. It is seeded with the time
-// at import so the strings will be different between test runs.
-var (
-	r        *rand.Rand
-	rndMutex *sync.Mutex
-)
-
-// once is used to initialize r
-var once sync.Once
-
-func initSeed(logger *logging.BaseLogger) func() {
-	return func() {
-		seed := time.Now().UTC().UnixNano()
-		logger.Infof("Seeding rand.Rand with %d", seed)
-		r = rand.New(rand.NewSource(seed))
-		rndMutex = &sync.Mutex{}
-	}
-}
-
 // AppendRandomString will generate a random string that begins with prefix. This is useful
 // if you want to make sure that your tests can run at the same time against the same
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
-func AppendRandomString(prefix string, logger *logging.BaseLogger) string {
-	once.Do(initSeed(logger))
-	suffix := make([]byte, randSuffixLen)
-	rndMutex.Lock()
-	defer rndMutex.Unlock()
-	for i := range suffix {
-		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
+var AppendRandomString = helpers.AppendRandomString
+
+// ObjectNameForTest generates a random object name based on the test name.
+func ObjectNameForTest(t *testing.T) string {
+	return AppendRandomString(makeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
+}
+
+// SubServiceNameForTest generates a random service name based on the test name and
+// the given subservice name.
+func SubServiceNameForTest(t *testing.T, subsvc string) string {
+	fullPrefix := strings.TrimPrefix(t.Name(), testNamePrefix) + "-" + subsvc
+	return AppendRandomString(makeK8sNamePrefix(fullPrefix))
+}
+
+// makeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
+// and also convert camelcase tokens into dash-delimited lowercase tokens.
+func makeK8sNamePrefix(s string) string {
+	var sb strings.Builder
+	newToken := false
+	for _, c := range s {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
+			newToken = true
+			continue
+		}
+		if sb.Len() > 0 && (newToken == true || unicode.IsUpper(c)) {
+			sb.WriteRune('-')
+		}
+		sb.WriteRune(unicode.ToLower(c))
+		newToken = false
 	}
-	return prefix + string(suffix)
+	return sb.String()
 }

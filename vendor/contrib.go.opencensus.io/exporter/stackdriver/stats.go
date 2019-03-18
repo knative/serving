@@ -48,18 +48,23 @@ const (
 	opencensusTaskKey         = "opencensus_task"
 	opencensusTaskDescription = "Opencensus task identifier"
 	defaultDisplayNamePrefix  = "OpenCensus"
-	version                   = "0.8.0"
+	version                   = "0.10.0"
 )
 
 var userAgent = fmt.Sprintf("opencensus-go %s; stackdriver-exporter %s", opencensus.Version(), version)
 
 // statsExporter exports stats to the Stackdriver Monitoring.
 type statsExporter struct {
-	bundler *bundler.Bundler
-	o       Options
+	o Options
+
+	viewDataBundler     *bundler.Bundler
+	protoMetricsBundler *bundler.Bundler
 
 	createdViewsMu sync.Mutex
 	createdViews   map[string]*metricpb.MetricDescriptor // Views already created remotely
+
+	protoMu                sync.Mutex
+	protoMetricDescriptors map[string]*metricpb.MetricDescriptor // Saves the metric descriptors that were already created remotely
 
 	c             *monitoring.MetricClient
 	defaultLabels map[string]labelValue
@@ -85,9 +90,10 @@ func newStatsExporter(o Options) (*statsExporter, error) {
 		return nil, err
 	}
 	e := &statsExporter{
-		c:            client,
-		o:            o,
-		createdViews: make(map[string]*metricpb.MetricDescriptor),
+		c:                      client,
+		o:                      o,
+		createdViews:           make(map[string]*metricpb.MetricDescriptor),
+		protoMetricDescriptors: make(map[string]*metricpb.MetricDescriptor),
 	}
 
 	if o.DefaultMonitoringLabels != nil {
@@ -97,15 +103,22 @@ func newStatsExporter(o Options) (*statsExporter, error) {
 			opencensusTaskKey: {val: getTaskValue(), desc: opencensusTaskDescription},
 		}
 	}
-	e.bundler = bundler.NewBundler((*view.Data)(nil), func(bundle interface{}) {
+
+	e.viewDataBundler = bundler.NewBundler((*view.Data)(nil), func(bundle interface{}) {
 		vds := bundle.([]*view.Data)
 		e.handleUpload(vds...)
 	})
-	if e.o.BundleDelayThreshold > 0 {
-		e.bundler.DelayThreshold = e.o.BundleDelayThreshold
+	e.protoMetricsBundler = bundler.NewBundler((*metricPayload)(nil), func(bundle interface{}) {
+		payloads := bundle.([]*metricPayload)
+		e.handleMetricsUpload(payloads)
+	})
+	if delayThreshold := e.o.BundleDelayThreshold; delayThreshold > 0 {
+		e.viewDataBundler.DelayThreshold = delayThreshold
+		e.protoMetricsBundler.DelayThreshold = delayThreshold
 	}
-	if e.o.BundleCountThreshold > 0 {
-		e.bundler.BundleCountThreshold = e.o.BundleCountThreshold
+	if countThreshold := e.o.BundleCountThreshold; countThreshold > 0 {
+		e.viewDataBundler.BundleCountThreshold = countThreshold
+		e.protoMetricsBundler.BundleCountThreshold = countThreshold
 	}
 	return e, nil
 }
@@ -131,7 +144,7 @@ func (e *statsExporter) ExportView(vd *view.Data) {
 	if len(vd.Rows) == 0 {
 		return
 	}
-	err := e.bundler.Add(vd, 1)
+	err := e.viewDataBundler.Add(vd, 1)
 	switch err {
 	case nil:
 		return
@@ -160,12 +173,13 @@ func (e *statsExporter) handleUpload(vds ...*view.Data) {
 	}
 }
 
-// Flush waits for exported view data to be uploaded.
+// Flush waits for exported view data and metrics to be uploaded.
 //
 // This is useful if your program is ending and you do not
-// want to lose recent spans.
+// want to lose data that hasn't yet been exported.
 func (e *statsExporter) Flush() {
-	e.bundler.Flush()
+	e.viewDataBundler.Flush()
+	e.protoMetricsBundler.Flush()
 }
 
 func (e *statsExporter) uploadStats(vds []*view.Data) error {
@@ -194,54 +208,46 @@ func (e *statsExporter) uploadStats(vds []*view.Data) error {
 	return nil
 }
 
-func (e *statsExporter) makeReq(vds []*view.Data, limit int) []*monitoringpb.CreateTimeSeriesRequest {
+func (se *statsExporter) makeReq(vds []*view.Data, limit int) []*monitoringpb.CreateTimeSeriesRequest {
 	var reqs []*monitoringpb.CreateTimeSeriesRequest
-	var timeSeries []*monitoringpb.TimeSeries
+
+	var allTimeSeries []*monitoringpb.TimeSeries
 	for _, vd := range vds {
 		for _, row := range vd.Rows {
-			tags, resource := e.getMonitoredResource(vd.View, append([]tag.Tag(nil), row.Tags...))
+			tags, resource := se.getMonitoredResource(vd.View, append([]tag.Tag(nil), row.Tags...))
 			ts := &monitoringpb.TimeSeries{
 				Metric: &metricpb.Metric{
-					Type:   e.metricType(vd.View),
-					Labels: newLabels(e.defaultLabels, tags),
+					Type:   se.metricType(vd.View),
+					Labels: newLabels(se.defaultLabels, tags),
 				},
 				Resource: resource,
 				Points:   []*monitoringpb.Point{newPoint(vd.View, row, vd.Start, vd.End)},
 			}
-			timeSeries = append(timeSeries, ts)
-			if len(timeSeries) == limit {
-				reqs = append(reqs, &monitoringpb.CreateTimeSeriesRequest{
-					Name:       monitoring.MetricProjectPath(e.o.ProjectID),
-					TimeSeries: timeSeries,
-				})
-				timeSeries = []*monitoringpb.TimeSeries{}
-			}
+			allTimeSeries = append(allTimeSeries, ts)
 		}
 	}
+
+	var timeSeries []*monitoringpb.TimeSeries
+	for _, ts := range allTimeSeries {
+		timeSeries = append(timeSeries, ts)
+		if len(timeSeries) == limit {
+			ctsreql := se.combineTimeSeriesToCreateTimeSeriesRequest(timeSeries)
+			reqs = append(reqs, ctsreql...)
+			timeSeries = timeSeries[:0]
+		}
+	}
+
 	if len(timeSeries) > 0 {
-		reqs = append(reqs, &monitoringpb.CreateTimeSeriesRequest{
-			Name:       monitoring.MetricProjectPath(e.o.ProjectID),
-			TimeSeries: timeSeries,
-		})
+		ctsreql := se.combineTimeSeriesToCreateTimeSeriesRequest(timeSeries)
+		reqs = append(reqs, ctsreql...)
 	}
 	return reqs
 }
 
-// createMeasure creates a MetricDescriptor for the given view data in Stackdriver Monitoring.
-// An error will be returned if there is already a metric descriptor created with the same name
-// but it has a different aggregation or keys.
-func (e *statsExporter) createMeasure(ctx context.Context, v *view.View) error {
-	e.createdViewsMu.Lock()
-	defer e.createdViewsMu.Unlock()
-
+func (e *statsExporter) viewToMetricDescriptor(ctx context.Context, v *view.View) (*metricpb.MetricDescriptor, error) {
 	m := v.Measure
 	agg := v.Aggregation
-	tagKeys := v.TagKeys
 	viewName := v.Name
-
-	if md, ok := e.createdViews[viewName]; ok {
-		return e.equalMeasureAggTagKeys(md, m, agg, tagKeys)
-	}
 
 	metricType := e.metricType(v)
 	var valueType metricpb.MetricDescriptor_ValueType
@@ -273,39 +279,92 @@ func (e *statsExporter) createMeasure(ctx context.Context, v *view.View) error {
 			valueType = metricpb.MetricDescriptor_DOUBLE
 		}
 	default:
-		return fmt.Errorf("unsupported aggregation type: %s", agg.Type.String())
+		return nil, fmt.Errorf("unsupported aggregation type: %s", agg.Type.String())
 	}
 
 	var displayName string
 	if e.o.GetMetricDisplayName == nil {
-		displayNamePrefix := defaultDisplayNamePrefix
-		if e.o.MetricPrefix != "" {
-			displayNamePrefix = e.o.MetricPrefix
-		}
-		displayName = path.Join(displayNamePrefix, viewName)
+		displayName = e.displayName(viewName)
 	} else {
 		displayName = e.o.GetMetricDisplayName(v)
 	}
 
-	md, err := createMetricDescriptor(ctx, e.c, &monitoringpb.CreateMetricDescriptorRequest{
-		Name: fmt.Sprintf("projects/%s", e.o.ProjectID),
-		MetricDescriptor: &metricpb.MetricDescriptor{
-			Name:        fmt.Sprintf("projects/%s/metricDescriptors/%s", e.o.ProjectID, metricType),
-			DisplayName: displayName,
-			Description: v.Description,
-			Unit:        unit,
-			Type:        metricType,
-			MetricKind:  metricKind,
-			ValueType:   valueType,
-			Labels:      newLabelDescriptors(e.defaultLabels, v.TagKeys),
-		},
-	})
+	res := &metricpb.MetricDescriptor{
+		Name:        fmt.Sprintf("projects/%s/metricDescriptors/%s", e.o.ProjectID, metricType),
+		DisplayName: displayName,
+		Description: v.Description,
+		Unit:        unit,
+		Type:        metricType,
+		MetricKind:  metricKind,
+		ValueType:   valueType,
+		Labels:      newLabelDescriptors(e.defaultLabels, v.TagKeys),
+	}
+	return res, nil
+}
+
+func (e *statsExporter) viewToCreateMetricDescriptorRequest(ctx context.Context, v *view.View) (*monitoringpb.CreateMetricDescriptorRequest, error) {
+	inMD, err := e.viewToMetricDescriptor(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+
+	cmrdesc := &monitoringpb.CreateMetricDescriptorRequest{
+		Name:             fmt.Sprintf("projects/%s", e.o.ProjectID),
+		MetricDescriptor: inMD,
+	}
+	return cmrdesc, nil
+}
+
+// createMeasure creates a MetricDescriptor for the given view data in Stackdriver Monitoring.
+// An error will be returned if there is already a metric descriptor created with the same name
+// but it has a different aggregation or keys.
+func (e *statsExporter) createMeasure(ctx context.Context, v *view.View) error {
+	e.createdViewsMu.Lock()
+	defer e.createdViewsMu.Unlock()
+
+	viewName := v.Name
+
+	if md, ok := e.createdViews[viewName]; ok {
+		// [TODO:rghetia] Temporary fix for https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/76#issuecomment-459459091
+		if builtinMetric(md.Type) {
+			return nil
+		}
+		return e.equalMeasureAggTagKeys(md, v.Measure, v.Aggregation, v.TagKeys)
+	}
+
+	inMD, err := e.viewToMetricDescriptor(ctx, v)
 	if err != nil {
 		return err
 	}
 
-	e.createdViews[viewName] = md
-	return nil
+	var dmd *metric.MetricDescriptor
+	if builtinMetric(inMD.Type) {
+		gmrdesc := &monitoringpb.GetMetricDescriptorRequest{
+			Name: inMD.Name,
+		}
+		dmd, err = getMetricDescriptor(ctx, e.c, gmrdesc)
+	} else {
+		cmrdesc := &monitoringpb.CreateMetricDescriptorRequest{
+			Name:             fmt.Sprintf("projects/%s", e.o.ProjectID),
+			MetricDescriptor: inMD,
+		}
+		dmd, err = createMetricDescriptor(ctx, e.c, cmrdesc)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Now cache the metric descriptor
+	e.createdViews[viewName] = dmd
+	return err
+}
+
+func (e *statsExporter) displayName(suffix string) string {
+	displayNamePrefix := defaultDisplayNamePrefix
+	if e.o.MetricPrefix != "" {
+		displayNamePrefix = e.o.MetricPrefix
+	}
+	return path.Join(displayNamePrefix, suffix)
 }
 
 func newPoint(v *view.View, row *view.Row, start, end time.Time) *monitoringpb.Point {
@@ -493,4 +552,20 @@ var getMetricDescriptor = func(ctx context.Context, c *monitoring.MetricClient, 
 
 var createTimeSeries = func(ctx context.Context, c *monitoring.MetricClient, ts *monitoringpb.CreateTimeSeriesRequest) error {
 	return c.CreateTimeSeries(ctx, ts)
+}
+
+var knownExternalMetricPrefixes = []string{
+	"custom.googleapis.com/",
+	"external.googleapis.com/",
+}
+
+// builtinMetric returns true if a MetricType is a heuristically known
+// built-in Stackdriver metric
+func builtinMetric(metricType string) bool {
+	for _, knownExternalMetric := range knownExternalMetricPrefixes {
+		if strings.HasPrefix(metricType, knownExternalMetric) {
+			return false
+		}
+	}
+	return true
 }

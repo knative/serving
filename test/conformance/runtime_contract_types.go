@@ -32,9 +32,9 @@ type MustEnvvars struct {
 
 // FilePathInfo data object returned by the environment test-image.
 type FilePathInfo struct {
-	FilePath    string `json: "FilePath"`
-	IsDirectory bool   `json: "IsDirectory"`
-	PermString  string `json: "PermString"`
+	FilePath    string `json:"FilePath"`
+	IsDirectory bool   `json:"IsDirectory"`
+	PermString  string `json:"PermString"`
 }
 
 // MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the runtime contract.
@@ -46,5 +46,14 @@ var MustFilePathSpecs = map[string]FilePathInfo{
 	"/var/log": {
 		IsDirectory: true,
 		PermString:  "rw*rw*rw*", // * indicates no specification
+	},
+	// TODO(#822): Add conformance tests for "/dev/log".
+}
+
+// ShouldFilePathSpecs specifies the file-paths and expected permissions that SHOULD be set as specified in the run-time contract.
+var ShouldFilePathSpecs = map[string]FilePathInfo{
+	"/etc/resolv.conf": {
+		IsDirectory: false,
+		PermString:  "rw*r**r**", // * indicates no specification
 	},
 }

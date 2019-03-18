@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
@@ -40,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 )
+
+const TestIngressClass = "ingress-class-foo"
 
 var fakeCurTime = time.Unix(1e9, 0)
 
@@ -57,8 +60,8 @@ func TestReconcile(t *testing.T) {
 		Name: "configuration not yet ready",
 		Objects: []runtime.Object{
 			route("default", "first-reconcile", WithConfigTarget("not-ready")),
-			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
-			rev("default", "not-ready", 1, WithInitRevConditions),
+			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated("not-ready-00001")),
+			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
@@ -72,8 +75,10 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "first-reconcile", WithConfigTarget("permanently-failed")),
 			cfg("default", "permanently-failed",
-				WithGeneration(1), WithLatestCreated, MarkLatestCreatedFailed("blah")),
-			rev("default", "permanently-failed", 1, WithInitRevConditions, MarkContainerMissing),
+				WithGeneration(1), WithLatestCreated("permanently-failed-00001"), MarkLatestCreatedFailed("blah")),
+			rev("default", "permanently-failed", 1,
+				WithRevName("permanently-failed-00001"),
+				WithInitRevConditions, MarkContainerMissing),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
@@ -88,8 +93,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			route("default", "first-reconcile", WithConfigTarget("not-ready")),
-			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated),
-			rev("default", "not-ready", 1, WithInitRevConditions),
+			cfg("default", "not-ready", WithGeneration(1), WithLatestCreated("not-ready-00001")),
+			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
@@ -105,8 +110,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -117,13 +122,14 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -146,14 +152,60 @@ func TestReconcile(t *testing.T) {
 		// TODO(lichuqiang): config namespace validation in resource scope.
 		SkipNamespaceValidation: true,
 	}, {
+		Name: "custom ingress route becomes ready, ingress unknown",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready",
+				WithConfigTarget("config"), WithRouteUID("12-34"), WithIngressClass("custom-ingress-class")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+				"custom-ingress-class",
+			),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"), WithIngressClass("custom-ingress-class"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					RevisionName: "config-00001",
+					Percent:      100,
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key: "default/becomes-ready",
+		// TODO(lichuqiang): config namespace validation in resource scope.
+		SkipNamespaceValidation: true,
+	}, {
 		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
 			route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
 				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -165,13 +217,14 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -199,8 +252,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "becomes-ready", WithConfigTarget("config")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -208,7 +261,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -247,8 +300,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "create-svc-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -256,7 +309,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -290,8 +343,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		// We induce a failure creating the ClusterIngress.
 		WantErr: true,
@@ -308,13 +361,14 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -346,11 +400,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "steady-state"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "steady-state", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -358,7 +412,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -381,11 +435,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "unhappy-owner"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "unhappy-owner", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -393,7 +447,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -430,11 +484,11 @@ func TestReconcile(t *testing.T) {
 					Percent:      100,
 				}), WithRouteLabel("app", "prod")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "different-domain"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain),
@@ -443,7 +497,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -465,13 +519,12 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
-				WithGeneration(2), WithLatestCreated,
+				WithGeneration(2), WithLatestReady("config-00001"), WithLatestCreated("config-00002"),
 				WithConfigLabel("serving.knative.dev/route", "new-latest-created"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, WithInitRevConditions),
+			rev("default", "config", 2, WithInitRevConditions, WithRevName("config-00002")),
 			simpleReadyIngress(
 				route("default", "new-latest-created", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -479,7 +532,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -502,13 +555,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(2), WithLatestCreated, WithLatestReady,
+				WithGeneration(2), WithLatestCreated("config-00002"), WithLatestReady("config-00002"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
 			simpleReadyIngress(
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -516,7 +569,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -571,13 +624,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(2), WithLatestCreated, WithLatestReady,
+				WithGeneration(2), WithLatestCreated("config-00002"), WithLatestReady("config-00002"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "update-ci-failure"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
 			simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -585,7 +638,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -634,11 +687,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -646,7 +699,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -677,11 +730,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -689,7 +742,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -718,11 +771,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "cluster-ip"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "cluster-ip", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -730,7 +783,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -757,11 +810,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "external-name"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				route("default", "external-name", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -769,7 +822,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -795,11 +848,11 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			mutateIngress(simpleReadyIngress(
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -807,7 +860,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -825,7 +878,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -849,14 +902,14 @@ func TestReconcile(t *testing.T) {
 					})),
 			// Both configs exist, but only "oldconfig" is labelled.
 			cfg("default", "oldconfig",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("oldconfig-00001"), WithLatestReady("oldconfig-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "change-configs"),
 			),
 			cfg("default", "newconfig",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "oldconfig", 1, MarkRevisionReady),
-			rev("default", "newconfig", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("newconfig-00001"), WithLatestReady("newconfig-00001")),
+			rev("default", "oldconfig", 1, MarkRevisionReady, WithRevName("oldconfig-00001")),
+			rev("default", "newconfig", 1, MarkRevisionReady, WithRevName("newconfig-00001")),
 			simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("oldconfig"), WithDomain),
 				&traffic.Config{
@@ -864,7 +917,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "oldconfig", 1).Name,
+								RevisionName: "oldconfig-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -883,7 +936,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "newconfig", 1).Name,
+								RevisionName: "newconfig-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -918,7 +971,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "missing-revision-direct", WithRevTarget("not-found")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "missing-revision-direct", WithRevTarget("not-found"),
@@ -930,7 +983,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "missing-revision-indirect", WithConfigTarget("config")),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "missing-revision-indirect", WithConfigTarget("config"),
@@ -940,12 +993,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "pinned route becomes ready",
 		Objects: []runtime.Object{
-			route("default", "pinned-becomes-ready", WithRevTarget(
+			route("default", "pinned-becomes-ready",
 				// Use the Revision name from the config
-				rev("default", "config", 1).Name), WithRouteFinalizer),
+				WithRevTarget("config-00001"), WithRouteFinalizer,
+			),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "config", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleK8sService(route("default", "pinned-becomes-ready", WithConfigTarget("config"))),
 			simpleReadyIngress(
 				route("default", "pinned-becomes-ready", WithConfigTarget("config"),
@@ -955,7 +1009,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -967,11 +1021,11 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "pinned-becomes-ready",
 				// Use the Revision name from the config
-				WithRevTarget(rev("default", "config", 1).Name), WithRouteFinalizer,
+				WithRevTarget("config-00001"), WithRouteFinalizer,
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
-						RevisionName: rev("default", "config", 1).Name,
+						RevisionName: "config-00001",
 						Percent:      100,
 					})),
 		}},
@@ -989,11 +1043,11 @@ func TestReconcile(t *testing.T) {
 					Percent:           50,
 				}), WithRouteUID("34-78"), WithRouteFinalizer),
 			cfg("default", "blue",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
+				WithGeneration(1), WithLatestCreated("blue-00001"), WithLatestReady("blue-00001")),
 			cfg("default", "green",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "blue", 1, MarkRevisionReady),
-			rev("default", "green", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
+			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -1010,20 +1064,21 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "blue", 1).Name,
+								RevisionName: "blue-00001",
 								Percent:      50,
 							},
 							Active: true,
 						}, {
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "green", 1).Name,
+								RevisionName: "green-00001",
 								Percent:      50,
 							},
 							Active: true,
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1064,8 +1119,8 @@ func TestReconcile(t *testing.T) {
 					Percent:      50,
 				}), WithRouteUID("1-2"), WithRouteFinalizer),
 			cfg("default", "gray",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "gray", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
+			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -1084,7 +1139,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "gray", 1).Name,
+								RevisionName: "gray-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1092,7 +1147,7 @@ func TestReconcile(t *testing.T) {
 						"gray": {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "gray", 1).Name,
+								RevisionName: "gray-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1100,13 +1155,14 @@ func TestReconcile(t *testing.T) {
 						"also-gray": {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "gray", 1).Name,
+								RevisionName: "gray-00001",
 								Percent:      100,
 							},
 							Active: true,
 						}},
 					},
 				},
+				TestIngressClass,
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1150,14 +1206,14 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					}), WithRouteFinalizer),
 			cfg("default", "blue",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("blue-00001"), WithLatestReady("blue-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "switch-configs"),
 			),
 			cfg("default", "green",
-				WithGeneration(1), WithLatestCreated, WithLatestReady),
-			rev("default", "blue", 1, MarkRevisionReady),
-			rev("default", "green", 1, MarkRevisionReady),
+				WithGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
+			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001")),
 			simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
@@ -1165,7 +1221,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "blue", 1).Name,
+								RevisionName: "blue-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1183,7 +1239,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "green", 1).Name,
+								RevisionName: "green-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1224,10 +1280,12 @@ func TestReconcile(t *testing.T) {
 						Percent:           100,
 					},
 				)),
-			cfg("default", "blue", WithGeneration(1), WithLatestCreated, WithLatestReady),
-			cfg("default", "green", WithGeneration(1), WithLatestCreated),
-			rev("default", "blue", 1, MarkRevisionReady),
-			rev("default", "green", 1),
+			cfg("default", "blue", WithGeneration(1),
+				WithLatestCreated("blue-00001"), WithLatestReady("blue-00001")),
+			cfg("default", "green", WithGeneration(1),
+				WithLatestCreated("green-00001")),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
+			rev("default", "green", 1, WithRevName("green-00001")),
 			simpleReadyIngress(
 				route("default", "split", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
@@ -1235,7 +1293,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "blue", 1).Name,
+								RevisionName: "blue-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1276,11 +1334,12 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
 			),
 			rev("default", "config", 1, MarkRevisionReady,
+				WithRevName("config-00001"),
 				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
 			simpleReadyIngress(
 				route("default", "stale-lastpinned", WithConfigTarget("config"), WithDomain),
@@ -1289,7 +1348,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1314,11 +1373,12 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 			cfg("default", "config",
-				WithGeneration(1), WithLatestCreated, WithLatestReady,
+				WithGeneration(1),
+				WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "old-naming"),
 			),
-			rev("default", "config", 1, MarkRevisionReady),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// Make sure that we can find the ingress by labels if the name is different.
 			changeIngressName(simpleReadyIngress(
 				route("default", "old-naming", WithConfigTarget("config"), WithDomain),
@@ -1327,7 +1387,7 @@ func TestReconcile(t *testing.T) {
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: rev("default", "config", 1).Name,
+								RevisionName: "config-00001",
 								Percent:      100,
 							},
 							Active: true,
@@ -1402,6 +1462,7 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),
@@ -1484,7 +1545,8 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 }
 
 func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
-	ci := resources.MakeClusterIngress(r, tc)
+	ci := resources.MakeClusterIngress(r, tc, TestIngressClass)
+	ci.Name = r.Name
 	ci.Status = status
 
 	return ci
@@ -1543,12 +1605,10 @@ func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
 }
 
 func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	c := cfg(namespace, name, WithGeneration(generation), WithLatestCreated)
 	boolTrue := true
 	r := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      c.Status.LatestCreatedRevisionName,
 			Annotations: map[string]string{
 				"serving.knative.dev/lastPinned": v1alpha1.RevisionLastPinnedString(
 					fakeCurTime.Add(-1 * time.Second)),
@@ -1589,6 +1649,9 @@ func ReconcilerTestConfig() *config.Config {
 					Selector: map[string]string{"app": "prod"},
 				},
 			},
+		},
+		Network: &network.Config{
+			DefaultClusterIngressClass: TestIngressClass,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

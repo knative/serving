@@ -121,7 +121,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else {
 		if _, err := c.updateStatus(pa); err != nil {
-			logger.Warn("Failed to update pa status", zap.Error(err))
+			logger.Warnw("Failed to update pa status", zap.Error(err))
 			return err
 		}
 	}
@@ -154,6 +154,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
 		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
+			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return err
 		}
 	} else if err != nil {
@@ -172,6 +173,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 			}
 		}
 	}
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 

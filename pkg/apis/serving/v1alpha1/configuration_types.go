@@ -54,9 +54,6 @@ var _ apis.Defaultable = (*Configuration)(nil)
 // Check that we can create OwnerReferences to a Configuration.
 var _ kmeta.OwnerRefable = (*Configuration)(nil)
 
-// Check that ConfigurationStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*ConfigurationStatus)(nil)
-
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -93,11 +90,7 @@ var confCondSet = duckv1alpha1.NewLivingConditionSet()
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
@@ -108,12 +101,6 @@ type ConfigurationStatus struct {
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -185,16 +172,4 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		ConfigurationConditionReady,
 		"RevisionDeleted",
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *ConfigurationStatus) GetConditions() duckv1alpha1.Conditions {
-	return cs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *ConfigurationStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	cs.Conditions = conditions
 }

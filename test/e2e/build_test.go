@@ -19,7 +19,6 @@ package e2e
 
 import (
 	"encoding/json"
-	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -33,25 +32,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 )
 
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func TestBuildSpecAndServe(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-	logger.Info("Creating a new Route and Configuration with build")
+	t.Log("Creating a new Route and Configuration with build")
 
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: svcName,
+		Route:  svcName,
 		Image:  "helloworld",
 	}
 
@@ -71,10 +69,10 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -85,13 +83,13 @@ func TestBuildSpecAndServe(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
+	endState := test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)))
+	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Info("Revision is ready and serving, checking Build status.")
+	t.Log("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -101,7 +99,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q; its build is: %q", rev.Name, buildName)
+	t.Logf("Latest ready Revision is %q; its build is: %q", rev.Name, buildName)
 	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
 		Group:    buildv1alpha1.SchemeGroupVersion.Group,
 		Version:  buildv1alpha1.SchemeGroupVersion.Version,
@@ -146,15 +144,14 @@ func TestBuildSpecAndServe(t *testing.T) {
 }
 
 func TestBuildAndServe(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
+	t.Log("Creating a new Route and Configuration with build")
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-	logger.Info("Creating a new Route and Configuration with build")
-
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
-		Route:  test.AppendRandomString(routeName, logger),
+		Config: svcName,
+		Route:  svcName,
 		Image:  "helloworld",
 	}
 
@@ -174,10 +171,10 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
-	logger.Info("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -188,13 +185,13 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	endState := pkgTest.Retrying(pkgTest.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound)
-	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, logger, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
+	endState := test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)))
+	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
 	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
-	logger.Info("Revision is ready and serving, checking Build status.")
+	t.Log("Revision is ready and serving, checking Build status.")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -205,7 +202,7 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	names.Revision = rev.Name
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest ready Revision is %q, its build is: ", rev.Name, buildName)
+	t.Logf("Latest ready Revision is %q, its build is: %s", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
@@ -265,14 +262,12 @@ func TestBuildAndServe(t *testing.T) {
 }
 
 func TestBuildFailure(t *testing.T) {
+	t.Parallel()
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := logging.GetContextLogger(t.Name())
-
-	logger.Info("Creating a new Configuration with failing build")
+	t.Log("Creating a new Configuration with failing build")
 	names := test.ResourceNames{
-		Config: test.AppendRandomString(configName, logger),
+		Config: test.ObjectNameForTest(t),
 		Image:  "helloworld",
 	}
 
@@ -297,8 +292,8 @@ func TestBuildFailure(t *testing.T) {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	// Wait for the Config have a LatestCreatedRevisionName
 	if err := test.WaitForConfigurationState(clients.ServingClient, names.Config, test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
@@ -313,13 +308,13 @@ func TestBuildFailure(t *testing.T) {
 	if err := test.WaitForRevisionState(clients.ServingClient, config.Status.LatestCreatedRevisionName, test.IsRevisionBuildFailed, "RevisionIsBuildFailed"); err != nil {
 		t.Fatalf("The Revision %q was not marked as having a failed build: %v", names.Revision, err)
 	}
-	logger.Infof("Revision %q is not ready because its build failed.", config.Status.LatestCreatedRevisionName)
+	t.Logf("Revision %q is not ready because its build failed.", config.Status.LatestCreatedRevisionName)
 	rev, err := clients.ServingClient.Revisions.Get(config.Status.LatestCreatedRevisionName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildRef.Name
-	logger.Infof("Latest created Revision is %q; it's build is: %q", rev.Name, buildName)
+	t.Logf("Latest created Revision is %q; it's build is: %q", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)

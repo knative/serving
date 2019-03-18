@@ -35,7 +35,7 @@ const (
 	// the PodAutoscaler should provision. For example,
 	//   autoscaling.knative.dev/minScale: "1"
 	MinScaleAnnotationKey = GroupName + "/minScale"
-	// MinScaleAnnotationKey is the annotation to specify the maximum number of Pods
+	// MaxScaleAnnotationKey is the annotation to specify the maximum number of Pods
 	// the PodAutoscaler should provision. For example,
 	//   autoscaling.knative.dev/maxScale: "10"
 	MaxScaleAnnotationKey = GroupName + "/maxScale"

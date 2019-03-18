@@ -42,7 +42,12 @@ var (
 	ConfigMapFromTestFile     = testing.ConfigMapFromTestFile
 	Eventf                    = testing.Eventf
 
+	PrependGenerateNameReactor = testing.PrependGenerateNameReactor
+
 	TestLogger = logtesting.TestLogger
+
+	// ClearAllLoggers removes all the registered test loggers.
+	ClearAllLoggers = logtesting.ClearAll
 )
 
 const (

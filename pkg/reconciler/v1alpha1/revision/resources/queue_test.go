@@ -23,11 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/system"
-	_ "github.com/knative/serving/pkg/system/testing"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -70,7 +70,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -140,7 +139,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -216,7 +214,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -289,7 +286,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -357,7 +353,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:           QueueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
-			Lifecycle:      queueLifecycle,
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{

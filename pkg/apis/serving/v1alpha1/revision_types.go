@@ -58,9 +58,6 @@ var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
-// Check that RevisionStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*RevisionStatus)(nil)
-
 // Check that we can create OwnerReferences to a Revision.
 var _ kmeta.OwnerRefable = (*Revision)(nil)
 
@@ -265,24 +262,14 @@ var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
 	// targeting the revision.
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
-
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LogURL specifies the generated logging url for this particular revision
 	// based on the revision url template specified in the controller's config.
@@ -363,7 +350,7 @@ func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
 }
 
-func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
+func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
 	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return
@@ -426,18 +413,6 @@ func (rs *RevisionStatus) MarkInactive(reason, message string) {
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RevisionStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RevisionStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image

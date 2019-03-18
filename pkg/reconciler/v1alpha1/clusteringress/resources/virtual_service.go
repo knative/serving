@@ -17,7 +17,9 @@ limitations under the License.
 package resources
 
 import (
-	"sort"
+	"fmt"
+	"regexp"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -26,12 +28,13 @@ import (
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/serving/pkg/utils"
 )
 
 // MakeVirtualService creates an Istio VirtualService as network programming.
@@ -93,7 +96,7 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 
 func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPath) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
-	for _, host := range hosts {
+	for _, host := range expandedHosts(hosts) {
 		matches = append(matches, makeMatch(host, http.Path))
 	}
 	weights := []v1alpha3.DestinationWeight{}
@@ -120,10 +123,31 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	}
 }
 
+func dedup(hosts []string) []string {
+	return sets.NewString(hosts...).List()
+}
+
+func expandedHosts(hosts []string) []string {
+	expanded := []string{}
+	allowedSuffixes := []string{
+		"",
+		"." + utils.GetClusterDomainName(),
+		".svc." + utils.GetClusterDomainName(),
+	}
+	for _, h := range hosts {
+		for _, suffix := range allowedSuffixes {
+			if strings.HasSuffix(h, suffix) {
+				expanded = append(expanded, strings.TrimSuffix(h, suffix))
+			}
+		}
+	}
+	return dedup(expanded)
+}
+
 func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 	match := v1alpha3.HTTPMatchRequest{
 		Authority: &istiov1alpha1.StringMatch{
-			Exact: host,
+			Regex: hostRegExp(host),
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
@@ -136,18 +160,20 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 	return match
 }
 
+// hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
+func hostRegExp(host string) string {
+	// Should only match 1..65535, but for simplicity it matches 0-99999
+	portMatch := `(?::\d{1,5})?`
+
+	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
+}
+
 func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := sets.NewString()
-	unique := []string{}
+	hosts := []string{}
 	for _, rule := range ci.Spec.Rules {
 		for _, h := range rule.Hosts {
-			if !hosts.Has(h) {
-				hosts.Insert(h)
-				unique = append(unique, h)
-			}
+			hosts = append(hosts, h)
 		}
 	}
-	// Sort the names to give a deterministic ordering.
-	sort.Strings(unique)
-	return unique
+	return dedup(hosts)
 }

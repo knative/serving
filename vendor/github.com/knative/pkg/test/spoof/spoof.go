@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,15 +21,16 @@ package spoof
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
-	zipkin "github.com/knative/pkg/test/zipkin"
+	"github.com/knative/pkg/test/zipkin"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -42,10 +43,14 @@ import (
 
 const (
 	requestInterval = 1 * time.Second
-	requestTimeout  = 5 * time.Minute
+	// RequestTimeout is the default timeout for the polling requests.
+	RequestTimeout = 5 * time.Minute
 	// TODO(tcnghia): These probably shouldn't be hard-coded here?
-	ingressNamespace = "istio-system"
-	ingressName      = "istio-ingressgateway"
+	istioIngressNamespace = "istio-system"
+	istioIngressName      = "istio-ingressgateway"
+	// Name of the temporary HTTP header that is added to http.Request to indicate that
+	// it is a SpoofClient.Poll request. This header is removed before making call to backend.
+	pollReqHeader = "X-Kn-Poll-Request-Do-Not-Trace"
 )
 
 // Response is a stripped down subset of http.Response. The is primarily useful
@@ -56,6 +61,10 @@ type Response struct {
 	StatusCode int
 	Header     http.Header
 	Body       []byte
+}
+
+func (r *Response) String() string {
+	return fmt.Sprintf("status: %d, body: %s, headers: %v", r.StatusCode, string(r.Body), r.Header)
 }
 
 // Interface defines the actions that can be performed by the spoofing client.
@@ -84,7 +93,7 @@ type SpoofingClient struct {
 	endpoint string
 	domain   string
 
-	logger *logging.BaseLogger
+	logf logging.FormatLogger
 }
 
 // New returns a SpoofingClient that rewrites requests if the target domain is not `resolveable`.
@@ -92,21 +101,25 @@ type SpoofingClient struct {
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain string, resolvable bool) (*SpoofingClient, error) {
+func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
 	sc := SpoofingClient{
 		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
 		RequestInterval: requestInterval,
-		RequestTimeout:  requestTimeout,
-		logger:          logger,
+		RequestTimeout:  RequestTimeout,
+		logf:            logf,
 	}
 
 	if !resolvable {
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
-		// spoof the Host in our requests.
-		e, err := GetServiceEndpoint(kubeClientset)
-		if err != nil {
-			return nil, err
+		e := &endpointOverride
+		if endpointOverride == "" {
+			var err error
+			// If the domain that the Route controller is configured to assign to Route.Status.Domain
+			// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
+			// spoof the Host in our requests.
+			e, err = GetServiceEndpoint(kubeClientset)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		sc.endpoint = *e
@@ -121,6 +134,15 @@ func New(kubeClientset *kubernetes.Clientset, logger *logging.BaseLogger, domain
 
 // GetServiceEndpoint gets the endpoint IP or hostname to use for the service.
 func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
+	ingressName := istioIngressName
+	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
+		ingressName = gatewayOverride
+	}
+	ingressNamespace := istioIngressNamespace
+	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
+		ingressNamespace = gatewayNsOverride
+	}
+
 	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -168,6 +190,12 @@ func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
 	defer span.End()
 
+	// Check to see if the call to this method is coming from a Poll call.
+	logZipkinTrace := true
+	if req.Header.Get(pollReqHeader) != "" {
+		req.Header.Del(pollReqHeader)
+		logZipkinTrace = false
+	}
 	resp, err := sc.Client.Do(req.WithContext(traceContext))
 	if err != nil {
 		return nil, err
@@ -181,12 +209,18 @@ func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
 		return nil, err
 	}
 
-	return &Response{
+	spoofResp := &Response{
 		Status:     resp.Status,
 		StatusCode: resp.StatusCode,
 		Header:     resp.Header,
 		Body:       body,
-	}, nil
+	}
+
+	if logZipkinTrace {
+		sc.logZipkinTrace(spoofResp)
+	}
+
+	return spoofResp, nil
 }
 
 // Poll executes an http request until it satisfies the inState condition or encounters an error.
@@ -197,10 +231,14 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 	)
 
 	err = wait.PollImmediate(sc.RequestInterval, sc.RequestTimeout, func() (bool, error) {
+		// As we may do multiple Do calls as part of a single Poll we add this temporary header
+		// to the request to indicate to Do method not to log Zipkin trace, instead it is
+		// handled by this method itself.
+		req.Header.Add(pollReqHeader, "True")
 		resp, err = sc.Do(req)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
-				sc.logger.Infof("Retrying %s for TCP timeout %v", req.URL.String(), err)
+				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
 				return false, nil
 			}
 			return true, err
@@ -209,36 +247,51 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		return inState(resp)
 	})
 
-	return resp, err
-}
-
-// LogZipkinTrace provides support to log Zipkin Trace for param: traceID
-func (sc *SpoofingClient) LogZipkinTrace(traceID string) error {
-	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
-		return errors.New("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
+	if resp != nil {
+		sc.logZipkinTrace(resp)
 	}
 
-	sc.logger.Infof("Logging Zipkin Trace: %s", traceID)
+	if err != nil {
+		return resp, errors.Wrapf(err, "response: %s did not pass checks", resp)
+	}
+	return resp, nil
+}
+
+// logZipkinTrace provides support to log Zipkin Trace for param: spoofResponse
+// We only log Zipkin trace for HTTP server errors i.e for HTTP status codes between 500 to 600
+func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
+	if !zipkin.ZipkinTracingEnabled || spoofResp.StatusCode < http.StatusInternalServerError || spoofResp.StatusCode >= 600 {
+		return
+	}
+
+	traceID := spoofResp.Header.Get(zipkin.ZipkinTraceIDHeader)
+	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
+		sc.logf("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
+		return
+	}
+
+	sc.logf("Logging Zipkin Trace: %s", traceID)
 
 	zipkinTraceEndpoint := zipkin.ZipkinTraceEndpoint + traceID
 	// Sleep to ensure all traces are correctly pushed on the backend.
 	time.Sleep(5 * time.Second)
 	resp, err := http.Get(zipkinTraceEndpoint)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Zipkin trace: %v", err)
+		sc.logf("Error retrieving Zipkin trace: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 
 	trace, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Error reading Zipkin trace response: %v", err)
+		sc.logf("Error reading Zipkin trace response: %v", err)
+		return
 	}
 
 	var prettyJSON bytes.Buffer
 	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
-		return fmt.Errorf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
+		sc.logf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
+		return
 	}
-	sc.logger.Info(prettyJSON.String())
-
-	return nil
+	sc.logf("%s", prettyJSON.String())
 }

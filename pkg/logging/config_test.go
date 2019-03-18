@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/system"
-	_ "github.com/knative/serving/pkg/system/testing"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -159,7 +159,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ConfigMapName())
 
 	if cfg, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)

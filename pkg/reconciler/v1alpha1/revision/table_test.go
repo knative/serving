@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
@@ -26,8 +27,10 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
@@ -248,10 +251,6 @@ func TestReconcile(t *testing.T) {
 			svc("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"stable-deactivation-service"),
-		},
 		Key: "foo/stable-deactivation",
 	}, {
 		Name: "endpoint is created (not ready)",
@@ -325,8 +324,7 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"endpoint-ready-service"),
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/endpoint-ready",
 	}, {
@@ -349,10 +347,6 @@ func TestReconcile(t *testing.T) {
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-not-ready-service"),
-		},
 		Key: "foo/kpa-not-ready",
 	}, {
 		Name: "kpa inactive",
@@ -374,10 +368,6 @@ func TestReconcile(t *testing.T) {
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"kpa-inactive-service"),
-		},
 		Key: "foo/kpa-inactive",
 	}, {
 		Name: "mutated service gets fixed",
@@ -602,19 +592,21 @@ func TestReconcile(t *testing.T) {
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
-			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
-				// When the endpoint and KPA are ready, then we will see the
-				// Revision become ready.
-				MarkRevisionReady),
+			rev("foo", "steady-ready", WithK8sServiceName, WithLogURL),
 			kpa("foo", "steady-ready", WithTraffic),
 			deploy("foo", "steady-ready"),
 			svc("foo", "steady-ready"),
 			endpoints("foo", "steady-ready", WithSubsets),
 			image("foo", "steady-ready"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "steady-ready", WithK8sServiceName, WithLogURL,
+				// All resources are ready to go, we should see the revision being
+				// marked ready
+				MarkRevisionReady),
+		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"steady-ready-service"),
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/steady-ready",
 	}, {
@@ -654,11 +646,6 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
-		// TODO(#2900): This should not fire, we're not ready!
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready",
-				"missing-owners-service"),
-		},
 		Key: "foo/missing-owners",
 	}, {
 		Name:    "lost deployment owner ref",
@@ -679,8 +666,88 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
 		Key: "foo/missing-owners",
+	}, {
+		// Prior to Serving 0.4 revisions were labelled with
+		// a configuration's spec.generation with the key /configurationGeneration
+		//
+		// We are repurposing that label and having it's value be a configuration's
+		// metadata.generation
+		//
+		// This case tests the migration path where we replace
+		// the old label value
+		Name: "steady state revision with different generation labels",
+		Objects: []runtime.Object{
+			rev("foo", "different-gen-labels",
+				WithConfigurationGenerationLabel(5),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "different-gen-labels"),
+			deploy("foo", "different-gen-labels",
+				WithConfigurationGenerationLabel(5),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+			),
+			svc("foo", "different-gen-labels"),
+			image("foo", "different-gen-labels"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "different-gen-labels",
+				WithConfigurationGenerationLabel(2),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+			),
+		}, {
+			Object: deploy("foo", "different-gen-labels",
+				WithConfigurationGenerationLabel(2),
+				WithDeprecatedConfigurationMetadataGenerationLabel(2),
+			),
+		}},
+		Key: "foo/different-gen-labels",
+	}, {
+		Name: "steady state revision with legacy annotation (from serving 0.2)",
+		Objects: []runtime.Object{
+			rev("foo", "legacy-annotation",
+				WithConfigurationGenerationAnnotation(5),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "legacy-annotation"),
+			deploy("foo", "legacy-annotation"),
+			svc("foo", "legacy-annotation"),
+			image("foo", "legacy-annotation"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "legacy-annotation",
+				// Bye bye annotation
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+			),
+		}},
+		Key: "foo/legacy-annotation",
+	}, {
+		// This occurs if the revision was created with 0.2 and
+		// received a /configurationGeneration label but never
+		// received a /configurationMetadataGeneration label since
+		// it was not the latest created revision
+		//
+		// We drop this label since it's value was set according
+		// to a configuration's spec.generation
+		Name: "steady state revision with legacy label",
+		Objects: []runtime.Object{
+			rev("foo", "legacy-label",
+				WithConfigurationGenerationLabel(5),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "legacy-label"),
+			deploy("foo", "legacy-label"),
+			svc("foo", "legacy-label"),
+			image("foo", "legacy-label"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "legacy-label",
+				// Bye bye label
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+			),
+		}},
+		Key: "foo/legacy-label",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		t := &rtesting.NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
@@ -820,6 +887,8 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 	config := ReconcilerTestConfig()
 	EnableVarLog(config)
 
+	defer ClearAllLoggers()
+
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -911,18 +980,30 @@ func AllUnknownConditions(r *v1alpha1.Revision) {
 
 type configOption func(*config.Config)
 
-func deploy(namespace, name string, co ...configOption) *appsv1.Deployment {
-	config := ReconcilerTestConfig()
-	for _, opt := range co {
-		opt(config)
+func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
+	cfg := ReconcilerTestConfig()
+
+	for _, opt := range opts {
+		if configOpt, ok := opt.(configOption); ok {
+			configOpt(cfg)
+		}
 	}
 
 	rev := rev(namespace, name)
+
+	for _, opt := range opts {
+		if revOpt, ok := opt.(RevisionOption); ok {
+			revOpt(rev)
+		}
+	}
+
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults()
-	return resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
-		config.Autoscaler, config.Controller)
+	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+		cfg.Observability, cfg.Autoscaler, cfg.Controller,
+	)
+
 }
 
 func image(namespace, name string, co ...configOption) *caching.Image {
@@ -1023,7 +1104,7 @@ var _ configStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
-		Network:    &config.Network{IstioOutboundIPRanges: "*"},
+		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &config.Observability{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
@@ -1032,6 +1113,38 @@ func ReconcilerTestConfig() *config.Config {
 	}
 }
 
-func EnableVarLog(cfg *config.Config) {
+// this forces the type to be a 'configOption'
+var EnableVarLog configOption = func(cfg *config.Config) {
 	cfg.Observability.EnableVarLogCollection = true
+}
+
+// WithConfigurationGenerationLabel sets the label on the revision
+func WithConfigurationGenerationLabel(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+		r.Labels[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
+	}
+}
+
+// WithConfigurationGenerationLabel sets the label on the revision
+func WithConfigurationGenerationAnnotation(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
+	}
+}
+
+// WithDeprecatedConfigurationMetadataGenerationLabel sets the label on the revision
+func WithDeprecatedConfigurationMetadataGenerationLabel(generation int) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+
+		r.Labels[serving.DeprecatedConfigurationMetadataGenerationLabelKey] = strconv.Itoa(generation)
+	}
 }

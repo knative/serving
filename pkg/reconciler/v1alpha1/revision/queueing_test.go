@@ -26,29 +26,32 @@ import (
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
-	rclr "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ map[string]struct{}) (string, error) {
+func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", nil
 }
 
@@ -131,7 +134,7 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, stopCh <-chan struct{}) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
@@ -145,13 +148,13 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	servingClient = fakeclientset.NewSimpleClientset()
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
-	opt := rclr.Options{
+	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		DynamicClientSet: dynamicClient,
@@ -160,6 +163,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		Logger:           TestLogger(t),
 		ResyncPeriod:     0,
 		StopChannel:      stopCh,
+		Recorder:         record.NewFakeRecorder(1000),
 	}
 	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
@@ -187,11 +191,11 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.NetworkConfigName,
+				Name:      network.ConfigName,
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      logging.ConfigName,
+				Name:      logging.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
@@ -230,15 +234,16 @@ func newTestController(t *testing.T, stopCh <-chan struct{}, servingObjects ...r
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	stopCh := make(chan struct{})
+	eg := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	rev := getTestRevision()
-	// TODO(grantr): inserting the route at client creation is necessary
-	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
-	// upgrade to 1.10 we can remove the config argument here and instead use the
-	// Create() method.
-	kubeClient, _, _, _, controller, kubeInformer,
-		servingInformer, _, servingSystemInformer, _ :=
-		newTestController(t, stopCh, rev)
+	kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, _, configMapWatcher, _ := newTestController(t, stopCh)
 
 	h := NewHooks()
 
@@ -250,21 +255,20 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	eg := errgroup.Group{}
-	defer func() {
-		close(stopCh)
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
-	servingSystemInformer.Start(stopCh)
+	configMapWatcher.Start(stopCh)
+
+	kubeInformer.WaitForCacheSync(stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
 
 	eg.Go(func() error {
 		return controller.Run(2, stopCh)
 	})
+
+	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Fatalf("Unexpected error creating revision: %v", err)
+	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

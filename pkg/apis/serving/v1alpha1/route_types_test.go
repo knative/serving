@@ -26,14 +26,10 @@ import (
 )
 
 func TestRouteDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generation",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}, {
@@ -66,69 +62,84 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionAllTrafficAssigned,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
+			Status: duckv1alpha1.Status{
+
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type: RouteConditionReady,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type: RouteConditionReady,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionAllTrafficAssigned,
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RouteConditionAllTrafficAssigned,
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}}
@@ -155,10 +166,12 @@ func TestTypicalRouteFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
 	})
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
@@ -241,10 +254,12 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionUnknown,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
 	})
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
@@ -258,30 +273,36 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 
 	r.Status.MarkTrafficAssigned()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
 	})
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionFalse,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
 	})
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
 	})
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
@@ -292,10 +313,12 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   netv1alpha1.ClusterIngressConditionReady,
-			Status: corev1.ConditionUnknown,
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: duckv1alpha1.Conditions{{
+				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
 	})
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)

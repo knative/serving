@@ -23,12 +23,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"github.com/knative/serving/pkg/system"
-	_ "github.com/knative/serving/pkg/system/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -48,6 +49,8 @@ var (
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Stdin:                    false,
+		TTY:                      false,
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -67,7 +70,6 @@ var (
 		Name:           QueueContainerName,
 		Resources:      queueResources,
 		Ports:          queuePorts,
-		Lifecycle:      queueLifecycle,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -341,7 +343,6 @@ func withOwnerReference(name string) revisionOption {
 	}
 }
 
-
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
@@ -383,8 +384,8 @@ func TestMakePodSpec(t *testing.T) {
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.Container.Ports = []corev1.ContainerPort{{
-                                        ContainerPort: 8888,
-                                }}
+					ContainerPort: 8888,
+				}}
 				revision.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
 					Name:      "asdf",
 					MountPath: "/asdf",
@@ -680,7 +681,7 @@ func TestMakeDeployment(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		nc   *config.Network
+		nc   *network.Config
 		oc   *config.Observability
 		ac   *autoscaler.Config
 		cc   *config.Controller
@@ -692,7 +693,7 @@ func TestMakeDeployment(t *testing.T) {
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
-		nc:   &config.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -704,7 +705,7 @@ func TestMakeDeployment(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
-		nc:   &config.Network{},
+		nc:   &network.Config{},
 		oc:   &config.Observability{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
@@ -713,7 +714,7 @@ func TestMakeDeployment(t *testing.T) {
 		name: "simple concurrency=multi with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
-		nc: &config.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},
@@ -733,7 +734,7 @@ func TestMakeDeployment(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		nc: &config.Network{
+		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &config.Observability{},

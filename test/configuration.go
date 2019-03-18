@@ -19,10 +19,13 @@ limitations under the License.
 package test
 
 import (
-	"github.com/knative/pkg/test/logging"
+	"testing"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // Options are test setup parameters.
@@ -37,14 +40,14 @@ type Options struct {
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options) (*v1alpha1.Configuration, error) {
-	config := Configuration(ServingNamespace, names, options)
-	LogResourceObject(logger, ResourceObjects{Config: config})
+func CreateConfiguration(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
+	config := Configuration(ServingNamespace, names, options, fopt...)
+	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }
 
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
-func PatchConfigImage(logger *logging.BaseLogger, clients *Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
+func PatchConfigImage(clients *Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.RevisionTemplate.Spec.Container.Image = imagePath
 	patchBytes, err := createPatch(cfg, newCfg)

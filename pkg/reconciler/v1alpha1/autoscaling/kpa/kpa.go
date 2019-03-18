@@ -162,7 +162,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(pa); err != nil {
-		logger.Warn("Failed to update kpa status", zap.Error(err))
+		logger.Warnw("Failed to update kpa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
@@ -265,6 +265,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		pa.Status.MarkActive()
 	}
 
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 

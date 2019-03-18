@@ -147,5 +147,5 @@ func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 			},
 			Active: true,
 		}}}}
-	return resources.MakeClusterIngress(r, tc)
+	return resources.MakeClusterIngress(r, tc, "foo-ingress")
 }

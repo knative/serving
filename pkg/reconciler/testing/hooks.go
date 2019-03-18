@@ -19,6 +19,7 @@ package testing
 
 import (
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -80,6 +81,13 @@ that all hooks complete in a timely manner.
 type Hooks struct {
 	completionCh    chan int32
 	completionIndex int32
+
+	// Denotes whether or not the registered hooks should no longer be called
+	// because they have already been waited upon.
+	// This uses a Mutex over a channel to guarantee that after WaitForHooks
+	// returns no hooked functions will be called.
+	closed bool
+	mutex  sync.RWMutex
 }
 
 // NewHooks returns a Hooks struct that can be used to attach hooks to one or
@@ -98,7 +106,10 @@ func (h *Hooks) OnCreate(fake *kubetesting.Fake, resource string, rf CreateHookF
 	index := atomic.AddInt32(&h.completionIndex, 1)
 	fake.PrependReactor("create", resource, func(a kubetesting.Action) (bool, runtime.Object, error) {
 		obj := a.(kubetesting.CreateActionImpl).Object
-		if rf(obj) == HookComplete {
+
+		h.mutex.RLock()
+		defer h.mutex.RUnlock()
+		if !h.closed && rf(obj) == HookComplete {
 			h.completionCh <- index
 		}
 		return false, nil, nil
@@ -111,7 +122,10 @@ func (h *Hooks) OnUpdate(fake *kubetesting.Fake, resource string, rf UpdateHookF
 	index := atomic.AddInt32(&h.completionIndex, 1)
 	fake.PrependReactor("update", resource, func(a kubetesting.Action) (bool, runtime.Object, error) {
 		obj := a.(kubetesting.UpdateActionImpl).Object
-		if rf(obj) == HookComplete {
+
+		h.mutex.RLock()
+		defer h.mutex.RUnlock()
+		if !h.closed && rf(obj) == HookComplete {
 			h.completionCh <- index
 		}
 		return false, nil, nil
@@ -124,7 +138,10 @@ func (h *Hooks) OnDelete(fake *kubetesting.Fake, resource string, rf DeleteHookF
 	index := atomic.AddInt32(&h.completionIndex, 1)
 	fake.PrependReactor("delete", resource, func(a kubetesting.Action) (bool, runtime.Object, error) {
 		name := a.(kubetesting.DeleteActionImpl).Name
-		if rf(name) == HookComplete {
+
+		h.mutex.RLock()
+		defer h.mutex.RUnlock()
+		if !h.closed && rf(name) == HookComplete {
 			h.completionCh <- index
 		}
 		return false, nil, nil
@@ -133,11 +150,20 @@ func (h *Hooks) OnDelete(fake *kubetesting.Fake, resource string, rf DeleteHookF
 
 // WaitForHooks waits until all attached hooks have returned true at least once.
 // If the given timeout expires before that happens, an error is returned.
+// The registered actions will no longer be executed after WaitForHooks has
+// returned.
 func (h *Hooks) WaitForHooks(timeout time.Duration) error {
+	defer func() {
+		h.mutex.Lock()
+		defer h.mutex.Unlock()
+		h.closed = true
+	}()
+
 	ci := int(atomic.LoadInt32(&h.completionIndex))
 	if ci == -1 {
 		return nil
 	}
+
 	// Convert index to count.
 	ci++
 	timer := time.After(timeout)

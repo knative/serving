@@ -5,3 +5,6 @@ approvers:
 
 reviewers:
 - productivity-reviewers
+
+labels:
+- area/test-and-release

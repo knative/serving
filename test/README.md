@@ -78,6 +78,20 @@ To run one e2e test case, e.g. TestAutoscaleUpDownUp, use
 go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 ```
 
+### Running tests in short mode
+
+Running tests in short mode excludes some large-scale E2E tests and saves
+time/resources required for running the test suite. To run the tests in short
+mode, use
+[the `-short` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags)
+
+```bash
+go test -v -tags=e2e -count=1 -short ./test/e2e
+```
+
+To get a better idea where the flag is used, search for `testing.Short()`
+throughout the test source code.
+
 ### Environment requirements
 
 These tests require:
@@ -118,15 +132,6 @@ go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconf
 go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 ```
 
-If you are running against an environment with no loadbalancer for the ingress,
-at the moment your only option is to use a domain which will resolve to the IP
-of the running node (see [#609](https://github.com/knative/serving/issues/609)):
-
-```bash
-go test -v -tags=e2e -count=1 ./test/conformance --resolvabledomain
-go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
-```
-
 ## Test images
 
 ### Building the test images
@@ -135,13 +140,9 @@ Note: this is only required when you run conformance/e2e tests locally with
 `go test` commands.
 
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
-build and push the test images used by the conformance and e2e tests. It
-requires:
-
-- [`DOCKER_REPO_OVERRIDE`](../DEVELOPMENT.md#setup-your-environment) to be set
-- You to be
-  [authenticated with your `DOCKER_REPO_OVERRIDE`](../docs/setting-up-a-docker-registry.md)
-- [`docker`](https://docs.docker.com/install/) to be installed
+build and push the test images used by the conformance and e2e tests. The script
+expects your environment to be setup as described in
+[DEVELOPMENT.md](../DEVELOPMENT.md#install-requirements).
 
 To run the script for all end to end test images:
 
@@ -172,13 +173,14 @@ these flags:
 - [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
 - [`--dockerrepo`](#overriding-docker-repo)
 - [`--tag`](#using-a-docker-tag)
+- [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
 
 ### Overridding docker repo
 
 The `--dockerrepo` argument lets you specify the docker repo from which images
 used by your tests should be pulled. This will default to the value of your
-[`DOCKER_REPO_OVERRIDE` environment variable](../DEVELOPMENT.md#setup-your-environment)
+[`KO_DOCKER_REPO` environment variable](../DEVELOPMENT.md#setup-your-environment)
 if not specified.
 
 ```bash
@@ -200,6 +202,21 @@ go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
 
 Of course, this implies that you tagged the images when you
 [uploaded them](#building-the-test-images).
+
+### Using a custom ingress endpoint
+
+Some environments (like minikube) do not support a Loadbalancer to make Knative
+services externally available. These environments usually rely on rewriting the
+Loadbalancer to a NodePort. The external address of such a NodePort is usually
+not easily obtained within the cluster automatically, but can be provided from
+the outside through the `--ingressendpoint` flag. For a minikube setup for
+example, you'd want to run tests against the default `ingressgateway` (port
+number 31380) running on the minikube node:
+
+```
+go test -v -tags=e2e -count=1 ./test/conformance --ingressendpoint "$(minikube ip):31380"
+go test -v -tags=e2e -count=1 ./test/e2e --ingressendpoint "$(minikube ip):31380"
+```
 
 ### Using a resolvable domain
 

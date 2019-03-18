@@ -28,6 +28,7 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
+	defer ClearAll()
 	store := NewStore(TestLogger(t))
 
 	gcConfig := ConfigMapFromTestFile(t, "config-gc")

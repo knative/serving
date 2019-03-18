@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in
+   built in (1.12rc1 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -37,12 +37,17 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md). You
-   do _not_ need install Istio or Knative using the instructions in that page -
-   simply create the cluster and come back here. However, if you _did_ install
-   Istio/Knative following those instructions, that's fine too, you'll just
-   redeploy over them, below.
-1. [Set up a docker repository you can push to](./docs/setting-up-a-docker-registry.md)
+1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/install/README.md#install-guides)
+   - Follow an install guide up through "Creating a Kubernetes Cluster"
+   - You do _not_ need to install Istio or Knative using the instructions in the
+     guide. Simply create the cluster and come back here.
+   - If you _did_ install Istio/Knative following those instructions, that's
+     fine too, you'll just redeploy over them, below.
+1. Set up a docker repository for pushing images. You can use any container
+   image registry by adjusting the authentication methods and repository paths
+   mentioned in the sections below.
+   - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
 
 ### Setup your environment
 
@@ -53,8 +58,8 @@ recommend adding them to your `.bashrc`):
    `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
-1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
-   developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
+   pushed (e.g. `gcr.io/[gcloud-project]`).
 
 - **Note**: if you are using docker hub to store your images your
   `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
@@ -66,9 +71,7 @@ recommend adding them to your `.bashrc`):
 ```shell
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
-export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
-export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
-export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
+export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 ```
 
 Make sure to configure
@@ -79,12 +82,6 @@ for your `KO_DOCKER_REPO` if required. To be able to push images to
 ```shell
 gcloud auth configure-docker
 ```
-
-For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with
-authentication configured with `kubectl`. You can list the clusters you
-currently have configured via: `kubectl config get-contexts`. For the cluster
-you want to target, the value in the CLUSTER column should be put in this
-variable.
 
 ### Checkout your fork
 
@@ -122,36 +119,38 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform the setup needed
-for Knative.
+Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](./docs/creating-a-kubernetes-cluster.md):
+[your cluster setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
+when using Minikube, the user is your local user; when using GKE, the user is
+your GCP user.
 
 ```shell
-# When using Minikube, the K8s user is your local user.
-export K8S_USER_OVERRIDE=$USER
-
-# When using GKE, the K8s user is your GCP user.
-export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
-
+# For GCP
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
-  --user="${K8S_USER_OVERRIDE?}"
+  --user=$(gcloud config get-value core/account)
+
+# For minikube
+kubectl create clusterrolebinding cluster-admin-binding \
+  --clusterrole=cluster-admin \
+  --user=$USER
 ```
 
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.2/istio-crds.yaml
+kubectl apply -f ./third_party/istio-1.0.6/istio-crds.yaml
 while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.6/istio.yaml
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to
-set up static IP for Ingresses in the cluster.
+Follow the
+[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md)
+if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
 
@@ -169,16 +168,21 @@ Next, run:
 
 ```shell
 ko apply -f config/
-./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
+PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
 ```
+
+The above step is equivalent to applying the `serving.yaml` for released
+versions of Knative Serving.
 
 You can see things running with:
 
-```shell
+```console
 kubectl -n knative-serving get pods
-NAME                                READY     STATUS    RESTARTS   AGE
-controller-77897cc687-vp27q   1/1       Running   0          16s
-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
+NAME                          READY     STATUS    RESTARTS   AGE
+activator-c8495dc9-z7xpz      2/2       Running   0          6d
+autoscaler-66897845df-t5cwg   2/2       Running   0          6d
+controller-699fb46bb5-xhlkg   1/1       Running   0          6d
+webhook-76b87b8459-tzj6r      1/1       Running   0          6d
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -247,10 +251,14 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.2/istio.yaml \
-  -f ./third_party/istio-1.0.2/istio-crds.yaml
+  -f ./third_party/istio-1.0.6/istio.yaml \
+  -f ./third_party/istio-1.0.6/istio-crds.yaml
 ```
 
 ## Telemetry
 
-See [telemetry documentation](./docs/telemetry.md).
+To access Telemetry see:
+
+- [Accessing Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
+- [Accessing Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
+- [Accessing Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)

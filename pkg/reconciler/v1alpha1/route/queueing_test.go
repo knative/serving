@@ -22,20 +22,22 @@ import (
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	"github.com/knative/serving/pkg/system"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
@@ -49,6 +51,7 @@ import (
 */
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
+	defer ClearAllLoggers()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
@@ -72,6 +75,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
 			Namespace: system.Namespace(),
 		},
@@ -92,6 +101,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
+			Recorder:         record.NewFakeRecorder(1000),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),

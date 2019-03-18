@@ -19,40 +19,65 @@ limitations under the License.
 package test
 
 import (
-	"github.com/knative/pkg/test/logging"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(logger *logging.BaseLogger, clients *Clients, names ResourceNames) (*v1alpha1.Route, error) {
-	route := Route(ServingNamespace, names)
-	LogResourceObject(logger, ResourceObjects{Route: route})
+func CreateRoute(t *testing.T, clients *Clients, names ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
+	route := Route(ServingNamespace, names, fopt...)
+	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingClient.Routes.Create(route)
 }
 
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
-func CreateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) error {
+func CreateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(ServingNamespace, names, blue, green)
-	LogResourceObject(logger, ResourceObjects{Route: route})
+	LogResourceObject(t, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
 }
 
 // UpdateRoute updates a route in the given namespace using the route name in names
-func UpdateBlueGreenRoute(logger *logging.BaseLogger, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
+func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
 	newRoute.ObjectMeta = route.ObjectMeta
-	LogResourceObject(logger, ResourceObjects{Route: newRoute})
+	LogResourceObject(t, ResourceObjects{Route: newRoute})
 	patchBytes, err := createPatch(route, newRoute)
 	if err != nil {
 		return nil, err
 	}
 	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
+}
+
+// RetryingRouteInconsistency retries common requests seen when creating a new route
+// - 404 until the route is propagated to the proxy
+// - 503 "no healthy upstream" until the endpoints are propagated to the proxy
+func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		if resp.StatusCode == http.StatusNotFound {
+			return false, nil
+		}
+
+		body := strings.TrimSpace(string(resp.Body))
+		if resp.StatusCode == http.StatusServiceUnavailable && body == "no healthy upstream" {
+			return false, nil
+		}
+
+		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
+		return innerCheck(resp)
+	}
 }

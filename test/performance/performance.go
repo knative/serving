@@ -17,7 +17,6 @@ limitations under the License.
 package performance
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -47,7 +46,7 @@ type Client struct {
 }
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(ctx context.Context, logger *logging.BaseLogger, promReqd bool) (*Client, error) {
+func Setup(logf logging.FormatLogger, promReqd bool) (*Client, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -55,21 +54,19 @@ func Setup(ctx context.Context, logger *logging.BaseLogger, promReqd bool) (*Cli
 
 	var p *prometheus.PromProxy
 	if promReqd {
-		logger.Info("Creating prometheus proxy client")
+		logf("Creating prometheus proxy client")
 		p = &prometheus.PromProxy{Namespace: monitoringNS}
-		p.Setup(ctx, logger)
+		p.Setup(clients.KubeClient.Kube, logf)
 	}
 	return &Client{E2EClients: clients, PromClient: p}, nil
 }
 
 // TearDown cleans up resources used
-func TearDown(client *Client, logger *logging.BaseLogger, names test.ResourceNames) {
-	if client.E2EClients != nil && client.E2EClients.ServingClient != nil {
-		client.E2EClients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
+func TearDown(client *Client, names test.ResourceNames, logf logging.FormatLogger) {
+	test.TearDown(client.E2EClients, names)
 
 	if client.PromClient != nil {
-		client.PromClient.Teardown(logger)
+		client.PromClient.Teardown(logf)
 	}
 }
 

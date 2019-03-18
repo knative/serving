@@ -84,6 +84,46 @@ func TestActivatorReporter(t *testing.T) {
 	checkDistributionData(t, "request_latencies", wantTags3, 2, 1100.0, 9100.0)
 }
 
+func TestReportRequestCount_EmptyServiceName(t *testing.T) {
+	r, _ := NewStatsReporter()
+	defer unregister()
+
+	wantTags := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
+		"num_tries":                       "6",
+	}
+	expectSuccess(t, func() error {
+		return r.ReportRequestCount("testns" /*service=*/, "", "testconfig", "testrev", 200, 6, 10)
+	})
+	checkSumData(t, "request_count", wantTags, 10)
+}
+
+func TestReportResponseTime_EmptyServiceName(t *testing.T) {
+	r, _ := NewStatsReporter()
+	defer unregister()
+
+	wantTags := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
+	}
+	expectSuccess(t, func() error {
+		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 7100*time.Millisecond)
+	})
+	expectSuccess(t, func() error {
+		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 5100*time.Millisecond)
+	})
+	checkDistributionData(t, "request_latencies", wantTags, 2, 5100.0, 7100.0)
+}
+
 func expectSuccess(t *testing.T, f func() error) {
 	t.Helper()
 	if err := f(); err != nil {

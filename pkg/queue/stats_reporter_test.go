@@ -44,7 +44,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 		{
 			"Empty_Namespace_Value",
 			"Expected namespace empty error",
-			errors.New("Namespace must not be empty"),
+			errors.New("namespace must not be empty"),
 			"",
 			config,
 			revision,
@@ -53,7 +53,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 		{
 			"Empty_Config_Value",
 			"Expected config empty error",
-			errors.New("Config must not be empty"),
+			errors.New("config must not be empty"),
 			namespace,
 			"",
 			revision,
@@ -62,7 +62,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 		{
 			"Empty_Revision_Value",
 			"Expected revision empty error",
-			errors.New("Revision must not be empty"),
+			errors.New("revision must not be empty"),
 			namespace,
 			config,
 			"",
@@ -71,7 +71,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 		{
 			"Empty_Pod_Value",
 			"Expected pod empty error",
-			errors.New("Pod must not be empty"),
+			errors.New("pod must not be empty"),
 			namespace,
 			config,
 			revision,
@@ -138,7 +138,7 @@ func checkData(t *testing.T, measurementName string, wanted float64, wantedTagKe
 			t.Errorf("Wanted %v, Got %v", wantedTagKeyValueMap, v[0].Tags)
 		}
 		for _, got := range v[0].Tags {
-			if wanted, _ := wantedTagKeyValueMap[got.Key]; wanted != got.Value {
+			if wanted := wantedTagKeyValueMap[got.Key]; wanted != got.Value {
 				t.Errorf("Wanted %v, Got %v", wanted, got.Value)
 			}
 		}

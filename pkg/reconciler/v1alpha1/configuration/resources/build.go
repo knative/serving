@@ -28,7 +28,6 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources/names"
 )
 
 // MakeBuild creates an Unstructured Build object from the passed in Configuration and fills
@@ -52,8 +51,14 @@ func MakeBuild(config *v1alpha1.Configuration) *unstructured.Unstructured {
 	l[serving.BuildHashLabelKey] = h[:63] // Labels can only be 63 characters.
 	u.SetLabels(l)
 
+	// Clear the name if it's been explicitly set
+	// We want the build to have a generated name
+	//
+	// Note: K8s apimachinery >=v1.12 calling SetName will 'remove' the name
+	//       <v1.12 will set the name to an empty string
+	u.SetName("")
 	u.SetNamespace(config.Namespace)
-	u.SetName(names.DeprecatedBuild(config))
+	u.SetGenerateName(config.Name + "-")
 	u.SetOwnerReferences([]metav1.OwnerReference{*kmeta.NewControllerRef(config)})
 	return u
 }

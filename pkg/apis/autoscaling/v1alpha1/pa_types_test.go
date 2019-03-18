@@ -22,20 +22,17 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	serving "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
-
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generations",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}
@@ -330,6 +327,209 @@ func TestIsReady(t *testing.T) {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
+}
+
+func TestTargetAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		pa         *PodAutoscaler
+		wantTarget int32
+		wantOk     bool
+	}{{
+		name:       "not present",
+		pa:         pa(map[string]string{}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "1",
+		}),
+		wantTarget: 1,
+		wantOk:     true,
+	}, {
+		name: "invalid zero",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "0",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid format",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "sandwich",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid negative",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "-1",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}, {
+		name: "invalid overflow int32",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "100000000000000000000",
+		}),
+		wantTarget: 0,
+		wantOk:     false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotTarget, gotOk := tc.pa.Target()
+			if gotTarget != tc.wantTarget {
+				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("got ok: %v wanted %v", gotOk, tc.wantOk)
+			}
+		})
+	}
+}
+
+func TestScaleBounds(t *testing.T) {
+	cases := []struct {
+		name    string
+		pa      *PodAutoscaler
+		wantMin int32
+		wantMax int32
+	}{{
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+			autoscaling.MaxScaleAnnotationKey: "100",
+		}),
+		wantMin: 1,
+		wantMax: 100,
+	}, {
+		name:    "absent",
+		pa:      pa(map[string]string{}),
+		wantMin: 0,
+		wantMax: 0,
+	}, {
+		name: "only min",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+		}),
+		wantMin: 1,
+		wantMax: 0,
+	}, {
+		name: "only max",
+		pa: pa(map[string]string{
+			autoscaling.MaxScaleAnnotationKey: "1",
+		}),
+		wantMin: 0,
+		wantMax: 1,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "ham",
+			autoscaling.MaxScaleAnnotationKey: "sandwich",
+		}),
+		wantMin: 0,
+		wantMax: 0,
+	}, {
+		name: "too small",
+		pa: pa(map[string]string{
+			autoscaling.MinScaleAnnotationKey: "-1",
+			autoscaling.MaxScaleAnnotationKey: "-1",
+		}),
+		wantMin: 0,
+		wantMax: 0,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			min, max := tc.pa.ScaleBounds()
+			if min != tc.wantMin {
+				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
+			}
+			if max != tc.wantMax {
+				t.Errorf("got max: %v wanted: %v", max, tc.wantMax)
+			}
+		})
+	}
+}
+
+func TestMarkResourceNotOwned(t *testing.T) {
+	pa := pa(map[string]string{})
+	pa.Status.MarkResourceNotOwned("doesn't", "matter")
+	active := pa.Status.GetCondition("Active")
+	if active.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceNotOwned expected active.Status: False got: %v", active.Status)
+	}
+	if active.Reason != "NotOwned" {
+		t.Errorf("TestMarkResourceNotOwned expected active.Reason: NotOwned got: %v", active.Reason)
+	}
+}
+
+func TestMarkResourceFailedCreation(t *testing.T) {
+	pa := pa(map[string]string{})
+	pa.Status.MarkResourceFailedCreation("doesn't", "matter")
+	active := pa.Status.GetCondition("Active")
+	if active.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
+	}
+	if active.Reason != "FailedCreate" {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+	}
+}
+
+func TestClass(t *testing.T) {
+	cases := []struct {
+		name string
+		pa   *PodAutoscaler
+		want string
+	}{{
+		name: "kpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.KPA,
+		}),
+		want: "kpa.autoscaling.knative.dev",
+	}, {
+		name: "hpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.HPA,
+		}),
+		want: "hpa.autoscaling.knative.dev",
+	}, {
+		name: "default class",
+		pa:   pa(map[string]string{}),
+		want: "kpa.autoscaling.knative.dev",
+	}, {
+		name: "custom class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: "yolo.sandwich.com",
+		}),
+		want: "yolo.sandwich.com",
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.pa.Class()
+			if got != tc.want {
+				t.Errorf("got class: %q wanted: %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func pa(annotations map[string]string) *PodAutoscaler {
+	p := &PodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   "test-namespace",
+			Name:        "test-name",
+			Annotations: annotations,
+		},
+		Spec: PodAutoscalerSpec{
+			ContainerConcurrency: serving.RevisionContainerConcurrencyType(0),
+		},
+		Status: PodAutoscalerStatus{},
+	}
+	return p
 }
 
 func TestTypicalFlow(t *testing.T) {

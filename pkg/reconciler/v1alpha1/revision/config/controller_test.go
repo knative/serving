@@ -20,9 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/system"
+	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
@@ -51,11 +52,8 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller configuration with bad registries",
 		wantErr: false,
 		wantController: &Controller{
-			RegistriesSkippingTagResolving: map[string]struct{}{
-				"ko.local": {},
-				"":         {},
-			},
-			QueueSidecarImage: noSidecarImage,
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
+			QueueSidecarImage:              noSidecarImage,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,11 +68,8 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller configuration with registries",
 		wantErr: false,
 		wantController: &Controller{
-			RegistriesSkippingTagResolving: map[string]struct{}{
-				"ko.dev":   {},
-				"ko.local": {},
-			},
-			QueueSidecarImage: noSidecarImage,
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+			QueueSidecarImage:              noSidecarImage,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

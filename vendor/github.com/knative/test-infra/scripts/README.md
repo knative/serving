@@ -33,6 +33,8 @@ This is a helper script to run the presubmit tests. To use it:
    - `DISABLE_MD_LINTING`: Disable linting markdown files, defaults to 0 (false).
    - `DISABLE_MD_LINK_CHECK`: Disable checking links in markdown files, defaults
      to 0 (false).
+   - `PRESUBMIT_TEST_FAIL_FAST`: Fail the presubmit test immediately if a test fails,
+     defaults to 0 (false).
 
 1. [optional] Define the functions `pre_build_tests()` and/or
    `post_build_tests()`. These functions will be called before or after the
@@ -116,12 +118,23 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 1. Source the script.
 
-1. [optional] Write the `teardown()` function, which will tear down your test
+1. [optional] Write the `knative_setup()` function, which will set up your
+   system under test (e.g., Knative Serving). This function won't be called if you
+   use the `--skip-knative-setup` flag.
+
+1. [optional] Write the `knative_teardown()` function, which will tear down your
+   system under test (e.g., Knative Serving). This function won't be called if you
+   use the `--skip-knative-setup` flag.
+
+1. [optional] Write the `test_setup()` function, which will set up the test
+   resources.
+
+1. [optional] Write the `test_teardown()` function, which will tear down the test
    resources.
 
 1. [optional] Write the `dump_extra_cluster_state()` function. It will be
    called when a test fails, and can dump extra information about the current state
-   of the cluster (tipically using `kubectl`).
+   of the cluster (typically using `kubectl`).
 
 1. [optional] Write the `parse_flags()` function. It will be called whenever an
    unrecognized flag is passed to the script, allowing you to define your own flags.
@@ -133,14 +146,11 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 1. Write logic for the end-to-end tests. Run all go tests using `go_test_e2e()`
    (or `report_go_test()` if you need a more fine-grained control) and call
-   `fail_test()` or `success()` if any of them failed. The environment variables
-   `DOCKER_REPO_OVERRIDE`, `K8S_CLUSTER_OVERRIDE` and `K8S_USER_OVERRIDE` will be
-   set according to the test cluster. You can also use the following boolean (0 is
-   false, 1 is true) environment variables for the logic:
+   `fail_test()` or `success()` if any of them failed. The environment variable
+   `KO_DOCKER_REPO` will be set according to the test cluster. You can also use
+   the following boolean (0 is false, 1 is true) environment variables for the logic:
 
    - `EMIT_METRICS`: true if `--emit-metrics` was passed.
-   - `USING_EXISTING_CLUSTER`: true if the test cluster is an already existing one,
-     and not a temporary cluster created by `kubetest`.
 
    All environment variables above are marked read-only.
 
@@ -149,12 +159,12 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. Calling your script without arguments will create a new cluster in the GCP
    project `$PROJECT_ID` and run the tests against it.
 
-1. Calling your script with `--run-tests` and the variables `K8S_CLUSTER_OVERRIDE`,
-   `K8S_USER_OVERRIDE` and `DOCKER_REPO_OVERRIDE` set will immediately start the
-   tests against the cluster.
+1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
+   will immediately start the tests against the cluster currently configured for
+   `kubectl`.
 
 1. You can force running the tests against a specific GKE cluster version by using
-   the `--cluster-version` flag and passing a X.Y.Z version as the flag value.
+   the `--cluster-version` flag and passing a full version as the flag value.
 
 ### Sample end-to-end test script
 
@@ -170,8 +180,11 @@ E2E_CLUSTER_REGION=us-west2
 
 source vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
-function teardown() {
-  echo "TODO: tear down test resources"
+function knative_setup() {
+  start_latest_knative_serving
+  if (( WAIT_FOR_KNATIVE )); then
+    wait_until_pods_running knative-serving || fail_test "Knative Serving not up"
+  fi
 }
 
 function parse_flags() {
@@ -185,12 +198,6 @@ function parse_flags() {
 WAIT_FOR_KNATIVE=1
 
 initialize $@
-
-start_latest_knative_serving
-
-if (( WAIT_FOR_KNATIVE )); then
-  wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
-fi
 
 # TODO: use go_test_e2e to run the tests.
 kubectl get pods || fail_test

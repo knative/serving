@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 const (
@@ -100,7 +101,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest("GET", "/", nil)
+			req, err := http.NewRequest(http.MethodGet, "/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -123,33 +124,59 @@ func TestHealthStateHealthHandler(t *testing.T) {
 	}
 }
 
-func TestHealthStateQuitHandler(t *testing.T) {
+func TestHealthStateDrainHandler(t *testing.T) {
 	state := &State{}
 	state.setAlive()
 
-	req, err := http.NewRequest("GET", "/", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
 
-	calledCh := make(chan struct{}, 1)
-	handler := http.HandlerFunc(state.QuitHandler(func() {
-		close(calledCh)
-	}))
-	handler.ServeHTTP(rr, req)
+	completedCh := make(chan struct{}, 1)
+	handler := http.HandlerFunc(state.DrainHandler())
+	go func(handler http.Handler, recorder *httptest.ResponseRecorder) {
+		handler.ServeHTTP(recorder, req)
+		close(completedCh)
+	}(handler, rr)
 
-	// The channel should be closed as the cleaner is called.
-	<-calledCh
+	state.drainFinished()
+	<-completedCh
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			rr.Code, http.StatusOK)
 	}
+}
 
-	if rr.Body.String() != notAliveBody {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), notAliveBody)
+func TestHealthStateShutdown(t *testing.T) {
+	state := &State{}
+	state.setAlive()
+	state.drainCh = make(chan struct{})
+
+	calledCh := make(chan struct{}, 1)
+	state.Shutdown(func() {
+		close(calledCh)
+	})
+
+	// The channel should be closed as the cleaner is called.
+	select {
+	case <-calledCh:
+	case <-time.After(2 * time.Second):
+		t.Errorf("drain function not called when shutting down")
+	}
+
+	if !state.drainCompleted {
+		t.Error("shutdown did not complete draining")
+	}
+
+	if !state.shuttingDown {
+		t.Errorf("wrong shutdown state: got %v want %v", state.shuttingDown, true)
+	}
+
+	if state.alive {
+		t.Errorf("wrong alive state: got %v want %v", state.alive, false)
 	}
 }

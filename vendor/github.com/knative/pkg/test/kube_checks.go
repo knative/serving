@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.opencensus.io/trace"
+	"github.com/knative/pkg/test/logging"
 	corev1 "k8s.io/api/core/v1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +43,7 @@ const (
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForDeploymentState(client *KubeClient, name string, inState func(d *apiv1beta1.Deployment) (bool, error), desc string, namespace string, timeout time.Duration) error {
 	d := client.Kube.ExtensionsV1beta1().Deployments(namespace)
-	metricName := fmt.Sprintf("WaitForDeploymentState/%s/%s", name, desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForDeploymentState/%s/%s", name, desc))
 	defer span.End()
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
@@ -62,8 +61,7 @@ func WaitForDeploymentState(client *KubeClient, name string, inState func(d *api
 // that is emitted to track how long it took to get into the state checked by inState.
 func WaitForPodListState(client *KubeClient, inState func(p *corev1.PodList) (bool, error), desc string, namespace string) error {
 	p := client.Kube.CoreV1().Pods(namespace)
-	metricName := fmt.Sprintf("WaitForPodListState/%s", desc)
-	_, span := trace.StartSpan(context.Background(), metricName)
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForPodListState/%s", desc))
 	defer span.End()
 
 	return wait.PollImmediate(interval, podTimeout, func() (bool, error) {

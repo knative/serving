@@ -28,11 +28,10 @@ INSTALL_ISTIO_CRD_YAML=""
 INSTALL_ISTIO_YAML=""
 # TODO(#2122): Install monitoring as well once we have e2e testing for it.
 INSTALL_RELEASE_YAML=""
+
 # Build is used by some tests and so is also included here.
-# TODO: Should we install build from a nightly release?
-# The latest released Build is always at this location.
-readonly INSTALL_BUILD_YAML="https://storage.googleapis.com/knative-releases/build/latest/release.yaml"
-readonly INSTALL_PIPELINE_YAML="./third_party/config/pipeline/release.yaml"
+readonly INSTALL_BUILD_DIR="./third_party/config/build/"
+readonly INSTALL_PIPELINE_DIR="./third_party/config/pipeline/"
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
@@ -86,9 +85,6 @@ function install_knative_serving() {
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
-  echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
-
   wait_until_pods_running knative-serving || return 1
 }
 
@@ -113,8 +109,8 @@ function install_knative_serving_standard() {
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-  echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
-  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
+  echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
+  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
@@ -122,8 +118,8 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
-  kubectl apply -f "${INSTALL_BUILD_YAML}" || return 1
-  kubectl apply -f "${INSTALL_PIPELINE_YAML}" || return 1
+  kubectl apply -f "${INSTALL_BUILD_DIR}" || return 1
+  kubectl apply -f "${INSTALL_PIPELINE_DIR}" || return 1
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
@@ -146,14 +142,6 @@ function install_knative_serving_standard() {
   # We should revisit this when Istio API exposes a Status that we can rely on.
   # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
   echo ">> Patching Istio"
-  for gateway in istio-ingressgateway cluster-local-gateway; do
-    if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
-      kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
-      kubectl set resources deploy -n istio-system ${gateway} \
-        -c=istio-proxy --requests=cpu=50m 2> /dev/null
-    fi
-  done
-
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to verify if we can reduce flakes.
   if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
@@ -164,12 +152,9 @@ function install_knative_serving_standard() {
       `# Ignore error messages to avoid causing red herrings in the tests` \
       2>/dev/null
   else
-    # Some versions of Istio doesn't provide an HPA for pilot.
+    # Some versions of Istio don't provide an HPA for pilot.
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
-
-  echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
 
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
@@ -177,13 +162,11 @@ function install_knative_serving_standard() {
 }
 
 # Uninstalls Knative Serving from the current cluster.
-function uninstall_knative_serving() {
+function knative_teardown() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${INSTALL_RELEASE_YAML}" ]]; then
     echo "install_knative_serving() was not called, nothing to uninstall"
     return 0
   fi
-  echo ">> Removing test resources (test/config/)"
-  ko delete --ignore-not-found=true -f test/config/ || return 1
   if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
     echo ">> Uninstalling Knative serving from custom YAMLs"
     for yaml in ${INSTALL_CUSTOM_YAMLS}; do
@@ -194,27 +177,33 @@ function uninstall_knative_serving() {
     echo ">> Uninstalling Knative serving"
     echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
     echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-    echo "Knative Build YAML: ${INSTALL_BUILD_YAML}"
-    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_YAML}"
+    echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
+    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
     ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
     echo ">> Bringing down Build"
-    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_YAML}" || return 1
-    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_YAML}" || return 1
+    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
+    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_DIR}" || return 1
     echo ">> Bringing down Istio"
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
     kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
   fi
 }
 
-# Publish all e2e test images in ${REPO_ROOT_DIR}/test/test_images/
-function publish_test_images() {
+# Create test resources and images
+function test_setup() {
+  echo ">> Creating test resources (test/config/)"
+  ko apply -f test/config/ || return 1
   echo ">> Creating test namespace"
   kubectl create namespace serving-tests
   ${REPO_ROOT_DIR}/test/upload-test-images.sh
 }
 
-# Deletes everything created on the cluster including all knative and istio components.
-function teardown() {
-  uninstall_knative_serving
+# Delete test resources
+function test_teardown() {
+  echo ">> Removing test resources (test/config/)"
+  ko delete --ignore-not-found=true -f test/config/
+  echo ">> Removing test namespace"
+  kubectl delete all --all --ignore-not-found=true -n serving-tests
+  kubectl delete --ignore-not-found=true namespace serving-tests
 }

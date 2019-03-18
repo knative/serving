@@ -7,8 +7,6 @@ approvers:
 - monitoring-approvers
 # knative/build
 - build-approvers
-# VPA
-- autoscaling-approvers
 
 
 reviewers:
@@ -18,5 +16,3 @@ reviewers:
 - monitoring-reviewers
 # knative/build
 - build-reviewers
-# VPA
-- autoscaling-reviewers

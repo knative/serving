@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -108,10 +109,19 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		// Create event broadcaster
 		logger.Debug("Creating event broadcaster")
 		eventBroadcaster := record.NewBroadcaster()
-		eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+		watches := []watch.Interface{
+			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
+			eventBroadcaster.StartRecordingToSink(
+				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}),
+		}
 		recorder = eventBroadcaster.NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+		go func() {
+			<-opt.StopChannel
+			for _, w := range watches {
+				w.Stop()
+			}
+		}()
 	}
 
 	statsReporter := opt.StatsReporter
@@ -120,7 +130,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		var err error
 		statsReporter, err = NewStatsReporter(controllerAgentName)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err)
 		}
 	}
 

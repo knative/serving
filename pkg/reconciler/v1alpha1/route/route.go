@@ -36,19 +36,21 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/system"
 )
 
 const (
@@ -165,10 +167,14 @@ func NewControllerWithClock(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncRoutesOnConfigDomainChange := configmap.TypeFilter(&config.Domain{})(func(string, interface{}) {
+	configsToResync := []interface{}{
+		&network.Config{},
+		&config.Domain{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncRoutesOnConfigDomainChange)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
@@ -212,12 +218,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(route); err != nil {
-		logger.Warn("Failed to update route status", zap.Error(err))
+		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
 	return err
+}
+
+func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
+	if ingressClass, _ := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
+		return ingressClass
+	}
+	return config.FromContext(ctx).Network.DefaultClusterIngressClass
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
@@ -263,7 +276,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	logger.Info("Creating ClusterIngress.")
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, resources.MakeClusterIngress(r, traffic))
+	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
@@ -274,6 +288,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
+	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }

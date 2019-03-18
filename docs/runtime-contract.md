@@ -155,11 +155,10 @@ or platform providers MAY use hooks to implement their own lifecycle controls.
 
 #### File descriptors
 
-The `stdin` file descriptor on the container SHOULD be redirected to
-`/dev/null`. The `stdout` and `stderr` file descriptors on the container SHOULD
-be collected and retained in a developer-accessible logging repository. (See
-also operability contract being specified in
-https://github.com/knative/serving/pull/727).
+A read from the `stdin` file descriptor on the container SHOULD always result in
+`EOF`. The `stdout` and `stderr` file descriptors on the container SHOULD be
+collected and retained in a developer-accessible logging repository.
+(TODO:[docs#902](https://github.com/knative/docs/issues/902)).
 
 Within the container, pipes and file descriptors may be used to communicate
 between processes running in the same container.
@@ -226,8 +225,13 @@ full set of HTTP headers is constantly evolving, it is RECOMMENDED that
 platforms which strip headers define a common prefix which covers all headers
 removed by the platform.
 
-Also, the following proxy-specific request headers MUST be set, in addition to
-the base set of HTTP/1.1 headers (e.g. `Host:`)
+In addition, the following base set of HTTP/1.1 headers MUST be set on the
+request:
+
+- `Host` - As specified by
+  [RFC 7230 Section 5.4](https://tools.ietf.org/html/rfc7230#section-5.4)
+
+Also, the following proxy-specific request headers MUST be set:
 
 - `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
 
@@ -368,7 +372,7 @@ The following environment variables SHOULD be set:
 | Name              | Meaning                                                                                                          |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `K_REVISION`      | Name of the current Revision.                                                                                    |
-| `K_CONFIGURATION` | Name of the Configuraiton that created the current Revision.                                                     |
+| `K_CONFIGURATION` | Name of the Configuration that created the current Revision.                                                     |
 | `K_SERVICE`       | If the current Revision has been created by manipulating a Knative Service object, name of this Knative Service. |
 
 Platform providers MAY set additional environment variables. Standardization of

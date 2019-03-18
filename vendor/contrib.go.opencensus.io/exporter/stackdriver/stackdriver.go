@@ -62,6 +62,10 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	monitoredrespb "google.golang.org/genproto/googleapis/api/monitoredres"
+
+	commonpb "github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1"
+	metricspb "github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1"
+	resourcepb "github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1"
 )
 
 // Options contains options for configuring the exporter.
@@ -272,6 +276,11 @@ func NewExporter(o Options) (*Exporter, error) {
 // has one or more rows.
 func (e *Exporter) ExportView(vd *view.Data) {
 	e.statsExporter.ExportView(vd)
+}
+
+// ExportMetric exports OpenCensus Metrics to Stackdriver Monitoring.
+func (e *Exporter) ExportMetric(ctx context.Context, node *commonpb.Node, rsc *resourcepb.Resource, metric *metricspb.Metric) error {
+	return e.statsExporter.ExportMetric(ctx, node, rsc, metric)
 }
 
 // ExportSpan exports a SpanData to Stackdriver Trace.

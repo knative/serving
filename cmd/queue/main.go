@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -31,16 +30,15 @@ import (
 	"github.com/knative/pkg/signals"
 
 	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
-	"github.com/knative/serving/pkg/utils"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -61,10 +59,6 @@ const (
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
-
-	// Only report errors about a non-existent websocket connection after
-	// having been up and running for this long.
-	startupConnectionGrace = 10 * time.Second
 )
 
 var (
@@ -80,9 +74,7 @@ var (
 	userTargetAddress      string
 	containerConcurrency   int
 	revisionTimeoutSeconds int
-	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
-	statSink               *websocket.ManagedConnection
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
 
@@ -92,8 +84,6 @@ var (
 	server      *http.Server
 	healthState = &health.State{}
 	reporter    *queue.Reporter // Prometheus stats reporter.
-
-	startupTime = time.Now()
 )
 
 func initEnv() {
@@ -118,36 +108,13 @@ func initEnv() {
 	reporter = _reporter
 }
 
-func statReporter() {
+func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
-		if err := sendStat(s); err != nil {
-			// Hide "not-established" errors until the startupConnectionGrace has passed.
-			if err != websocket.ErrConnectionNotEstablished || time.Since(startupTime) > startupConnectionGrace {
-				logger.Errorw("Error while sending stat", zap.Error(err))
-			}
+		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
+			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
-}
-
-// sendStat sends a single StatMessage to the autoscaler.
-func sendStat(s *autoscaler.Stat) error {
-	if statSink == nil {
-		return errors.New("stat sink not (yet) connected")
-	}
-	reporter.Report(
-		float64(s.RequestCount),
-		float64(s.AverageConcurrentRequests),
-	)
-	if healthState.IsShuttingDown() {
-		// Do not send metrics if the pods is shutting down.
-		return nil
-	}
-	sm := autoscaler.StatMessage{
-		Stat: *s,
-		Key:  servingRevisionKey,
-	}
-	return statSink.Send(sm)
 }
 
 func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
@@ -158,16 +125,51 @@ func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
 	return httpProxy
 }
 
-func isProbe(r *http.Request) bool {
+func knativeProbeHeader(r *http.Request) string {
+	return r.Header.Get(network.ProbeHeaderName)
+}
+
+func isKubeletProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
 }
 
+func probeUserContainer() bool {
+	var err error
+	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+		logger.Debug("TCP probing the user-container.")
+		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+		return err == nil, nil
+	})
+
+	if err == nil {
+		logger.Info("User-container successfully probed.")
+	} else {
+		logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+	}
+
+	return err == nil
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	proxy := proxyForRequest(r)
 
-	if isProbe(r) {
+	ph := knativeProbeHeader(r)
+	switch {
+	case ph != "":
+		if ph != queue.Name {
+			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
+			return
+		}
+		if probeUserContainer() {
+			// Respond with the name of the component handling the request.
+			w.Write([]byte(queue.Name))
+		} else {
+			http.Error(w, "container not ready", http.StatusServiceUnavailable)
+		}
+		return
+	case isKubeletProbe(r):
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
 		return
@@ -178,6 +180,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqOut}
 	}()
+
 	// Enforce queuing and concurrency limits
 	if breaker != nil {
 		ok := breaker.Maybe(func() {
@@ -192,38 +195,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// Sets up /health and /quitquitquit endpoints.
+// Sets up /health and /wait-for-drain endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(func() bool {
-		var err error
-		wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
-			logger.Debug("TCP probing the user-container.")
-			err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
-			return err == nil, nil
-		})
-
-		if err == nil {
-			logger.Info("User-container successfully probed.")
-		} else {
-			logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
-		}
-
-		return err == nil
-	}))
-
-	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
-		time.Sleep(quitSleepDuration)
-
-		// Shutdown the proxy server.
-		if server != nil {
-			if err := server.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
-			} else {
-				logger.Debug("Proxy server shutdown successfully.")
-			}
-		}
-	}))
+	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
+	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
 }
@@ -245,8 +221,10 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.FlushInterval = -1
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy.Transport = h2c.DefaultTransport
+	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
 	activatorutil.SetupHeaderPruning(h2cProxy)
@@ -259,7 +237,7 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency), Logger: logger}
+		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency)}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
 	}
@@ -277,30 +255,30 @@ func main() {
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
-	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", servingAutoscaler, autoscalerNamespace, utils.GetClusterDomainName(), servingAutoscalerPort)
-	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
-	go statReporter()
+	statChan := make(chan *autoscaler.Stat, statReportingQueueLength)
+	defer close(statChan)
+	go reportStats(statChan)
 
-	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
+	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
+	defer reportTicker.Stop()
 	queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
-		ReportChan: reportTicker,
+		ReportChan: reportTicker.C,
 		StatChan:   statChan,
 	}, time.Now())
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
-		Handler: nil,
+		Handler: createAdminHandlers(),
 	}
-	adminServer.Handler = createAdminHandlers()
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
-		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
+			time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	errChan := make(chan error, 2)
+	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
 	// already shutting everything down.
@@ -323,16 +301,19 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 
-		// Calling server.Shutdown() allows pending requests to
-		// complete, while no new work is accepted.
+		healthState.Shutdown(func() {
+			// Give istio time to sync our "not ready" state
+			time.Sleep(quitSleepDuration)
+
+			// Calling server.Shutdown() allows pending requests to
+			// complete, while no new work is accepted.
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+			}
+		})
+
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
-		}
-
-		if statSink != nil {
-			if err := statSink.Close(); err != nil {
-				logger.Errorw("Failed to shutdown websocket connection", zap.Error(err))
-			}
 		}
 	}
 }

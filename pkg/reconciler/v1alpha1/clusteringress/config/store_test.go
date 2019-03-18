@@ -26,6 +26,7 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 
 	istioConfig := ConfigMapFromTestFile(t, IstioConfigName)
@@ -39,6 +40,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, IstioConfigName))

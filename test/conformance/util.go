@@ -29,9 +29,9 @@ import (
 	"strings"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -48,6 +48,7 @@ const (
 	timeout             = "timeout"
 	printport           = "printport"
 	runtime             = "runtime"
+	protocols           = "protocols"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
@@ -74,14 +75,8 @@ func setup(t *testing.T) *test.Clients {
 	return clients
 }
 
-func tearDown(clients *test.Clients, names test.ResourceNames) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
-	}
-}
-
-func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, domain, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -89,50 +84,60 @@ func waitForExpectedResponse(logger *logging.BaseLogger, clients *test.Clients, 
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, pkgTest.EventuallyMatchesBody(expectedResponse))
+	_, err = client.Poll(req, test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedResponse))))
 	return err
 }
 
 func validateDomains(
-	t *testing.T, logger *logging.BaseLogger, clients *test.Clients, baseDomain string,
-	baseExpected, trafficTargets, targetsExpected []string) {
-	t.Helper()
+	t *testing.T, clients *test.Clients, baseDomain string,
+	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
 	for _, target := range trafficTargets {
 		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
 	}
 
+	g, _ := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
-	logger.Infof("Waiting for route to update domain: %s", subdomains[0])
-	if err := waitForExpectedResponse(logger, clients, subdomains[0], targetsExpected[0]); err != nil {
-		t.Fatalf("Error waiting for route to update %s: %s", subdomains[0], targetsExpected[0])
+	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
+	for _, resp := range baseExpected {
+		// Check for each of the responses we expect from the base domain.
+		resp := resp
+		g.Go(func() error {
+			t.Logf("Waiting for route to update domain: %s", baseDomain)
+			return waitForExpectedResponse(t, clients, baseDomain, resp)
+		})
+	}
+	for i, s := range subdomains {
+		i, s := i, s
+		g.Go(func() error {
+			t.Logf("Waiting for route to update domain: %s", s)
+			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return errors.Wrap(err, "error with initial domain probing")
 	}
 
-	g, _ := errgroup.WithContext(context.Background())
-	var minBasePercentage float64
-	if len(baseExpected) == 1 {
-		minBasePercentage = minDirectPercentage
-	} else {
-		minBasePercentage = minSplitPercentage
-	}
 	g.Go(func() error {
+		minBasePercentage := minSplitPercentage
+		if len(baseExpected) == 1 {
+			minBasePercentage = minDirectPercentage
+		}
 		min := int(math.Floor(concurrentRequests * minBasePercentage))
-		return checkDistribution(logger, clients, baseDomain, concurrentRequests, min, baseExpected)
+		return checkDistribution(t, clients, baseDomain, concurrentRequests, min, baseExpected)
 	})
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
-	}
 	for i, subdomain := range subdomains {
+		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(concurrentRequests * minDirectPercentage))
-			return checkDistribution(logger, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
+			return checkDistribution(t, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
 		})
-		// Wait before going to the next domain as to not mutate subdomain and i
-		if err := g.Wait(); err != nil {
-			t.Fatalf("Error sending requests: %v", err)
-		}
 	}
+	if err := g.Wait(); err != nil {
+		return errors.Wrap(err, "error checking routing distribution")
+	}
+	return nil
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
@@ -168,7 +173,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *logging.BaseLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(t *testing.T, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -202,15 +207,15 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 			return fmt.Errorf("domain %s failed: want at least %d, got %d for response %q", domain, min, count, er)
 		}
 
-		logger.Infof("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
+		t.Logf("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
 		totalMatches += count
 	}
 	// Verify that the total expected responses match the number of requests made.
 	for badResponse, count := range badCounts {
-		logger.Infof("Saw unexpected response %q %d times.", badResponse, count)
+		t.Logf("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
-		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
@@ -218,17 +223,17 @@ func checkResponses(logger *logging.BaseLogger, num int, min int, domain string,
 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(logger *logging.BaseLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, logger, domain, test.ServingFlags.ResolvableDomain)
+func checkDistribution(t *testing.T, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
 
-	logger.Infof("Performing %d concurrent requests to %s", num, domain)
+	t.Logf("Performing %d concurrent requests to %s", num, domain)
 	actualResponses, err := sendRequests(client, domain, num)
 	if err != nil {
 		return err
 	}
 
-	return checkResponses(logger, num, min, domain, expectedResponses, actualResponses)
+	return checkResponses(t, num, min, domain, expectedResponses, actualResponses)
 }

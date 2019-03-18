@@ -18,15 +18,14 @@ package e2e
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -44,47 +43,27 @@ type Latencies interface {
 	Add(name string, start time.Time)
 }
 
-func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration time.Duration, latencies Latencies) {
+func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
 	clients := Setup(t)
 
 	cleanupCh := make(chan test.ResourceNames, scale)
 	defer close(cleanupCh)
 
-	fopt := []ServiceOption{
-		// We set a small resource alloc so that we can pack more pods into the cluster.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("50Mi"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}
-		},
-		// See #2946 for why we do this.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = map[string]string{
-				"autoscaling.knative.dev/minScale": "1",
-				"autoscaling.knative.dev/maxScale": "1",
-			}
-		},
-	}
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
-	// 95 = 19/20, so allow a single failure with the minimum number of probes, but expect
-	// us to have 3.5 9s overall.
+	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
+	// us to have 2.5 9s overall.
+	//
+	// TODO(#2850): After moving to Istio 1.1 we need to revisit these SLOs.
 	const (
-		localSLO  = 0.95
-		globalSLO = 0.9995
+		localSLO  = 0.90
+		globalSLO = 0.995
 		minProbes = 20
 	)
-	pm := test.NewProberManager(logger, clients, minProbes)
+	pm := test.NewProberManager(t, clients, minProbes)
 
 	timeoutCh := time.After(duration)
 
-	logger.Info("Creating new Services")
+	t.Log("Creating new Services")
 	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
@@ -92,7 +71,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 
 		wg.Go(func() error {
 			names := test.ResourceNames{
-				Service: test.AppendRandomString(fmt.Sprintf("scale-%05d-%03d-", scale, i), logger),
+				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%d", i)),
 				Image:   "helloworld",
 			}
 
@@ -114,10 +93,27 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := test.CreateLatestService(logger, clients, names, options, fopt...)
+			svc, err := test.CreateLatestService(t, clients, names, options,
+				WithResourceRequirements(corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("50Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("20Mi"),
+					},
+				}),
+				// See #2946 for why we do this.
+				// turns off auto scaling by setting max and min scale to 1
+				WithConfigAnnotations(map[string]string{
+					"autoscaling.knative.dev/minScale": "1",
+					"autoscaling.knative.dev/maxScale": "1",
+				}))
+
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
-				return nil
+				return errors.Wrap(err, "CreateLatestService() failed")
 			}
 			// Record the time it took to create the service.
 			latencies.Add("time-to-create", start)
@@ -127,7 +123,7 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Send it to our cleanup logic (below)
 			cleanupCh <- names
 
-			logger.Infof("Wait for %s to become ready.", names.Service)
+			t.Logf("Wait for %s to become ready.", names.Service)
 			var domain string
 			err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.Domain == "" {
@@ -138,21 +134,21 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return nil
+				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")
 			}
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
 
 			_, err = pkgTest.WaitForEndpointState(
 				clients.KubeClient,
-				logger,
+				t.Logf,
 				domain,
-				pkgTest.Retrying(pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+				test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return nil
+				return errors.Wrap(err, "WaitForEndpointState(expected text) failed")
 			}
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
@@ -160,18 +156,18 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 			// Start probing the domain until the test is complete.
 			pm.Spawn(domain)
 
-			logger.Infof("%s is ready.", names.Service)
+			t.Logf("%s is ready.", names.Service)
 			return nil
 		})
 	}
 
 	// Wait for all of the service creations to complete (possibly in failure),
 	// and signal the done channel.
-	doneCh := make(chan struct{})
+	doneCh := make(chan error)
 	go func() {
 		defer close(doneCh)
 		if err := wg.Wait(); err != nil {
-			t.Fatalf("hmm, this go routine never returns errors: %v", err)
+			doneCh <- err
 		}
 	}()
 
@@ -182,11 +178,18 @@ func ScaleToWithin(t *testing.T, logger *logging.BaseLogger, scale int, duration
 		// All of this has to finish within the configured timeout.
 		select {
 		case names := <-cleanupCh:
-			logger.Infof("Added %v to cleanup routine.", names)
-			test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
-			defer TearDown(clients, names, logger)
+			t.Logf("Added %v to cleanup routine.", names)
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			defer test.TearDown(clients, names)
 
-		case <-doneCh:
+		case err := <-doneCh:
+			if err != nil {
+				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
+				// as we tear down the things they are probing.
+				defer pm.Stop()
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
 			// This ProberManager implementation waits for minProbes before actually stopping.
 			if err := pm.Stop(); err != nil {
 				t.Fatalf("Stop() = %v", err)

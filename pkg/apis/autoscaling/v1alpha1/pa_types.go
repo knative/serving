@@ -57,9 +57,6 @@ var _ apis.Validatable = (*PodAutoscaler)(nil)
 var _ apis.Defaultable = (*PodAutoscaler)(nil)
 var _ apis.Immutable = (*PodAutoscaler)(nil)
 
-// Check that ConfigurationStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*PodAutoscalerStatus)(nil)
-
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -107,13 +104,7 @@ const (
 var podCondSet = duckv1alpha1.NewLivingConditionSet(PodAutoscalerConditionActive)
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus struct {
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-}
+type PodAutoscalerStatus duckv1alpha1.Status
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -125,7 +116,7 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-func (ps *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
+func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("PodAutoscaler")
 }
 
@@ -141,6 +132,9 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation
 		i, _ := strconv.ParseInt(s, 10, 32)
+		if i < 0 {
+			return 0
+		}
 		return int32(i)
 	}
 	return 0
@@ -155,9 +149,13 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	return
 }
 
-func (pa *PodAutoscaler) MetricTarget() (target int32, ok bool) {
+// Target returns the target annotation value or false if not present.
+func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
 		if i, err := strconv.Atoi(s); err == nil {
+			if i < 1 {
+				return 0, false
+			}
 			return int32(i), true
 		}
 	}
@@ -205,6 +203,13 @@ func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
+// MarkResourceFailedCreation changes the "Active" condition to false to reflect that a
+// critical resource of the given kind and name was unable to be created.
+func (rs *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
+	rs.MarkInactive("FailedCreate",
+		fmt.Sprintf("Failed to create %s %q.", kind, name))
+}
+
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
 func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
@@ -231,16 +236,4 @@ func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 		}
 	}
 	return false
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *PodAutoscalerStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *PodAutoscalerStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }

@@ -4,6 +4,19 @@ metadata:
   name: knative-serving-admin
   labels:
     serving.knative.dev/release: devel
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      serving.knative.dev/controller: "true"
+rules: [] # Rules are automatically filled in by the controller manager.
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: knative-serving-core
+  labels:
+    serving.knative.dev/release: devel
+    serving.knative.dev/controller: "true"
 rules:
   - apiGroups: [""]
     resources: ["pods", "namespaces", "secrets", "configmaps", "endpoints", "services", "events", "serviceaccounts"]
@@ -38,12 +51,6 @@ rules:
   - apiGroups: ["networking.internal.knative.dev"]
     resources: ["clusteringresses", "clusteringresses/status"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
-  - apiGroups: ["build.knative.dev"]
-    resources: ["builds"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
-  - apiGroups: ["pipeline.knative.dev"]
-    resources: ["pipelines", "tasks", "pipelineresources", "pipelineruns", "taskruns"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices"]
+    resources: ["virtualservices", "gateways"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

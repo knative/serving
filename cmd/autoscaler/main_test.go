@@ -18,7 +18,16 @@ package main
 import (
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeinformers "k8s.io/client-go/informers"
+	fakeK8s "k8s.io/client-go/kubernetes/fake"
+)
+
+const (
+	testNamespace = "test-namespace"
+	testRevision  = "test-Revision"
 )
 
 func TestLabelValueOrEmpty(t *testing.T) {
@@ -52,4 +61,41 @@ func TestLabelValueOrEmpty(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUniScalerFactoryFunc(t *testing.T) {
+	uniScalerFactory := getTestUniScalerFactory()
+	metric := &autoscaler.Metric{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testRevision,
+			Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
+		},
+	}
+	dynamicConfig := &autoscaler.DynamicConfig{}
+
+	if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
+		t.Errorf("got error from uniScalerFactory: %v", err)
+	}
+}
+
+func TestUniScalerFactoryFunc_FailWhenRevisionLabelMissing(t *testing.T) {
+	uniScalerFactory := getTestUniScalerFactory()
+	metric := &autoscaler.Metric{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testRevision,
+		},
+	}
+	dynamicConfig := &autoscaler.DynamicConfig{}
+
+	if _, err := uniScalerFactory(metric, dynamicConfig); err == nil {
+		t.Errorf("expected error when revision label missing but got none")
+	}
+}
+
+func getTestUniScalerFactory() func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints())
 }

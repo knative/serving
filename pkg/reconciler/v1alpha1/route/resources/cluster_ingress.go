@@ -23,8 +23,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -32,7 +35,6 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/utils"
 )
 
@@ -42,7 +44,7 @@ func isClusterLocal(r *servingv1alpha1.Route) bool {
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.ClusterIngress {
+func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, ingressClass string) *v1alpha1.ClusterIngress {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
@@ -56,6 +58,11 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config) *v1alpha1.
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
+	// Set the ingress class annotation.
+	if ci.ObjectMeta.Annotations == nil {
+		ci.ObjectMeta.Annotations = make(map[string]string)
+	}
+	ci.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	return ci
 }
 
@@ -88,13 +95,10 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 	if targetName == traffic.DefaultTarget {
 		// Nameless traffic targets correspond to many domains: the
-		// Route.Status.Domain, and also various names of the Route's
-		// headless Service.
+		// Route.Status.Domain.
 		domains := []string{
 			r.Status.Domain,
 			names.K8sServiceFullname(r),
-			fmt.Sprintf("%s.%s.svc", r.Name, r.Namespace),
-			fmt.Sprintf("%s.%s", r.Name, r.Namespace),
 		}
 		return dedup(domains)
 	}
@@ -159,11 +163,11 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic
 }
 
 func dedup(strs []string) []string {
-	existed := make(map[string]struct{})
+	existed := sets.NewString()
 	unique := []string{}
 	for _, s := range strs {
-		if _, ok := existed[s]; !ok {
-			existed[s] = struct{}{}
+		if !existed.Has(s) {
+			existed.Insert(s)
 			unique = append(unique, s)
 		}
 	}

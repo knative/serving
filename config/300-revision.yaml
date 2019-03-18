@@ -38,9 +38,12 @@ spec:
   - name: Service Name
     type: string
     JSONPath: .status.serviceName
+  - name: Generation
+    type: string # int in string form :(
+    JSONPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
   - name: Ready
     type: string
-    JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"
+    JSONPath: ".status.conditions[?(@.type=='Ready')].status"
   - name: Reason
     type: string
-    JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
+    JSONPath: ".status.conditions[?(@.type=='Ready')].reason"

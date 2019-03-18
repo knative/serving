@@ -17,16 +17,20 @@ limitations under the License.
 package queue
 
 import (
+	"bufio"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/knative/pkg/websocket"
 )
 
 var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
 
-// TimeToFirstByteTimeoutHandler returns a Handler that runs h with the
+// TimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
 // given time limit in which the first byte of the response must be written.
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
@@ -69,34 +73,31 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	// The recovery value of a panic is written to this channel to be
 	// propagated (panicked with) again.
-	panicChan := make(chan interface{}, 1)
+	panicChan := make(chan interface{})
 	defer close(panicChan)
 
 	tw := &timeoutWriter{w: w}
 	go func() {
+		// The defer statements are executed in LIFO order,
+		// so recover will execute first, then only, the channel will be closed.
+		defer close(done)
 		defer func() {
 			if p := recover(); p != nil {
 				panicChan <- p
 			}
 		}()
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
-
-		// Closing the channel is not deferred to give the panic recovery
-		// precedence and not successfully complete the request by accident.
-		close(done)
 	}()
 
 	timeout := time.After(h.dt)
 	for {
 		select {
 		case p := <-panicChan:
-			close(done)
 			panic(p)
 		case <-done:
 			return
 		case <-timeout:
 			if tw.TimeoutAndWriteError(h.errorBody()) {
-				cancelCtx()
 				return
 			}
 		}
@@ -118,7 +119,20 @@ type timeoutWriter struct {
 	wroteOnce bool
 }
 
+var _ http.Flusher = (*timeoutWriter)(nil)
+
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
+
+func (tw *timeoutWriter) Flush() {
+	tw.w.(http.Flusher).Flush()
+}
+
+// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
+// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
+// to handle connection upgrade/switching protocol.  Otherwise returns an error.
+func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return websocket.HijackIfPossible(tw.w)
+}
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
 

@@ -17,10 +17,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/pkg/test/logging"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 const (
@@ -30,8 +32,8 @@ const (
 // util.go provides shared utilities methods across knative serving test
 
 // LogResourceObject logs the resource object with the resource name and value
-func LogResourceObject(logger *logging.BaseLogger, value ResourceObjects) {
-	logger.Infof("resource %s", spew.Sdump(value))
+func LogResourceObject(t *testing.T, value ResourceObjects) {
+	t.Logf("resource %s", spew.Sdump(value))
 }
 
 // ImagePath is a helper function to prefix image name with repo and suffix with tag
@@ -56,7 +58,7 @@ func ListenAndServeGracefullyWithPattern(addr string, handlers map[string]func(w
 		m.HandleFunc(pattern, handler)
 	}
 
-	server := http.Server{Addr: addr, Handler: m}
+	server := http.Server{Addr: addr, Handler: h2c.NewHandler(m, &http2.Server{})}
 	go server.ListenAndServe()
 
 	<-signals.SetupSignalHandler()

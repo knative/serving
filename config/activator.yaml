@@ -20,7 +20,6 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: activator
@@ -70,6 +69,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: CONFIG_LOGGING_NAME
+            value: config-logging
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging

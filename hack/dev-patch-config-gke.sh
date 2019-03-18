@@ -15,6 +15,7 @@
 # limitations under the License.
 
 set -o errexit
+set +x
 
 
 : ${PROJECT_ID:="knative-environments"}
@@ -40,28 +41,30 @@ function patch_network_config_gke() {
     ${K8S_CLUSTER_ZONE:+--zone="${K8S_CLUSTER_ZONE}"} --format="value(servicesIpv4Cidr)")
   ip_ranges+="$svc_cidr"
 
-  echo "Patching configmap 'config-network' with servicesIpv4Cidr..."
-  # Fetch configmap `config-network` as a temp yaml file.
-  local tmp_config_file=$(mktemp /tmp/config-network-XXXX.yaml)
-  kubectl get configmap config-network -n knative-serving -o yaml > \
-    "${tmp_config_file}"
-  # Patch the temp yaml file.
-  local source_line_regex="^  istio.sidecar.includeOutboundIPRanges.*$"
-  local target_line="  istio.sidecar.includeOutboundIPRanges: \"${ip_ranges?}\""
-  sed -i "s#${source_line_regex}#${target_line}#g" "${tmp_config_file}"
+  # Since kubectl doesn't really have "dry-run" mode, we get the file
+  # temporarily and patch using "--local" strategy, for display purposes.
+  readonly tmp=$(mktemp)
+  kubectl get configmap config-network -n knative-serving -oyaml > $tmp
 
   echo "The following configuration will be applied:"
-  echo
-  cat "${tmp_config_file}"
-  echo
+  readonly property="istio.sidecar.includeOutboundIPRanges"
+  readonly patch="{\"data\":{\"${property}\":\"${ip_ranges}\"}}"
+  readonly tmpl="{{index .data \"${property}\"}}"
+
+  echo -n "  ${property}: "
+  echo "$(kubectl patch --local -f ${tmp} -p ${patch} -o go-template="${tmpl}")"
+  echo -e "\n"
+
+  # Cleanup the temp file in any case.
+  rm $tmp
+
   read -p "Do you want to apply the changes (y/N)? " -n 1 -r
   echo
   if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-    kubectl apply -f "${tmp_config_file}"
+    kubectl patch configmap config-network -n knative-serving -p "${patch}"
   else
     echo "No changes applied"
   fi
-  rm -f "${tmp_config_file}"
 }
 
 patch_network_config_gke
