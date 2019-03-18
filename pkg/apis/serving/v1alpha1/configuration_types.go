@@ -21,7 +21,6 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -47,12 +46,15 @@ type Configuration struct {
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
-// Check that Configuration may be validated and defaulted.
-var _ apis.Validatable = (*Configuration)(nil)
-var _ apis.Defaultable = (*Configuration)(nil)
+// Verify that Configuration adheres to the appropriate interfaces.
+var (
+	// Check that Configuration may be validated and defaulted.
+	_ apis.Validatable = (*Configuration)(nil)
+	_ apis.Defaultable = (*Configuration)(nil)
 
-// Check that we can create OwnerReferences to a Configuration.
-var _ kmeta.OwnerRefable = (*Configuration)(nil)
+	// Check that we can create OwnerReferences to a Configuration.
+	_ kmeta.OwnerRefable = (*Configuration)(nil)
+)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
@@ -86,8 +88,6 @@ const (
 	ConfigurationConditionReady = duckv1alpha1.ConditionReady
 )
 
-var confCondSet = duckv1alpha1.NewLivingConditionSet()
-
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
 	duckv1alpha1.Status `json:",inline"`
@@ -111,65 +111,4 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
-}
-
-func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind("Configuration")
-}
-
-// IsReady looks at the conditions to see if they are happy.
-func (cs *ConfigurationStatus) IsReady() bool {
-	return confCondSet.Manage(cs).IsHappy()
-}
-
-// IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
-// and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
-// it returns false.
-func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
-	return cs.IsReady() &&
-		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
-}
-
-func (cs *ConfigurationStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return confCondSet.Manage(cs).GetCondition(t)
-}
-
-func (cs *ConfigurationStatus) InitializeConditions() {
-	confCondSet.Manage(cs).InitializeConditions()
-}
-
-func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
-	cs.LatestCreatedRevisionName = name
-	if cs.LatestReadyRevisionName != name {
-		confCondSet.Manage(cs).MarkUnknown(
-			ConfigurationConditionReady,
-			"",
-			"")
-	}
-}
-
-func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
-	cs.LatestReadyRevisionName = name
-	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
-}
-
-func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	confCondSet.Manage(cs).MarkFalse(
-		ConfigurationConditionReady,
-		"RevisionFailed",
-		"Revision %q failed with message: %s.", name, message)
-}
-
-func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
-	confCondSet.Manage(cs).MarkFalse(
-		ConfigurationConditionReady,
-		"RevisionFailed",
-		"Revision creation failed with message: %s.", message)
-}
-
-func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	confCondSet.Manage(cs).MarkFalse(
-		ConfigurationConditionReady,
-		"RevisionDeleted",
-		"Revision %q was deleted.", cs.LatestReadyRevisionName)
 }
