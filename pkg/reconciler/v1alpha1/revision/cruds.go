@@ -48,7 +48,8 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment, logger *zap.SugaredLogger) (*appsv1.Deployment, error) {
+func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, error) {
+	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
 	deployment := resources.MakeDeployment(
