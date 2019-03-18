@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	duck_v1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )

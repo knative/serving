@@ -80,6 +80,12 @@ type CertificateStatus struct {
 
 	// +optional
 	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the 'Generation' of the Certificate that
+	// was last processed by the controller. The observed generation is updated
+	// even if the controller failed to process the spec.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // InitializeConditions initializes the certificate conditions.
