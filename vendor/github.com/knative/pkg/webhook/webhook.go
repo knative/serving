@@ -535,13 +535,18 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 	}
 	var patches duck.JSONPatch
 
-	// Add these before defaulting fields, otherwise defaulting may cause an illegal patch because
-	// it expects the round tripped through Golang fields to be present already.
-	rtp, err := roundTripPatch(newBytes, newObj)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
+	var err error
+	// Skip this step if the type we're dealing with is a duck type, since it is inherently
+	// incomplete and this will patch away all of the unspecified fields.
+	if _, ok := newObj.(duck.Populatable); !ok {
+		// Add these before defaulting fields, otherwise defaulting may cause an illegal patch
+		// because it expects the round tripped through Golang fields to be present already.
+		rtp, err := roundTripPatch(newBytes, newObj)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
+		}
+		patches = append(patches, rtp...)
 	}
-	patches = append(patches, rtp...)
 
 	if patches, err = setDefaults(patches, newObj); err != nil {
 		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))

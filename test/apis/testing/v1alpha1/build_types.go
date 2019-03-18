@@ -62,13 +62,7 @@ const (
 var podCondSet = duckv1alpha1.NewBatchConditionSet()
 
 // BuildStatus communicates the observed state of the Build (from the controller).
-type BuildStatus struct {
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-}
+type BuildStatus duckv1alpha1.Status
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

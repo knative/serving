@@ -256,17 +256,11 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the ClusterIngress.
 type IngressStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
+
 	// LoadBalancer contains the current status of the load-balancer.
 	// +optional
 	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the ClusterIngress that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.

@@ -982,22 +982,26 @@ func MutateRoute(rt *v1alpha1.Route) {
 
 func RouteReady(cfg *v1alpha1.Route) {
 	cfg.Status = v1alpha1.RouteStatus{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   "Ready",
-			Status: "True",
-		}},
+		Status: duckv1alpha1.Status{
+			Conditions: []duckv1alpha1.Condition{{
+				Type:   "Ready",
+				Status: "True",
+			}},
+		},
 	}
 }
 
 func RouteFailed(reason, message string) RouteOption {
 	return func(cfg *v1alpha1.Route) {
 		cfg.Status = v1alpha1.RouteStatus{
-			Conditions: []duckv1alpha1.Condition{{
-				Type:    "Ready",
-				Status:  "False",
-				Reason:  reason,
-				Message: message,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: []duckv1alpha1.Condition{{
+					Type:    "Ready",
+					Status:  "False",
+					Reason:  reason,
+					Message: message,
+				}},
+			},
 		}
 	}
 }

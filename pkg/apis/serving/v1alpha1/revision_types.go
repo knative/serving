@@ -262,24 +262,14 @@ var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
 	// targeting the revision.
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
-
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LogURL specifies the generated logging url for this particular revision
 	// based on the revision url template specified in the controller's config.
@@ -360,7 +350,7 @@ func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
 }
 
-func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.KResourceStatus) {
+func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
 	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
 	if bc == nil {
 		return

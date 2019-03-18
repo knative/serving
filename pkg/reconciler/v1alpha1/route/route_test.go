@@ -94,7 +94,9 @@ func getTestRevisionWithCondition(name string, cond duckv1alpha1.Condition) *v1a
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions:  duckv1alpha1.Conditions{cond},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{cond},
+			},
 		},
 	}
 }
