@@ -37,18 +37,6 @@ func (ci *ClusterIngress) IsPublic() bool {
 	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
 }
 
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *IngressStatus) GetConditions() duckv1alpha1.Conditions {
-	return cis.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *IngressStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	cis.Conditions = conditions
-}
-
 func (cis *IngressStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return clusterIngressCondSet.Manage(cis).GetCondition(t)
 }
