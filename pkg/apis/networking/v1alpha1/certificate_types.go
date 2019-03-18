@@ -64,6 +64,7 @@ type CertificateList struct {
 // CertificateSpec defines the desired state of Certificate.
 type CertificateSpec struct {
 	// DNSNames is a list of DNS names the Certificate could support.
+	// The wildcard format of DNSNames (e.g. *.default.example.com) is supported.
 	DNSNames []string `json:"dnsNames"`
 
 	// SecretName is the name of the secret resource to store the SSL certificate in.
@@ -72,9 +73,10 @@ type CertificateSpec struct {
 
 // CertificateStatus defines the observed state of Certificate.
 type CertificateStatus struct {
-	// The detailed information related to the provisioned certificate.
+	// The expiration time of the TLS certificate stored in the secret named
+	// by this resource in spec.secretName.
 	// +optional
-	CertificateInfo CertificateInfo `json:"certificateInfo,omitempty"`
+	NotAfter *metav1.Time `json:"notAfter,omitempty"`
 
 	// +optional
 	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
@@ -90,18 +92,6 @@ func (cs *CertificateStatus) MarkReady() {
 	certificateCondSet.Manage(cs).MarkTrue(CertificateCondidtionReady)
 }
 
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *CertificateStatus) GetConditions() duckv1alpha1.Conditions {
-	return cs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cs *CertificateStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	cs.Conditions = conditions
-}
-
 // GetCondition gets a speicifc condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
@@ -113,21 +103,6 @@ const (
 	// is provioned and valid.
 	CertificateCondidtionReady = duckv1alpha1.ConditionReady
 )
-
-// CertificateInfo defines the detailed information related to the provisioned
-// certificate.
-type CertificateInfo struct {
-	// The DNS Names that the certificate actually supported.
-	// SupportedDNSNames could be the super set of the DNSNames in
-	// the CertificateSpec.
-	// +optional
-	SupportedDNSNames []string `json:"supportedDNSNames,omitempty"`
-
-	// The expiration time of the certificate stored in the secret named
-	// by this resource in spec.secretName.
-	// +optional
-	NotAfter *metav1.Time `json:"notAfter,omitempty"`
-}
 
 var certificateCondSet = duckv1alpha1.NewLivingConditionSet(CertificateCondidtionReady)
 

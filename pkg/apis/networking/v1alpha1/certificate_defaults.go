@@ -17,6 +17,6 @@ limitations under the License.
 package v1alpha1
 
 // SetDefaults sets the default values for Certificate.
-// Currently it is requred that all of the fields of Certificate are
+// Currently it is required that all of the fields of Certificate are
 // provisioned by the client. Therefore, SetDefaults does nothing right now.
 func (c *Certificate) SetDefaults() {}
