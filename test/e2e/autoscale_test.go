@@ -175,6 +175,13 @@ func setup(t *testing.T) *testContext {
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
+	t.Logf("Revision under test: %s", names.Revision)
+
+	// verify that revision is consistent and is ready
+	if err := test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady); err != nil {
+		t.Fatalf("The Revision %s is not in ready state: %v", names.Revision, err)
+	}
+
 	return &testContext{
 		t:              t,
 		clients:        clients,
@@ -190,7 +197,7 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	ctx.t.Log("Waiting for scale up")
+	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
 	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
