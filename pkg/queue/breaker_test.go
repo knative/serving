@@ -26,23 +26,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// semAcquireTimeout is a timeout for tests that try to acquire
-// a token of a semaphore.
-const semAcquireTimeout = 10 * time.Second
+const (
+	// semAcquireTimeout is a timeout for tests that try to acquire
+	// a token of a semaphore.
+	semAcquireTimeout = 10 * time.Second
 
-// semNoChangeTimeout is some additional wait time after a number
-// of acquires is reached to assert that no more acquires get through.
-const semNoChangeTimeout = 50 * time.Millisecond
+	// semNoChangeTimeout is some additional wait time after a number
+	// of acquires is reached to assert that no more acquires get through.
+	semNoChangeTimeout = 50 * time.Millisecond
+)
 
 type request struct {
-	lock     *sync.Mutex
+	barrier  chan struct{}
 	accepted chan bool
 }
 
 func (r *request) wait() {
-	ok := <-r.accepted
-	// Requeue for next usage
-	r.accepted <- ok
+	r.accepted <- <-r.accepted
 }
 
 func TestBreakerInvalidConstructor(t *testing.T) {
@@ -86,7 +86,7 @@ func TestBreakerOverload(t *testing.T) {
 	unlockAll(locks)
 
 	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 	unlockAll(locks)
 
 	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -119,7 +119,7 @@ func TestBreakerNoOverload(t *testing.T) {
 	unlockAll(locks[2:])
 
 	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestBreakerRecover(t *testing.T) {
 	unlockAll(moreLocks)
 
 	if diff := cmp.Diff(accepted(append(locks, moreLocks...)), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -144,18 +144,18 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	b := NewBreaker(params)   // Breaker capacity = 50
 	want := make([]bool, 150) // Process 150 requests
 	for i := 0; i < 50; i++ {
-		want[i] = true // First 50 will fill the breaker capacity
+		want[i] = true // First 50 will fill the breaker capacity.
 	}
 	for i := 50; i < 100; i++ {
-		want[i] = false // The next 50 will be shed
+		want[i] = false // The next 50 will be shed.
 	}
 	for i := 100; i < 150; i++ {
-		want[i] = true // The next 50 will be processed as capacity opens up
+		want[i] = true // The next 50 will be processed as capacity opens up.
 	}
 
-	// Send 100 requests
+	// Send 100 requests.
 	locks := b.concurrentRequests(100)
-	// Process one request and send one request, 50 times
+	// Process one request and send one request, 50 times.
 	for i := 100; i < 150; i++ {
 		// Open capacity
 		unlock(locks[i-100])
@@ -165,7 +165,7 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	unlockAll(locks[50:])
 
 	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %v", diff)
+		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -206,7 +206,7 @@ func TestSemaphore_Acquire_HasNoCapacity(t *testing.T) {
 	case <-gotChan:
 		t.Error("Token was acquired but shouldn't have been")
 	case <-time.After(semNoChangeTimeout):
-		// Test succeeds, semaphore didn't change in configured time
+		// Test succeeds, semaphore didn't change in configured time.
 	}
 }
 
@@ -248,8 +248,8 @@ func TestSemaphore_Release(t *testing.T) {
 }
 
 func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
-	wantAfterFirstRelease := int32(1)
-	wantAfterSecondRelease := int32(0)
+	const wantAfterFirstRelease = int32(1)
+	const wantAfterSecondRelease = int32(0)
 	sem := newSemaphore(2, 2)
 	sem.Acquire()
 	sem.Acquire()
@@ -272,7 +272,7 @@ func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
 }
 
 func TestSemaphore_UpdateCapacity(t *testing.T) {
-	initialCapacity := int32(1)
+	const initialCapacity = int32(1)
 	sem := newSemaphore(3, initialCapacity)
 	if got, want := sem.Capacity(), int32(1); got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -286,7 +286,7 @@ func TestSemaphore_UpdateCapacity(t *testing.T) {
 
 // Test the case when we add more capacity then the number of waiting reducers
 func TestSemaphore_UpdateCapacity_LessThenReducers(t *testing.T) {
-	initialCapacity := int32(2)
+	const initialCapacity = int32(2)
 	sem := newSemaphore(2, initialCapacity)
 	sem.Acquire()
 	sem.Acquire()
@@ -303,7 +303,7 @@ func TestSemaphore_UpdateCapacity_LessThenReducers(t *testing.T) {
 }
 
 func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
-	initialCapacity := int32(2)
+	const initialCapacity = int32(2)
 	sem := newSemaphore(2, initialCapacity)
 	sem.Acquire()
 	sem.Acquire()
@@ -360,8 +360,7 @@ func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 // Attempts to perform a concurrent request against the specified breaker.
 // Will wait for request to either be performed, enqueued or rejected.
 func (b *Breaker) concurrentRequest() request {
-	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 1)}
-	r.lock.Lock()
+	r := request{barrier: make(chan struct{}), accepted: make(chan bool, 1)}
 
 	if len(b.sem.queue) > 0 {
 		// Expect request to be performed
@@ -379,8 +378,7 @@ func (b *Breaker) concurrentRequest() request {
 	go func() {
 		start.Done()
 		ok := b.Maybe(func() {
-			r.lock.Lock() // Will block on locked mutex.
-			r.lock.Unlock()
+			<-r.barrier
 		})
 		r.accepted <- ok
 	}()
@@ -388,8 +386,7 @@ func (b *Breaker) concurrentRequest() request {
 	return r
 }
 
-// Perform n requests against the breaker, returning mutexes for each
-// request which succeeded, and a slice of bools for all requests.
+// Perform n requests against the breaker, returning request objects.
 func (b *Breaker) concurrentRequests(n int) []request {
 	requests := make([]request, n)
 	for i := range requests {
@@ -399,10 +396,9 @@ func (b *Breaker) concurrentRequests(n int) []request {
 }
 
 func waitForQueue(queue chan struct{}, size int) {
-	err := wait.PollImmediate(1*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+	if err := wait.PollImmediate(1*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		return len(queue) == size, nil
-	})
-	if err != nil {
+	}); err != nil {
 		panic("timed out waiting for queue")
 	}
 }
@@ -416,7 +412,7 @@ func accepted(requests []request) []bool {
 }
 
 func unlock(req request) {
-	req.lock.Unlock()
+	close(req.barrier)
 	// Verify that function has completed
 	req.wait()
 }

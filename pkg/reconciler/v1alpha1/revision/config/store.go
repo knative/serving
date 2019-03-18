@@ -57,11 +57,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				ControllerConfigName:    NewControllerConfigFromConfigMap,
-				network.ConfigName:      network.NewConfigFromConfigMap,
-				ObservabilityConfigName: NewObservabilityFromConfigMap,
-				autoscaler.ConfigName:   autoscaler.NewConfigFromConfigMap,
-				logging.ConfigName:      logging.NewConfigFromConfigMap,
+				ControllerConfigName:      NewControllerConfigFromConfigMap,
+				network.ConfigName:        network.NewConfigFromConfigMap,
+				ObservabilityConfigName:   NewObservabilityFromConfigMap,
+				autoscaler.ConfigName:     autoscaler.NewConfigFromConfigMap,
+				(logging.ConfigMapName()): logging.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -79,7 +79,7 @@ func (s *Store) Load() *Config {
 		Controller:    s.UntypedLoad(ControllerConfigName).(*Controller).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
 		Observability: s.UntypedLoad(ObservabilityConfigName).(*Observability).DeepCopy(),
-		Logging:       s.UntypedLoad(logging.ConfigName).(*pkglogging.Config).DeepCopy(),
+		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
 }

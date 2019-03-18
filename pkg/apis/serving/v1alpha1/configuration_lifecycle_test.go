@@ -56,69 +56,83 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   "Foo",
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   "Foo",
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type: ConfigurationConditionReady,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type: ConfigurationConditionReady,
+				}},
+			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   "Foo",
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   "Foo",
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 		},
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   "Foo",
-				Status: corev1.ConditionTrue,
-			}, {
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   "Foo",
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isReady: false,
 	}}
@@ -138,29 +152,35 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}{{
 		name: "Not ready status should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
 		},
 		isUpdateToDate: false,
 	}, {
 		name: "Missing LatestReadyRevisionName should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 			LatestCreatedRevisionName: "rev-1",
 		},
 		isUpdateToDate: false,
 	}, {
 		name: "Different revision names should not be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 			LatestCreatedRevisionName: "rev-2",
 			LatestReadyRevisionName:   "rev-1",
 		},
@@ -168,10 +188,12 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Same revision names and ready status should be up-to-date",
 		status: ConfigurationStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
+			Status: duckv1alpha1.Status{
+				Conditions: duckv1alpha1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
 			LatestCreatedRevisionName: "rev-1",
 			LatestReadyRevisionName:   "rev-1",
 		},

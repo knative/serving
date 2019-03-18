@@ -48,9 +48,16 @@ var buildAddToScheme = func(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &unstructured.Unstructured{})
 }
 
+// The signature of this was changed to return an error, so normalize the signature.
+var fakesharedclientsetAddToScheme = func(scheme *runtime.Scheme) {
+	if err := fakesharedclientset.AddToScheme(scheme); err != nil {
+		panic(err.Error())
+	}
+}
+
 var clientSetSchemes = []func(*runtime.Scheme){
 	fakekubeclientset.AddToScheme,
-	fakesharedclientset.AddToScheme,
+	fakesharedclientsetAddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	buildAddToScheme,
@@ -97,7 +104,7 @@ func (l *Listers) GetBuildObjects() []runtime.Object {
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
+	return l.sorter.ObjectsForSchemeFunc(fakesharedclientsetAddToScheme)
 }
 
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
@@ -131,6 +138,11 @@ func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressList
 
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
+}
+
+// GetGatewayLister gets lister for Istio Gateway resource.
+func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
+	return istiolisters.NewGatewayLister(l.indexerFor(&istiov1alpha3.Gateway{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {

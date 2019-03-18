@@ -17,7 +17,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 )
 
 func TestProbeHandler(t *testing.T) {
@@ -34,8 +36,14 @@ func TestProbeHandler(t *testing.T) {
 		expectedStatus: http.StatusOK,
 		method:         http.MethodPost,
 	}, {
+		label:          "filter a POST request containing probe header, even if probe is for a different target",
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: queue.Name}),
+		passed:         false,
+		expectedStatus: http.StatusServiceUnavailable,
+		method:         http.MethodPost,
+	}, {
 		label:          "filter a POST request containing probe header",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
 		passed:         false,
 		expectedStatus: http.StatusOK,
 		method:         http.MethodPost,
@@ -46,8 +54,14 @@ func TestProbeHandler(t *testing.T) {
 		expectedStatus: http.StatusOK,
 		method:         http.MethodGet,
 	}, {
-		label:          "filter a GET request containing probe header",
+		label:          "filter a GET request containing probe header, with wrong target system",
 		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+		passed:         false,
+		expectedStatus: http.StatusServiceUnavailable,
+		method:         http.MethodGet,
+	}, {
+		label:          "filter a GET request containing probe header",
+		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
 		passed:         false,
 		expectedStatus: http.StatusOK,
 		method:         http.MethodGet,

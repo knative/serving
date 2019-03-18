@@ -7,10 +7,11 @@ API Coverage results.
 display rules. DisplayHelper methods can use these rules to define how to
 display results.
 
-`GetJSONTypeDisplay()` is a utility method that can be used by repos to get a
-JSON like textual display of API Coverage. This method takes an array of
+`GetHTMLDisplay()` is a utility method that can be used by repos to get a
+HTML(JSON) like textual display of API Coverage. This method takes an array of
 [TypeCoverage](../coveragecalculator/coveragedata.go) and [DisplayRules](rule.go)
-object and returns a string representing its coverage in the format:
+object and returns a string representing its coverage in the color coded format
+inside a HTML page:
 
 ```
 Package: <PackageName>
@@ -23,9 +24,9 @@ Type: <TypeName>
 }
 ```
 
-`GetCoverageValuesDisplay()` is a utility method that can be used by repos to produce
-coverage values display. The method takes as input [CoverageValue](../coveragecalculator/calculator.go)
-and produces a display in the format:
+`GetHTMLCoverageValuesDisplay()` is a utility method that can be used by repos to
+produce coverage values display. The method takes as input [CoverageValue](../coveragecalculator/calculator.go)
+and produces a display in the format inside a HTML page:
 
 ```
 CoverageValues:

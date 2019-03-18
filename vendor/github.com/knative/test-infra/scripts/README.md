@@ -33,6 +33,8 @@ This is a helper script to run the presubmit tests. To use it:
    - `DISABLE_MD_LINTING`: Disable linting markdown files, defaults to 0 (false).
    - `DISABLE_MD_LINK_CHECK`: Disable checking links in markdown files, defaults
      to 0 (false).
+   - `PRESUBMIT_TEST_FAIL_FAST`: Fail the presubmit test immediately if a test fails,
+     defaults to 0 (false).
 
 1. [optional] Define the functions `pre_build_tests()` and/or
    `post_build_tests()`. These functions will be called before or after the
@@ -132,7 +134,7 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 1. [optional] Write the `dump_extra_cluster_state()` function. It will be
    called when a test fails, and can dump extra information about the current state
-   of the cluster (tipically using `kubectl`).
+   of the cluster (typically using `kubectl`).
 
 1. [optional] Write the `parse_flags()` function. It will be called whenever an
    unrecognized flag is passed to the script, allowing you to define your own flags.

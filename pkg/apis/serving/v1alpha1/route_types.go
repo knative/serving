@@ -17,16 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 // +genclient
@@ -52,15 +47,15 @@ type Route struct {
 	Status RouteStatus `json:"status,omitempty"`
 }
 
-// Check that Route may be validated and defaulted.
-var _ apis.Validatable = (*Route)(nil)
-var _ apis.Defaultable = (*Route)(nil)
+// Verify that Route adheres to the appropriate interfaces.
+var (
+	// Check that Route may be validated and defaulted.
+	_ apis.Validatable = (*Route)(nil)
+	_ apis.Defaultable = (*Route)(nil)
 
-// Check that we can create OwnerReferences to a Route.
-var _ kmeta.OwnerRefable = (*Route)(nil)
-
-// Check that RouteStatus may have its conditions managed.
-var _ duckv1alpha1.ConditionsAccessor = (*RouteStatus)(nil)
+	// Check that we can create OwnerReferences to a Route.
+	_ kmeta.OwnerRefable = (*Route)(nil)
+)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
@@ -121,10 +116,10 @@ const (
 	RouteConditionIngressReady duckv1alpha1.ConditionType = "IngressReady"
 )
 
-var routeCondSet = duckv1alpha1.NewLivingConditionSet(RouteConditionAllTrafficAssigned, RouteConditionIngressReady)
-
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
@@ -147,18 +142,6 @@ type RouteStatus struct {
 	// LatestReadyRevisionName that we last observed.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
-
-	// Conditions communicates information about ongoing/complete
-	// reconciliation processes that bring the "spec" inline with the observed
-	// state of the world.
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec and create the Revision.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -169,94 +152,4 @@ type RouteList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Route `json:"items"`
-}
-
-func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind("Route")
-}
-
-func (rs *RouteStatus) IsReady() bool {
-	return routeCondSet.Manage(rs).IsHappy()
-}
-
-func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return routeCondSet.Manage(rs).GetCondition(t)
-}
-
-func (rs *RouteStatus) InitializeConditions() {
-	routeCondSet.Manage(rs).InitializeConditions()
-}
-
-// MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
-// there is a pre-existing placeholder service with the name we wanted to use.
-func (rs *RouteStatus) MarkServiceNotOwned(name string) {
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
-		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
-}
-
-func (rs *RouteStatus) MarkTrafficAssigned() {
-	routeCondSet.Manage(rs).MarkTrue(RouteConditionAllTrafficAssigned)
-}
-
-func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
-}
-
-func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
-		"RevisionMissing",
-		"Configuration %q is waiting for a Revision to become ready.", name)
-}
-
-func (rs *RouteStatus) MarkConfigurationFailed(name string) {
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
-		"RevisionMissing",
-		"Configuration %q does not have any ready Revision.", name)
-}
-
-func (rs *RouteStatus) MarkRevisionNotReady(name string) {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
-		"RevisionMissing",
-		"Revision %q is not yet ready.", name)
-}
-
-func (rs *RouteStatus) MarkRevisionFailed(name string) {
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
-		"RevisionMissing",
-		"Revision %q failed to become ready.", name)
-}
-
-func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
-		kind+"Missing",
-		"%s %q referenced in traffic not found.", kind, name)
-}
-
-// PropagateClusterIngressStatus update RouteConditionIngressReady condition
-// in RouteStatus according to IngressStatus.
-func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) {
-	cc := cs.GetCondition(v1alpha1.ClusterIngressConditionReady)
-	if cc == nil {
-		return
-	}
-	switch {
-	case cc.Status == corev1.ConditionUnknown:
-		routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
-	case cc.Status == corev1.ConditionTrue:
-		routeCondSet.Manage(rs).MarkTrue(RouteConditionIngressReady)
-	case cc.Status == corev1.ConditionFalse:
-		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
-	}
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RouteStatus) GetConditions() duckv1alpha1.Conditions {
-	return rs.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (rs *RouteStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	rs.Conditions = conditions
 }

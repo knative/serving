@@ -28,15 +28,14 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:b73244f6a5ab381f938bfd2d831c57eeea884b0fab333126cc175914ec82dec5"
+  digest = "1:b6eb7c2538ec2999a072c0e372a18d7b7e3aedac249f26e159586fa5f892909f"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "2b7f4fc93daf5ec3048fa4fc1c15573466711a17"
-  version = "v0.8.0"
+  revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [[projects]]
   digest = "1:94eff9ba92a0bf4938a2ec911c44b58b5c366a94f5f72b2b3c454629781c506f"
@@ -128,11 +127,12 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
-  digest = "1:65b0d980b428a6ad4425f2df4cd5410edd81f044cf527bd1c345368444649e58"
+  digest = "1:7b306d2c6d792f8e71bf123669ee967cdeec633ca8944c627b50db13cc36c5ec"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
     "gen-go/agent/common/v1",
     "gen-go/agent/trace/v1",
+    "gen-go/metrics/v1",
     "gen-go/resource/v1",
     "gen-go/trace/v1",
   ]
@@ -450,7 +450,7 @@
   revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[projects]]
-  digest = "1:96668306757feff41921a310fd40dc87106cb803a5ab3297870e3837e4e8108f"
+  digest = "1:0d15efb38156071d88ce2672e44658f6a94c41e6632b21f8cae40c368848e9f4"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -492,6 +492,7 @@
     "test",
     "test/helpers",
     "test/logging",
+    "test/monitoring",
     "test/spoof",
     "test/zipkin",
     "tracker",
@@ -500,11 +501,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "2a8c1b0e5ad2719b00e20fef8594d63fa202640f"
+  revision = "374ae9eb1f97d495ec55b5f0178d6e6b05f3ae18"
 
 [[projects]]
   branch = "master"
-  digest = "1:df9443c98d22beaa82e9415792e11a4921b0d4b699467957bb21b01ee0010cd9"
+  digest = "1:37372ae74214d400b7efb4b1b9839d99d8e2c6fc4e2a1ddf6c38431c979c91f1"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -522,7 +523,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "3fd8236ecc212038bfbdac2118aa92e53e4c8a62"
+  revision = "cc62d7b1296b8ae5c93f1dec2cbfbaa84624304b"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1346,7 +1347,6 @@
     "github.com/knative/test-infra/shared/prow",
     "github.com/knative/test-infra/shared/testgrid",
     "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator",
     "github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree",
     "github.com/knative/test-infra/tools/webhook-apicoverage/tools",
     "github.com/knative/test-infra/tools/webhook-apicoverage/view",

@@ -21,7 +21,6 @@ limitations under the License.
 package performance
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -33,7 +32,7 @@ import (
 )
 
 func TestTimeToServeLatency(t *testing.T) {
-	perfClients, err := Setup(context.Background(), t, true)
+	perfClients, err := Setup(t.Logf, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
@@ -44,8 +43,8 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 	clients := perfClients.E2EClients
 
-	defer TearDown(perfClients, names)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, names) })
+	defer TearDown(perfClients, names, t.Logf)
+	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
 	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})

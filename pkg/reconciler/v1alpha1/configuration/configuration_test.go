@@ -215,11 +215,13 @@ func TestReconcile(t *testing.T) {
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
 				WithRevStatus(v1alpha1.RevisionStatus{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:     v1alpha1.RevisionConditionReady,
-						Status:   "Bad",
-						Severity: "Error",
-					}},
+					Status: duckv1alpha1.Status{
+						Conditions: duckv1alpha1.Conditions{{
+							Type:     v1alpha1.RevisionConditionReady,
+							Status:   "Bad",
+							Severity: "Error",
+						}},
+					},
 				})),
 		},
 		WantErr: true,

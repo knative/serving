@@ -20,93 +20,71 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
+	"github.com/knative/pkg/test/monitoring"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	prometheusPort = "9090"
-	appLabel       = "app=prometheus"
+	prometheusPort = 9090
+	appLabel       = "prometheus"
+)
+
+var (
+	// sync.Once variable to ensure we execute zipkin setup only once.
+	setupOnce sync.Once
+
+	// sync.Once variable to ensure we execute zipkin cleanup only if zipkin is setup and it is executed only once.
+	teardownOnce sync.Once
 )
 
 // PromProxy defines a proxy to the prometheus server
 type PromProxy struct {
-	Namespace      string
-	portFwdProcess *os.Process
+	Namespace string
+	processID int
 }
 
 // Setup performs a port forwarding for app prometheus-test in given namespace
-func (p *PromProxy) Setup(ctx context.Context, logf logging.FormatLogger) error {
-	return p.portForward(ctx, logf, appLabel, prometheusPort, prometheusPort)
+func (p *PromProxy) Setup(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger) {
+	setupOnce.Do(func() {
+		if err := monitoring.CheckPortAvailability(prometheusPort); err != nil {
+			logf("Prometheus port not available: %v", err)
+			return
+		}
+
+		promPods, err := monitoring.GetPods(kubeClientset, appLabel, p.Namespace)
+		if err != nil {
+			logf("Error retrieving prometheus pod details: %v", err)
+			return
+		}
+
+		p.processID, err = monitoring.PortForward(logf, promPods, prometheusPort, prometheusPort, p.Namespace)
+		if err != nil {
+			logf("Error starting kubectl port-forward command: %v", err)
+			return
+		}
+	})
 }
 
 // Teardown will kill the port forwarding process if running.
-func (p *PromProxy) Teardown() error {
-	if p.portFwdProcess != nil {
-		return p.portFwdProcess.Kill()
-	}
-	return nil
-}
-
-// PortForward sets up local port forward to the pod specified by the "app" label in the given namespace
-func (p *PromProxy) portForward(ctx context.Context, logf logging.FormatLogger, labelSelector, localPort, remotePort string) error {
-	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.Namespace, labelSelector)
-	pod, err := p.execShellCmd(ctx, logf, getName)
-	if err != nil {
-		return err
-	}
-
-	logf("%s pod name: %s", labelSelector, pod)
-	logf("Setting up %s proxy", labelSelector)
-
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.Namespace)
-	if p.portFwdProcess, err = p.executeCmdBackground(logf, portFwdCmd); err != nil {
-		return fmt.Errorf("Failed to port forward: %v", err)
-	}
-	logf("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
-	return nil
-}
-
-// RunBackground starts a background process and returns the Process if succeed
-func (p *PromProxy) executeCmdBackground(logf logging.FormatLogger, format string, args ...interface{}) (*os.Process, error) {
-	cmd := fmt.Sprintf(format, args...)
-	logf("Executing command: %s", cmd)
-	parts := strings.Split(cmd, " ")
-	c := exec.Command(parts[0], parts[1:]...) // #nosec
-	if err := c.Start(); err != nil {
-		return nil, fmt.Errorf("%s command failed: %v", cmd, err)
-	}
-	return c.Process, nil
-}
-
-// ExecuteShellCmd executes a shell command
-func (p *PromProxy) execShellCmd(ctx context.Context, logf logging.FormatLogger, format string, args ...interface{}) (string, error) {
-	cmd := fmt.Sprintf(format, args...)
-	logf("Executing command: %s", cmd)
-	c := exec.CommandContext(ctx, "sh", "-c", cmd) // #nosec
-	bytes, err := c.CombinedOutput()
-	s := string(bytes)
-	if err != nil {
-		return s, fmt.Errorf("command %q failed with error: %v", cmd, err)
-	}
-
-	if output := strings.TrimSuffix(s, "\n"); len(output) > 0 {
-		logf("Command output: \n%s", output)
-	}
-
-	return s, nil
+func (p *PromProxy) Teardown(logf logging.FormatLogger) {
+	teardownOnce.Do(func() {
+		if err := monitoring.Cleanup(p.processID); err != nil {
+			logf("Encountered error killing port-forward process: %v", err)
+			return
+		}
+	})
 }
 
 // PromAPI gets a handle to the prometheus API
 func PromAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +103,19 @@ func RunQuery(ctx context.Context, logf logging.FormatLogger, promAPI v1.API, qu
 
 	value, err := promAPI.Query(ctx, query, time.Now())
 	if err != nil {
-		return 0, nil
+		return 0, err
+	}
+
+	return VectorValue(value)
+}
+
+// RunQueryRange runs a prometheus query over the given range
+func RunQueryRange(ctx context.Context, logf logging.FormatLogger, promAPI v1.API, query string, r v1.Range) (float64, error) {
+	logf("Running prometheus query: %s", query)
+
+	value, err := promAPI.QueryRange(ctx, query, r)
+	if err != nil {
+		return 0, err
 	}
 
 	return VectorValue(value)

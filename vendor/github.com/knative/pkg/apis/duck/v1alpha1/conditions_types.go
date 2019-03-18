@@ -129,25 +129,20 @@ type KResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Status KResourceStatus `json:"status"`
+	Status Status `json:"status"`
 }
 
-// KResourceStatus shows how we expect folks to embed Conditions in
+// Status shows how we expect folks to embed Conditions in
 // their Status field.
-type KResourceStatus struct {
+type Status struct {
+	// ObservedGeneration is the 'Generation' of the Service that
+	// was last processed by the controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// +optional
 	Conditions Conditions `json:"conditions,omitempty"`
 }
-
-func (krs *KResourceStatus) GetConditions() Conditions {
-	return krs.Conditions
-}
-
-func (krs *KResourceStatus) SetConditions(conditions Conditions) {
-	krs.Conditions = conditions
-}
-
-// Ensure KResourceStatus satisfies ConditionsAccessor
-var _ ConditionsAccessor = (*KResourceStatus)(nil)
 
 // In order for Conditions to be Implementable, KResource must be Populatable.
 var _ duck.Populatable = (*KResource)(nil)
@@ -162,6 +157,7 @@ func (_ *Conditions) GetFullType() duck.Populatable {
 
 // Populate implements duck.Populatable
 func (t *KResource) Populate() {
+	t.Status.ObservedGeneration = 42
 	t.Status.Conditions = Conditions{{
 		// Populate ALL fields
 		Type:               "Birthday",

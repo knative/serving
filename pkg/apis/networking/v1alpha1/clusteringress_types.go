@@ -17,12 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -53,6 +51,16 @@ type ClusterIngress struct {
 	// +optional
 	Status IngressStatus `json:"status,omitempty"`
 }
+
+// Verify that ClusterIngress adheres to the appropriate interfaces.
+var (
+	// Check that ClusterIngress may be validated and defaulted.
+	_ apis.Validatable = (*ClusterIngress)(nil)
+	_ apis.Defaultable = (*ClusterIngress)(nil)
+
+	// Check that we can create OwnerReferences to a ClusterIngress..
+	_ kmeta.OwnerRefable = (*ClusterIngress)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -256,17 +264,11 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the ClusterIngress.
 type IngressStatus struct {
-	// +optional
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
+
 	// LoadBalancer contains the current status of the load-balancer.
 	// +optional
 	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
-
-	// ObservedGeneration is the 'Generation' of the ClusterIngress that
-	// was last processed by the controller. The observed generation is updated
-	// even if the controller failed to process the spec.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.
@@ -319,66 +321,3 @@ const (
 	// a ready LoadBalancer.
 	ClusterIngressConditionLoadBalancerReady duckv1alpha1.ConditionType = "LoadBalancerReady"
 )
-
-var clusterIngressCondSet = duckv1alpha1.NewLivingConditionSet(
-	ClusterIngressConditionNetworkConfigured,
-	ClusterIngressConditionLoadBalancerReady)
-
-var _ apis.Validatable = (*ClusterIngress)(nil)
-var _ apis.Defaultable = (*ClusterIngress)(nil)
-
-func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind("ClusterIngress")
-}
-
-// IsPublic returns whether the ClusterIngress should be exposed publicly.
-func (ci *ClusterIngress) IsPublic() bool {
-	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *IngressStatus) GetConditions() duckv1alpha1.Conditions {
-	return cis.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (cis *IngressStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	cis.Conditions = conditions
-}
-
-func (cis *IngressStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return clusterIngressCondSet.Manage(cis).GetCondition(t)
-}
-
-func (cis *IngressStatus) InitializeConditions() {
-	clusterIngressCondSet.Manage(cis).InitializeConditions()
-}
-
-func (cis *IngressStatus) MarkNetworkConfigured() {
-	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionNetworkConfigured)
-}
-
-// MarkResourceNotOwned changes the "NetworkConfigured" condition to false to reflect that the
-// resource of the given kind and name has already been created, and we do not own it.
-func (cis *IngressStatus) MarkResourceNotOwned(kind, name string) {
-	clusterIngressCondSet.Manage(cis).MarkFalse(ClusterIngressConditionNetworkConfigured, "NotOwned",
-		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
-}
-
-// MarkLoadBalancerReady marks the Ingress with ClusterIngressConditionLoadBalancerReady,
-// and also populate the address of the load balancer.
-func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus) {
-	cis.LoadBalancer = &LoadBalancerStatus{
-		Ingress: []LoadBalancerIngressStatus{},
-	}
-	cis.LoadBalancer.Ingress = append(cis.LoadBalancer.Ingress, lbs...)
-	clusterIngressCondSet.Manage(cis).MarkTrue(ClusterIngressConditionLoadBalancerReady)
-}
-
-// IsReady looks at the conditions and if the Status has a condition
-// ClusterIngressConditionReady returns true if ConditionStatus is True
-func (cis *IngressStatus) IsReady() bool {
-	return clusterIngressCondSet.Manage(cis).IsHappy()
-}

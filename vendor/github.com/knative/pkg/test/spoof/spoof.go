@@ -30,6 +30,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/zipkin"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -60,6 +61,10 @@ type Response struct {
 	StatusCode int
 	Header     http.Header
 	Body       []byte
+}
+
+func (r *Response) String() string {
+	return fmt.Sprintf("status: %d, body: %s, headers: %v", r.StatusCode, string(r.Body), r.Header)
 }
 
 // Interface defines the actions that can be performed by the spoofing client.
@@ -246,7 +251,10 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		sc.logZipkinTrace(resp)
 	}
 
-	return resp, err
+	if err != nil {
+		return resp, errors.Wrapf(err, "response: %s did not pass checks", resp)
+	}
+	return resp, nil
 }
 
 // logZipkinTrace provides support to log Zipkin Trace for param: spoofResponse

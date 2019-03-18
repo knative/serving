@@ -17,7 +17,6 @@ limitations under the License.
 package resourcetree
 
 import (
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 	"reflect"
 )
 
@@ -82,19 +81,23 @@ func (s *StructKindNode) updateCoverage(v reflect.Value) {
 	}
 }
 
-func (s *StructKindNode) buildCoverageData(typeCoverage *[]coveragecalculator.TypeCoverage, nodeRules NodeRules,
-	fieldRules FieldRules, ignoredFields coveragecalculator.IgnoredFields) {
+func (s *StructKindNode) buildCoverageData(coverageHelper coverageDataHelper) {
 	if len(s.Children) == 0 {
 		return
 	}
 
-	coverage := s.Tree.Forest.getConnectedNodeCoverage(s.FieldType, fieldRules, ignoredFields)
-	*typeCoverage = append(*typeCoverage, coverage)
+	coverage := s.Tree.Forest.getConnectedNodeCoverage(s.FieldType, coverageHelper.fieldRules, coverageHelper.ignoredFields)
+	*coverageHelper.typeCoverage = append(*coverageHelper.typeCoverage, coverage)
+	// Adding the type to covered fields so as to avoid revisiting the same node in other parts of the resource tree.
+	coverageHelper.coveredTypes[s.FieldType.PkgPath() + "." + s.FieldType.Name()] = true
 
 	for field := range coverage.Fields {
 		node := s.Children[field]
-		if !coverage.Fields[field].Ignored && node.GetData().Covered && nodeRules.Apply(node) {
-			node.buildCoverageData(typeCoverage, nodeRules, fieldRules, ignoredFields)
+		if !coverage.Fields[field].Ignored && node.GetData().Covered && coverageHelper.nodeRules.Apply(node) {
+			// Check to see if the type has already been covered.
+			if ok, _ := coverageHelper.coveredTypes[node.GetData().FieldType.PkgPath() + "." + node.GetData().FieldType.Name()]; !ok {
+				node.buildCoverageData(coverageHelper)
+			}
 		}
 	}
 }

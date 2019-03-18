@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -112,7 +113,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
-				return nil
+				return errors.Wrap(err, "CreateLatestService() failed")
 			}
 			// Record the time it took to create the service.
 			latencies.Add("time-to-create", start)
@@ -133,7 +134,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return nil
+				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")
 			}
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
@@ -142,12 +143,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloWorldExpectedOutput))),
+				test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return nil
+				return errors.Wrap(err, "WaitForEndpointState(expected text) failed")
 			}
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
@@ -183,6 +184,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 		case err := <-doneCh:
 			if err != nil {
+				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
+				// as we tear down the things they are probing.
+				defer pm.Stop()
 				t.Fatalf("Unexpected error: %v", err)
 			}
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Author
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1008,7 +1008,7 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev1.Status.MarkResourcesAvailable()
 	rev1.Status.MarkContainerHealthy()
 	rev1.Status.MarkActive()
-	rev1.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	rev1.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
@@ -1022,7 +1022,7 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
 	rev2.Status.MarkActive()
-	rev2.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+	rev2.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: []duckv1alpha1.Condition{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,

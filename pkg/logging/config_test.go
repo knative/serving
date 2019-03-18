@@ -159,7 +159,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
+	cm, example := ConfigMapsFromTestFile(t, ConfigMapName())
 
 	if cfg, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)

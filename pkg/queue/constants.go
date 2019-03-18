@@ -17,15 +17,17 @@ limitations under the License.
 package queue
 
 const (
-	// RequestQueueQuitPath specifies the path to send quit request to
-	// queue-proxy. This is used for preStop hook of queue-proxy. It:
-	// - marks the service as not ready, so that requests will no longer
-	//   be routed to it,
-	// - adds a small delay, so that the container doesn't get killed at
-	//   the same time the pod is marked for removal.
-	RequestQueueQuitPath = "/quitquitquit"
+	// Name is the name of the component.
+	Name = "queue"
 
 	// RequestQueueHealthPath specifies the path for health checks for
 	// queue-proxy.
 	RequestQueueHealthPath = "/health"
+
+	// RequestQueueDrainPath specifies the path to wait until the proxy
+	// server is shut down. Any subsequent calls to this endpoint after
+	// the server has finished shutting down it will return immediately.
+	// Main usage is to delay the termination of user-container until all
+	// accepted requests have been processed.
+	RequestQueueDrainPath = "/wait-for-drain"
 )

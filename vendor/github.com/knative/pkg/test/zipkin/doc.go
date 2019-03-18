@@ -37,5 +37,5 @@ A general flow for a Test Suite to use Zipkin Tracing support is as follows:
 		2. Use SpoofingClient to make HTTP requests.
 		3. Call CleanupZipkinTracingSetup on cleanup after tests are executed.
 
- */
+*/
 package zipkin

@@ -85,33 +85,31 @@ const (
 	// As new endpoints show up, the Breakers concurrency increases up to this value.
 	breakerMaxConcurrency = 1000
 
+	// The port on which autoscaler WebSocket server listens.
+	autoscalerPort = 8080
+
 	defaultResyncInterval = 10 * time.Hour
 )
 
 var (
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-
-	logger *zap.SugaredLogger
-
-	statSink *websocket.ManagedConnection
-	statChan = make(chan *autoscaler.StatMessage, statReportingQueueLength)
-	reqChan  = make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 )
 
-func statReporter(stopCh <-chan struct{}) {
+func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{}, statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
 			if statSink == nil {
-				logger.Error("Stat sink not connected")
+				logger.Error("Stat sink is not connected")
 				continue
 			}
-			err := statSink.Send(sm)
-			if err != nil {
+			if err := statSink.Send(sm); err != nil {
 				logger.Errorw("Error while sending stat", zap.Error(err))
 			}
 		case <-stopCh:
+			// It's a sending connection, so no drainage required.
+			statSink.Shutdown()
 			return
 		}
 	}
@@ -128,7 +126,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
-	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")
@@ -157,6 +155,11 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
+	statChan := make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	defer close(statChan)
+
+	reqChan := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
@@ -223,19 +226,21 @@ func main() {
 		Handler:    handler,
 	})
 
-	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
-	a = activator.NewDedupingActivator(a)
+	a := activator.NewDedupingActivator(
+		activator.NewRevisionActivator(kubeClient, servingClient, logger))
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%s", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), "8080")
-	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
-	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(stopCh)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
+	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+	go statReporter(statSink, stopCh, statChan, logger)
 
 	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
 
 	// Create and run our concurrency reporter
-	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, time.NewTicker(time.Second).C, statChan)
+	reportTicker := time.NewTicker(time.Second)
+	defer reportTicker.Stop()
+	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
 	go cr.Run(stopCh)
 
 	// Create activation handler chain
@@ -249,11 +254,11 @@ func main() {
 		GetProbeCount: maxRetries,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = &activatorhandler.ProbeHandler{ah}
+	ah = &activatorhandler.ProbeHandler{NextHandler:ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {

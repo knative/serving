@@ -19,21 +19,28 @@ limitations under the License.
 package testgrid
 
 import (
-	"path"
 	"fmt"
 	"log"
 	"os"
+	"path"
 
-	"github.com/knative/test-infra/shared/prow"
 	"github.com/knative/test-infra/shared/junit"
+	"github.com/knative/test-infra/shared/prow"
 )
 
 const (
 	filePrefix = "junit_"
 	extension  = ".xml"
+	// BaseURL is Knative testgrid base URL
+	BaseURL = "https://testgrid.knative.dev"
 )
 
-// createDir creates dir if does not exist. 
+// jobNameTestgridURLMap contains harded coded mapping of job name: Testgrid tab URL relative to base URL
+var jobNameTestgridURLMap = map[string]string{
+	"ci-knative-serving-continuous": "knative-serving#continuous",
+}
+
+// createDir creates dir if does not exist.
 func createDir(dirPath string) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		if err = os.MkdirAll(dirPath, 0777); err != nil {
@@ -41,6 +48,18 @@ func createDir(dirPath string) error {
 		}
 	}
 	return nil
+}
+
+// GetTestgridTabURL gets Testgrid URL for giving job and filters for Testgrid
+func GetTestgridTabURL(jobName string, filters []string) (string, error) {
+	url, ok := jobNameTestgridURLMap[jobName]
+	if !ok {
+		return "", fmt.Errorf("cannot find Testgrid tab for job '%s'", jobName)
+	}
+	for _, filter := range filters {
+		url += "&" + filter
+	}
+	return fmt.Sprintf("%s/%s", BaseURL, url), nil
 }
 
 // CreateXMLOutput creates the junit xml file in the provided artifacts directory
@@ -58,7 +77,7 @@ func CreateXMLOutput(tc []junit.TestCase, testName string) error {
 		return err
 	}
 
-	outputFile := path.Join(artifactsDir, filePrefix + testName + extension)
+	outputFile := path.Join(artifactsDir, filePrefix+testName+extension)
 	log.Printf("Storing output in %s", outputFile)
 	f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer f.Close()

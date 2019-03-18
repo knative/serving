@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/metrics/metricskey"
 
 	"go.opencensus.io/stats"
@@ -242,6 +243,6 @@ func (r *Reporter) report(m stats.Measurement) error {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	stats.Record(r.ctx, m)
+	metrics.Record(r.ctx, m)
 	return nil
 }

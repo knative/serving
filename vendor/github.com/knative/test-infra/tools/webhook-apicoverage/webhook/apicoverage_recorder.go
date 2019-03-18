@@ -169,8 +169,8 @@ func (a *APICoverageRecorder) GetResourceCoverage(w http.ResponseWriter, r *http
 	coverageValues := coveragecalculator.CalculateTypeCoverage(typeCoverage)
 
 	var buffer strings.Builder
-	buffer.WriteString(view.GetJSONTypeDisplay(typeCoverage, a.DisplayRules))
-	buffer.WriteString(view.GetCoverageValuesDisplay(coverageValues))
+	buffer.WriteString(view.GetHTMLDisplay(typeCoverage, a.DisplayRules))
+	buffer.WriteString(view.GetHTMLCoverageValuesDisplay(coverageValues))
 	fmt.Fprint(w, buffer.String())
 }
 

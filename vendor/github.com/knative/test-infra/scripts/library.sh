@@ -178,7 +178,7 @@ function wait_until_routable() {
   for i in {1..150}; do  # timeout after 5 minutes
     local val=$(curl -H "Host: $2" "http://$1" 2>/dev/null)
     if [[ -n "$val" ]]; then
-      echo "\nEndpoint is now routable"
+      echo -e "\nEndpoint is now routable"
       return 0
     fi
     echo -n "."

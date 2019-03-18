@@ -19,6 +19,8 @@ package activator
 import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
 const (
+	// Name is the name of the component.
+	Name = "activator"
 	// K8sServiceName is the name of the activator service
 	K8sServiceName = "activator-service"
 	// RevisionHeaderName is the header key for revision name
@@ -28,7 +30,7 @@ const (
 
 	// ServicePortHTTP1 is the port number for activating HTTP1 revisions
 	ServicePortHTTP1 int32 = 80
-	// ServicePortHTTP1 is the port number for activating H2C revisions
+	// ServicePortH2C is the port number for activating H2C revisions
 	ServicePortH2C int32 = 81
 )
 

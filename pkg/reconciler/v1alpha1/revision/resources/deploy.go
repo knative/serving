@@ -63,7 +63,7 @@ var (
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
-				Path: queue.RequestQueueQuitPath,
+				Path: queue.RequestQueueDrainPath,
 			},
 		},
 	}

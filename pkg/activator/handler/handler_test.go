@@ -98,6 +98,7 @@ func TestActivationHandler(t *testing.T) {
 		wantErr         error
 		probeErr        error
 		probeCode       int
+		probeResp       []string
 		gpc             int
 		endpointsGetter func(activator.RevisionID) (int32, error)
 		reporterCalls   []reporterCall
@@ -127,6 +128,33 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 		}},
 		gpc: 1,
+	}, {
+		label:           "slowly active endpoint",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        "everything good!",
+		wantCode:        http.StatusOK,
+		wantErr:         nil,
+		probeResp:       []string{activator.Name, queue.Name},
+		endpointsGetter: goodEndpointsGetter,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   3, // probe + probe + request
+			Value:      1,
+		}, {
+			Op:         "ReportResponseTime",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+		}},
+		gpc: 2,
 	}, {
 		label:           "active endpoint with missing count header",
 		namespace:       testNamespace,
@@ -281,7 +309,12 @@ func TestActivationHandler(t *testing.T) {
 					}
 					fake := httptest.NewRecorder()
 					fake.WriteHeader(e.probeCode)
-					fake.WriteString("queue")
+					probeResp := queue.Name
+					if len(e.probeResp) > 0 {
+						probeResp = e.probeResp[0]
+						e.probeResp = e.probeResp[1:]
+					}
+					fake.WriteString(probeResp)
 					return fake.Result(), nil
 				}
 				if e.wantErr != nil {

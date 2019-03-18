@@ -74,7 +74,6 @@ var (
 	userTargetAddress      string
 	containerConcurrency   int
 	revisionTimeoutSeconds int
-	statChan               = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
@@ -109,7 +108,7 @@ func initEnv() {
 	reporter = _reporter
 }
 
-func reportStats() {
+func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
 		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
@@ -126,8 +125,8 @@ func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
 	return httpProxy
 }
 
-func isKnativeProbe(r *http.Request) bool {
-	return r.Header.Get(network.ProbeHeaderName) != ""
+func knativeProbeHeader(r *http.Request) string {
+	return r.Header.Get(network.ProbeHeaderName)
 }
 
 func isKubeletProbe(r *http.Request) bool {
@@ -156,16 +155,20 @@ func probeUserContainer() bool {
 func handler(w http.ResponseWriter, r *http.Request) {
 	proxy := proxyForRequest(r)
 
+	ph := knativeProbeHeader(r)
 	switch {
-	case isKnativeProbe(r):
+	case ph != "":
+		if ph != queue.Name {
+			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
+			return
+		}
 		if probeUserContainer() {
 			// Respond with the name of the component handling the request.
-			w.Write([]byte("queue"))
+			w.Write([]byte(queue.Name))
 		} else {
 			http.Error(w, "container not ready", http.StatusServiceUnavailable)
 		}
 		return
-
 	case isKubeletProbe(r):
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
@@ -192,22 +195,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// Sets up /health and /quitquitquit endpoints.
+// Sets up /health and /wait-for-drain endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
-	mux.HandleFunc(queue.RequestQueueQuitPath, healthState.QuitHandler(func() {
-		time.Sleep(quitSleepDuration)
-
-		// Shutdown the proxy server.
-		if server != nil {
-			if err := server.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy-server", zap.Error(err))
-			} else {
-				logger.Debug("Proxy server shutdown successfully.")
-			}
-		}
-	}))
+	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
 }
@@ -263,26 +255,30 @@ func main() {
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
-	go reportStats()
+	statChan := make(chan *autoscaler.Stat, statReportingQueueLength)
+	defer close(statChan)
+	go reportStats(statChan)
 
-	reportTicker := time.NewTicker(queue.ReporterReportingPeriod).C
+	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
+	defer reportTicker.Stop()
 	queue.NewStats(podName, queue.Channels{
 		ReqChan:    reqChan,
-		ReportChan: reportTicker,
+		ReportChan: reportTicker.C,
 		StatChan:   statChan,
 	}, time.Now())
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
-		Handler: nil,
+		Handler: createAdminHandlers(),
 	}
-	adminServer.Handler = createAdminHandlers()
 
 	server = h2c.NewServer(
 		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
-		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler), time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
+			time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
 
 	errChan := make(chan error, 2)
+	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
 	// already shutting everything down.
@@ -305,8 +301,17 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 
-		// Calling server.Shutdown() allows pending requests to
-		// complete, while no new work is accepted.
+		healthState.Shutdown(func() {
+			// Give istio time to sync our "not ready" state
+			time.Sleep(quitSleepDuration)
+
+			// Calling server.Shutdown() allows pending requests to
+			// complete, while no new work is accepted.
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+			}
+		})
+
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}

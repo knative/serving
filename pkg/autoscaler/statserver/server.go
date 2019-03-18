@@ -168,7 +168,6 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Shutdown(timeout time.Duration) {
 	<-s.servingCh
 	s.logger.Info("Shutting down")
-	shutdownStart := time.Now()
 
 	close(s.stopCh)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -178,7 +177,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 		if err == context.DeadlineExceeded {
 			s.logger.Warn("Shutdown timed out")
 		} else {
-			s.logger.Error("Shutdown failed.", err)
+			s.logger.Errorw("Shutdown failed.", zap.Error(err))
 		}
 	}
 
@@ -192,10 +191,9 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	select {
 	case <-done:
 		s.logger.Info("Shutdown complete")
-	case <-time.After(time.Until(shutdownStart.Add(timeout))):
+	case <-ctx.Done():
 		s.logger.Warn("Shutdown timed out")
 	}
-	close(s.statsCh)
 }
 
 func isActivator(podName string) bool {

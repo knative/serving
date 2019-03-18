@@ -149,6 +149,7 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
+	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -194,11 +195,12 @@ func main() {
 			opt,
 			clusterIngressInformer,
 			virtualServiceInformer,
+			gatewayInformer,
 		),
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 

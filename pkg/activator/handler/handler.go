@@ -16,6 +16,7 @@ package handler
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -27,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/activator/util"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -86,7 +88,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ProtoMinor: r.ProtoMinor,
 				Host:       r.Host,
 				Header: map[string][]string{
-					http.CanonicalHeaderKey(network.ProbeHeaderName): {"true"},
+					http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
 				},
 			}
 			settings := wait.Backoff{
@@ -101,9 +103,17 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					a.Logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
 				}
+				defer probeResp.Body.Close()
 				httpStatus = probeResp.StatusCode
 				if httpStatus == http.StatusServiceUnavailable {
 					a.Logger.Warnf("Pod probe sent status: %d", httpStatus)
+					return false, nil
+				}
+				if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
+					a.Logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
+					return false, nil
+				} else if queue.Name != string(body) {
+					a.Logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
 					return false, nil
 				}
 				return true, nil

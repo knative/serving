@@ -94,9 +94,8 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 					ctx.t.Logf("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
-						ctx.t.Logf("request %d failed with status %v", requestID, res.StatusCode)
-						ctx.t.Logf("response headers: %v", res.Header)
-						ctx.t.Logf("response body: %v", string(res.Body))
+						ctx.t.Logf("status = %d, want: %d", res.StatusCode, http.StatusOK)
+						ctx.t.Logf("response: %s", res)
 						continue
 					}
 					mux.Lock()
@@ -176,6 +175,13 @@ func setup(t *testing.T) *testContext {
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
+	t.Logf("Revision under test: %s", names.Revision)
+
+	// verify that revision is consistent and is ready
+	if err := test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady); err != nil {
+		t.Fatalf("The Revision %s is not in ready state: %v", names.Revision, err)
+	}
+
 	return &testContext{
 		t:              t,
 		clients:        clients,
@@ -191,7 +197,7 @@ func assertScaleUp(ctx *testContext) {
 	if err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
-	ctx.t.Log("Waiting for scale up")
+	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
 	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
