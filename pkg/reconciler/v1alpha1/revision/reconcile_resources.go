@@ -64,7 +64,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
-		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment, logger)
+		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 		if err != nil {
 			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 			return err
