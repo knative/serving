@@ -186,6 +186,8 @@ func (m *manager) Spawn(domain string) Prober {
 		// to ultimately establish the SLI and compare to the SLO.
 		_, err = client.Poll(req, p.handleResponse)
 		if err != nil {
+			// SLO violations are not reflected as errors. They are
+			// captured and calculated internally.
 			m.t.Logf("Poll() = %v", err)
 			p.errCh <- err
 			return
@@ -230,6 +232,7 @@ func (m *manager) Foreach(f func(domain string, p Prober)) {
 	}
 }
 
+// NewProberManager creates a new manager for probes.
 func NewProberManager(t *testing.T, clients *Clients, minProbes int64) ProberManager {
 	return &manager{
 		t:         t,
