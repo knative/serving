@@ -22,7 +22,7 @@ source $(dirname $0)/e2e-common.sh
 # Build Knative, but don't install the default "no monitoring" version
 function knative_setup() {
   build_knative_from_source
-  install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}"
+  install_knative_serving "${ISTIO_CRD_YAML}" "${ISTIO_YAML}" "${SERVING_YAML}" "${MONITORING_YAML}"
 }
 
 initialize $@
