@@ -67,11 +67,11 @@ var (
 	}
 )
 
-type Changed bool
+type changed bool
 
 const (
-	WasChanged Changed = true
-	Unchanged  Changed = false
+	wasChanged changed = true
+	unchanged  changed = false
 )
 
 type resolver interface {
