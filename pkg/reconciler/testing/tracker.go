@@ -22,10 +22,13 @@ import (
 	"github.com/knative/pkg/tracker"
 )
 
+// NullTracker implements Tracker.
 type NullTracker struct{}
 
 var _ tracker.Interface = (*NullTracker)(nil)
 
+// OnChanged implements OnChanged.
 func (*NullTracker) OnChanged(interface{}) {}
 
+// Track implements Track.
 func (*NullTracker) Track(corev1.ObjectReference, interface{}) error { return nil }

@@ -489,15 +489,13 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	configMapWatcher *configmap.ManualWatcher) {
 
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := append([]*corev1.ConfigMap{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.IstioConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: originGateways,
+	cms := append([]*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.IstioConfigName,
+			Namespace: system.Namespace(),
 		},
-	}, configs...)
+		Data: originGateways,
+	}}, configs...)
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
