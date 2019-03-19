@@ -2829,7 +2829,7 @@ spec:
           - name: PILOT_PUSH_THROTTLE_COUNT
             value: "100"
           - name: PILOT_TRACE_SAMPLING
-            value: "1"
+            value: "100"
           resources:
             requests:
               cpu: 500m
