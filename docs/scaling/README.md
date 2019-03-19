@@ -21,3 +21,10 @@ autoscaling.knative.dev/maxScale: "10"
 ```
 
 You can also use these annotations directly on `kpa` objects.
+
+**NOTE**: These annotations apply for the full lifetime of a `revision`.
+Even though a `revision` is not referenced by any `route`, a minimal pod count
+as specified by `autoscaling.knative.dev/minScale` is guaranteed. Non-routed
+`revisions` will be garbage collected after `stale-revision-create-delay`
+(default 24h). If you want save resource for non-routed `revisions`, you should
+manually delete them.
