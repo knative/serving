@@ -27,5 +27,5 @@ Even though a `revision` is not referenced by any `route`, a minimal pod count
 as specified by `autoscaling.knative.dev/minScale` is guaranteed. Non-routed
 `revisions` will be garbage collected after 24 hours(can be configured by
 `stale-revision-create-delay` in [config-gc.yaml](/config/config-gc.yaml)).
-If you want save resource for a non-routed `revision`, you should
-manually delete it.
+If you want save resource for a non-routed `revision` before it is garbage
+collected, you should manually delete it.
