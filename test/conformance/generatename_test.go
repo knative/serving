@@ -69,7 +69,7 @@ func validateName(generateName, name string) error {
 	r := regexp.MustCompile("^" + regexp.QuoteMeta(generateName) + "[a-zA-Z0-9\\-.]+$")
 
 	if !r.MatchString(name) {
-		return fmt.Errorf("expected generated name to match \"%v\", got %s", r, name)
+		return fmt.Errorf("generated name = %q, want to match %q", name, r.String())
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", route.Name, domain, helloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, helloWorldText, err)
 	}
 
 	return nil
