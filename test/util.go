@@ -15,7 +15,6 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -25,20 +24,14 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
-const (
-	HelloVolumePath = "/hello/world"
-)
+// HelloVolumePath is the path to the test volume.
+const HelloVolumePath = "/hello/world"
 
 // util.go provides shared utilities methods across knative serving test
 
 // LogResourceObject logs the resource object with the resource name and value
 func LogResourceObject(t *testing.T, value ResourceObjects) {
 	t.Logf("resource %s", spew.Sdump(value))
-}
-
-// ImagePath is a helper function to prefix image name with repo and suffix with tag
-func ImagePath(name string) string {
-	return fmt.Sprintf("%s/%s:%s", ServingFlags.DockerRepo, name, ServingFlags.Tag)
 }
 
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern

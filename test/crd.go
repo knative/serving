@@ -23,6 +23,7 @@ import (
 	"testing"
 	"unicode"
 
+	ptest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -148,7 +149,7 @@ func Configuration(namespace string, names ResourceNames, options *Options, fopt
 			Namespace: namespace,
 			Name:      names.Config,
 		},
-		Spec: *ConfigurationSpec(ImagePath(names.Image), options),
+		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
 	}
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
 		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
@@ -175,7 +176,7 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
-						Image: ImagePath(names.Image),
+						Image: ptest.ImagePath(names.Image),
 					},
 				},
 			},
@@ -186,7 +187,9 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func LatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
-	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options))}, fopt...)
+	a := append([]v1alpha1testing.ServiceOption{
+		v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options)),
+	}, fopt...)
 	return v1alpha1testing.Service(names.Service, namespace, a...)
 
 }
@@ -194,8 +197,9 @@ func LatestService(namespace string, names ResourceNames, options *Options, fopt
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
 func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
-	a := append([]v1alpha1testing.ServiceOption{v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ImagePath(names.Image), options),
-		[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
+	a := append([]v1alpha1testing.ServiceOption{
+		v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options),
+			[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
 	return v1alpha1testing.Service(names.Service, namespace, a...)
 }
 

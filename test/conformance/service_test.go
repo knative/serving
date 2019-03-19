@@ -213,7 +213,7 @@ func TestRunLatestService(t *testing.T) {
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
 	names.Image = printport
-	image2 := test.ImagePath(names.Image)
+	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
@@ -349,8 +349,8 @@ func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
 	clients := setup(t)
-	releaseImagePath2 := test.ImagePath(pizzaPlanet2)
-	releaseImagePath3 := test.ImagePath(helloworld)
+	releaseImagePath2 := pkgTest.ImagePath(pizzaPlanet2)
+	releaseImagePath3 := pkgTest.ImagePath(helloworld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   pizzaPlanet1,
