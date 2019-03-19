@@ -104,7 +104,7 @@ func testSchemeSubset1() *runtime.Scheme {
 	return scheme
 }
 
-func testSchemeSubset2Func(scheme *runtime.Scheme) {
+func testSchemeSubset2Func(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		schema.GroupVersion{
 			Group:   "test.group",
@@ -112,6 +112,7 @@ func testSchemeSubset2Func(scheme *runtime.Scheme) {
 		},
 		&testObject2{},
 	)
+	return nil
 }
 
 type testObject1 struct {

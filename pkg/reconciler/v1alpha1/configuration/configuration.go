@@ -273,7 +273,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 			result = &ul.Items[0]
 		} else {
 			// Otherwise, create a build and reference that.
-			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build)
+			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build, metav1.CreateOptions{})
 			if err != nil {
 				return nil, errutil.Wrapf(err, "Failed to create Build for Configuration %q", config.GetName())
 			}

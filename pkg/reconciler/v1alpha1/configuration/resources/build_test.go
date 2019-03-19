@@ -19,12 +19,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 var boolTrue = true
@@ -79,7 +78,6 @@ func TestBuilds(t *testing.T) {
 			"kind":       "Build",
 			"metadata": map[string]interface{}{
 				"namespace":    "simple",
-				"name":         "",
 				"generateName": "build-",
 				"ownerReferences": []interface{}{map[string]interface{}{
 					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
@@ -145,7 +143,6 @@ func TestBuilds(t *testing.T) {
 			"kind":       "Build",
 			"metadata": map[string]interface{}{
 				"namespace":    "simple",
-				"name":         "",
 				"generateName": "build-",
 				"ownerReferences": []interface{}{map[string]interface{}{
 					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),
@@ -202,7 +199,6 @@ func TestBuilds(t *testing.T) {
 			"kind":       "Build",
 			"metadata": map[string]interface{}{
 				"namespace":    "simple",
-				"name":         "",
 				"generateName": "build-template-",
 				"ownerReferences": []interface{}{map[string]interface{}{
 					"apiVersion":         v1alpha1.SchemeGroupVersion.String(),

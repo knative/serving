@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	util_runtime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -65,11 +66,11 @@ func (o *ObjectSorter) ObjectsForScheme(scheme *runtime.Scheme) []runtime.Object
 	return objs
 }
 
-func (o *ObjectSorter) ObjectsForSchemeFunc(funcs ...func(scheme *runtime.Scheme)) []runtime.Object {
+func (o *ObjectSorter) ObjectsForSchemeFunc(funcs ...func(scheme *runtime.Scheme) error) []runtime.Object {
 	scheme := runtime.NewScheme()
 
 	for _, addToScheme := range funcs {
-		addToScheme(scheme)
+		util_runtime.Must(addToScheme(scheme))
 	}
 
 	return o.ObjectsForScheme(scheme)
