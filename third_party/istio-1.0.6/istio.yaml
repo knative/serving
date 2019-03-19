@@ -17,7 +17,7 @@ metadata:
   labels:
     app: istio-galley
     chart: galley-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: mixer
 data:
@@ -30,7 +30,7 @@ data:
       labels:
         app: istio-galley
         chart: galley-1.0.6
-        release: RELEASE-NAME
+        release: release-name
         heritage: Tiller
     webhooks:
       - name: pilot.validation.istio.io
@@ -142,7 +142,7 @@ metadata:
   labels:
     app: istio-statsd-prom-bridge
     chart: mixer-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: mixer
 data:
@@ -158,7 +158,7 @@ metadata:
   labels:
     app: istio-security
     chart: security-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: security
 data:
@@ -171,7 +171,7 @@ data:
       labels:
         app: istio-security
         chart: security-1.0.6
-        release: RELEASE-NAME
+        release: release-name
         heritage: Tiller
     spec:
       peers:
@@ -221,7 +221,7 @@ metadata:
   labels:
     app: istio
     chart: istio-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
 data:
   mesh: |-
@@ -319,7 +319,7 @@ metadata:
   labels:
     app: istio
     chart: istio-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: sidecar-injector
 data:
@@ -495,7 +495,7 @@ metadata:
     app: istio-galley
     chart: galley-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 
 ---
 # Source: istio/charts/gateways/templates/serviceaccount.yaml
@@ -509,7 +509,7 @@ metadata:
     app: egressgateway
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -520,7 +520,7 @@ metadata:
     app: ingressgateway
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 
 ---
@@ -534,7 +534,7 @@ metadata:
     app: mixer
     chart: mixer-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 
 ---
 # Source: istio/charts/pilot/templates/serviceaccount.yaml
@@ -547,7 +547,7 @@ metadata:
     app: istio-pilot
     chart: pilot-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 
 ---
 # Source: istio/charts/security/templates/cleanup-secrets.yaml
@@ -573,7 +573,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -587,7 +587,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -605,7 +605,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -627,7 +627,7 @@ metadata:
   labels:
     app: security
     chart: security-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
 spec:
   template:
@@ -635,7 +635,7 @@ spec:
       name: istio-cleanup-secrets
       labels:
         app: security
-        release: RELEASE-NAME
+        release: release-name
     spec:
       serviceAccountName: istio-cleanup-secrets-service-account
       containers:
@@ -663,7 +663,7 @@ metadata:
     app: istio-security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -673,7 +673,7 @@ metadata:
     app: istio-security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -696,7 +696,7 @@ metadata:
     app: istio-security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -718,7 +718,7 @@ metadata:
   labels:
     app: istio-security
     chart: security-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
 spec:
   template:
@@ -726,7 +726,7 @@ spec:
       name: istio-security-post-install
       labels:
         app: istio-security
-        release: RELEASE-NAME
+        release: release-name
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:
@@ -753,7 +753,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 
 ---
 # Source: istio/charts/sidecarInjectorWebhook/templates/serviceaccount.yaml
@@ -766,7 +766,7 @@ metadata:
     app: istio-sidecar-injector
     chart: sidecarInjectorWebhook-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 
 ---
 # Source: istio/templates/crds.yaml
@@ -1859,7 +1859,7 @@ metadata:
     app: istio-galley
     chart: galley-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
@@ -1886,7 +1886,7 @@ metadata:
     app: gateways
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
   name: istio-egressgateway-istio-system
 rules:
 - apiGroups: ["extensions"]
@@ -1900,7 +1900,7 @@ metadata:
     app: gateways
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
   name: istio-ingressgateway-istio-system
 rules:
 - apiGroups: ["extensions"]
@@ -1918,7 +1918,7 @@ metadata:
     app: mixer
     chart: mixer-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
@@ -1949,7 +1949,7 @@ metadata:
     app: istio-pilot
     chart: pilot-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -1989,7 +1989,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -2011,7 +2011,7 @@ metadata:
     app: istio-sidecar-injector
     chart: sidecarInjectorWebhook-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 rules:
 - apiGroups: ["*"]
   resources: ["configmaps"]
@@ -2030,7 +2030,7 @@ metadata:
     app: istio-galley
     chart: galley-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -2080,7 +2080,7 @@ metadata:
     app: mixer
     chart: mixer-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -2100,7 +2100,7 @@ metadata:
     app: istio-pilot
     chart: pilot-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -2120,7 +2120,7 @@ metadata:
     app: security
     chart: security-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -2140,7 +2140,7 @@ metadata:
     app: istio-sidecar-injector
     chart: sidecarInjectorWebhook-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -2179,7 +2179,7 @@ metadata:
   annotations:
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: istio-egressgateway
     istio: egressgateway
@@ -2204,7 +2204,7 @@ metadata:
   annotations:
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: istio-ingressgateway
     istio: ingressgateway
@@ -2256,7 +2256,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: mixer-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     istio: mixer
 spec:
   ports:
@@ -2277,7 +2277,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: mixer-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     istio: mixer
 spec:
   ports:
@@ -2304,7 +2304,7 @@ metadata:
   labels:
     app: istio-pilot
     chart: pilot-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
 spec:
   ports:
@@ -2366,7 +2366,7 @@ metadata:
   labels:
     app: galley
     chart: galley-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: galley
 spec:
@@ -2482,7 +2482,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: istio-egressgateway
     istio: egressgateway
@@ -2621,7 +2621,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: istio-ingressgateway
     istio: ingressgateway
@@ -2770,7 +2770,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: mixer-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     istio: mixer
 spec:
   replicas: 1
@@ -2910,7 +2910,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: mixer-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     istio: mixer
 spec:
   replicas: 1
@@ -3021,7 +3021,7 @@ metadata:
   labels:
     app: istio-pilot
     chart: pilot-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: pilot
   annotations:
@@ -3177,7 +3177,7 @@ metadata:
   labels:
     app: security
     chart: security-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: citadel
 spec:
@@ -3250,7 +3250,7 @@ metadata:
   labels:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     istio: sidecar-injector
 spec:
@@ -3487,7 +3487,7 @@ metadata:
   labels:
     app: istio-sidecar-injector
     chart: sidecarInjectorWebhook-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
 webhooks:
   - name: sidecar-injector.istio.io
@@ -4282,7 +4282,7 @@ metadata:
     app: cluster-local-gateway
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 
 ---
@@ -4295,7 +4295,7 @@ metadata:
     app: gateways
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
   name: cluster-local-gateway-istio-system
 rules:
 - apiGroups: ["extensions"]
@@ -4331,7 +4331,7 @@ metadata:
   annotations:
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: cluster-local-gateway
     istio: cluster-local-gateway
@@ -4379,7 +4379,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: cluster-local-gateway
     istio: cluster-local-gateway
