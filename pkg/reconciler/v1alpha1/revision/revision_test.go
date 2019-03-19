@@ -99,32 +99,6 @@ func getTestReadyKPA(rev *v1alpha1.Revision) *kpav1alpha1.PodAutoscaler {
 	return kpa
 }
 
-func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
-	return &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-service", revName),
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				serving.RevisionLabelKey: revName,
-			},
-		},
-		Subsets: []corev1.EndpointSubset{{
-			Addresses: []corev1.EndpointAddress{},
-		}},
-	}
-}
-
-func sumMaps(a map[string]string, b map[string]string) map[string]string {
-	summedMap := make(map[string]string, len(a)+len(b)+2)
-	for k, v := range a {
-		summedMap[k] = v
-	}
-	for k, v := range b {
-		summedMap[k] = v
-	}
-	return summedMap
-}
-
 func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controller, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -266,16 +240,6 @@ func updateRevision(
 	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 	}
-}
-
-func makeBackingEndpoints(kubeClient *fakekubeclientset.Clientset,
-	kubeInformer kubeinformers.SharedInformerFactory, service *corev1.Service) *corev1.Endpoints {
-	endpoints := &corev1.Endpoints{
-		ObjectMeta: service.ObjectMeta,
-	}
-	kubeClient.CoreV1().Endpoints(service.Namespace).Create(endpoints)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
-	return endpoints
 }
 
 func addResourcesToInformers(t *testing.T,
@@ -617,9 +581,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	// revision.
 	tests := []struct {
 		name              string
-		expected          string
 		configMapToUpdate *corev1.ConfigMap
-		resource          string
 		callback          func(*testing.T) func(runtime.Object) HookResult
 	}{{
 		name: "Update LoggingURL", // Should update LogURL on revision

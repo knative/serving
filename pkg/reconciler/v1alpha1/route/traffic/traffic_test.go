@@ -31,11 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const (
-	testNamespace       string = "test"
-	defaultDomainSuffix string = "test-domain.dev"
-	prodDomainSuffix    string = "prod-domain.com"
-)
+const testNamespace string = "test"
 
 // A simple fixed Configuration/Revision layout for testing.
 // Tests should not modify these objects.

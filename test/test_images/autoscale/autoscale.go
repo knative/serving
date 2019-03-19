@@ -86,16 +86,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		p := primes(400000)
 		largest := p[len(p)-1]
 		msg := fmt.Sprintf("The largest prime under 400000 is %d. Enjoy your noodles!", largest)
-		fmt.Fprintf(w, msg)
-		log.Printf(msg)
+		fmt.Fprint(w, msg)
+		log.Print(msg)
 	}()
 	go func() {
 		defer wg.Done()
 		start := time.Now()
 		time.Sleep(time.Second)
 		msg := fmt.Sprintf("Slept for %v.", time.Since(start))
-		fmt.Fprintf(w, msg)
-		log.Printf(msg)
+		fmt.Fprint(w, msg)
+		log.Print(msg)
 	}()
 	wg.Wait()
 }

@@ -77,6 +77,7 @@ func (fa *stubActivator) Shutdown() {
 }
 
 func TestActivationHandler(t *testing.T) {
+	defer ClearAll()
 	goodEndpointsGetter := func(activator.RevisionID) (int32, error) {
 		return 1000, nil
 	}

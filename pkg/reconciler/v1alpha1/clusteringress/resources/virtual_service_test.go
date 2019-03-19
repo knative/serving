@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -185,8 +184,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}}
 	routes := MakeVirtualService(ci, []string{}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
-		fmt.Printf("%+v\n", routes)
-		fmt.Printf("%+v\n", expected)
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
 }

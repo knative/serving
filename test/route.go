@@ -47,7 +47,7 @@ func CreateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green Res
 	return err
 }
 
-// UpdateRoute updates a route in the given namespace using the route name in names
+// UpdateBlueGreenRoute updates a route in the given namespace using the route name in names.
 func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
 	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {

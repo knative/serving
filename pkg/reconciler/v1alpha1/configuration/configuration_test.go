@@ -40,15 +40,12 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
-var (
-	boolTrue     = true
-	revisionSpec = v1alpha1.RevisionSpec{
-		Container: corev1.Container{
-			Image: "busybox",
-		},
-		TimeoutSeconds: 60,
-	}
-)
+var revisionSpec = v1alpha1.RevisionSpec{
+	Container: corev1.Container{
+		Image: "busybox",
+	},
+	TimeoutSeconds: 60,
+}
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {

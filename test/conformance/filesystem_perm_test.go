@@ -28,13 +28,13 @@ import (
 
 func verifyPermString(resp string, expected string) error {
 	if len(resp) != len(expected) {
-		return fmt.Errorf("Length of expected and response string don't match. Expected Response: '%s' Received Response: '%s' Expected length: %d Received length: %d",
+		return fmt.Errorf("Length of expected and response string don't match. Expected Response: %q Received Response: %q Expected length: %d Received length: %d",
 			expected, resp, len(expected), len(resp))
 	}
 
 	for index := range expected {
 		if string(expected[index]) != "*" && expected[index] != resp[index] {
-			return fmt.Errorf("Permission strings don't match at Index : %d. Expected : '%s' Received Response : '%s'",
+			return fmt.Errorf("Permission strings don't match at Index: %d. Expected: %q Received Response: %q",
 				index, expected, resp)
 		}
 	}
@@ -44,14 +44,15 @@ func verifyPermString(resp string, expected string) error {
 
 func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[string]FilePathInfo) error {
 	for key, value := range paths {
-		resp, _, err := fetchEnvInfo(t, clients, test.EnvImageFilePathInfoPath+"?"+test.EnvImageFilePathQueryParam+"="+key, &test.Options{})
+		resp, _, err := fetchEnvInfo(t, clients,
+			fmt.Sprintf("%s?%s=%s", test.EnvImageFilePathInfoPath, test.EnvImageFilePathQueryParam, key),
+			&test.Options{})
 		if err != nil {
 			return err
 		}
 
 		var f FilePathInfo
-		err = json.Unmarshal(resp, &f)
-		if err != nil {
+		if err := json.Unmarshal(resp, &f); err != nil {
 			return fmt.Errorf("Error unmarshalling response: %v", err)
 		}
 
@@ -59,7 +60,7 @@ func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[st
 			return fmt.Errorf("%s isDirectory = %t, want: %t", key, f.IsDirectory, value.IsDirectory)
 		}
 
-		if err = verifyPermString(f.PermString[1:], value.PermString); err != nil {
+		if err := verifyPermString(f.PermString[1:], value.PermString); err != nil {
 			return err
 		}
 	}

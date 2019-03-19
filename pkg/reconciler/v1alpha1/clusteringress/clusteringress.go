@@ -291,7 +291,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 
 	vs, err := c.virtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		vs, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",

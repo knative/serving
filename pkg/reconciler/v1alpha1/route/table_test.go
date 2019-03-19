@@ -1563,28 +1563,6 @@ func mutateIngress(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
 	return ci
 }
 
-func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
-
-	action.Patch = []byte(patch)
-	return action
-}
-
-func patchAddLabel(namespace, name, key, value, version string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
-
-	action.Patch = []byte(patch)
-	return action
-}
-
 func patchFinalizers(namespace, name string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name

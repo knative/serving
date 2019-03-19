@@ -81,6 +81,9 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("Error creating the Spoofing client: %v", err)
+	}
 	client.RequestTimeout = timeout
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)

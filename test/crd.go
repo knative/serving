@@ -261,7 +261,7 @@ func makeK8sNamePrefix(s string) string {
 			newToken = true
 			continue
 		}
-		if sb.Len() > 0 && (newToken == true || unicode.IsUpper(c)) {
+		if sb.Len() > 0 && (newToken || unicode.IsUpper(c)) {
 			sb.WriteRune('-')
 		}
 		sb.WriteRune(unicode.ToLower(c))

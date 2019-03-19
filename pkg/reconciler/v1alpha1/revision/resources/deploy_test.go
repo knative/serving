@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -38,8 +37,7 @@ import (
 )
 
 var (
-	one            int32 = 1
-	defaultPortStr       = strconv.Itoa(int(v1alpha1.DefaultUserPort))
+	one int32 = 1
 
 	defaultUserContainer = &corev1.Container{
 		Name:                     UserContainerName,

@@ -39,7 +39,6 @@ import (
 
 const (
 	threadsPerController = 2
-	logLevelKey          = "controller"
 )
 
 var (
