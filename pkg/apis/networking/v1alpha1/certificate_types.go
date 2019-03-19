@@ -71,10 +71,10 @@ type CertificateSpec struct {
 
 // CertificateStatus defines the observed state of Certificate.
 type CertificateStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
 	// The expiration time of the TLS certificate stored in the secret named
 	// by this resource in spec.secretName.
 	// +optional
 	NotAfter *metav1.Time `json:"notAfter,omitempty"`
-
-	duckv1alpha1.Status `json:",inline"`
 }
