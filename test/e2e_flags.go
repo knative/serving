@@ -52,6 +52,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.Set("alsologtostderr", "true")
 	logging.InitializeLogger(test.Flags.LogVerbose)
 
+	// TODO(srinivashegde86): remove this once pkg is updated.
+	test.EnvironmentFlags.Tag = "latest"
 	if test.Flags.EmitMetrics {
 		logging.InitializeMetricExporter(E2EMetricExporter)
 	}
