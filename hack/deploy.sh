@@ -21,6 +21,7 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 : ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
 readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster name."}
+readonly K8S_CLUSTER_VERSION=latest
 readonly K8S_CLUSTER_REGION=us-central1
 readonly K8S_CLUSTER_ZONE=a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
@@ -51,7 +52,7 @@ gcloud --project=${PROJECT_ID} container clusters create \
   --enable-basic-auth \
   --no-issue-client-certificate \
   --no-enable-autoupgrade \
-  --cluster-version=${SERVING_GKE_VERSION} \
+  --cluster-version=${K8S_CLUSTER_VERSION} \
   --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_REGION}-${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
