@@ -105,8 +105,8 @@ func GetResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects
 func CreateReleaseServiceWithLatest(
 	t *testing.T, clients *Clients,
 	names *ResourceNames, options *Options) (*ResourceObjects, error) {
-	if names.Service == "" || names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service = %s, Image = %s", names.Service, names.Image)
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
 	t.Log("Creating a new Service as Release with @latest.")
@@ -118,6 +118,11 @@ func CreateReleaseServiceWithLatest(
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
+
+	// If the Service name was not specified, populate it
+	if names.Service == "" {
+		names.Service = svc.Name
+	}
 
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
@@ -138,8 +143,8 @@ func CreateReleaseServiceWithLatest(
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
 func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
-	if names.Service == "" || names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
 	t.Logf("Creating a new Service %s as RunLatest.", names.Service)
@@ -151,6 +156,11 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
+
+	// If the Service name was not specified, populate it
+	if names.Service == "" {
+		names.Service = svc.Name
+	}
 
 	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
