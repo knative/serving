@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,11 +120,12 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else {
-		if _, err := c.updateStatus(pa); err != nil {
-			logger.Warnw("Failed to update pa status", zap.Error(err))
-			return err
-		}
+	} else if _, err := c.updateStatus(pa); err != nil {
+		logger.Warnw("Failed to update pa status", zap.Error(err))
+		return err
+	}
+	if err != nil {
+		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
