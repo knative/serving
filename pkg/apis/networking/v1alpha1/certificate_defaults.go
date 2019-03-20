@@ -13,16 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
-// CertificateListerExpansion allows custom methods to be added to
-// CertificateLister.
-type CertificateListerExpansion interface{}
-
-// CertificateNamespaceListerExpansion allows custom methods to be added to
-// CertificateNamespaceLister.
-type CertificateNamespaceListerExpansion interface{}
-
-// ClusterIngressListerExpansion allows custom methods to be added to
-// ClusterIngressLister.
-type ClusterIngressListerExpansion interface{}
+// SetDefaults sets the default values for Certificate.
+// Currently it is required that all of the fields of Certificate are
+// provisioned by the client. Therefore, SetDefaults does nothing right now.
+func (c *Certificate) SetDefaults() {}

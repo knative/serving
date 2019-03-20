@@ -30,6 +30,14 @@ func TestRegisterHelpers(t *testing.T) {
 		t.Errorf("Resource(ClusterIngress) = %v, want %v", got.String(), want)
 	}
 
+	if got, want := Kind("Certificate"), "Certificate.networking.internal.knative.dev"; got.String() != want {
+		t.Errorf("Kind(Certificate) = %v, want %v", got.String(), want)
+	}
+
+	if got, want := Resource("Certificate"), "Certificate.networking.internal.knative.dev"; got.String() != want {
+		t.Errorf("Resource(Certificate) = %v, want %v", got.String(), want)
+	}
+
 	if got, want := SchemeGroupVersion.String(), "networking.internal.knative.dev/v1alpha1"; got != want {
 		t.Errorf("SchemeGroupVersion() = %v, want %v", got, want)
 	}
