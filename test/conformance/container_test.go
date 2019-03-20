@@ -40,18 +40,20 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}{{
 		name: "TestArbitraryPortName",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{
-				{Name: "arbitrary",
-					ContainerPort: 8080}}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+				Name:          "arbitrary",
+				ContainerPort: 8080,
+			}}
 		},
 	}, {
 		name: "TestMountPropagation",
 		options: func(s *v1alpha1.Service) {
 			propagationMode := corev1.MountPropagationHostToContainer
-			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.VolumeMounts = []corev1.VolumeMount{
-				{Name: "VolumeMount",
-					MountPath:        "/",
-					MountPropagation: &propagationMode}}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
+				Name:             "VolumeMount",
+				MountPath:        "/",
+				MountPropagation: &propagationMode,
+			}}
 		},
 	}, {
 		name: "TestReadinessHTTPProbePort",
@@ -60,7 +62,10 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
-						Port: intstr.FromInt(8888)}}}
+						Port: intstr.FromInt(8888),
+					},
+				},
+			}
 		},
 	}, {
 		name: "TestLivenessHTTPProbePort",
@@ -69,23 +74,28 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
-						Port: intstr.FromInt(8888)}}}
+						Port: intstr.FromInt(8888),
+					},
+				},
+			}
 		},
 	}, {
 		name: "TestReadinessTCPProbePort",
 		options: func(s *v1alpha1.Service) {
 			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt(8888)}}}
+					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
+				},
+			}
 		},
 	}, {
 		name: "TestLivenessTCPProbePort",
 		options: func(s *v1alpha1.Service) {
 			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt(8888)}}}
+					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
+				},
+			}
 		},
 	}}
 
@@ -97,8 +107,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   pizzaPlanet1,
 			}
-			svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options)
-			if err == nil {
+			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 			}
 		})
@@ -114,48 +123,43 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 	testCases := []struct {
 		name    string
 		options func(s *v1alpha1.Service)
-	}{
-		{
-			name: "TestPoststartHook",
-			options: func(s *v1alpha1.Service) {
-				lifecycleHandler := &corev1.ExecAction{
-					Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
-				}
-				s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
-					PostStart: &corev1.Handler{Exec: lifecycleHandler},
-				}
-			},
+	}{{
+		name: "TestPoststartHook",
+		options: func(s *v1alpha1.Service) {
+			lifecycleHandler := &corev1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
+			}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
+				PostStart: &corev1.Handler{Exec: lifecycleHandler},
+			}
 		},
-		{
-			name: "TestPrestopHook",
-			options: func(s *v1alpha1.Service) {
-				lifecycleHandler := &corev1.ExecAction{
-					Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
-				}
-				s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
-					PreStop: &corev1.Handler{Exec: lifecycleHandler},
-				}
-			},
+	}, {
+		name: "TestPrestopHook",
+		options: func(s *v1alpha1.Service) {
+			lifecycleHandler := &corev1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
+			}
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Lifecycle = &corev1.Lifecycle{
+				PreStop: &corev1.Handler{Exec: lifecycleHandler},
+			}
 		},
-		{
-			name: "TestMultiplePorts",
-			options: func(s *v1alpha1.Service) {
-				s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{
-					{ContainerPort: 80},
-					{ContainerPort: 81},
-				}
-			},
+	}, {
+		name: "TestMultiplePorts",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{
+				{ContainerPort: 80},
+				{ContainerPort: 81},
+			}
 		},
-		{
-			name: "TestHostPort",
-			options: func(s *v1alpha1.Service) {
-				s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{
-					{ContainerPort: 8081,
-						HostPort: 80},
-				}
-			},
+	}, {
+		name: "TestHostPort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+				ContainerPort: 8081,
+				HostPort:      80,
+			}}
 		},
-	}
+	}}
 
 	for _, tc := range testCases {
 		tc := tc
@@ -165,8 +169,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   pizzaPlanet1,
 			}
-			svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options)
-			if err == nil {
+			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 			}
 		})
