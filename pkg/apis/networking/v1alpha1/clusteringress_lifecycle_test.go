@@ -71,41 +71,50 @@ func TestIsPublic(t *testing.T) {
 }
 
 func TestTypicalFlow(t *testing.T) {
-	r := &ClusterIngress{}
-	r.Status.InitializeConditions()
+	r := &IngressStatus{}
+	r.InitializeConditions()
 
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
 
 	// Then network is configured.
-	r.Status.MarkNetworkConfigured()
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionNetworkConfigured, t)
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+	r.MarkNetworkConfigured()
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionNetworkConfigured, t)
+	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
-	r.Status.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionLoadBalancerReady, t)
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionReady, t)
-	checkIsReady(r.Status, t)
+	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionLoadBalancerReady, t)
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionReady, t)
+	checkIsReady(r, t)
+
+	// Mark not owned.
+	r.MarkResourceNotOwned("i own", "you")
+	checkConditionFailedClusterIngress(r, ClusterIngressConditionReady, t)
 }
 
-func checkIsReady(cis IngressStatus, t *testing.T) {
+func checkIsReady(cis *IngressStatus, t *testing.T) {
 	t.Helper()
 	if !cis.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 }
 
-func checkConditionSucceededClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionOngoingClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+	t.Helper()
+	return checkConditionClusterIngress(cis, c, corev1.ConditionFalse, t)
+}
+
+func checkConditionOngoingClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionClusterIngress(cis, c, corev1.ConditionUnknown, t)
 }
 
-func checkConditionClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	cond := cis.GetCondition(c)
 	if cond == nil {
