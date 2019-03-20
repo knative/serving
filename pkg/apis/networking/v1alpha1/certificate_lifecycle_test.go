@@ -57,5 +57,5 @@ func TestMarkReady(t *testing.T) {
 	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
 
 	c.MarkReady()
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionTrue, t)
+	checkIsReady(c, t)
 }

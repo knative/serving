@@ -34,7 +34,7 @@ func (cs *CertificateStatus) MarkReady() {
 
 // IsReady returns true is the Certificate is ready.
 func (cs *CertificateStatus) IsReady() bool {
-	return serverlessServiceCondSet.Manage(cs).IsHappy()
+	return certificateCondSet.Manage(cs).IsHappy()
 }
 
 // GetCondition gets a speicifc condition of the Certificate status.
