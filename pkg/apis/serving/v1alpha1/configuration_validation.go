@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -25,13 +27,13 @@ import (
 )
 
 // Validate makes sure that Configuration is properly configured.
-func (c *Configuration) Validate() *apis.FieldError {
+func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
 	return ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
-		Also(c.Spec.Validate().ViaField("spec"))
+		Also(c.Spec.Validate(ctx).ViaField("spec"))
 }
 
 // Validate makes sure that ConfigurationSpec is properly configured.
-func (cs *ConfigurationSpec) Validate() *apis.FieldError {
+func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -48,5 +50,5 @@ func (cs *ConfigurationSpec) Validate() *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "build"))
 	}
 
-	return errs.Also(cs.RevisionTemplate.Validate().ViaField("revisionTemplate"))
+	return errs.Also(cs.RevisionTemplate.Validate(ctx).ViaField("revisionTemplate"))
 }

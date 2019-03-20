@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -587,7 +588,7 @@ func TestConcurrencyModelValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.cm.Validate()
+			got := test.cm.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -770,7 +771,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rs.Validate()
+			got := test.rs.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -828,7 +829,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rts.Validate()
+			got := test.rts.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -920,7 +921,7 @@ func TestRevisionValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate()
+			got := test.r.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -930,7 +931,7 @@ func TestRevisionValidation(t *testing.T) {
 
 type notARevision struct{}
 
-func (nar *notARevision) CheckImmutableFields(apis.Immutable) *apis.FieldError {
+func (nar *notARevision) CheckImmutableFields(context.Context, apis.Immutable) *apis.FieldError {
 	return nil
 }
 
@@ -1090,7 +1091,7 @@ func TestImmutableFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(test.old)
+			got := test.new.CheckImmutableFields(context.Background(), test.old)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

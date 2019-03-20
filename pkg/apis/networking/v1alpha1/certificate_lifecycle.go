@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -50,8 +49,6 @@ const (
 )
 
 var certificateCondSet = duckv1alpha1.NewLivingConditionSet(CertificateCondidtionReady)
-
-var _ apis.Validatable = (*Certificate)(nil)
 
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {

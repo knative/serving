@@ -17,17 +17,19 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Validate inspects and validates ClusterServerlessService object.
-func (ci *ServerlessService) Validate() *apis.FieldError {
-	return ci.Spec.Validate().ViaField("spec")
+func (ci *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
+	return ci.Spec.Validate(ctx).ViaField("spec")
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.
-func (spec *ServerlessServiceSpec) Validate() *apis.FieldError {
+func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Spec must not be empty.
 	if equality.Semantic.DeepEqual(spec, &ServerlessServiceSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)

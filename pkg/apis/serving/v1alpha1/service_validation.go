@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -25,13 +26,13 @@ import (
 )
 
 // Validate validates the fields belonging to Service
-func (s *Service) Validate() *apis.FieldError {
+func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
-		Also(s.Spec.Validate().ViaField("spec"))
+		Also(s.Spec.Validate(ctx).ViaField("spec"))
 }
 
 // Validate validates the fields belonging to ServiceSpec recursively
-func (ss *ServiceSpec) Validate() *apis.FieldError {
+func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// We would do this semantic DeepEqual, but the spec is comprised
 	// entirely of a oneof, the validation for which produces a clearer
 	// error message.
@@ -44,19 +45,19 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 
 	if ss.RunLatest != nil {
 		set = append(set, "runLatest")
-		errs = errs.Also(ss.RunLatest.Validate().ViaField("runLatest"))
+		errs = errs.Also(ss.RunLatest.Validate(ctx).ViaField("runLatest"))
 	}
 	if ss.Release != nil {
 		set = append(set, "release")
-		errs = errs.Also(ss.Release.Validate().ViaField("release"))
+		errs = errs.Also(ss.Release.Validate(ctx).ViaField("release"))
 	}
 	if ss.Manual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.Manual.Validate().ViaField("manual"))
+		errs = errs.Also(ss.Manual.Validate(ctx).ViaField("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
-		errs = errs.Also(ss.DeprecatedPinned.Validate().ViaField("pinned"))
+		errs = errs.Also(ss.DeprecatedPinned.Validate(ctx).ViaField("pinned"))
 	}
 
 	if len(set) > 1 {
@@ -68,26 +69,26 @@ func (ss *ServiceSpec) Validate() *apis.FieldError {
 }
 
 // Validate validates the fields belonging to PinnedType
-func (pt *PinnedType) Validate() *apis.FieldError {
+func (pt *PinnedType) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 	if pt.RevisionName == "" {
 		errs = apis.ErrMissingField("revisionName")
 	}
-	return errs.Also(pt.Configuration.Validate().ViaField("configuration"))
+	return errs.Also(pt.Configuration.Validate(ctx).ViaField("configuration"))
 }
 
 // Validate validates the fields belonging to RunLatestType
-func (rlt *RunLatestType) Validate() *apis.FieldError {
-	return rlt.Configuration.Validate().ViaField("configuration")
+func (rlt *RunLatestType) Validate(ctx context.Context) *apis.FieldError {
+	return rlt.Configuration.Validate(ctx).ViaField("configuration")
 }
 
 // Validate validates the fields belonging to ManualType
-func (m *ManualType) Validate() *apis.FieldError {
+func (m *ManualType) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
 // Validate validates the fields belonging to ReleaseType
-func (rt *ReleaseType) Validate() *apis.FieldError {
+func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
 	numRevisions := len(rt.Revisions)
@@ -117,5 +118,5 @@ func (rt *ReleaseType) Validate() *apis.FieldError {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(rt.RolloutPercent), "0", "99", "rolloutPercent"))
 	}
 
-	return errs.Also(rt.Configuration.Validate().ViaField("configuration"))
+	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))
 }

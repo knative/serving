@@ -208,18 +208,21 @@ func validate(old GenericCRD, new GenericCRD) error {
 		// Copy the old object and set defaults so that we don't reject our own
 		// defaulting done earlier in the webhook.
 		old = old.DeepCopyObject().(GenericCRD)
-		old.SetDefaults()
+		// TODO(mattmoor): Plumb through a real context
+		old.SetDefaults(context.TODO())
 
 		immutableOld, ok := old.(apis.Immutable)
 		if !ok {
 			return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
 		}
-		if err := immutableNew.CheckImmutableFields(immutableOld); err != nil {
+		// TODO(mattmoor): Plumb through a real context
+		if err := immutableNew.CheckImmutableFields(context.TODO(), immutableOld); err != nil {
 			return err
 		}
 	}
 	// Can't just `return new.Validate()` because it doesn't properly nil-check.
-	if err := new.Validate(); err != nil {
+	// TODO(mattmoor): Plumb through a real context
+	if err := new.Validate(context.TODO()); err != nil {
 		return err
 	}
 	return nil
@@ -240,7 +243,8 @@ func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticat
 	}
 	b, a := new.DeepCopyObject().(apis.Annotatable), na
 
-	a.AnnotateUserInfo(oa, ui)
+	// TODO(mattmoor): Plumb through a real context
+	a.AnnotateUserInfo(context.TODO(), oa, ui)
 	patch, err := duck.CreatePatch(b, a)
 	if err != nil {
 		return nil, err
@@ -251,7 +255,8 @@ func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticat
 // setDefaults simply leverages apis.Defaultable to set defaults.
 func setDefaults(patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
 	before, after := crd.DeepCopyObject(), crd
-	after.SetDefaults()
+	// TODO(mattmoor): Plumb through a real context
+	after.SetDefaults(context.TODO())
 
 	patch, err := duck.CreatePatch(before, after)
 	if err != nil {

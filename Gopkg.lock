@@ -405,18 +405,17 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:faa93f53fef9bca20a58773929a19d15a58623c34752d7c70c4de53ee3380a1d"
+  digest = "1:0836bde83bdc49aae7710e22d04e2555d9bd25cd133fbb78508c492307081aea"
   name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "695fd25502db3d040ae4c690d7c53a7b842500d3"
-  version = "v0.3.0"
+  revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:c0b413fd7dbdd734e5ca4c645770c28c7abddfaf929de85b31b3d21c44a79115"
+  digest = "1:9a670ce0109361c513e7103c478dbbea261bb81d41d0f9c822707451bce139bb"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -433,10 +432,10 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "b9d80eaec52c6ee5841271438cb020a80be72cb2"
+  revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
 
 [[projects]]
-  digest = "1:20bb752b2651943eface11e64ec1efd4bd35187c8bcb43de7161a11b8085e1e4"
+  digest = "1:46d45a87b2948fcd7acc2ab5d0c1fab9cae697c210e0cbd155a295861ffb92e0"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -487,7 +486,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "4840bbe7b47ff2f6abb4bbf7d023bf98c0a51b6a"
+  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
 
 [[projects]]
   branch = "master"

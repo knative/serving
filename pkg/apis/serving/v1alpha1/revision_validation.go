@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -44,22 +45,22 @@ var (
 )
 
 // Validate ensures Revision is properly configured.
-func (rt *Revision) Validate() *apis.FieldError {
+func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
 	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
-		Also(rt.Spec.Validate().ViaField("spec"))
+		Also(rt.Spec.Validate(ctx).ViaField("spec"))
 }
 
 // Validate ensures RevisionTemplateSpec is properly configured.
-func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
+func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 	if rt.GetName() != "" {
 		errs = errs.Also(apis.ErrDisallowedFields(apis.CurrentField).ViaField("metadata", "name"))
 	}
-	return errs.Also(rt.Spec.Validate().ViaField("spec"))
+	return errs.Also(rt.Spec.Validate(ctx).ViaField("spec"))
 }
 
 // Validate ensures RevisionSpec is properly configured.
-func (rs *RevisionSpec) Validate() *apis.FieldError {
+func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -80,7 +81,7 @@ func (rs *RevisionSpec) Validate() *apis.FieldError {
 	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
 	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
-	if err := rs.DeprecatedConcurrencyModel.Validate().ViaField("concurrencyModel"); err != nil {
+	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
 	} else {
 		errs = errs.Also(ValidateContainerConcurrency(
@@ -102,7 +103,7 @@ func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
 }
 
 // Validate ensures RevisionRequestConcurrencyModelType is properly configured.
-func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
+func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),
 		DeprecatedRevisionServingStateRetired,
@@ -115,7 +116,7 @@ func (ss DeprecatedRevisionServingStateType) Validate() *apis.FieldError {
 }
 
 // Validate ensures RevisionRequestConcurrencyModelType is properly configured.
-func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
+func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *apis.FieldError {
 	switch cm {
 	case RevisionRequestConcurrencyModelType(""),
 		RevisionRequestConcurrencyModelMulti,
@@ -371,7 +372,7 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 }
 
 // CheckImmutableFields checks the immutable fields are not modified.
-func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
+func (current *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a Revision"}

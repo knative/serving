@@ -16,16 +16,18 @@ limitations under the License.
 
 package v1alpha1
 
+import "context"
+
 const (
 	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
 	defaultTimeoutSeconds = 5 * 60
 )
 
-func (r *Revision) SetDefaults() {
-	r.Spec.SetDefaults()
+func (r *Revision) SetDefaults(ctx context.Context) {
+	r.Spec.SetDefaults(ctx)
 }
 
-func (rs *RevisionSpec) SetDefaults() {
+func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
 	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {

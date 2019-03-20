@@ -191,7 +191,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	ci.SetDefaults()
+	ci.SetDefaults(ctx)
 
 	ci.Status.InitializeConditions()
 	gatewayNames := gatewayNamesFromContext(ctx, ci)

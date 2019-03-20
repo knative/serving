@@ -16,10 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
-func (c *Configuration) SetDefaults() {
-	c.Spec.SetDefaults()
+import "context"
+
+func (c *Configuration) SetDefaults(ctx context.Context) {
+	c.Spec.SetDefaults(ctx)
 }
 
-func (cs *ConfigurationSpec) SetDefaults() {
-	cs.RevisionTemplate.Spec.SetDefaults()
+func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	cs.RevisionTemplate.Spec.SetDefaults(ctx)
 }
