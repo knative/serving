@@ -810,6 +810,20 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.container.name"),
+	}, {
+		name: "has revision template name",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				DeprecatedConcurrencyModel: "Multi",
+			},
+		},
+		want: apis.ErrDisallowedFields("metadata.name"),
 	}}
 
 	for _, test := range tests {

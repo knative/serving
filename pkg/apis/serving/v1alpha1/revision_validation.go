@@ -51,7 +51,11 @@ func (rt *Revision) Validate() *apis.FieldError {
 
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
-	return rt.Spec.Validate().ViaField("spec")
+	var errs *apis.FieldError
+	if rt.GetName() != "" {
+		errs = errs.Also(apis.ErrDisallowedFields(apis.CurrentField).ViaField("metadata", "name"))
+	}
+	return errs.Also(rt.Spec.Validate().ViaField("spec"))
 }
 
 // Validate ensures RevisionSpec is properly configured.
