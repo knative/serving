@@ -386,7 +386,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create ClusterIngress for route %s/%s: %v",
 				"default", "ingress-create-failure", "inducing failure for create clusteringresses"),
 		},
-		Key:                     "default/ingress-create-failure",
+		Key: "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -606,7 +606,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 		}},
-		Key:                     "default/new-latest-ready",
+		Key: "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "failure updating cluster ingress",
@@ -674,7 +674,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 		}},
-		Key:                     "default/update-ci-failure",
+		Key: "default/update-ci-failure",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
@@ -887,7 +887,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key:                     "default/ingress-mutation",
+		Key: "default/ingress-mutation",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
@@ -1029,7 +1029,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					})),
 		}},
-		Key:                     "default/pinned-becomes-ready",
+		Key: "default/pinned-becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
@@ -1103,7 +1103,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-34-78"),
 		},
-		Key:                     "default/named-traffic-split",
+		Key: "default/named-traffic-split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "same revision targets",
@@ -1191,7 +1191,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 		},
-		Key:                     "default/same-revision-targets",
+		Key: "default/same-revision-targets",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
@@ -1257,7 +1257,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					}), WithRouteFinalizer),
 		}},
-		Key:                     "default/switch-configs",
+		Key: "default/switch-configs",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "update single target to traffic split with unready revision",
@@ -1321,7 +1321,7 @@ func TestReconcile(t *testing.T) {
 						Percent:           100,
 					})),
 		}},
-		Key:                     "default/split",
+		Key: "default/split",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
@@ -1455,7 +1455,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		SkipNamespaceValidation: true,
-		Key:                     "default/delete-in-progress",
+		Key: "default/delete-in-progress",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
@@ -1630,6 +1630,7 @@ func ReconcilerTestConfig() *config.Config {
 		},
 		Network: &network.Config{
 			DefaultClusterIngressClass: TestIngressClass,
+			DomainTemplate:             network.DefaultDomainTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

@@ -50,6 +50,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -73,6 +74,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -147,6 +149,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -161,6 +164,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -175,6 +179,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,6 +195,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -205,6 +211,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -220,6 +227,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -235,6 +243,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -244,6 +253,42 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
+			},
+		}}, {
+		name:    "network configuration with diff domain template",
+		wantErr: false,
+		wantController: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "foo-ingress",
+			DomainTemplate:             "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+			},
+		}}, {
+		name:    "network configuration with blank domain template",
+		wantErr: false,
+		wantController: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "foo-ingress",
+			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             "",
 			},
 		}},
 	}
