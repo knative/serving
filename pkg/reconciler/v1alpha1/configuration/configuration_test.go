@@ -25,6 +25,7 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
@@ -186,6 +187,16 @@ func TestReconcile(t *testing.T) {
 			cfg("matching-revision-done-idempotent", "foo", 5566,
 				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
 			rev("matching-revision-done-idempotent", "foo", 5566,
+				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
+		},
+		Key: "foo/matching-revision-done-idempotent",
+	}, {
+		Name: "reconcile revision matching generation (ready: true, idempotent, no deprecated generation label)",
+		Objects: []runtime.Object{
+			cfg("matching-revision-done-idempotent", "foo", 5566,
+				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
+			rev("matching-revision-done-idempotent", "foo", 5566,
+				WithoutConfigMetadataGenerationLabel,
 				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
 		},
 		Key: "foo/matching-revision-done-idempotent",
@@ -654,4 +665,8 @@ func TestIsRevisionStale(t *testing.T) {
 			}
 		})
 	}
+}
+
+func WithoutConfigMetadataGenerationLabel(rev *v1alpha1.Revision) {
+	delete(rev.Labels, serving.DeprecatedConfigurationMetadataGenerationLabelKey)
 }
