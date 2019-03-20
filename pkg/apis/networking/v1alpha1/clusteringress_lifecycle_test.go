@@ -88,29 +88,29 @@ func TestCITypicalFlow(t *testing.T) {
 }
 
 // TODO(vagababov): move this outside and re-use elsewhere.
-type ConditionCheckble interface {
+type ConditionCheckable interface {
 	IsReady() bool
 	GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition
 }
 
-func checkIsReady(cc ConditionCheckble, t *testing.T) {
+func checkIsReady(cc ConditionCheckable, t *testing.T) {
 	t.Helper()
 	if !cc.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 }
 
-func checkConditionSucceededClusterIngress(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionOngoingClusterIngress(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }
 
-func checkCondition(cc ConditionCheckble, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkCondition(cc ConditionCheckable, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	cond := cc.GetCondition(c)
 	if cond == nil {

@@ -26,27 +26,26 @@ var serverlessServiceCondSet = duckv1alpha1.NewLivingConditionSet(
 )
 
 // GetGroupVersionKind returns the GVK for the ServerlessService.
-func (ci *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
+func (ss *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ServerlessService")
 }
 
 // GetCondition returns the value of the condition `t`.
-func (cis *ServerlessServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return serverlessServiceCondSet.Manage(cis).GetCondition(t)
+func (sss *ServerlessServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return serverlessServiceCondSet.Manage(sss).GetCondition(t)
 }
 
 // InitializeConditions initializes the conditions.
-func (cis *ServerlessServiceStatus) InitializeConditions() {
-	serverlessServiceCondSet.Manage(cis).InitializeConditions()
+func (sss *ServerlessServiceStatus) InitializeConditions() {
+	serverlessServiceCondSet.Manage(sss).InitializeConditions()
 }
 
 // MarkEndpointsPopulated marks the ServerlessServiceStatus endpoints populated condition to true.
-func (cis *ServerlessServiceStatus) MarkEndpointsPopulated() {
-	serverlessServiceCondSet.Manage(cis).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
+func (sss *ServerlessServiceStatus) MarkEndpointsPopulated() {
+	serverlessServiceCondSet.Manage(sss).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
 }
 
-// IsReady looks at the conditions and if the Status has a condition
-// ServerlessServiceConditionReady returns true if ConditionStatus is True.
-func (cis *ServerlessServiceStatus) IsReady() bool {
-	return serverlessServiceCondSet.Manage(cis).IsHappy()
+// IsReady returns true if ServerlessService is ready.
+func (sss *ServerlessServiceStatus) IsReady() bool {
+	return serverlessServiceCondSet.Manage(sss).IsHappy()
 }

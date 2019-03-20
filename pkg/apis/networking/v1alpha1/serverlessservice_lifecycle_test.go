@@ -63,12 +63,12 @@ func TestSSTypicalFlow(t *testing.T) {
 	checkIsReady(r, t)
 }
 
-func checkConditionSucceededServerlessService(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionOngoingServerlessService(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }
