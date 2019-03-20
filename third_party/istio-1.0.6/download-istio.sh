@@ -37,6 +37,8 @@ helm template --namespace=istio-system \
   `# Set a generous number of pilot replicas to avoid Pilot being overloaded.` \
   --set pilot.autoscaleMin=3 \
   --set pilot.autoscaleMax=10 \
+  `# Set pilot trace sampling to 100%` \
+  --set pilot.traceSampling=100 \
   --set pilot.cpu.targetAverageUtilization=60 \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
@@ -58,6 +60,8 @@ helm template --namespace=istio-system \
   `# Disable mixer policy check, since in our template we set no policy.` \
   --set global.disablePolicyChecks=true \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
+  `# Set pilot trace sampling to 100%` \
+  --set pilot.traceSampling=100 \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
   install/kubernetes/helm/istio \
