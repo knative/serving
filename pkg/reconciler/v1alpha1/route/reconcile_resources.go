@@ -103,6 +103,9 @@ func (c *Reconciler) reconcileClusterIngress(
 	} else {
 		// TODO(#642): Remove this (needed to avoid continuous updates)
 		desired.Spec.DeprecatedGeneration = clusterIngress.Spec.DeprecatedGeneration
+		// It is notable that one reason for differences here may be defaulting.
+		// When that is the case, the Update will end up being a nop because the
+		// webhook will bring them into alignment and no new reconciliation will occur.
 		if !equality.Semantic.DeepEqual(clusterIngress.Spec, desired.Spec) {
 			// Don't modify the informers copy
 			origin := clusterIngress.DeepCopy()
