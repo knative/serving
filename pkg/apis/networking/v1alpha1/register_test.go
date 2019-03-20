@@ -22,24 +22,31 @@ import (
 )
 
 func TestRegisterHelpers(t *testing.T) {
-	if got, want := Kind("ClusterIngress"), "ClusterIngress.networking.internal.knative.dev"; got.String() != want {
-		t.Errorf("Kind(ClusterIngress) = %v, want %v", got.String(), want)
+	tests := []struct {
+		kind string
+		want string
+	}{{
+		kind: "ClusterIngress",
+		want: "ClusterIngress.networking.internal.knative.dev",
+	}, {
+		kind: "ServerlessService",
+		want: "ServerlessService.networking.internal.knative.dev",
+	}, {
+		kind: "Certificate",
+		want: "Certificate.networking.internal.knative.dev",
+	}}
+	for _, test := range tests {
+		if got, want := Kind(test.kind), test.want; got.String() != want {
+			t.Errorf("Kind(%s) = %q, want %q", test.kind, got.String(), want)
+		}
+
+		if got, want := Resource(test.kind), test.want; got.String() != want {
+			t.Errorf("Resource(%s) = %q, want %q", test.kind, got.String(), want)
+		}
 	}
 
-	if got, want := Resource("ClusterIngress"), "ClusterIngress.networking.internal.knative.dev"; got.String() != want {
-		t.Errorf("Resource(ClusterIngress) = %v, want %v", got.String(), want)
-	}
-
-	if got, want := Kind("Certificate"), "Certificate.networking.internal.knative.dev"; got.String() != want {
-		t.Errorf("Kind(Certificate) = %v, want %v", got.String(), want)
-	}
-
-	if got, want := Resource("Certificate"), "Certificate.networking.internal.knative.dev"; got.String() != want {
-		t.Errorf("Resource(Certificate) = %v, want %v", got.String(), want)
-	}
-
-	if got, want := SchemeGroupVersion.String(), "networking.internal.knative.dev/v1alpha1"; got != want {
-		t.Errorf("SchemeGroupVersion() = %v, want %v", got, want)
+	if got, want := SchemeGroupVersion, "networking.internal.knative.dev/v1alpha1"; got.String() != want {
+		t.Errorf("SchemeGroupVersion() = %q, want %q", got.String(), want)
 	}
 
 	scheme := runtime.NewScheme()

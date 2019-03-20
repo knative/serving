@@ -13,10 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
-type CertificateExpansion interface{}
+// SetDefaults sets default values on the ServerlessServiceSpec.
+func (c *ServerlessService) SetDefaults() {
+	c.Spec.SetDefaults()
+}
 
-type ClusterIngressExpansion interface{}
-
-type ServerlessServiceExpansion interface{}
+// SetDefaults sets default values on the ServerlessServiceSpec.
+func (c *ServerlessServiceSpec) SetDefaults() {
+	// Nothing is defaultable so far.
+}

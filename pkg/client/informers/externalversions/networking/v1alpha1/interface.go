@@ -25,6 +25,8 @@ type Interface interface {
 	Certificates() CertificateInformer
 	// ClusterIngresses returns a ClusterIngressInformer.
 	ClusterIngresses() ClusterIngressInformer
+	// ServerlessServices returns a ServerlessServiceInformer.
+	ServerlessServices() ServerlessServiceInformer
 }
 
 type version struct {
@@ -46,4 +48,9 @@ func (v *version) Certificates() CertificateInformer {
 // ClusterIngresses returns a ClusterIngressInformer.
 func (v *version) ClusterIngresses() ClusterIngressInformer {
 	return &clusterIngressInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ServerlessServices returns a ServerlessServiceInformer.
+func (v *version) ServerlessServices() ServerlessServiceInformer {
+	return &serverlessServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -25,7 +25,6 @@ import (
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
-
 	tests := []struct {
 		name string
 		t    duck.Implementable
@@ -44,7 +43,7 @@ func TestClusterIngressDuckTypes(t *testing.T) {
 	}
 }
 
-func TestGetGroupVersionKind(t *testing.T) {
+func TestCIGetGroupVersionKind(t *testing.T) {
 	ci := ClusterIngress{}
 	expected := SchemeGroupVersion.WithKind("ClusterIngress")
 	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
@@ -70,44 +69,50 @@ func TestIsPublic(t *testing.T) {
 	}
 }
 
-func TestTypicalFlow(t *testing.T) {
-	r := &ClusterIngress{}
-	r.Status.InitializeConditions()
+func TestCITypicalFlow(t *testing.T) {
+	r := &IngressStatus{}
+	r.InitializeConditions()
 
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
 
 	// Then network is configured.
-	r.Status.MarkNetworkConfigured()
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionNetworkConfigured, t)
-	checkConditionOngoingClusterIngress(r.Status, ClusterIngressConditionReady, t)
+	r.MarkNetworkConfigured()
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionNetworkConfigured, t)
+	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
-	r.Status.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionLoadBalancerReady, t)
-	checkConditionSucceededClusterIngress(r.Status, ClusterIngressConditionReady, t)
-	checkIsReady(r.Status, t)
+	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionLoadBalancerReady, t)
+	checkConditionSucceededClusterIngress(r, ClusterIngressConditionReady, t)
+	checkIsReady(r, t)
 }
 
-func checkIsReady(cis IngressStatus, t *testing.T) {
+// TODO(vagababov): move this outside and re-use elsewhere.
+type ConditionCheckble interface {
+	IsReady() bool
+	GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition
+}
+
+func checkIsReady(cc ConditionCheckble, t *testing.T) {
 	t.Helper()
-	if !cis.IsReady() {
+	if !cc.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 }
 
-func checkConditionSucceededClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
+	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionOngoingClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingClusterIngress(cc ConditionCheckble, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionUnknown, t)
+	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }
 
-func checkConditionClusterIngress(cis IngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkCondition(cc ConditionCheckble, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	cond := cis.GetCondition(c)
+	cond := cc.GetCondition(c)
 	if cond == nil {
 		t.Fatalf("Get(%v) = nil, wanted %v=%v", c, c, cs)
 	}
