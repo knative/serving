@@ -23,8 +23,8 @@ spec:
   version: v1alpha1
   names:
     kind: ServerlessService
-    plural: sks
-    singular: sks
+    plural: serverlessservices
+    singular: serverlessservice
     categories:
     - all
     - knative-internal
