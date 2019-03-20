@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
+	ptest "github.com/knative/pkg/test"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
@@ -49,8 +50,9 @@ func TestRunLatestServicePostDowngrade(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, routeDomain, "2", "Re-energize yourself with a slice of pepperoni!")
 
 	t.Log("Updating the Service to use a different image")
-	if _, err := test.PatchServiceImage(t, clients, svc, test.ImagePath(image1)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, test.ImagePath(image1), err)
+	newImage := ptest.ImagePath(image1)
+	if _, err := test.PatchServiceImage(t, clients, svc, newImage); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, newImage, err)
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")

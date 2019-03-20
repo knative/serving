@@ -21,6 +21,8 @@ package test
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"os/user"
 	"path"
 )
@@ -37,6 +39,8 @@ type EnvironmentFlags struct {
 	IngressEndpoint string // Host to use for ingress endpoint
 	LogVerbose      bool   // Enable verbose logging
 	EmitMetrics     bool   // Emit metrics
+	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
+	Tag             string // Tag for test images
 }
 
 func initializeFlags() *EnvironmentFlags {
@@ -63,5 +67,16 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
 		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
 
+	defaultRepo := os.Getenv("KO_DOCKER_REPO")
+	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
+		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $KO_DOCKER_REPO")
+
+	flag.StringVar(&f.Tag, "tag", "e2e", "Provide the version tag for the test images.")
+
 	return &f
+}
+
+// ImagePath is a helper function to prefix image name with repo and suffix with tag
+func ImagePath(name string) string {
+	return fmt.Sprintf("%s/%s:%s", Flags.DockerRepo, name, Flags.Tag)
 }

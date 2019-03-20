@@ -47,8 +47,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet1))
-	imagePaths = append(imagePaths, test.ImagePath(pizzaPlanet2))
+	imagePaths = append(imagePaths, pkgTest.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, pkgTest.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service

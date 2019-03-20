@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/knative/pkg/test/logging"
@@ -239,6 +240,16 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
+				return false, nil
+			}
+
+			// Repeat the poll on `connection refused` errors, which are usually transient Istio errors.
+			// The alternative for the string check is:
+			// 	errNo := (((err.(*url.Error)).Err.(*net.OpError)).Err.(*os.SyscallError).Err).(syscall.Errno)
+			// if errNo == syscall.Errno(0x6f) {...}
+			// But with assertions, of course.
+			if strings.Contains(err.Error(), "connect: connection refused") {
+				sc.logf("Retrying %s for connection refused %v", req.URL.String(), err)
 				return false, nil
 			}
 			return true, err

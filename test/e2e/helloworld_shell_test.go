@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	ptest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
 )
 
@@ -64,7 +65,7 @@ func ingressAddress(gateway string, addressType string) string {
 
 func TestHelloWorldFromShell(t *testing.T) {
 	t.Parallel()
-	imagePath := test.ImagePath("helloworld")
+	imagePath := ptest.ImagePath("helloworld")
 
 	t.Log("Creating manifest")
 

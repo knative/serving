@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	ptest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,7 @@ const (
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
 	t.Parallel()
-	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
+	if strings.HasSuffix(strings.Split(ptest.Flags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
 	}
 	clients := setup(t)
