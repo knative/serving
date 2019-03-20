@@ -17,8 +17,9 @@ limitations under the License.
 package resources
 
 import (
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
