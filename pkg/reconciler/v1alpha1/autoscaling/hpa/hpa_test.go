@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -189,6 +190,9 @@ func TestReconcile(t *testing.T) {
 				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\".")),
 		}},
 		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create horizontalpodautoscalers"),
+		},
 	}}
 
 	defer ClearAllLoggers()

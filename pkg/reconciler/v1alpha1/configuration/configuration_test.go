@@ -236,7 +236,10 @@ func TestReconcile(t *testing.T) {
 				})),
 		},
 		WantErr: true,
-		Key:     "foo/bad-condition",
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `unrecognized condition status: Bad on revision "bad-condition"`),
+		},
+		Key: "foo/bad-condition",
 	}, {
 		Name: "failure creating build",
 		// We induce a failure creating a build
@@ -260,6 +263,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
 				"create-build-failure", fmt.Sprintf("Failed to create Build for Configuration %q: %v", "create-build-failure", "inducing failure for create builds")),
+			Eventf(corev1.EventTypeWarning, "InternalError", `Failed to create Build for Configuration "create-build-failure": inducing failure for create builds`),
 		},
 		Key: "foo/create-build-failure",
 	}, {
@@ -284,6 +288,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
 				"create-revision-failure", "inducing failure for create revisions"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create revisions"),
 		},
 		Key: "foo/create-revision-failure",
 	}, {

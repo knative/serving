@@ -276,6 +276,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			"Failed to update status for Revision %q: %v", rev.Name, err)
 		return err
 	}
+	if err != nil {
+		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "InternalError", err.Error())
+	}
 	return err
 }
 
