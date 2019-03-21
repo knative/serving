@@ -46,7 +46,9 @@ You must install these tools:
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
-   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+
+**Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before pushing images. Run `gcloud auth configure-docker` if you are using Google Container Registry or `docker login` if you are using Docker Hub.
 
 ### Setup your environment
 
@@ -71,15 +73,6 @@ recommend adding them to your `.bashrc`):
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
-```
-
-Make sure to configure
-[authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
-for your `KO_DOCKER_REPO` if required. To be able to push images to
-`gcr.io/<project>`, you need to run this once:
-
-```shell
-gcloud auth configure-docker
 ```
 
 ### Checkout your fork
