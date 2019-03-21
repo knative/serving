@@ -29,7 +29,7 @@ data:
   # If set to "*" Istio will intercept all traffic within
   # the cluster as well as traffic that is going outside the cluster.
   # Traffic going outside the cluster will be blocked unless
-  # necessary egress rules are created. 
+  # necessary egress rules are created.
   #
   # If omitted or set to "", value of global.proxy.includeIPRanges
   # provided at Istio deployment time is used. In default Knative serving
