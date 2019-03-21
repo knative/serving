@@ -83,8 +83,8 @@ func (tc *TracerCache) NewTracerRef(cfg *config.Config, serviceName, hostPort st
 			// Close our reporter when references go to 0
 			go func(rr *refcountedReporter) {
 				rr.refs.Lock()
+				defer rr.refs.Unlock()
 				rr.reporter.Close()
-				rr.refs.Unlock()
 			}(tc.reporterRef)
 		}
 		tc.reporterRef = nil

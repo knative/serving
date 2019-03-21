@@ -167,12 +167,14 @@ func main() {
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
+	podInformer := kubeInformerFactory.Core().V1().Pods()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	go revisionInformer.Informer().Run(stopCh)
 	go endpointInformer.Informer().Run(stopCh)
 	go serviceInformer.Informer().Run(stopCh)
+	go podInformer.Informer().Run(stopCh)
 
 	logger.Info("Waiting for informer caches to sync")
 
@@ -272,6 +274,7 @@ func main() {
 		Reporter:      reporter,
 		Throttler:     throttler,
 		TRGetter:      trGetter,
+		KubeClient:    kubeClient,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
 		GetService:    serviceGetter,
