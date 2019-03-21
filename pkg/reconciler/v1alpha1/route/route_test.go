@@ -282,7 +282,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(t, servingClient, route)
 
@@ -339,7 +339,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		},
 	}
 	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Update(ci)
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
@@ -379,7 +379,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -458,7 +458,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -556,7 +556,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -674,7 +674,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(t, servingClient, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -763,7 +763,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	// Create a route.
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
-	controller.Reconcile(context.TODO(), KeyOrDie(route))
+	controller.Reconcile(context.Background(), KeyOrDie(route))
 	addResourcesToInformers(t, servingClient, servingInformer, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
@@ -830,7 +830,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			expectation.apply()
 			servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 			routeClient.Update(route)
-			controller.Reconcile(context.TODO(), KeyOrDie(route))
+			controller.Reconcile(context.Background(), KeyOrDie(route))
 			addResourcesToInformers(t, servingClient, servingInformer, route)
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -966,7 +966,7 @@ func TestRouteDomain(t *testing.T) {
 		},
 	}
 
-	context := context.TODO()
+	context := context.Background()
 	cfg := ReconcilerTestConfig()
 	context = config.ToContext(context, cfg)
 

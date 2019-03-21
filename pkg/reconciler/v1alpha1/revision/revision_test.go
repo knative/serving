@@ -215,7 +215,7 @@ func createRevision(
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 	}
 	return rev
@@ -237,7 +237,7 @@ func updateRevision(
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
-	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 	}
 }
@@ -440,7 +440,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
-	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err != nil {
+	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 

@@ -352,7 +352,7 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	scaler, exists := m.scalers[key]
 	if exists {
 		logger := m.logger.With(zap.String(logkey.Key, key))
-		ctx := logging.WithLogger(context.TODO(), logger)
+		ctx := logging.WithLogger(context.Background(), logger)
 
 		scaler.scaler.Record(ctx, stat)
 		if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {

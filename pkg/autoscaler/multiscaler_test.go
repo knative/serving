@@ -95,7 +95,7 @@ func verifyStatMessageTick(statsCh chan *StatMessage) error {
 }
 
 func TestMultiScalerScaling(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval: tickInterval,
 	})
@@ -146,7 +146,7 @@ func TestMultiScalerScaling(t *testing.T) {
 }
 
 func TestMultiScalerScaleToZero(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval:      tickInterval,
 		EnableScaleToZero: true,
@@ -189,7 +189,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 }
 
 func TestMultiScalerScaleFromZero(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval:      time.Second * 60,
 		EnableScaleToZero: true,
@@ -228,7 +228,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 }
 
 func TestMultiScalerWithoutScaleToZero(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval:      tickInterval,
 		EnableScaleToZero: false,
@@ -274,7 +274,7 @@ func TestMultiScalerWithoutScaleToZero(t *testing.T) {
 }
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval:      tickInterval,
 		EnableScaleToZero: true,
@@ -321,7 +321,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 }
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval: tickInterval,
 	})
@@ -365,7 +365,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 }
 
 func TestMultiScalerUpdate(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
 		TickInterval:      tickInterval,
 		EnableScaleToZero: false,

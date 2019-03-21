@@ -648,7 +648,7 @@ func TestIsRevisionStale(t *testing.T) {
 			},
 		},
 	}
-	ctx := cfgStore.ToContext(context.TODO())
+	ctx := cfgStore.ToContext(context.Background())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
