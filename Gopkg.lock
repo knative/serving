@@ -437,20 +437,6 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:fe6d8bf6d49bbb8a474c1d2cfe053dcd68d9a3b0ac37e4de092b8fe40a97c544"
-  name = "github.com/knative/build-pipeline"
-  packages = [
-    "pkg/apis/pipeline",
-    "pkg/apis/pipeline/v1alpha1",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/pipeline/v1alpha1",
-    "pkg/reconciler/v1alpha1/taskrun/list",
-  ]
-  pruneopts = "NUT"
-  revision = "e5aaa6f3a3fb568054f24dd6670894b4192bb71c"
-
-[[projects]]
   digest = "1:c0b413fd7dbdd734e5ca4c645770c28c7abddfaf929de85b31b3d21c44a79115"
   name = "github.com/knative/caching"
   packages = [
@@ -1338,9 +1324,6 @@
     "github.com/jetstack/cert-manager/pkg/client/informers/externalversions",
     "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1",
     "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1",
-    "github.com/knative/build-pipeline/pkg/apis/pipeline/v1alpha1",
-    "github.com/knative/build-pipeline/pkg/client/clientset/versioned",
-    "github.com/knative/build-pipeline/pkg/client/clientset/versioned/typed/pipeline/v1alpha1",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",

@@ -23,8 +23,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	pipelinev1alpha1 "github.com/knative/build-pipeline/pkg/apis/pipeline/v1alpha1"
+	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -43,35 +45,51 @@ func TestPipeline(t *testing.T) {
 	}{{
 		name: "task run",
 		rawExtension: &v1alpha1.RawExtension{
-			Object: &pipelinev1alpha1.TaskRun{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: pipelinev1alpha1.SchemeGroupVersion.String(),
-					Kind:       "TaskRun",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: test.ServingNamespace,
-				},
-				Spec: pipelinev1alpha1.TaskRunSpec{
-					Trigger: pipelinev1alpha1.TaskTrigger{
-						Type: pipelinev1alpha1.TaskTriggerTypeManual,
+			Object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "pipeline.knative.dev/v1alpha1",
+					"kind":       "TaskRun",
+					"metadata": map[string]interface{}{
+						"namespace": test.ServingNamespace,
 					},
-					TaskSpec: &pipelinev1alpha1.TaskSpec{
-						Steps: []corev1.Container{{
-							Name:  "foo",
-							Image: "busybox",
-							Args:  []string{"echo", "hellow"},
-						}},
+					"spec": map[string]interface{}{
+						"trigger": map[string]interface{}{
+							"type": "manual",
+						},
+						"taskSpec": map[string]interface{}{
+							"steps": []corev1.Container{{
+								Name:  "foo",
+								Image: "busybox",
+								Args:  []string{"echo", "hellow"},
+							}},
+						},
 					},
 				},
 			},
 		},
 		validateFn: func(t *testing.T, buildName string, clients *test.Clients) {
+			taskRunClient := clients.Dynamic.Resource(schema.GroupVersionResource{
+				Group:    "pipeline.knative.dev",
+				Version:  "v1alpha1",
+				Resource: "taskruns",
+			})
 			t.Logf("Revision's Build is taskrun %q", buildName)
-			b, err := clients.PipelineClient.TaskRun.Get(buildName, metav1.GetOptions{})
+			u, err := taskRunClient.Namespace(test.ServingNamespace).Get(buildName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed to get build for latest revision: %v", err)
 			}
-			if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
+
+			b := &duckv1alpha1.KResource{}
+			duck.FromUnstructured(u, b)
+			// TODO(mattmoor): Add a GetCondition method to knative/pkg.
+			var cond *duckv1alpha1.Condition
+			for _, c := range b.Status.Conditions {
+				if c.Type == duckv1alpha1.ConditionSucceeded {
+					cond = &c
+					break
+				}
+			}
+			if cond == nil {
 				t.Fatalf("Condition for build %q was nil", buildName)
 			} else if cond.Status != corev1.ConditionTrue {
 				t.Fatalf("Build %q was not successful", buildName)
@@ -80,67 +98,101 @@ func TestPipeline(t *testing.T) {
 	}, {
 		name: "pipeline run",
 		rawExtension: &v1alpha1.RawExtension{
-			Object: &pipelinev1alpha1.PipelineRun{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: pipelinev1alpha1.SchemeGroupVersion.String(),
-					Kind:       "PipelineRun",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: test.ServingNamespace,
-				},
-				Spec: pipelinev1alpha1.PipelineRunSpec{
-					Trigger: pipelinev1alpha1.PipelineTrigger{
-						Type: pipelinev1alpha1.PipelineTriggerTypeManual,
+			Object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "pipeline.knative.dev/v1alpha1",
+					"kind":       "PipelineRun",
+					"metadata": map[string]interface{}{
+						"namespace": test.ServingNamespace,
 					},
-					PipelineRef: pipelinev1alpha1.PipelineRef{
-						Name: pipelineName,
+					"spec": map[string]interface{}{
+						"trigger": map[string]interface{}{
+							"type": "manual",
+						},
+						"pipelineRef": map[string]interface{}{
+							"name": pipelineName,
+						},
 					},
 				},
 			},
 		},
 		preFn: func(t *testing.T, clients *test.Clients) {
+			pipelineClient := clients.Dynamic.Resource(schema.GroupVersionResource{
+				Group:    "pipeline.knative.dev",
+				Version:  "v1alpha1",
+				Resource: "pipelines",
+			})
+			taskClient := clients.Dynamic.Resource(schema.GroupVersionResource{
+				Group:    "pipeline.knative.dev",
+				Version:  "v1alpha1",
+				Resource: "tasks",
+			})
 			t.Log("Creating Pipeline and Task for the build with PipelineRun")
 			taskName := test.ObjectNameForTest(t)
 
-			if _, err := clients.PipelineClient.Task.Create(&pipelinev1alpha1.Task{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: test.ServingNamespace,
-					Name:      taskName,
+			if _, err := taskClient.Namespace(test.ServingNamespace).Create(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "pipeline.knative.dev/v1alpha1",
+					"kind":       "Task",
+					"metadata": map[string]interface{}{
+						"name":      taskName,
+						"namespace": test.ServingNamespace,
+					},
+					"spec": map[string]interface{}{
+						"steps": []corev1.Container{{
+							Name:  "foo",
+							Image: "busybox",
+							Args:  []string{"echo", "hellow"},
+						}},
+					},
 				},
-				Spec: pipelinev1alpha1.TaskSpec{
-					Steps: []corev1.Container{{
-						Name:  "foo",
-						Image: "busybox",
-						Args:  []string{"echo", "hellow"},
-					}},
-				},
-			}); err != nil {
+			}, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("Failed to create Task: %v", err)
 			}
-			if _, err := clients.PipelineClient.Pipeline.Create(&pipelinev1alpha1.Pipeline{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: test.ServingNamespace,
-					Name:      pipelineName,
+			if _, err := pipelineClient.Namespace(test.ServingNamespace).Create(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "pipeline.knative.dev/v1alpha1",
+					"kind":       "Pipeline",
+					"metadata": map[string]interface{}{
+						"name":      pipelineName,
+						"namespace": test.ServingNamespace,
+					},
+					"spec": map[string]interface{}{
+						"tasks": []map[string]interface{}{{
+							"name": "test-pipe-test-task",
+							"taskRef": map[string]interface{}{
+								"name": taskName,
+							},
+						}},
+					},
 				},
-				Spec: pipelinev1alpha1.PipelineSpec{
-					Tasks: []pipelinev1alpha1.PipelineTask{{
-						Name: "test-pipe-test-task",
-						TaskRef: pipelinev1alpha1.TaskRef{
-							Name: taskName,
-						},
-					}},
-				},
-			}); err != nil {
+			}, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("Failed to create Pipeline: %v", err)
 			}
 		},
 		validateFn: func(t *testing.T, buildName string, clients *test.Clients) {
+			pipelineRunClient := clients.Dynamic.Resource(schema.GroupVersionResource{
+				Group:    "pipeline.knative.dev",
+				Version:  "v1alpha1",
+				Resource: "pipelineruns",
+			})
 			t.Logf("Revision's Build is pipelinerun %q", buildName)
-			b, err := clients.PipelineClient.PipelineRun.Get(buildName, metav1.GetOptions{})
+			u, err := pipelineRunClient.Namespace(test.ServingNamespace).Get(buildName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed to get build for latest revision: %v", err)
 			}
-			if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
+
+			b := &duckv1alpha1.KResource{}
+			duck.FromUnstructured(u, b)
+			// TODO(mattmoor): Add a GetCondition method to knative/pkg.
+			var cond *duckv1alpha1.Condition
+			for _, c := range b.Status.Conditions {
+				if c.Type == duckv1alpha1.ConditionSucceeded {
+					cond = &c
+					break
+				}
+			}
+			if cond == nil {
 				t.Fatalf("Condition for build %q was nil", buildName)
 			} else if cond.Status != corev1.ConditionTrue {
 				t.Fatalf("Build %q was not successful", buildName)
