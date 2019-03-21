@@ -1,10 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
+[contributing](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md)
 to `Knative Serving`. Also take a look at:
 
-- [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
+- [The pull request workflow](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md#pull-requests)
 - [How to add and run tests](./test/README.md)
 - [Iterating](#iterating)
 
@@ -36,7 +36,7 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/install/README.md#install-guides)
+1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
    - You do _not_ need to install Istio or Knative using the instructions in the
      guide. Simply create the cluster and come back here.
@@ -121,7 +121,7 @@ can easily [clean your cluster up](#clean-up) and try again.
 Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](https://github.com/knative/docs/blob/master/install/README.md#install-guides):
+[your cluster setup](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides):
 when using Minikube, the user is your local user; when using GKE, the user is
 your GCP user.
 
@@ -148,7 +148,7 @@ kubectl apply -f ./third_party/istio-1.0.6/istio.yaml
 ```
 
 Follow the
-[instructions](https://github.com/knative/docs/blob/master/serving/gke-assigning-static-ip-address.md)
+[instructions](https://github.com/knative/docs/blob/master/docs/serving/gke-assigning-static-ip-address.md)
 if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
@@ -258,6 +258,6 @@ ko delete --ignore-not-found=true \
 
 To access Telemetry see:
 
-- [Accessing Metrics](https://github.com/knative/docs/blob/master/serving/accessing-metrics.md)
-- [Accessing Logs](https://github.com/knative/docs/blob/master/serving/accessing-logs.md)
-- [Accessing Traces](https://github.com/knative/docs/blob/master/serving/accessing-traces.md)
+- [Accessing Metrics](https://github.com/knative/docs/blob/master/docs/serving/accessing-metrics.md)
+- [Accessing Logs](https://github.com/knative/docs/blob/master/docs/serving/accessing-logs.md)
+- [Accessing Traces](https://github.com/knative/docs/blob/master/docs/serving/accessing-traces.md)
