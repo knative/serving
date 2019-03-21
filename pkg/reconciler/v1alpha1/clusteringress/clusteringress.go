@@ -383,7 +383,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 		return err
 	}
 
-	// Update the Route to remove the Finalizer.
+	// Update the ClusterIngress to remove the Finalizer.
 	logger.Info("Removing Finalizer")
 	ci.Finalizers = ci.Finalizers[1:]
 	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
