@@ -295,5 +295,4 @@ func TestUpdateGateway(t *testing.T) {
 			}
 		})
 	}
-	return
 }
