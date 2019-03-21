@@ -24,8 +24,7 @@ You can also use these annotations directly on `kpa` objects.
 
 **NOTE**: These annotations apply for the full lifetime of a `revision`.
 Even when a `revision` is not referenced by any `route`, the minimal pod count
-specified by `autoscaling.knative.dev/minScale` will still be provided. Non-routed
-`revisions` will be garbage collected after 24 hours by default. This is
-configurable by `stale-revision-create-delay` in [config-gc.yaml](/config/config-gc.yaml).
-If you want to save resources for a non-routed `revision` before it is garbage
-collected, you should manually delete it.
+specified by `autoscaling.knative.dev/minScale` will still be provided. Keep in
+mind that non-routeable `revisions` may be garbage collected, which enables
+Knative to reclaim the resources. **These annotations are specific to Autoscaler
+implementations but NOT subject to Conformance.**
