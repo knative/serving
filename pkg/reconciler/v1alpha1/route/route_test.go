@@ -317,11 +317,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 						"knative-serving-revision":  "test-rev",
 						"knative-serving-namespace": testNamespace,
 					},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}},
@@ -407,11 +402,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 						},
 						Percent: 10,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}},
@@ -489,11 +479,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  "test-rev",
 						"knative-serving-namespace": testNamespace,
-					},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
 					},
 				}},
 			},
@@ -584,11 +569,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 50,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}, {
@@ -603,11 +583,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}, {
@@ -622,11 +597,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}},
@@ -702,11 +672,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 50,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}, {
@@ -721,11 +686,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}, {
@@ -740,11 +700,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
-					Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Retries: &netv1alpha1.HTTPRetry{
-						PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-						Attempts:      netv1alpha1.DefaultRetryCount,
-					},
 				}},
 			},
 		}},

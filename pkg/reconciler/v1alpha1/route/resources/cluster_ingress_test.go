@@ -99,11 +99,6 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}, {
@@ -118,11 +113,6 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}}
@@ -250,11 +240,6 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}
@@ -296,11 +281,6 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}
@@ -349,11 +329,6 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 					},
 					Percent: 20,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}
@@ -394,11 +369,6 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
 					"knative-serving-namespace": "test-ns",
-				},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
 				},
 			}},
 		},
@@ -447,11 +417,6 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 					"knative-serving-revision":  "revision",
 					"knative-serving-namespace": "test-ns",
 				},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}
@@ -491,11 +456,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-				Retries: &netv1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: netv1alpha1.DefaultTimeout},
-					Attempts:      netv1alpha1.DefaultRetryCount,
-				},
 			}},
 		},
 	}

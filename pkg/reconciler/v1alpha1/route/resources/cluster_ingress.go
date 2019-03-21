@@ -123,7 +123,6 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 		Splits: splits,
 		// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
 	}
-	path.SetDefaults()
 	return &v1alpha1.ClusterIngressRule{
 		Hosts: domains,
 		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
