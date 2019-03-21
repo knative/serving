@@ -52,15 +52,16 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 }
 
 func TestMarkReady(t *testing.T) {
-	c := Certificate{}
-	c.Status.InitializeConditions()
-	checkCondition(c.Status, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
 
-	c.Status.MarkReady()
-	checkCondition(c.Status, CertificateCondidtionReady, corev1.ConditionTrue, t)
+	c.MarkReady()
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionTrue, t)
 }
 
-func checkCondition(cs CertificateStatus, ct duckv1alpha1.ConditionType, status corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkCondition(cs *CertificateStatus, ct duckv1alpha1.ConditionType, status corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+	t.Helper()
 	cond := cs.GetCondition(ct)
 	if cond == nil {
 		t.Fatalf("Get(%v) = nil, wanted %v=%v", ct, ct, status)
