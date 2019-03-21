@@ -25,7 +25,6 @@ import (
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
-
 	tests := []struct {
 		name string
 		t    duck.Implementable
@@ -44,7 +43,7 @@ func TestClusterIngressDuckTypes(t *testing.T) {
 	}
 }
 
-func TestGetGroupVersionKind(t *testing.T) {
+func TestCIGetGroupVersionKind(t *testing.T) {
 	ci := ClusterIngress{}
 	expected := SchemeGroupVersion.WithKind("ClusterIngress")
 	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
@@ -70,7 +69,7 @@ func TestIsPublic(t *testing.T) {
 	}
 }
 
-func TestTypicalFlow(t *testing.T) {
+func TestCITypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
@@ -86,37 +85,42 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionSucceededClusterIngress(r, ClusterIngressConditionLoadBalancerReady, t)
 	checkConditionSucceededClusterIngress(r, ClusterIngressConditionReady, t)
 	checkIsReady(r, t)
-
 	// Mark not owned.
 	r.MarkResourceNotOwned("i own", "you")
 	checkConditionFailedClusterIngress(r, ClusterIngressConditionReady, t)
 }
 
-func checkIsReady(cis *IngressStatus, t *testing.T) {
+// TODO(vagababov): move this outside and re-use elsewhere.
+type ConditionCheckable interface {
+	IsReady() bool
+	GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition
+}
+
+func checkIsReady(cc ConditionCheckable, t *testing.T) {
 	t.Helper()
-	if !cis.IsReady() {
+	if !cc.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 }
 
-func checkConditionSucceededClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionTrue, t)
+	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionFalse, t)
+	return checkCondition(cc, c, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	return checkConditionClusterIngress(cis, c, corev1.ConditionUnknown, t)
+	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }
 
-func checkConditionClusterIngress(cis *IngressStatus, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkCondition(cc ConditionCheckable, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
-	cond := cis.GetCondition(c)
+	cond := cc.GetCondition(c)
 	if cond == nil {
 		t.Fatalf("Get(%v) = nil, wanted %v=%v", c, c, cs)
 	}

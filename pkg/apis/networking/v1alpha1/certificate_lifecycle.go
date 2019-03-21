@@ -32,6 +32,11 @@ func (cs *CertificateStatus) MarkReady() {
 	certificateCondSet.Manage(cs).MarkTrue(CertificateCondidtionReady)
 }
 
+// IsReady returns true is the Certificate is ready.
+func (cs *CertificateStatus) IsReady() bool {
+	return certificateCondSet.Manage(cs).IsHappy()
+}
+
 // GetCondition gets a speicifc condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
