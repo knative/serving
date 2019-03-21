@@ -23,10 +23,15 @@ import (
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	fakecmclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake"
+	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/certificate/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/certificate/resources"
@@ -34,6 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 )
 
@@ -48,6 +54,42 @@ var (
 )
 
 var certManagerClient *fakecmclient.Clientset
+
+func TestNewContrller(t *testing.T) {
+	defer ClearAllLoggers()
+
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.CertManagerConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"issuerRef": "kind: ClusterIssuer\nname: letsencrypt-issuer",
+		},
+	})
+
+	kubeClient := fakekubeclientset.NewSimpleClientset()
+	sharedClient := fakesharedclientset.NewSimpleClientset()
+
+	servingClient := fakeclientset.NewSimpleClientset()
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	knCertInformer := servingInformer.Networking().V1alpha1().Certificates()
+	certManagerClient := fakecmclient.NewSimpleClientset()
+	certManagerInformer := certmanagerinformers.NewSharedInformerFactory(certManagerClient, 0)
+	cmCertInforer := certManagerInformer.Certmanager().V1alpha1().Certificates()
+
+	c := NewController(reconciler.Options{
+		KubeClientSet:    kubeClient,
+		SharedClientSet:  sharedClient,
+		ServingClientSet: servingClient,
+		ConfigMapWatcher: configMapWatcher,
+		Logger:           TestLogger(t),
+	}, knCertInformer, cmCertInforer, certManagerClient)
+
+	if c == nil {
+		t.Fatal("Expected NewController to return a non-nil value")
+	}
+}
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -131,6 +173,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/knCert",
 	}}
 
+	defer ClearAllLoggers()
 	table.Test(t, makeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		certManagerClient = fakecmclient.NewSimpleClientset(listers.GetCMCertificateObjects()...)
 		return &Reconciler{

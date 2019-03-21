@@ -105,6 +105,7 @@ func (l *Listers) GetSharedObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
 }
 
+// GetCMCertificateObjects gets a list of Cert-Manager Certificate objects.
 func (l *Listers) GetCMCertificateObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(certmanagerv1alpha1.AddToScheme)
 }
