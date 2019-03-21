@@ -59,7 +59,7 @@ type CertificateList struct {
 	Items []Certificate `json:"items"`
 }
 
-// CertificateSpec defines the desired state of Certificate.
+// CertificateSpec defines the desired state of a `Certificate`.
 type CertificateSpec struct {
 	// DNSNames is a list of DNS names the Certificate could support.
 	// The wildcard format of DNSNames (e.g. *.default.example.com) is supported.
@@ -69,7 +69,7 @@ type CertificateSpec struct {
 	SecretName string `json:"secretName"`
 }
 
-// CertificateStatus defines the observed state of Certificate.
+// CertificateStatus defines the observed state of a `Certificate`.
 type CertificateStatus struct {
 	duckv1alpha1.Status `json:",inline"`
 

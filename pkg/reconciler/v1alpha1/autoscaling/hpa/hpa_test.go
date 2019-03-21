@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -63,7 +64,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(podAutoscaler)
 
-	err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
@@ -189,6 +190,9 @@ func TestReconcile(t *testing.T) {
 				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\".")),
 		}},
 		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create horizontalpodautoscalers"),
+		},
 	}}
 
 	defer ClearAllLoggers()

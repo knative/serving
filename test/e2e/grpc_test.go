@@ -53,7 +53,7 @@ func unaryTest(t *testing.T, names test.ResourceNames, clients *test.Clients, ho
 
 	want := &ping.Request{Msg: "Hello!"}
 
-	got, err := pc.Ping(context.TODO(), want)
+	got, err := pc.Ping(context.Background(), want)
 	if err != nil {
 		t.Fatalf("Couldn't send request: %v", err)
 	}

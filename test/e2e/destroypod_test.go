@@ -99,7 +99,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatalf("Error creating http request: %v", err)
 	}
 
-	g, _ := errgroup.WithContext(context.TODO())
+	g, _ := errgroup.WithContext(context.Background())
 
 	g.Go(func() error {
 		t.Log("Sending in a long running request")

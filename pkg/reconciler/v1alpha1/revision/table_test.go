@@ -135,6 +135,9 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
+		},
 		Key: "foo/create-kpa-failure",
 	}, {
 		Name: "failure creating user deployment",
@@ -158,6 +161,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create deployments"),
+		},
 		Key: "foo/create-user-deploy-failure",
 	}, {
 		Name: "failure creating user service",
@@ -183,6 +189,9 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create services"),
+		},
 		Key: "foo/create-user-service-failure",
 	}, {
 		Name: "stable revision reconciliation",
@@ -234,6 +243,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: deploy("foo", "failure-update-deploy"),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update deployments"),
+		},
 		Key: "foo/failure-update-deploy",
 	}, {
 		Name: "deactivated revision is stable",
@@ -415,6 +427,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("foo", "update-user-svc-failure"),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update services"),
+		},
 		Key: "foo/update-user-svc-failure",
 	}, {
 		Name: "surface deployment timeout",
@@ -483,6 +498,9 @@ func TestReconcile(t *testing.T) {
 				// we should see the following status changes.
 				WithLogURL, WithInitRevConditions),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `builds.testing.build.knative.dev "the-build" not found`),
+		},
 		Key: "foo/missing-build",
 	}, {
 		Name: "build running",
@@ -627,6 +645,9 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for Service we see this update.
 				MarkResourceNotOwned("Service", "missing-owners-service")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Service: "missing-owners-service"`),
+		},
 		Key: "foo/missing-owners",
 	}, {
 		Name:    "lost kpa owner ref",
@@ -646,6 +667,9 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
+		},
 		Key: "foo/missing-owners",
 	}, {
 		Name:    "lost deployment owner ref",
@@ -665,6 +689,9 @@ func TestReconcile(t *testing.T) {
 				// When we're missing the OwnerRef for Deployment we see this update.
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
+		},
 		Key: "foo/missing-owners",
 	}, {
 		// Prior to Serving 0.4 revisions were labelled with
@@ -817,6 +844,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
 				WithNoBuild, MarkDeploying("Deploying")),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configmaps"),
+		},
 		Key: "foo/create-configmap-failure",
 	}, {
 		Name: "steady state after initial creation",
@@ -881,6 +911,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			// We should see a single update to the configmap we expect.
 			Object: fluentdConfigMap("foo", "update-configmap-failure", EnableVarLog),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configmaps"),
+		},
 		Key: "foo/update-configmap-failure",
 	}}
 

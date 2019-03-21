@@ -85,6 +85,9 @@ func TestCITypicalFlow(t *testing.T) {
 	checkConditionSucceededClusterIngress(r, ClusterIngressConditionLoadBalancerReady, t)
 	checkConditionSucceededClusterIngress(r, ClusterIngressConditionReady, t)
 	checkIsReady(r, t)
+	// Mark not owned.
+	r.MarkResourceNotOwned("i own", "you")
+	checkConditionFailedClusterIngress(r, ClusterIngressConditionReady, t)
 }
 
 // TODO(vagababov): move this outside and re-use elsewhere.
@@ -103,6 +106,11 @@ func checkIsReady(cc ConditionCheckable, t *testing.T) {
 func checkConditionSucceededClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
+}
+
+func checkConditionFailedClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+	t.Helper()
+	return checkCondition(cc, c, corev1.ConditionFalse, t)
 }
 
 func checkConditionOngoingClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {

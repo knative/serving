@@ -235,6 +235,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
+	if err != nil {
+		c.Recorder.Eventf(route, corev1.EventTypeWarning, "InternalError", err.Error())
+	}
 	return err
 }
 
