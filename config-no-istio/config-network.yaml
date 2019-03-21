@@ -34,7 +34,7 @@ data:
   # If omitted or set to "", value of global.proxy.includeIPRanges
   # provided at Istio deployment time is used. In default Knative serving
   # deployment, global.proxy.includeIPRanges value is set to "*".
-  # 
+  #
   # If an invalid value is passed, "" is used instead.
   # 
   # If valid set of IP address ranges are put into this value,
