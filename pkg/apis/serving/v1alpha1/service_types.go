@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
@@ -39,6 +38,15 @@ import (
 // and Route, reflecting their statuses and conditions as its own.
 //
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#service
+//
+// +kubebuilder:printcolumn:name="Domain",type="string",JSONPath=".status.domain"
+// +kubebuilder:printcolumn:name="LatestCreated",type="string",JSONPath=".status.latestCreatedRevisionName"
+// +kubebuilder:printcolumn:name="LatestReady",type="string",JSONPath=".status.latestReadyRevisionName"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=kservice;ksvc
+// +kubebuilder:singular=service
+// +kubebuilder:categories=all,knative,serving
 type Service struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

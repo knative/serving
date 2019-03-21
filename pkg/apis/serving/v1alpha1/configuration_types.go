@@ -31,7 +31,16 @@ import (
 // Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
+//
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
+//
+// +kubebuilder:printcolumn:name="LatestCreated",type="string",JSONPath=".status.latestCreatedRevisionName"
+// +kubebuilder:printcolumn:name="LatestReady",type="string",JSONPath=".status.latestReadyRevisionName"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=config;cfg
+// +kubebuilder:singular=configuration
+// +kubebuilder:categories=all,knative,serving
 type Configuration struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

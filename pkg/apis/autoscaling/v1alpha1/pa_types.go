@@ -32,6 +32,12 @@ import (
 // components instantiate autoscalers.  This definition is an abstraction that may be backed
 // by multiple definitions.  For more information, see the Knative Pluggability presentation:
 // https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit
+//
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=kpa
+// +kubebuilder:singular=podautoscaler
+// +kubebuilder:categories=all,knative-internal,autoscaling
 type PodAutoscaler struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

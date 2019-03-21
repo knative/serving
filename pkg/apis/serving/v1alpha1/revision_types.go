@@ -33,6 +33,14 @@ import (
 // updates to a Configuration.
 //
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
+//
+// +kubebuilder:printcolumn:name="Service Name",type="string",JSONPath=".status.serviceName"
+// +kubebuilder:printcolumn:name="Generation",type="string",JSONPath=".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=rev
+// +kubebuilder:singular=revision
+// +kubebuilder:categories=all,knative,serving
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

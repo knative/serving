@@ -34,6 +34,12 @@ import (
 //
 // This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
 // which some highlighted modifications.
+//
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:singular=clusteringress
+// +kubebuilder:categories=all,knative-internal,networking
+// +genclient:nonNamespaced
 type ClusterIngress struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.

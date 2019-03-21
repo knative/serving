@@ -29,6 +29,12 @@ import (
 // Certificate is responsible for provisioning a SSL certificate for the
 // given hosts. It is a Knative abstraction for various SSL certificate
 // provisioning solutions (such as cert-manager or self-signed SSL certificate).
+//
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=kcert
+// +kubebuilder:singular=certificate
+// +kubebuilder:categories=all,knative-internal,networking
 type Certificate struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.

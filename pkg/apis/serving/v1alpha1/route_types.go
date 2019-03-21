@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
@@ -32,7 +31,15 @@ import (
 // referencing the Configuration responsible for creating them; in these cases
 // the Route is additionally responsible for monitoring the Configuration for
 // "latest ready" revision changes, and smoothly rolling out latest revisions.
+//
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
+//
+// +kubebuilder:printcolumn:name="Domain",type="string",JSONPath=".status.domain"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:resource:shortName=rt
+// +kubebuilder:singular=route
+// +kubebuilder:categories=all,knative,serving
 type Route struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
