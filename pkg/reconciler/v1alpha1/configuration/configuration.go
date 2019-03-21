@@ -143,6 +143,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			"Failed to update status for Configuration %q: %v", config.Name, err)
 		return err
 	}
+	if err != nil {
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "InternalError", err.Error())
+	}
 	return err
 }
 

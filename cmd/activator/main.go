@@ -281,6 +281,6 @@ func main() {
 
 	<-stopCh
 	a.Shutdown()
-	http1Srv.Shutdown(context.TODO())
-	h2cSrv.Shutdown(context.TODO())
+	http1Srv.Shutdown(context.Background())
+	h2cSrv.Shutdown(context.Background())
 }

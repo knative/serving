@@ -29,8 +29,8 @@ import (
 // +genclient:nonNamespaced
 
 // ClusterIngress is a collection of rules that allow inbound connections to reach the
-// endpoints defined by a backend. An ClusterIngress can be configured to give services
-// externally-reachable urls, load balance traffic offer name based virtual hosting etc.
+// endpoints defined by a backend. A ClusterIngress can be configured to give services
+// externally-reachable URLs, load balance traffic, offer name based virtual hosting, etc.
 //
 // This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
 // which some highlighted modifications.
@@ -58,27 +58,28 @@ var (
 	_ apis.Validatable = (*ClusterIngress)(nil)
 	_ apis.Defaultable = (*ClusterIngress)(nil)
 
-	// Check that we can create OwnerReferences to a ClusterIngress..
+	// Check that we can create OwnerReferences to a ClusterIngress.
 	_ kmeta.OwnerRefable = (*ClusterIngress)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterIngressList is a collection of ClusterIngress.
+// ClusterIngressList is a collection of ClusterIngress objects.
 type ClusterIngressList struct {
 	metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata.
+	// Standard object metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	// Items is the list of ClusterIngress.
+	// Items is the list of ClusterIngress objects.
 	Items []ClusterIngress `json:"items"`
 }
 
 // IngressSpec describes the ClusterIngress the user wishes to exist.
 //
-// In general this follow the same shape as K8s Ingress.  Some notable differences:
+// In general this follows the same shape as K8s Ingress.
+// Some notable differences:
 // - Backends now can have namespace:
 // - Traffic can be split across multiple backends.
 // - Timeout & Retry can be configured.
@@ -95,8 +96,8 @@ type IngressSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// TLS configuration. Currently the ClusterIngress only supports a single TLS
-	// port, 443. If multiple members of this list specify different hosts, they
+	// TLS configuration. Currently ClusterIngress only supports a single TLS
+	// port: 443. If multiple members of this list specify different hosts, they
 	// will be multiplexed on the same port according to the hostname specified
 	// through the SNI TLS extension, if the ingress controller fulfilling the
 	// ingress supports SNI.
@@ -117,7 +118,7 @@ type IngressVisibility string
 
 const (
 	// IngressVisibilityExternalIP is used to denote that the Ingress
-	// should be exposed to an external IP, for example a LoadBalancer
+	// should be exposed via an external IP, for example a LoadBalancer
 	// Service.  This is the default value for IngressVisibility.
 	IngressVisibilityExternalIP IngressVisibility = "ExternalIP"
 	// IngressVisibilityClusterLocal is used to denote that the Ingress
@@ -127,7 +128,7 @@ const (
 
 // ClusterIngressTLS describes the transport layer security associated with an ClusterIngress.
 type ClusterIngressTLS struct {
-	// Hosts are a list of hosts included in the TLS certificate. The values in
+	// Hosts is a list of hosts included in the TLS certificate. The values in
 	// this list must match the name/s used in the tlsSecret. Defaults to the
 	// wildcard host setting for the loadbalancer controller fulfilling this
 	// ClusterIngress, if left unspecified.
@@ -190,7 +191,7 @@ type HTTPClusterIngressRuleValue struct {
 	// options usable by a loadbalancer, like http keep-alive.
 }
 
-// HTTPClusterIngressPath associates a path regex with a backend. Incoming urls matching
+// HTTPClusterIngressPath associates a path regex with a backend. Incoming URLs matching
 // the path are forwarded to the backend.
 type HTTPClusterIngressPath struct {
 	// Path is an extended POSIX regex as defined by IEEE Std 1003.1,
@@ -227,7 +228,7 @@ type HTTPClusterIngressPath struct {
 	Retries *HTTPRetry `json:"retries,omitempty"`
 }
 
-// ClusterIngressBackend describes all endpoints for a given service and port.
+// ClusterIngressBackendSplit describes all endpoints for a given service and port.
 type ClusterIngressBackendSplit struct {
 	// Specifies the backend receiving the traffic split.
 	ClusterIngressBackend `json:",inline"`

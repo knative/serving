@@ -101,7 +101,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	c, recorderList, eventList, statsReporter := factory(t, r)
 
 	// Run the Reconcile we're testing.
-	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
+	if err := c.Reconcile(context.Background(), r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
 

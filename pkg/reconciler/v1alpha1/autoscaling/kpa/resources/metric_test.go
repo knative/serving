@@ -59,7 +59,7 @@ func TestMakeMetric(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.TODO(), tc.pa, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})

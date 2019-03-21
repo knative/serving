@@ -119,7 +119,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	})
 
 	// Ensure revision creation has been seen before deleting it.
@@ -151,7 +151,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Delete(kpa)
-	if err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -205,7 +205,7 @@ func TestUpdate(t *testing.T) {
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	})
 
 	// Ensure revision creation has been seen before updating it.
@@ -238,7 +238,7 @@ func TestUpdate(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Update(kpa)
 
-	if err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -290,7 +290,7 @@ func TestNonKpaClass(t *testing.T) {
 	reconcileCh := make(chan error)
 	go func() {
 		defer close(reconcileCh)
-		if err := ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision); err != nil {
+		if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 			reconcileCh <- err
 		}
 	}()
@@ -353,7 +353,7 @@ func TestNoEndpoints(t *testing.T) {
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	})
 
 	// Wait for the Reconcile to complete.
@@ -414,7 +414,7 @@ func TestEmptyEndpoints(t *testing.T) {
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	})
 
 	// Wait for the Reconcile to complete.
@@ -466,7 +466,7 @@ func TestControllerCreateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.TODO(), key)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
@@ -505,7 +505,7 @@ func TestControllerUpdateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.TODO(), key)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
@@ -543,7 +543,7 @@ func TestControllerGetError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.TODO(), key)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
@@ -585,7 +585,7 @@ func TestScaleFailure(t *testing.T) {
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
+		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	})
 
 	// Ensure revision creation has been seen before deleting it.
@@ -623,7 +623,7 @@ func TestBadKey(t *testing.T) {
 		newDynamicConfig(t),
 	)
 
-	err := ctl.Reconciler.Reconcile(context.TODO(), "too/many/parts")
+	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}

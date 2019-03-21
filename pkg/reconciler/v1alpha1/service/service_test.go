@@ -63,6 +63,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
 				"incomplete", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
 		},
 	}, {
 		Name: "runLatest - create route and service",
@@ -607,6 +608,9 @@ func TestReconcile(t *testing.T) {
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
+		},
 	}, {
 		Name: "runLatest - route creation failure",
 		// Induce a failure during route creation
@@ -631,6 +635,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "create-route-failure"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v",
 				"create-route-failure", "inducing failure for create routes"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create routes"),
 		},
 	}, {
 		Name: "runLatest - configuration creation failure",
@@ -655,6 +660,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
 				"create-config-failure", "inducing failure for create configurations"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configurations"),
 		},
 	}, {
 		Name: "runLatest - update route failure",
@@ -673,6 +679,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("update-route-failure", "foo", WithRunLatestRollout),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update routes"),
+		},
 	}, {
 		Name: "runLatest - update config failure",
 		// Induce a failure updating the config
@@ -692,6 +701,9 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-config-failure", "foo", WithRunLatestRollout),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configurations"),
+		},
 	}, {
 		Name: "runLatest - failure updating service status",
 		// Induce a failure updating the service status.
@@ -865,6 +877,9 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions, MarkConfigurationNotOwned),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Configuration: "run-latest"`),
+		},
 	}, {
 		Name:    "runLatest - not owned route exists",
 		WantErr: true,
@@ -879,6 +894,9 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions, MarkRouteNotOwned),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Route: "run-latest"`),
+		},
 	}, {
 		Name: "runLatest - correct not owned by adding owner refs",
 		// If ready Route/Configuration that weren't owned have OwnerReferences attached,
