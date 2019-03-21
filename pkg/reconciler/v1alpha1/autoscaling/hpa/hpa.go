@@ -94,7 +94,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-	logger.Debug("Reconcile hpa-class PodAutoscaler")
+	logger.Infof("Reconcile hpa-class PodAutoscaler. namespace=%s name=%s", namespace, name)
 
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
