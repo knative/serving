@@ -16,12 +16,14 @@ limitations under the License.
 
 package v1alpha1
 
+import "context"
+
 // SetDefaults sets default values on the ServerlessServiceSpec.
-func (c *ServerlessService) SetDefaults() {
-	c.Spec.SetDefaults()
+func (c *ServerlessService) SetDefaults(ctx context.Context) {
+	c.Spec.SetDefaults(ctx)
 }
 
 // SetDefaults sets default values on the ServerlessServiceSpec.
-func (c *ServerlessServiceSpec) SetDefaults() {
+func (c *ServerlessServiceSpec) SetDefaults(ctx context.Context) {
 	// Nothing is defaultable so far.
 }

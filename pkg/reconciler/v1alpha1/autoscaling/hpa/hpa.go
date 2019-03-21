@@ -143,7 +143,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	pa.SetDefaults()
+	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")

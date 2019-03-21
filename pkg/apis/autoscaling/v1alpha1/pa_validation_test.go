@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -150,7 +151,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rs.Validate()
+			got := test.rs.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -235,7 +236,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate()
+			got := test.r.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -245,7 +246,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 
 type notAPodAutoscaler struct{}
 
-func (nar *notAPodAutoscaler) CheckImmutableFields(apis.Immutable) *apis.FieldError {
+func (nar *notAPodAutoscaler) CheckImmutableFields(context.Context, apis.Immutable) *apis.FieldError {
 	return nil
 }
 
@@ -401,7 +402,7 @@ func TestImmutableFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(test.old)
+			got := test.new.CheckImmutableFields(context.Background(), test.old)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

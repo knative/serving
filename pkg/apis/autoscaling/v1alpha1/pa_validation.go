@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/knative/pkg/apis"
@@ -27,14 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (pa *PodAutoscaler) Validate() *apis.FieldError {
+func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 	return servingv1alpha1.ValidateObjectMetadata(pa.GetObjectMeta()).
 		ViaField("metadata").
-		Also(pa.Spec.Validate().ViaField("spec")).
+		Also(pa.Spec.Validate(ctx).ViaField("spec")).
 		Also(pa.validateMetric())
 }
 
-func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
+func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -42,7 +43,7 @@ func (rs *PodAutoscalerSpec) Validate() *apis.FieldError {
 	if rs.ServiceName == "" {
 		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-	if err := rs.ConcurrencyModel.Validate(); err != nil {
+	if err := rs.ConcurrencyModel.Validate(ctx); err != nil {
 		errs = errs.Also(err.ViaField("concurrencyModel"))
 	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
 		errs = errs.Also(err)
@@ -94,7 +95,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 	return nil
 }
 
-func (current *PodAutoscaler) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
+func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*PodAutoscaler)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}

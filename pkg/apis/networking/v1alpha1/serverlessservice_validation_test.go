@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -118,14 +119,14 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.skss.Validate()
+			got := test.skss.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 			// Now validate via parent object
 			got = (&ServerlessService{
 				Spec: *test.skss,
-			}).Validate()
+			}).Validate(context.Background())
 			if diff := cmp.Diff(test.want.ViaField("spec").Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

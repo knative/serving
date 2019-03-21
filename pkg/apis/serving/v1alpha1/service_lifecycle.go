@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -162,7 +163,7 @@ const (
 
 // AnnotateUserInfo satisfay the apis.Annotatable interface, and set the proper annotations
 // on the Service resource about the user that performed the action.
-func (s *Service) AnnotateUserInfo(prev apis.Annotatable, ui *authv1.UserInfo) {
+func (s *Service) AnnotateUserInfo(ctx context.Context, prev apis.Annotatable, ui *authv1.UserInfo) {
 	ans := s.GetAnnotations()
 	if ans == nil {
 		ans = map[string]string{}

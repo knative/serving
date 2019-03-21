@@ -16,16 +16,18 @@ limitations under the License.
 
 package v1alpha1
 
-func (s *Service) SetDefaults() {
-	s.Spec.SetDefaults()
+import "context"
+
+func (s *Service) SetDefaults(ctx context.Context) {
+	s.Spec.SetDefaults(ctx)
 }
 
-func (ss *ServiceSpec) SetDefaults() {
+func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 	if ss.RunLatest != nil {
-		ss.RunLatest.Configuration.SetDefaults()
+		ss.RunLatest.Configuration.SetDefaults(ctx)
 	} else if ss.DeprecatedPinned != nil {
-		ss.DeprecatedPinned.Configuration.SetDefaults()
+		ss.DeprecatedPinned.Configuration.SetDefaults(ctx)
 	} else if ss.Release != nil {
-		ss.Release.Configuration.SetDefaults()
+		ss.Release.Configuration.SetDefaults(ctx)
 	}
 }

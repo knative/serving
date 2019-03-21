@@ -16,6 +16,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -738,7 +739,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			test.this.AnnotateUserInfo(test.prev, &authv1.UserInfo{
+			test.this.AnnotateUserInfo(context.Background(), test.prev, &authv1.UserInfo{
 				Username: test.user,
 			})
 			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {

@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +47,7 @@ func ValidateCreates(action clientgotesting.Action) (handled bool, ret runtime.O
 	if !ok {
 		return false, nil, nil
 	}
-	if err := obj.Validate(); err != nil {
+	if err := obj.Validate(context.Background()); err != nil {
 		return true, nil, err
 	}
 	return false, nil, nil
@@ -58,7 +59,7 @@ func ValidateUpdates(action clientgotesting.Action) (handled bool, ret runtime.O
 	if !ok {
 		return false, nil, nil
 	}
-	if err := obj.Validate(); err != nil {
+	if err := obj.Validate(context.Background()); err != nil {
 		return true, nil, err
 	}
 	return false, nil, nil

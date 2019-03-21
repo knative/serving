@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func (r *PodAutoscaler) SetDefaults() {
-	r.Spec.SetDefaults()
+func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
+	r.Spec.SetDefaults(ctx)
 	if r.Annotations == nil {
 		r.Annotations = make(map[string]string)
 	}
@@ -43,7 +45,7 @@ func (r *PodAutoscaler) SetDefaults() {
 	}
 }
 
-func (rs *PodAutoscalerSpec) SetDefaults() {
+func (rs *PodAutoscalerSpec) SetDefaults(ctx context.Context) {
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
 	if rs.ConcurrencyModel == servingv1alpha1.RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {

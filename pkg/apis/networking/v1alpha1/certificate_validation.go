@@ -17,16 +17,18 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"github.com/knative/pkg/apis"
 )
 
 // Validate inspects and validates Certificate object.
-func (c *Certificate) Validate() *apis.FieldError {
-	return c.Spec.Validate().ViaField("spec")
+func (c *Certificate) Validate(ctx context.Context) *apis.FieldError {
+	return c.Spec.Validate(ctx).ViaField("spec")
 }
 
 // Validate inspects and validates CertificateSpec object.
-func (spec *CertificateSpec) Validate() *apis.FieldError {
+func (spec *CertificateSpec) Validate(ctx context.Context) *apis.FieldError {
 	var all *apis.FieldError
 	// Spec must have at least one DNS Name.
 	if len(spec.DNSNames) == 0 {

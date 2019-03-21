@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,6 +46,16 @@ type Certificate struct {
 	// +optional
 	Status CertificateStatus `json:"status,omitempty"`
 }
+
+// Verify that Certificate adheres to the appropriate interfaces.
+var (
+	// Check that Certificate may be validated and defaulted.
+	_ apis.Validatable = (*Certificate)(nil)
+	_ apis.Defaultable = (*Certificate)(nil)
+
+	// Check that we can create OwnerReferences to a Certificate..
+	_ kmeta.OwnerRefable = (*Certificate)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
