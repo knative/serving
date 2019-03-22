@@ -193,7 +193,7 @@ func TestMakeRevisions(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with annotations including autoscaling.knative.dev/class",
+		name: "with annotations including autoscaling.knative.dev/class=hpa",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  "with",
