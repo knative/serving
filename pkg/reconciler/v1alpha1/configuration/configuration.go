@@ -144,7 +144,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(config, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(config, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -170,8 +170,8 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to create Revision for Configuration %q: %v", config.Name, err)
 
-			logger.Errorf(errMsg)
-			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", errMsg)
+			logger.Error(errMsg)
+			c.Recorder.Event(config, corev1.EventTypeWarning, "CreationFailed", errMsg)
 
 			// Mark the Configuration as not-Ready since creating
 			// its latest revision failed.
@@ -295,7 +295,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 		return nil, err
 	}
 	c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
-	logger.Infof("Created Revision:\n%+v", created)
+	logger.Infof("Created Revision: %+v", created)
 
 	return created, nil
 }

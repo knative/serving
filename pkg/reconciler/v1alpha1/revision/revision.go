@@ -277,7 +277,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(rev, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -411,7 +411,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	readyAfterReconcile := rev.Status.IsReady()
 	if !readyBeforeReconcile && readyAfterReconcile {
-		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
+		c.Recorder.Event(rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")
 	}
 

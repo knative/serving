@@ -159,7 +159,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }

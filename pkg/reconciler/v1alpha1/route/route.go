@@ -236,7 +236,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
