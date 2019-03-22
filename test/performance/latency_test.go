@@ -63,7 +63,7 @@ func TestTimeToServeLatency(t *testing.T) {
 		NumThreads:     1,
 		NumConnections: 5,
 		Domain:         domain,
-		URL:            fmt.Sprintf("http://%s", endpoint),
+		URL:            fmt.Sprintf("http://%s", *endpoint),
 	}
 	resp, err := opts.RunLoadTest(false)
 	if err != nil {
