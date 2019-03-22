@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/kmeta"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,11 +40,6 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
-	}
-
-	// Set KPA annotation as default if it is empty
-	if _, ok := rev.Annotations[autoscaling.ClassAnnotationKey]; !ok {
-		rev.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
 	// Populate OwnerReferences so that deletes cascade.

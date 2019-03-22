@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -56,9 +55,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "no",
 				GenerateName: "build-",
-				Annotations: map[string]string{
-					autoscaling.ClassAnnotationKey: autoscaling.KPA,
-				},
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -111,9 +108,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "with",
 				GenerateName: "build-",
-				Annotations: map[string]string{
-					autoscaling.ClassAnnotationKey: autoscaling.KPA,
-				},
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -167,9 +162,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "with",
 				GenerateName: "labels-",
-				Annotations: map[string]string{
-					autoscaling.ClassAnnotationKey: autoscaling.KPA,
-				},
+				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -184,60 +177,6 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ServiceLabelKey:                                   "",
 					"foo": "bar",
 					"baz": "blah",
-				},
-			},
-			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-			},
-		},
-	}, {
-		name: "with annotations including autoscaling.knative.dev/class=hpa",
-		configuration: &v1alpha1.Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:  "with",
-				Name:       "annotations",
-				Generation: 100,
-			},
-			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"foo": "bar",
-							"baz": "blah",
-							autoscaling.ClassAnnotationKey: autoscaling.HPA,
-						},
-					},
-					Spec: v1alpha1.RevisionSpec{
-						Container: corev1.Container{
-							Image: "busybox",
-						},
-					},
-				},
-			},
-		},
-		want: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "with",
-				GenerateName: "annotations-",
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "annotations",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
-				}},
-				Labels: map[string]string{
-					serving.ConfigurationLabelKey:                             "annotations",
-					serving.ConfigurationGenerationLabelKey:                   "100",
-					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
-					serving.ServiceLabelKey:                                   "",
-				},
-				Annotations: map[string]string{
-					"foo": "bar",
-					"baz": "blah",
-					autoscaling.ClassAnnotationKey: autoscaling.HPA,
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
