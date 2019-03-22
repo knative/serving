@@ -25,15 +25,13 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
+	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
@@ -46,9 +44,6 @@ const (
 	requestInterval = 1 * time.Second
 	// RequestTimeout is the default timeout for the polling requests.
 	RequestTimeout = 5 * time.Minute
-	// TODO(tcnghia): These probably shouldn't be hard-coded here?
-	istioIngressNamespace = "istio-system"
-	istioIngressName      = "istio-ingressgateway"
 	// Name of the temporary HTTP header that is added to http.Request to indicate that
 	// it is a SpoofClient.Poll request. This header is removed before making call to backend.
 	pollReqHeader = "X-Kn-Poll-Request-Do-Not-Trace"
@@ -115,9 +110,9 @@ func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain 
 		if endpointOverride == "" {
 			var err error
 			// If the domain that the Route controller is configured to assign to Route.Status.Domain
-			// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
-			// spoof the Host in our requests.
-			e, err = GetServiceEndpoint(kubeClientset)
+			// (the domainSuffix) is not resolvable, we need to retrieve the the endpoint and spoof
+			// the Host in our requests.
+			e, err = ingress.GetIngressEndpoint(kubeClientset)
 			if err != nil {
 				return nil, err
 			}
@@ -131,46 +126,6 @@ func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain 
 	}
 
 	return &sc, nil
-}
-
-// GetServiceEndpoint gets the endpoint IP or hostname to use for the service.
-func GetServiceEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
-	ingressName := istioIngressName
-	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
-		ingressName = gatewayOverride
-	}
-	ingressNamespace := istioIngressNamespace
-	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
-		ingressNamespace = gatewayNsOverride
-	}
-
-	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	endpoint, err := endpointFromService(ingress)
-	if err != nil {
-		return nil, err
-	}
-	return &endpoint, nil
-}
-
-// endpointFromService extracts the endpoint from the service's ingress.
-func endpointFromService(svc *v1.Service) (string, error) {
-	ingresses := svc.Status.LoadBalancer.Ingress
-	if len(ingresses) != 1 {
-		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
-	}
-	itu := ingresses[0]
-
-	switch {
-	case itu.IP != "":
-		return itu.IP, nil
-	case itu.Hostname != "":
-		return itu.Hostname, nil
-	default:
-		return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
-	}
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed

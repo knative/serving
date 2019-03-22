@@ -24,8 +24,9 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-03-21
-  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
+  # HEAD as of 2019-03-22
+  source = "https://github.com/markusthoemmes/knative-pkg.git"
+  branch = "refactor-ingressendpoint"
 
 [[override]]
   name = "go.uber.org/zap"

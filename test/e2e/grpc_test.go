@@ -25,7 +25,7 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/spoof"
+	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	"google.golang.org/grpc"
@@ -171,7 +171,7 @@ func testGRPC(t *testing.T, f grpcTest) {
 
 	host := &domain
 	if !test.ServingFlags.ResolvableDomain {
-		host, err = spoof.GetServiceEndpoint(clients.KubeClient.Kube)
+		host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 		if err != nil {
 			t.Fatalf("Could not get service endpoint: %v", err)
 		}

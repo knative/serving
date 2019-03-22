@@ -24,11 +24,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	ingress "github.com/knative/pkg/test/ingress"
 	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -67,45 +66,14 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 	return conn, waitErr
 }
 
-// While we do have similar logic in knative/pkg, it is deeply buried
-// inside the SpoofClient which is very HTTP centric.
-//
-// TODO(tcnghia): Extract the GatewayIP logic out from SpoofClient.
-// Also, we should deduce this information from the child
-// ClusterIngress's Status.
-func getGatewayIP(kube *kubernetes.Clientset) (string, error) {
-	const ingressName = "istio-ingressgateway"
-	const ingressNamespace = "istio-system"
-
-	svc, err := kube.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	ingresses := svc.Status.LoadBalancer.Ingress
-	if len(ingresses) != 1 {
-		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
-	}
-	itu := ingresses[0]
-
-	switch {
-	case itu.IP != "":
-		return itu.IP, nil
-	case itu.Hostname != "":
-		return itu.Hostname, nil
-	default:
-		return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
-	}
-}
-
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
-	// Get the gatewayIP.
-	gatewayIP, err := getGatewayIP(clients.KubeClient.Kube)
+	gatewayIP, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		return err
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, gatewayIP, names.Domain)
+	conn, err := connect(t, *gatewayIP, names.Domain)
 	if err != nil {
 		return err
 	}

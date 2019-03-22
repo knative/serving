@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/test/spoof"
+	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
@@ -53,7 +53,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	domain := objs.Route.Status.Domain
-	endpoint, err := spoof.GetServiceEndpoint(clients.KubeClient.Kube)
+	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestTimeToServeLatency(t *testing.T) {
 		NumThreads:     1,
 		NumConnections: 5,
 		Domain:         domain,
-		URL:            fmt.Sprintf("http://%s", *endpoint),
+		URL:            fmt.Sprintf("http://%s", endpoint),
 	}
 	resp, err := opts.RunLoadTest(false)
 	if err != nil {
