@@ -77,18 +77,24 @@ func getGatewayIP(kube *kubernetes.Clientset) (string, error) {
 	const ingressName = "istio-ingressgateway"
 	const ingressNamespace = "istio-system"
 
-	ingress, err := kube.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+	svc, err := kube.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
-	if len(ingress.Status.LoadBalancer.Ingress) != 1 {
-		return "", fmt.Errorf("expected exactly one ingress load balancer, instead had %d: %s",
-			len(ingress.Status.LoadBalancer.Ingress), ingress.Status.LoadBalancer.Ingress)
+	ingresses := svc.Status.LoadBalancer.Ingress
+	if len(ingresses) != 1 {
+		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
 	}
-	if ingress.Status.LoadBalancer.Ingress[0].IP == "" {
-		return "", fmt.Errorf("expected ingress loadbalancer IP for %s to be set, instead was empty", ingressName)
+	itu := ingresses[0]
+
+	switch {
+	case itu.IP != "":
+		return itu.IP, nil
+	case itu.Hostname != "":
+		return itu.Hostname, nil
+	default:
+		return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
 	}
-	return ingress.Status.LoadBalancer.Ingress[0].IP, nil
 }
 
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
