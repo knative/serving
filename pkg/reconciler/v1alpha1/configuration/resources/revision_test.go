@@ -185,6 +185,58 @@ func TestMakeRevisions(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "with annotations",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:  "with",
+				Name:       "annotations",
+				Generation: 100,
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"foo": "bar",
+							"baz": "blah",
+						},
+					},
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    "with",
+				GenerateName: "annotations-",
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "annotations",
+					Controller:         &boolTrue,
+					BlockOwnerDeletion: &boolTrue,
+				}},
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey:                             "annotations",
+					serving.ConfigurationGenerationLabelKey:                   "100",
+					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
+					serving.ServiceLabelKey:                                   "",
+				},
+				Annotations: map[string]string{
+					"foo": "bar",
+					"baz": "blah",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
