@@ -17,8 +17,6 @@ limitations under the License.
 package reconciler
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,7 +26,6 @@ func AnnotationFilterFunc(key string, value string, allowUnset bool) func(interf
 		if mo, ok := obj.(metav1.Object); ok {
 			anno := mo.GetAnnotations()
 			annoVal, ok := anno[key]
-			fmt.Printf("AnnotationFilterFunc: key=%s value=%s ok=%v annoValue=%s\n", key, value, ok, annoVal)
 			if !ok {
 				return allowUnset
 			}
