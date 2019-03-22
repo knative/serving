@@ -16,7 +16,11 @@ limitations under the License.
 
 package activator
 
-import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+import (
+	"fmt"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+)
 
 const (
 	// Name is the name of the component.
@@ -38,6 +42,10 @@ const (
 type RevisionID struct {
 	Namespace string
 	Name      string
+}
+
+func (rev RevisionID) String() string {
+	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
 
 // ServicePort returns the activator service port for the given Revision protocol.

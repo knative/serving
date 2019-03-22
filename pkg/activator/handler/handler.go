@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
@@ -65,16 +66,18 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
+	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
+
 	revision, err := a.GetRevision(revID)
 	if err != nil {
-		a.Logger.Errorw("Error while getting revision", zap.Error(err))
+		logger.Errorw("Error while getting revision", zap.Error(err))
 		sendError(err, w)
 		return
 	}
 
 	host, err := a.serviceHostName(revision)
 	if err != nil {
-		a.Logger.Errorw("Error while getting hostname", zap.Error(err))
+		logger.Errorw("Error while getting hostname", zap.Error(err))
 		sendError(err, w)
 		return
 	}
@@ -115,20 +118,20 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				attempts++
 				probeResp, err := a.Transport.RoundTrip(probeReq)
 				if err != nil {
-					a.Logger.Warnw("Pod probe failed", zap.Error(err))
+					logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
 				}
 				defer probeResp.Body.Close()
 				httpStatus = probeResp.StatusCode
 				if httpStatus == http.StatusServiceUnavailable {
-					a.Logger.Warnf("Pod probe sent status: %d", httpStatus)
+					logger.Warnf("Pod probe sent status: %d", httpStatus)
 					return false, nil
 				}
 				if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
-					a.Logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
+					logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
 					return false, nil
 				} else if queue.Name != string(body) {
-					a.Logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
+					logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
 					return false, nil
 				}
 				return true, nil
@@ -163,7 +166,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
-			a.Logger.Errorw("Error processing request in the activator", zap.Error(err))
+			logger.Errorw("Error processing request in the activator", zap.Error(err))
 		}
 	}
 }
