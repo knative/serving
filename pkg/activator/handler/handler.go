@@ -15,6 +15,7 @@ package handler
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -26,17 +27,23 @@ import (
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // ActivationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type ActivationHandler struct {
-	Activator activator.Activator
 	Logger    *zap.SugaredLogger
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
@@ -47,6 +54,9 @@ type ActivationHandler struct {
 	// ready before forwarding the payload.  If zero, a network probe
 	// is not required.
 	GetProbeCount int
+
+	GetRevision func(revID activator.RevisionID) (*v1alpha1.Revision, error)
+	GetService  func(namespace, name string) (*v1.Service, error)
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,21 +65,26 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
-	// ActiveEndpoint() will block until the first endpoint is available.
-	ar := a.Activator.ActiveEndpoint(namespace, name)
-
-	if ar.Error != nil {
-		msg := fmt.Sprintf("Error getting active endpoint: %v", ar.Error)
-		a.Logger.Error(msg)
-		http.Error(w, msg, ar.Status)
+	revision, err := a.GetRevision(revID)
+	if err != nil {
+		a.Logger.Errorw("Error while getting revision", zap.Error(err))
+		sendError(err, w)
 		return
 	}
-	target := &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", ar.Endpoint.FQDN, ar.Endpoint.Port),
+
+	host, err := a.serviceHostName(revision)
+	if err != nil {
+		a.Logger.Errorw("Error while getting hostname", zap.Error(err))
+		sendError(err, w)
+		return
 	}
 
-	err := a.Throttler.Try(revID, func() {
+	target := &url.URL{
+		Scheme: "http",
+		Host:   host,
+	}
+
+	err = a.Throttler.Try(revID, func() {
 		var (
 			httpStatus int
 			attempts   int
@@ -133,8 +148,15 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Report the metrics
 		duration := time.Since(start)
 
-		a.Reporter.ReportRequestCount(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, attempts, 1.0)
-		a.Reporter.ReportResponseTime(namespace, ar.ServiceName, ar.ConfigurationName, name, httpStatus, duration)
+		var configurationName string
+		var serviceName string
+		if revision.Labels != nil {
+			configurationName = revision.Labels[serving.ConfigurationLabelKey]
+			serviceName = revision.Labels[serving.ServiceLabelKey]
+		}
+
+		a.Reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
+		a.Reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
 	})
 	if err != nil {
 		if err == activator.ErrActivatorOverload {
@@ -159,6 +181,41 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 	proxy.ServeHTTP(capture, r)
 	return capture.statusCode
+}
+
+// serviceHostName obtains the hostname of the underlying service and the correct
+// port to send requests to.
+func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision) (string, error) {
+	serviceName := resourcenames.K8sService(rev)
+	svc, err := a.GetService(rev.Namespace, serviceName)
+	if err != nil {
+		return "", err
+	}
+
+	// Search for the appropriate port
+	port := int32(-1)
+	for _, p := range svc.Spec.Ports {
+		if p.Name == resources.ServicePortName(rev) {
+			port = p.Port
+			break
+		}
+	}
+	if port == -1 {
+		return "", errors.New("revision needs external HTTP port")
+	}
+
+	serviceFQDN := reconciler.GetK8sServiceFullname(serviceName, rev.Namespace)
+
+	return fmt.Sprintf("%s:%d", serviceFQDN, port), nil
+}
+
+func sendError(err error, w http.ResponseWriter) {
+	msg := fmt.Sprintf("Error getting active endpoint: %v", err)
+	if k8serrors.IsNotFound(err) {
+		http.Error(w, msg, http.StatusNotFound)
+		return
+	}
+	http.Error(w, msg, http.StatusInternalServerError)
 }
 
 type statusCapture struct {
