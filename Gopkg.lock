@@ -405,7 +405,6 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  branch = "master"
   digest = "1:0836bde83bdc49aae7710e22d04e2555d9bd25cd133fbb78508c492307081aea"
   name = "github.com/knative/build"
   packages = [
@@ -436,7 +435,6 @@
   revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
 
 [[projects]]
-  branch = "refactor-ingressendpoint"
   digest = "1:503b39b982efb0d3db9def3c70151112d8c15eb4d60f583a055c81b69dc064a9"
   name = "github.com/knative/pkg"
   packages = [
@@ -489,8 +487,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "0b5dd0abf3b1cfa0ff5cced929e3b74ddb025ff8"
-  source = "https://github.com/markusthoemmes/knative-pkg.git"
+  revision = "6dbff198831064f3a82b7333582efc137575f42c"
 
 [[projects]]
   branch = "master"
@@ -1332,6 +1329,7 @@
     "github.com/knative/pkg/system/testing",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/helpers",
+    "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
