@@ -104,8 +104,9 @@ func main() {
 			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
 			v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
 			kpa.SchemeGroupVersion.WithKind("PodAutoscaler"):      &kpa.PodAutoscaler{},
-			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
 			net.SchemeGroupVersion.WithKind("Certificate"):        &net.Certificate{},
+			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
+			net.SchemeGroupVersion.WithKind("ServerlessService"):  &net.ServerlessService{},
 		},
 		Logger: logger,
 	}
