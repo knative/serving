@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/knative/serving/cmd/util"
@@ -164,17 +165,20 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	go revisionInformer.Informer().Run(stopCh)
 	go endpointInformer.Informer().Run(stopCh)
+	go serviceInformer.Informer().Run(stopCh)
 
 	logger.Info("Waiting for informer caches to sync")
 
 	informerSyncs := []cache.InformerSynced{
 		endpointInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
+		serviceInformer.Informer().HasSynced,
 	}
 	// Make sure the caches are in sync before we add the actual handler.
 	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
@@ -205,6 +209,10 @@ func main() {
 		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
 	}
 
+	serviceGetter := func(namespace, name string) (*v1.Service, error) {
+		return serviceInformer.Lister().Services(namespace).Get(name)
+	}
+
 	throttlerParams := activator.ThrottlerParams{
 		BreakerParams: params,
 		Logger:        logger,
@@ -226,9 +234,6 @@ func main() {
 		Handler:    handler,
 	})
 
-	a := activator.NewDedupingActivator(
-		activator.NewRevisionActivator(kubeClient, servingClient, logger))
-
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
@@ -246,12 +251,13 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Activator:     a,
 		Transport:     activatorutil.AutoTransport,
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
 		GetProbeCount: maxRetries,
+		GetRevision:   revisionGetter,
+		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
@@ -280,7 +286,6 @@ func main() {
 	}()
 
 	<-stopCh
-	a.Shutdown()
 	http1Srv.Shutdown(context.Background())
 	h2cSrv.Shutdown(context.Background())
 }

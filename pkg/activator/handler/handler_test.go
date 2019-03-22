@@ -28,9 +28,13 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -39,41 +43,42 @@ const (
 	testRevName   = "real-name"
 )
 
-var stubRevisionGetter = func(activator.RevisionID) (*v1alpha1.Revision, error) {
-	revision := &v1alpha1.Revision{Spec: v1alpha1.RevisionSpec{ContainerConcurrency: 1}}
+var stubRevisionGetter = func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
+	if revID.Namespace != testNamespace {
+		return nil, &k8serrors.StatusError{
+			ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusNotFound,
+				Reason:  metav1.StatusReasonNotFound,
+				Message: fmt.Sprintf("not found"),
+			}}
+	}
+	revision := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: revID.Namespace,
+			Name:      revID.Name,
+			Labels: map[string]string{
+				serving.ConfigurationLabelKey: "config-" + revID.Name,
+				serving.ServiceLabelKey:       "service-" + revID.Name,
+			},
+		},
+		Spec: v1alpha1.RevisionSpec{ContainerConcurrency: 1}}
 	return revision, nil
 }
 
-type stubActivator struct {
-	endpoint  activator.Endpoint
-	namespace string
-	name      string
-}
-
-func newStubActivator(namespace string, name string) activator.Activator {
-	return &stubActivator{
-		endpoint:  activator.Endpoint{FQDN: "example.com", Port: int32(8080)},
-		namespace: namespace,
-		name:      name,
-	}
-}
-
-func (fa *stubActivator) ActiveEndpoint(namespace, name string) activator.ActivationResult {
-	if namespace == fa.namespace && name == fa.name {
-		return activator.ActivationResult{
-			Status:            http.StatusOK,
-			Endpoint:          fa.endpoint,
-			ServiceName:       "service-" + fa.name,
-			ConfigurationName: "config-" + fa.name,
-		}
-	}
-	return activator.ActivationResult{
-		Status: http.StatusNotFound,
-		Error:  errors.New("not found"),
-	}
-}
-
-func (fa *stubActivator) Shutdown() {
+var stubServiceGetter = func(namespace, name string) (*corev1.Service, error) {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: "http",
+				Port: 8080,
+			}},
+		}}
+	return service, nil
 }
 
 func TestActivationHandler(t *testing.T) {
@@ -87,8 +92,6 @@ func TestActivationHandler(t *testing.T) {
 	errMsg := func(msg string) string {
 		return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
 	}
-
-	act := newStubActivator(testNamespace, testRevName)
 
 	examples := []struct {
 		label           string
@@ -338,12 +341,13 @@ func TestActivationHandler(t *testing.T) {
 				GetEndpoints:  e.endpointsGetter,
 			}
 			handler := ActivationHandler{
-				Activator:     act,
 				Transport:     rt,
 				Logger:        TestLogger(t),
 				Reporter:      reporter,
 				Throttler:     activator.NewThrottler(throttlerParams),
 				GetProbeCount: e.gpc,
+				GetRevision:   stubRevisionGetter,
+				GetService:    stubServiceGetter,
 			}
 
 			resp := httptest.NewRecorder()
@@ -387,9 +391,8 @@ func TestActivationHandler_Overflow(t *testing.T) {
 
 	throttler := getThrottler(breakerParams, t)
 
-	act := newStubActivator(namespace, revName)
 	lockerCh := make(chan struct{})
-	handler := getHandler(throttler, act, lockerCh, t)
+	handler := getHandler(throttler, lockerCh, t)
 	sendRequests(requests, namespace, revName, respCh, handler)
 
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
@@ -410,14 +413,12 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	lockerCh := make(chan struct{})
 
 	for rev := 0; rev < revisions; rev++ {
-		namespace := fmt.Sprintf("real-namespace-%d", rev)
-		revName := testRevName
+		revName := fmt.Sprintf("%s-%d", testRevName, rev)
 
-		act := newStubActivator(namespace, revName)
-		handler := getHandler(throttler, act, lockerCh, t)
+		handler := getHandler(throttler, lockerCh, t)
 
 		requestCount := overallRequests / revisions
-		sendRequests(requestCount, namespace, revName, respCh, handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, handler)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
@@ -451,7 +452,7 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 
 // getHandler returns an already setup ActivationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
-func getHandler(throttler *activator.Throttler, act activator.Activator, lockerCh chan struct{}, t *testing.T) ActivationHandler {
+func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) ActivationHandler {
 	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// Allows only one request at a time until read from.
 		lockerCh <- struct{}{}
@@ -463,11 +464,12 @@ func getHandler(throttler *activator.Throttler, act activator.Activator, lockerC
 		return fake.Result(), nil
 	})
 	handler := ActivationHandler{
-		Activator: act,
-		Transport: rt,
-		Logger:    TestLogger(t),
-		Reporter:  &fakeReporter{},
-		Throttler: throttler,
+		Transport:   rt,
+		Logger:      TestLogger(t),
+		Reporter:    &fakeReporter{},
+		Throttler:   throttler,
+		GetRevision: stubRevisionGetter,
+		GetService:  stubServiceGetter,
 	}
 	return handler
 }

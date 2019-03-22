@@ -34,32 +34,10 @@ const (
 	ServicePortH2C int32 = 81
 )
 
-// Activator provides an active endpoint for a revision or an error and
-// status code indicating why it could not.
-type Activator interface {
-	ActiveEndpoint(namespace, name string) ActivationResult
-	Shutdown()
-}
-
 // RevisionID is the combination of namespace and service name
 type RevisionID struct {
 	Namespace string
 	Name      string
-}
-
-// Endpoint is a fully-qualified domain name / port pair for an active revision.
-type Endpoint struct {
-	FQDN string
-	Port int32
-}
-
-// ActivationResult is used to return the result of an ActivateEndpoint call
-type ActivationResult struct {
-	Status            int
-	Endpoint          Endpoint
-	ServiceName       string
-	ConfigurationName string
-	Error             error
 }
 
 // ServicePort returns the activator service port for the given Revision protocol.
