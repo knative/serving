@@ -17,8 +17,8 @@
 # This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR. For convenience, it can also be executed manually.
 
-# If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start knative in
+# If you already have a Knative cluster setup and kubectl pointing
+# to it, call this script with the --run-tests arguments and it will use
 # the cluster and run the tests.
 
 # Calling this script without arguments will create a new cluster in
