@@ -169,17 +169,7 @@ type ServiceStatus struct {
 
 	RouteStatusFields `json:",inline"`
 
-	// From ConfigurationStatus.
-	// LatestReadyRevisionName holds the name of the latest Revision stamped out
-	// from this Service's Configuration that has had its "Ready" condition become "True".
-	// +optional
-	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
-
-	// From ConfigurationStatus.
-	// LatestCreatedRevisionName is the last revision that was created from this Service's
-	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
-	// +optional
-	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
+	ConfigurationStatusFields `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

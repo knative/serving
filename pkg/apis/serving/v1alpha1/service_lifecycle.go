@@ -72,8 +72,7 @@ func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
 // PropagateConfigurationStatus takes the Configuration status and applies its values
 // to the Service status.
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
-	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
-	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
+	ss.ConfigurationStatusFields = cs.ConfigurationStatusFields
 
 	cc := cs.GetCondition(ConfigurationConditionReady)
 	if cc == nil {

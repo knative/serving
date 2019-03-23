@@ -458,14 +458,17 @@ func TestSetManualStatus(t *testing.T) {
 
 func TestConfigurationStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
+
+	csf := ConfigurationStatusFields{
 		LatestReadyRevisionName:   "foo",
 		LatestCreatedRevisionName: "bar",
+	}
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
+		ConfigurationStatusFields: csf,
 	})
 
 	want := ServiceStatus{
-		LatestReadyRevisionName:   "foo",
-		LatestCreatedRevisionName: "bar",
+		ConfigurationStatusFields: csf,
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {

@@ -319,13 +319,15 @@ func WithFailedRoute(reason, message string) ServiceOption {
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			LatestCreatedRevisionName: name,
-			LatestReadyRevisionName:   name,
 			Status: duckv1alpha1.Status{
 				Conditions: []duckv1alpha1.Condition{{
 					Type:   "Ready",
 					Status: "True",
 				}},
+			},
+			ConfigurationStatusFields: v1alpha1.ConfigurationStatusFields{
+				LatestCreatedRevisionName: name,
+				LatestReadyRevisionName:   name,
 			},
 		})
 	}
@@ -336,7 +338,6 @@ func WithReadyConfig(name string) ServiceOption {
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			LatestCreatedRevisionName: name,
 			Status: duckv1alpha1.Status{
 				Conditions: []duckv1alpha1.Condition{{
 					Type:   "Ready",
@@ -345,6 +346,9 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 					Message: fmt.Sprintf("Revision %q failed with message: %s.",
 						name, message),
 				}},
+			},
+			ConfigurationStatusFields: v1alpha1.ConfigurationStatusFields{
+				LatestCreatedRevisionName: name,
 			},
 		})
 	}
