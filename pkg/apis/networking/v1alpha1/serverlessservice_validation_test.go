@@ -36,6 +36,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"a": "b",
 			},
+			ProtocolType: "http1",
 		},
 		want: nil,
 	}, {
@@ -45,8 +46,19 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"revision.knative.dev": "rev-1982",
 			},
+			ProtocolType: "h2c",
 		},
 		want: nil,
+	}, {
+		name: "invalid protocol",
+		skss: &ServerlessServiceSpec{
+			Mode: SKSOperationModeServe,
+			Selector: map[string]string{
+				"revision.knative.dev": "rev-1982",
+			},
+			ProtocolType: "gRPC",
+		},
+		want: apis.ErrInvalidValue("gRPC", "protocolType"),
 	}, {
 		name: "many selectors",
 		skss: &ServerlessServiceSpec{
@@ -55,6 +67,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 				"revision.knative.dev": "rev-1982",
 				"activator.service":    "act-service-1988",
 			},
+			ProtocolType: "h2c",
 		},
 		want: nil,
 	}, {
@@ -64,6 +77,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"revision.knative.dev": "rev-2009",
 			},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrInvalidValue("bombastic", "mode"),
 	}, {
@@ -73,26 +87,30 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"revision.knative.dev": "rev-2009",
 			},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrMissingField("mode"),
 	}, {
 		name: "no selector",
 		skss: &ServerlessServiceSpec{
-			Mode: SKSOperationModeProxy,
+			Mode:         SKSOperationModeProxy,
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrMissingField("selector"),
 	}, {
 		name: "empty selector",
 		skss: &ServerlessServiceSpec{
-			Mode:     SKSOperationModeProxy,
-			Selector: map[string]string{},
+			Mode:         SKSOperationModeProxy,
+			Selector:     map[string]string{},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrMissingField("selector"),
 	}, {
 		name: "empty selector key",
 		skss: &ServerlessServiceSpec{
-			Mode:     SKSOperationModeProxy,
-			Selector: map[string]string{"": "n'importe quoi"},
+			Mode:         SKSOperationModeProxy,
+			Selector:     map[string]string{"": "n'importe quoi"},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrInvalidKeyName("", "selector", "empty key is not permitted"),
 	}, {
@@ -102,6 +120,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"revision.knative.dev": "",
 			},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrInvalidValue("", apis.CurrentField).ViaKey("revision.knative.dev").ViaField("selector"),
 	}, {
@@ -110,6 +129,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Selector: map[string]string{
 				"revision.knative.dev": "",
 			},
+			ProtocolType: "h2c",
 		},
 		want: apis.ErrMissingField("mode").Also(apis.ErrInvalidValue("", apis.CurrentField).ViaKey("revision.knative.dev").ViaField("selector")),
 	}, {

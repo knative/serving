@@ -97,6 +97,7 @@ type ServerlessServiceSpec struct {
 	Selector map[string]string `json:"selector,omitempty"`
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
+	// serving imports networking, so just use string.
 	ProtocolType string
 }
 
