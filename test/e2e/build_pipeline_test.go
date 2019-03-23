@@ -81,15 +81,7 @@ func TestPipeline(t *testing.T) {
 
 			b := &duckv1alpha1.KResource{}
 			duck.FromUnstructured(u, b)
-			// TODO(mattmoor): Add a GetCondition method to knative/pkg.
-			var cond *duckv1alpha1.Condition
-			for _, c := range b.Status.Conditions {
-				if c.Type == duckv1alpha1.ConditionSucceeded {
-					cond = &c
-					break
-				}
-			}
-			if cond == nil {
+			if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 				t.Fatalf("Condition for build %q was nil", buildName)
 			} else if cond.Status != corev1.ConditionTrue {
 				t.Fatalf("Build %q was not successful", buildName)
@@ -184,15 +176,7 @@ func TestPipeline(t *testing.T) {
 
 			b := &duckv1alpha1.KResource{}
 			duck.FromUnstructured(u, b)
-			// TODO(mattmoor): Add a GetCondition method to knative/pkg.
-			var cond *duckv1alpha1.Condition
-			for _, c := range b.Status.Conditions {
-				if c.Type == duckv1alpha1.ConditionSucceeded {
-					cond = &c
-					break
-				}
-			}
-			if cond == nil {
+			if cond := b.Status.GetCondition(duckv1alpha1.ConditionSucceeded); cond == nil {
 				t.Fatalf("Condition for build %q was nil", buildName)
 			} else if cond.Status != corev1.ConditionTrue {
 				t.Fatalf("Build %q was not successful", buildName)
