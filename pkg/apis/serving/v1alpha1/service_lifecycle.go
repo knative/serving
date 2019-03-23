@@ -111,10 +111,7 @@ func (ss *ServiceStatus) MarkRouteNotYetReady() {
 
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
-	ss.Domain = rs.Domain
-	ss.DeprecatedDomainInternal = rs.DeprecatedDomainInternal
-	ss.Address = rs.Address
-	ss.Traffic = rs.Traffic
+	ss.RouteStatusFields = rs.RouteStatusFields
 
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {

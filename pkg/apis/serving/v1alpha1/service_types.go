@@ -167,31 +167,7 @@ const (
 type ServiceStatus struct {
 	duckv1alpha1.Status `json:",inline"`
 
-	// From RouteStatus.
-	// Domain holds the top-level domain that will distribute traffic over the provided targets.
-	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
-	// +optional
-	Domain string `json:"domain,omitempty"`
-
-	// From RouteStatus.
-	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
-	// targets from inside the cluster. It generally has the form
-	// {route-name}.{route-namespace}.svc.{cluster-domain-name}
-	// DEPRECATED: Use Address instead.
-	// +optional
-	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`
-
-	// Address holds the information needed for a Route to be the target of an event.
-	// +optional
-	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
-
-	// From RouteStatus.
-	// Traffic holds the configured traffic distribution.
-	// These entries will always contain RevisionName references.
-	// When ConfigurationName appears in the spec, this will hold the
-	// LatestReadyRevisionName that we last observed.
-	// +optional
-	Traffic []TrafficTarget `json:"traffic,omitempty"`
+	RouteStatusFields `json:",inline"`
 
 	// From ConfigurationStatus.
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out

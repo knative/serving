@@ -611,7 +611,8 @@ func TestServiceNotOwnedStuff(t *testing.T) {
 
 func TestRouteStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateRouteStatus(&RouteStatus{
+
+	rsf := RouteStatusFields{
 		Domain: "example.com",
 		Traffic: []TrafficTarget{{
 			Percent:      100,
@@ -620,17 +621,14 @@ func TestRouteStatusPropagation(t *testing.T) {
 			Percent:      0,
 			RevisionName: "oldstuff",
 		}},
+	}
+
+	svc.Status.PropagateRouteStatus(&RouteStatus{
+		RouteStatusFields: rsf,
 	})
 
 	want := ServiceStatus{
-		Domain: "example.com",
-		Traffic: []TrafficTarget{{
-			Percent:      100,
-			RevisionName: "newstuff",
-		}, {
-			Percent:      0,
-			RevisionName: "oldstuff",
-		}},
+		RouteStatusFields: rsf,
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
