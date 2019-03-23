@@ -91,6 +91,11 @@ type PodAutoscalerSpec struct {
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
 	ServiceName string `json:"serviceName"`
+
+	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning revision.
+	ProtocolType string
+	// Selector is the pod selector for this revision.
+	Selector map[string]string
 }
 
 const (

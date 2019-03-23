@@ -282,6 +282,58 @@ func TestImmutableFields(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "good (selector added)",
+		new: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				Selector: map[string]string{"i-choose": "you"},
+			},
+		},
+		old: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good (protocol added)",
+		new: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: "george",
+			},
+		},
+		old: &PodAutoscaler{
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
 		name: "bad (type mismatch)",
 		new: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{

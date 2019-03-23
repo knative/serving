@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -101,7 +102,14 @@ func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
 	}
 
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
+	opt := cmp.FilterPath(
+		func(p cmp.Path) bool {
+			return p.String() == "ProtocolType" || p.String() == "Selector"
+		},
+		cmp.Ignore(),
+	)
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec, opt); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff PodAutoscaler",
 			Paths:   []string{"spec"},

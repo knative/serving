@@ -95,6 +95,9 @@ type ServerlessServiceSpec struct {
 	// revision. Same as K8s service selector.
 	// See: https://kubernetes.io/docs/concepts/services-networking/service/.
 	Selector map[string]string `json:"selector,omitempty"`
+
+	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
+	ProtocolType string
 }
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
