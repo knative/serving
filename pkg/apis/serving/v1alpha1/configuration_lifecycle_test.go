@@ -169,7 +169,9 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			LatestCreatedRevisionName: "rev-1",
+			ConfigurationStatusFields: ConfigurationStatusFields{
+				LatestCreatedRevisionName: "rev-1",
+			},
 		},
 		isUpdateToDate: false,
 	}, {
@@ -181,8 +183,10 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			LatestCreatedRevisionName: "rev-2",
-			LatestReadyRevisionName:   "rev-1",
+			ConfigurationStatusFields: ConfigurationStatusFields{
+				LatestCreatedRevisionName: "rev-2",
+				LatestReadyRevisionName:   "rev-1",
+			},
 		},
 		isUpdateToDate: false,
 	}, {
@@ -194,8 +198,10 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			LatestCreatedRevisionName: "rev-1",
-			LatestReadyRevisionName:   "rev-1",
+			ConfigurationStatusFields: ConfigurationStatusFields{
+				LatestCreatedRevisionName: "rev-1",
+				LatestReadyRevisionName:   "rev-1",
+			},
 		},
 		isUpdateToDate: true,
 	}}
