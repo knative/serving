@@ -93,7 +93,8 @@ type PodAutoscalerSpec struct {
 	ServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning revision.
-	ProtocolType string
+	ProtocolType servingv1alpha1.RevisionProtocolType
+
 	// Selector is the pod selector for this revision.
 	Selector map[string]string
 }

@@ -36,6 +36,7 @@ func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 		Also(pa.validateMetric())
 }
 
+// Validate validates PodAutoscaler Spec.
 func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -49,7 +50,28 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
 		errs = errs.Also(err)
 	}
-	return errs
+	return errs.Also(validateSKSFields(rs))
+}
+
+func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
+	var all *apis.FieldError
+	switch rs.ProtocolType {
+	case servingv1alpha1.RevisionProtocolH2C, servingv1alpha1.RevisionProtocolHTTP1:
+	case servingv1alpha1.RevisionProtocolType(""):
+	// TODO(vagababov stop permitting empty protocol type, once SKS controller is live.
+	default:
+		all = all.Also(apis.ErrInvalidValue(string(rs.ProtocolType), "protocolType"))
+	}
+	// TODO(vagababov): stop permitting empty selector, once SKS controller is live.
+	for k, v := range rs.Selector {
+		if k == "" {
+			all = all.Also(apis.ErrInvalidKeyName(k, "selector", "empty key is not permitted"))
+		}
+		if v == "" {
+			all = all.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k).ViaField("selector"))
+		}
+	}
+	return all
 }
 
 func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {

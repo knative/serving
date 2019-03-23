@@ -22,11 +22,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	servingv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -181,9 +182,80 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
+				ProtocolType: servingv1a1.RevisionProtocolHTTP1,
+				Selector: map[string]string{
+					"if-only-i-could": "turn-back-time",
+				},
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid, optional fields",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"minScale": "2",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad protocol",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"minScale": "2",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: servingv1a1.RevisionProtocolType("WebSocket"),
+			},
+		},
+		want: apis.ErrInvalidValue("WebSocket", "spec.protocolType"),
+	}, {
+		name: "empty selector",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"minScale": "2",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ConcurrencyModel: "Multi",
+				ServiceName:      "foo",
+				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				Selector: map[string]string{
+					"":           "one-way",
+					"or-another": "",
+					"i-m-gonna":  "find-you",
+				},
+			},
+		},
+		want: apis.ErrInvalidKeyName("", "spec.selector", "empty key is not permitted").Also(
+			apis.ErrInvalidValue("", apis.CurrentField).ViaKey("or-another").ViaField("spec.selector")),
 	}, {
 		name: "bad scale bounds",
 		r: &PodAutoscaler{
@@ -318,7 +390,7 @@ func TestImmutableFields(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
-				ProtocolType: "george",
+				ProtocolType: servingv1a1.RevisionProtocolHTTP1,
 			},
 		},
 		old: &PodAutoscaler{
