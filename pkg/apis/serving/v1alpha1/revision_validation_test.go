@@ -1114,7 +1114,7 @@ func TestRevisionProtocolType(t *testing.T) {
 	}}
 	for _, test := range tests {
 		e := test.p.Validate()
-		if got, want := e, test.want; !cmp.Equal(got, want) {
+		if got, want := e.Error(), test.want.Error(); !cmp.Equal(got, want) {
 			t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
 		}
 	}

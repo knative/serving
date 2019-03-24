@@ -118,6 +118,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 	return nil
 }
 
+// CheckImmutableFields checks the immutability of the PodAutoscaler.
 func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*PodAutoscaler)
 	if !ok {
