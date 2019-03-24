@@ -156,7 +156,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
 	}
 	if err != nil {
-		c.Recorder.Eventf(service, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }

@@ -39,6 +39,6 @@ func main() {
 		Handler: mux,
 	}
 
-	log.Printf("Server starting on port %s\n", port)
+	log.Printf("Server starting on port %s", port)
 	log.Fatal(server.ListenAndServe())
 }
