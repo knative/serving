@@ -65,11 +65,7 @@ func NewRouteToConfigurationController(
 	impl := controller.NewImpl(c, c.Logger, "Labels", reconciler.MustNewStatsReporter("Labels", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
-	})
+	routeInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
 
 	return impl
 }

@@ -93,20 +93,12 @@ func NewController(
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.Enqueue,
-			UpdateFunc: controller.PassNew(impl.Enqueue),
-			DeleteFunc: impl.Enqueue,
-		},
+		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
-		},
+		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")

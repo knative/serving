@@ -140,34 +140,19 @@ func NewController(
 
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
-	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
-	})
+	revisionInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
 
-	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey),
-		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
-		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey),
-	})
+	endpointsInformer.Informer().AddEventHandler(reconciler.Handler(
+		impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-			DeleteFunc: impl.EnqueueControllerOf,
-		},
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
 	podAutoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-			DeleteFunc: impl.EnqueueControllerOf,
-		},
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
@@ -178,11 +163,7 @@ func NewController(
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-			DeleteFunc: impl.EnqueueControllerOf,
-		},
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
 	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
@@ -217,12 +198,8 @@ func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory 
 func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {
 	return &duck.CachedInformerFactory{
 		Delegate: &duck.EnqueueInformerFactory{
-			Delegate: delegate,
-			EventHandler: cache.ResourceEventHandlerFuncs{
-				AddFunc:    t.OnChanged,
-				UpdateFunc: controller.PassNew(t.OnChanged),
-				DeleteFunc: t.OnChanged,
-			},
+			Delegate:     delegate,
+			EventHandler: reconciler.Handler(t.OnChanged),
 		},
 	}
 }
