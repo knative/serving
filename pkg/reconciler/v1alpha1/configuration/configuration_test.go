@@ -659,7 +659,9 @@ func TestIsRevisionStale(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := &v1alpha1.Configuration{
 				Status: v1alpha1.ConfigurationStatus{
-					LatestReadyRevisionName: test.latestRev,
+					ConfigurationStatusFields: v1alpha1.ConfigurationStatusFields{
+						LatestReadyRevisionName: test.latestRev,
+					},
 				},
 			}
 

@@ -435,7 +435,7 @@
   revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
 
 [[projects]]
-  digest = "1:46d45a87b2948fcd7acc2ab5d0c1fab9cae697c210e0cbd155a295861ffb92e0"
+  digest = "1:3db5050a9f32229395bdbcb733e3f406c8b1ff5d721e886d72c308d496ff7b31"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -476,6 +476,7 @@
     "system/testing",
     "test",
     "test/helpers",
+    "test/ingress",
     "test/logging",
     "test/monitoring",
     "test/spoof",
@@ -486,7 +487,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
+  revision = "a5a847fd5cd410d96324766e51f656227dfe72a2"
 
 [[projects]]
   branch = "master"
@@ -1328,6 +1329,7 @@
     "github.com/knative/pkg/system/testing",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/helpers",
+    "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",

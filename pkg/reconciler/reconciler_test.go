@@ -18,15 +18,36 @@ package reconciler
 
 import (
 	"testing"
+	"time"
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	logtesting "github.com/knative/pkg/logging/testing"
+	_ "github.com/knative/pkg/system/testing"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 )
 
 var reconcilerName = "test-reconciler"
+
+func TestNewOptions(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Didn't expect to Die! %v", r)
+		}
+	}()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	cfg := &rest.Config{}
+	NewOptionsOrDie(cfg, nil, stopCh)
+
+	resetPeriod = 100 * time.Millisecond
+	time.Sleep(300 * time.Millisecond)
+
+	// TODO(mattmoor): There is no definitive way to know if the restmapper is reset...
+}
 
 func TestNew(t *testing.T) {
 	defer logtesting.ClearAll()
