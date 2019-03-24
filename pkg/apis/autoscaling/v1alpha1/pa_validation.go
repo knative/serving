@@ -55,12 +55,9 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 
 func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
 	var all *apis.FieldError
-	switch rs.ProtocolType {
-	case servingv1alpha1.RevisionProtocolH2C, servingv1alpha1.RevisionProtocolHTTP1:
-	case servingv1alpha1.RevisionProtocolType(""):
 	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
-	default:
-		all = all.Also(apis.ErrInvalidValue(string(rs.ProtocolType), "protocolType"))
+	if string(rs.ProtocolType) != "" {
+		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
 	}
 	// TODO(vagababov): stop permitting empty selector, once SKS controller is live.
 	for k, v := range rs.Selector {
