@@ -163,6 +163,16 @@ func (_ *Conditions) GetFullType() duck.Populatable {
 	return &KResource{}
 }
 
+// GetCondition fetches the condition of the specified type.
+func (s *Status) GetCondition(t ConditionType) *Condition {
+	for _, cond := range s.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
 // Populate implements duck.Populatable
 func (t *KResource) Populate() {
 	t.Status.ObservedGeneration = 42
