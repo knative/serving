@@ -69,20 +69,12 @@ func NewController(
 	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.Enqueue,
-			UpdateFunc: controller.PassNew(impl.Enqueue),
-			DeleteFunc: impl.Enqueue,
-		},
+		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
 	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-			DeleteFunc: impl.EnqueueControllerOf,
-		},
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
 	return impl
