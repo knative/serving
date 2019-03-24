@@ -439,8 +439,9 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 }
 
 func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = ingressName
+	action := clientgotesting.PatchActionImpl{
+		Name: ingressName,
+	}
 	patch := fmt.Sprintf(`{"metadata":{"finalizers":["%s"],"resourceVersion":"v1"}}`, finalizer)
 	action.Patch = []byte(patch)
 	return action

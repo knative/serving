@@ -376,7 +376,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 	}
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	logger.Info("Cleaning up Gateway Servers")
+	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ci.Name)
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
 	if err := c.reconcileGateways(ctx, ci, gatewayNames, []v1alpha3.Server{}); err != nil {
 		return err
