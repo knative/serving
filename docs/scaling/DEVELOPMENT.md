@@ -180,10 +180,10 @@ evaluating the 60-second windows again.
 #### Deactivation
 
 When the Autoscaler has observed an average concurrency per pod of 0.0 for some
-time ([#305](https://github.com/knative/serving/issues/305)), it will
-transition the Revision into the Reserve state. This scales the Deployment to
-0, stops any single tenant Autoscaler associated with the Revision, and routes
-all traffic for the Revision to the Activator.
+time ([#305](https://github.com/knative/serving/issues/305)), it will transition
+the Revision into the Reserve state. This scales the Deployment to 0, stops any
+single tenant Autoscaler associated with the Revision, and routes all traffic
+for the Revision to the Activator.
 
 ### Activator
 
