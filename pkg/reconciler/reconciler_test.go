@@ -41,7 +41,7 @@ func TestNewOptions(t *testing.T) {
 	defer close(stopCh)
 
 	cfg := &rest.Config{}
-	_ = NewOptionsOrDie(cfg, nil, stopCh)
+	NewOptionsOrDie(cfg, nil, stopCh)
 
 	resetPeriod = 100 * time.Millisecond
 	time.Sleep(300 * time.Millisecond)
