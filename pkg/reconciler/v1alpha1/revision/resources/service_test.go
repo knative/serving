@@ -35,7 +35,7 @@ func TestMakeK8sService(t *testing.T) {
 		rev  *v1alpha1.Revision
 		want *corev1.Service
 	}{{
-		name: "name is bar",
+		name: "name is bar and use KPA by default",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -81,12 +81,15 @@ func TestMakeK8sService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "name is baz",
+		name: "name is baz and use KPA explicitly",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "baz",
 				UID:       "1234",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				},
 			},
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
@@ -106,7 +109,9 @@ func TestMakeK8sService(t *testing.T) {
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "baz",
 				},
-				Annotations: map[string]string{},
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
@@ -130,6 +135,56 @@ func TestMakeK8sService(t *testing.T) {
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
+				},
+			},
+		},
+	}, {
+		name: "use HPA explicitly",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
+				},
+			},
+		},
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar-service",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bar",
+					serving.RevisionUID:      "1234",
+					AppLabelKey:              "bar",
+				},
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bar",
+					UID:                "1234",
+					Controller:         &boolTrue,
+					BlockOwnerDeletion: &boolTrue,
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Name:       ServicePortNameHTTP1,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       ServicePort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
+				}, {
+					Name:       MetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       MetricsPort,
+					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
+				}},
+				Selector: map[string]string{
+					serving.RevisionLabelKey: "bar",
 				},
 			},
 		},

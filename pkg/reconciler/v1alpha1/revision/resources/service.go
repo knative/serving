@@ -32,7 +32,12 @@ import (
 // serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
 func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 	labels := makeLabels(rev)
-	labels[autoscaling.KPALabelKey] = names.KPA(rev)
+	// Set KPALabelKey label if KPA is used for this Revision. If ClassAnnotationKey
+	// is empty, default to KPA class for backward compatibility.
+	if pa, ok := rev.Annotations[autoscaling.ClassAnnotationKey]; !ok || pa == autoscaling.KPA {
+		labels[autoscaling.KPALabelKey] = names.KPA(rev)
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.K8sService(rev),

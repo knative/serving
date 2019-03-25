@@ -38,7 +38,6 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 
 	UpdateRevisionLabels(rev, config)
 
-	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
 	}
