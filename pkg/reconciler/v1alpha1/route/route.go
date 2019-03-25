@@ -262,6 +262,15 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	r.Status.InitializeConditions()
 
 	logger.Infof("Reconciling route: %v", r)
+
+	// Update the information that makes us Addressable. This is needed to configure traffic and
+	// make the cluster ingress.
+	var err error
+	r.Status.Domain, err = routeDomain(ctx, r)
+	if err != nil {
+		return err
+	}
+
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
@@ -273,12 +282,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// In all cases we will add annotations to the referred targets.  This is so that when they become
 	// routable we can know (through a listener) and attempt traffic configuration again.
 	if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
-		return err
-	}
-
-	// Update the information that makes us Addressable.
-	r.Status.Domain, err = routeDomain(ctx, r)
-	if err != nil {
 		return err
 	}
 
@@ -377,7 +380,8 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	}
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
-	r.Status.Traffic = t.GetRevisionTrafficTargets()
+	// Domain should already be present
+	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.Domain)
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil

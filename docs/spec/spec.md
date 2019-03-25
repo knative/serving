@@ -92,6 +92,7 @@ status:
   - revisionName: ...  # latestReadyRevisionName from a configurationName in spec
     name: ...
     percent: ...  # percentages add to 100. 0 is a valid list value
+    url: ... # present when name is set. URL of the named traffic target
   - ...
 
   conditions:  # See also the [error conditions documentation](errors.md)
@@ -385,6 +386,7 @@ status:
   - revisionName: ...  # latestReadyRevisionName from a configurationName in spec
     name: ...
     percent: ...  # percentages add to 100. 0 is a valid list value
+    url: ... # present when name is set. URL of the named traffic target
   - ...
 
   conditions:  # See also the documentation in errors.md
