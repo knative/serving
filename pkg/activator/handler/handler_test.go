@@ -427,7 +427,6 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	namespace, revName := testNamespace, testRevName
 
-	act := newStubActivator(namespace, revName)
 	interceptCh := make(chan *http.Request, 1)
 	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		interceptCh <- r
@@ -437,11 +436,12 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	throttler := getThrottler(breakerParams, t)
 
 	handler := ActivationHandler{
-		Activator: act,
-		Transport: rt,
-		Logger:    TestLogger(t),
-		Reporter:  &fakeReporter{},
-		Throttler: throttler,
+		Transport:   rt,
+		Logger:      TestLogger(t),
+		Reporter:    &fakeReporter{},
+		Throttler:   throttler,
+		GetRevision: stubRevisionGetter,
+		GetService:  stubServiceGetter,
 	}
 
 	writer := httptest.NewRecorder()
