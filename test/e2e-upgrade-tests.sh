@@ -57,7 +57,7 @@ function install_head() {
 
 function knative_setup() {
   # Build Knative to generate Istio manifests from HEAD for install_latest_release
-  # # We do it here because it's a one-time setup
+  # We do it here because it's a one-time setup
   build_knative_from_source
   install_latest_release
 }
