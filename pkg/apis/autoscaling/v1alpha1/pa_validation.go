@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -35,6 +36,7 @@ func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 		Also(pa.validateMetric())
 }
 
+// Validate validates PodAutoscaler Spec.
 func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -48,7 +50,16 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
 		errs = errs.Also(err)
 	}
-	return errs
+	return errs.Also(validateSKSFields(rs))
+}
+
+func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
+	var all *apis.FieldError
+	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
+	if string(rs.ProtocolType) != "" {
+		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
+	}
+	return all
 }
 
 func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
@@ -95,13 +106,21 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 	return nil
 }
 
+// CheckImmutableFields checks the immutability of the PodAutoscaler.
 func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*PodAutoscaler)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
 	}
 
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
+	opt := cmp.FilterPath(
+		func(p cmp.Path) bool {
+			return p.String() == "ProtocolType"
+		},
+		cmp.Ignore(),
+	)
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec, opt); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff PodAutoscaler",
 			Paths:   []string{"spec"},

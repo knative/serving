@@ -1098,3 +1098,24 @@ func TestImmutableFields(t *testing.T) {
 		})
 	}
 }
+
+func TestRevisionProtocolType(t *testing.T) {
+	tests := []struct {
+		p    RevisionProtocolType
+		want *apis.FieldError
+	}{{
+		RevisionProtocolH2C, nil,
+	}, {
+		RevisionProtocolHTTP1, nil,
+	}, {
+		RevisionProtocolType(""), apis.ErrInvalidValue("", apis.CurrentField),
+	}, {
+		RevisionProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
+	}}
+	for _, test := range tests {
+		e := test.p.Validate()
+		if got, want := e.Error(), test.want.Error(); !cmp.Equal(got, want) {
+			t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
+		}
+	}
+}

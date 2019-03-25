@@ -56,5 +56,12 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 			}
 		}
 	}
+
+	switch spec.ProtocolType {
+	// revision_types.go for values.
+	case "http1", "h2c":
+	default:
+		all = all.Also(apis.ErrInvalidValue(spec.ProtocolType, "protocolType"))
+	}
 	return all
 }
