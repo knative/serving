@@ -368,7 +368,7 @@ func (c *Reconciler) ensureFinalizer(ci *v1alpha1.ClusterIngress) error {
 func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the ClusterIngress for this Route
+	// If our Finalizer is first, delete the `Servers` from Gateway for this ClusterIngress,
 	// and remove the finalizer.
 	if len(ci.Finalizers) == 0 || ci.Finalizers[0] != clusterIngressFinalizer {
 		return nil
