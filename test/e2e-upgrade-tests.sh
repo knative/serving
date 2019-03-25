@@ -44,8 +44,8 @@ function install_latest_release() {
   local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
   # TODO: should this test install istio and build at all, or only serving?
   install_knative_serving \
-    "${url}/istio-crds.yaml" \
-    "${url}/istio.yaml" \
+    "${ISTIO_CRD_YAML}" \
+    "${ISTIO_YAML}" \
     "${url}/serving.yaml" \
     || fail_test "Knative latest release installation failed"
 }
@@ -56,6 +56,9 @@ function install_head() {
 }
 
 function knative_setup() {
+  # Build Knative to generate Istio manifests from HEAD for install_latest_release
+  # We do it here because it's a one-time setup
+  build_knative_from_source
   install_latest_release
 }
 
