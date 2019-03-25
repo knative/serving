@@ -183,9 +183,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Name:       "bar",
 				},
 				ProtocolType: servingv1a1.RevisionProtocolHTTP1,
-				Selector: map[string]string{
-					"if-only-i-could": "turn-back-time",
-				},
 			},
 		},
 		want: nil,
@@ -246,11 +243,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Name:       "bar",
-				},
-				Selector: map[string]string{
-					"":           "one-way",
-					"or-another": "",
-					"i-m-gonna":  "find-you",
 				},
 			},
 		},
@@ -339,32 +331,6 @@ func TestImmutableFields(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
-			},
-		},
-		old: &PodAutoscaler{
-			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-			},
-		},
-		want: nil,
-	}, {
-		name: "good (selector added)",
-		new: &PodAutoscaler{
-			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				Selector: map[string]string{"i-choose": "you"},
 			},
 		},
 		old: &PodAutoscaler{
