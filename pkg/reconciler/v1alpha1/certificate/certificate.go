@@ -148,7 +148,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate) error {
 	logger := logging.FromContext(ctx)
 
-	knCert.SetDefaults()
+	knCert.SetDefaults(ctx)
 	knCert.Status.InitializeConditions()
 
 	logger.Info("Reconciling Cert-Manager certificate for Knative cert %s/%s.", knCert.Namespace, knCert.Name)

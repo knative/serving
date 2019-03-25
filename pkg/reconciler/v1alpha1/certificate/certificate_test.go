@@ -46,7 +46,7 @@ import (
 const generation = 23132
 
 var (
-	corretDNSNames    = []string{"correct-dns1.example.com", "correct-dns2.example.com"}
+	correctDNSNames   = []string{"correct-dns1.example.com", "correct-dns2.example.com"}
 	incorrectDNSNames = []string{"incorrect-dns.example.com"}
 	notAfter          = &metav1.Time{
 		Time: time.Unix(123, 456),
@@ -131,7 +131,7 @@ func TestReconcile(t *testing.T) {
 			cmCert("knCert", "foo", incorrectDNSNames),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cmCert("knCert", "foo", corretDNSNames),
+			Object: cmCert("knCert", "foo", correctDNSNames),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
@@ -154,7 +154,7 @@ func TestReconcile(t *testing.T) {
 		Name: "set Knative Certificate status with CM Certificate status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
-			cmCertWithStatus("knCert", "foo", corretDNSNames, true),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, true),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
@@ -239,7 +239,7 @@ func knCertWithStatus(name, namespace string, status *v1alpha1.CertificateStatus
 			Generation: generation,
 		},
 		Spec: v1alpha1.CertificateSpec{
-			DNSNames:   corretDNSNames,
+			DNSNames:   correctDNSNames,
 			SecretName: "secret0",
 		},
 		Status: *status,
@@ -254,10 +254,8 @@ func cmCert(name, namespace string, dnsNames []string) *certmanagerv1alpha1.Cert
 
 func cmCertWithStatus(name, namespace string, dnsNames []string, isReady bool) *certmanagerv1alpha1.Certificate {
 	cert := cmCert(name, namespace, dnsNames)
-	var conditionStatus certmanagerv1alpha1.ConditionStatus
-	if isReady {
-		conditionStatus = certmanagerv1alpha1.ConditionTrue
-	} else {
+	conditionStatus := certmanagerv1alpha1.ConditionTrue
+	if !isReady {
 		conditionStatus = certmanagerv1alpha1.ConditionFalse
 	}
 	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, conditionStatus, "", "", false)
