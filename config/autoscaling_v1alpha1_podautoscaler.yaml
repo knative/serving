@@ -1,0 +1,129 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: podautoscalers.autoscaling.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    name: Reason
+    type: string
+  group: autoscaling.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - autoscaling
+    kind: PodAutoscaler
+    plural: podautoscalers
+    shortNames:
+    - kpa
+    singular: podautoscaler
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: Spec holds the desired state of the PodAutoscaler (from the
+            client).
+          properties:
+            concurrencyModel:
+              description: ConcurrencyModel specifies the desired concurrency model
+                (Single or Multi) for the scale target. Defaults to Multi. Deprecated
+                in favor of ContainerConcurrency.
+              type: string
+            containerConcurrency:
+              description: ContainerConcurrency specifies the maximum allowed in-flight
+                (concurrent) requests per container of the Revision. Defaults to `0`
+                which means unlimited concurrency. This field replaces ConcurrencyModel.
+                A value of `1` is equivalent to `Single` and `0` is equivalent to
+                `Multi`.
+              format: int64
+              type: integer
+            generation:
+              description: 'DeprecatedGeneration was used prior in Kubernetes versions
+                <1.11 when metadata.generation was not being incremented by the api
+                server  This property will be dropped in future Knative releases and
+                should not be used - use metadata.generation  Tracking issue: https://github.com/knative/serving/issues/643'
+              format: int64
+              type: integer
+            scaleTargetRef:
+              description: ScaleTargetRef defines the /scale-able resource that this
+                PodAutoscaler is responsible for quickly right-sizing.
+              type: object
+            serviceName:
+              description: ServiceName holds the name of a core Kubernetes Service
+                resource that load balances over the pods referenced by the ScaleTargetRef.
+              type: string
+          required:
+          - scaleTargetRef
+          - serviceName
+          type: object
+        status:
+          description: Status communicates the observed state of the PodAutoscaler
+            (from the controller).
+          properties:
+            conditions:
+              description: Conditions the latest available observations of a resource's
+                current state. +patchMergeKey=type +patchStrategy=merge
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime is the last time the condition
+                      transitioned from one status to another. We use VolatileTime
+                      in place of metav1.Time to exclude this from creating equality.Semantic
+                      differences (all other things held constant).
+                    type: object
+                  message:
+                    description: A human readable message indicating details about
+                      the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    type: string
+                  severity:
+                    description: Severity with which to treat failures of this type
+                      of condition. When this is not specified, it defaults to Error.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                      +required
+                    type: string
+                  type:
+                    description: Type of condition. +required
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
+            observedGeneration:
+              description: ObservedGeneration is the 'Generation' of the Service that
+                was last processed by the controller.
+              format: int64
+              type: integer
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

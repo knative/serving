@@ -1,0 +1,283 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: clusteringresses.networking.knative.dev
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    name: Reason
+    type: string
+  group: networking.knative.dev
+  names:
+    categories:
+    - all
+    - knative-internal
+    - networking
+    kind: ClusterIngress
+    plural: clusteringresses
+    singular: clusteringress
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+          type: object
+        spec:
+          description: 'Spec is the desired state of the ClusterIngress. More info:
+            https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status'
+          properties:
+            generation:
+              description: 'DeprecatedGeneration was used prior in Kubernetes versions
+                <1.11 when metadata.generation was not being incremented by the api
+                server  This property will be dropped in future Knative releases and
+                should not be used - use metadata.generation  Tracking issue: https://github.com/knative/serving/issues/643'
+              format: int64
+              type: integer
+            rules:
+              description: A list of host rules used to configure the ClusterIngress.
+              items:
+                properties:
+                  hosts:
+                    description: "Host is the fully qualified domain name of a network
+                      host, as defined by RFC 3986. Note the following deviations
+                      from the \"host\" part of the URI as defined in the RFC: 1.
+                      IPs are not allowed. Currently a rule value can only apply to
+                      the \t  IP in the Spec of the parent ClusterIngress. 2. The
+                      `:` delimiter is not respected because ports are not allowed.
+                      \t  Currently the port of an ClusterIngress is implicitly :80
+                      for http and \t  :443 for https. Both these may change in the
+                      future. If the host is unspecified, the ClusterIngress routes
+                      all traffic based on the specified ClusterIngressRuleValue.
+                      If multiple matching Hosts were provided, the first rule will
+                      take precedent."
+                    items:
+                      type: string
+                    type: array
+                  http:
+                    description: HTTP represents a rule to apply against incoming
+                      requests. If the rule is satisfied, the request is routed to
+                      the specified backend.
+                    properties:
+                      paths:
+                        description: A collection of paths that map requests to backends.  If
+                          they are multiple matching paths, the first match takes
+                          precendent.
+                        items:
+                          properties:
+                            appendHeaders:
+                              description: 'AppendHeaders allow specifying additional
+                                HTTP headers to add before forwarding a request to
+                                the destination service.  NOTE: This differs from
+                                K8s Ingress which doesn''t allow header appending.'
+                              type: object
+                            path:
+                              description: Path is an extended POSIX regex as defined
+                                by IEEE Std 1003.1, (i.e this follows the egrep/unix
+                                syntax, not the perl syntax) matched against the path
+                                of an incoming request. Currently it can contain characters
+                                disallowed from the conventional "path" part of a
+                                URL as defined by RFC 3986. Paths must begin with
+                                a '/'. If unspecified, the path defaults to a catch
+                                all sending traffic to the backend.
+                              type: string
+                            retries:
+                              description: 'Retry policy for HTTP requests.  NOTE:
+                                This differs from K8s Ingress which doesn''t allow
+                                retry settings.'
+                              properties:
+                                attempts:
+                                  description: Number of retries for a given request.
+                                  format: int64
+                                  type: integer
+                                perTryTimeout:
+                                  description: 'Timeout per retry attempt for a given
+                                    request. format: 1h/1m/1s/1ms. MUST BE >=1ms.'
+                                  type: string
+                              required:
+                              - attempts
+                              - perTryTimeout
+                              type: object
+                            splits:
+                              description: Splits defines the referenced service endpoints
+                                to which the traffic will be forwarded to.
+                              items:
+                                properties:
+                                  percent:
+                                    description: 'Specifies the split percentage,
+                                      a number between 0 and 100.  If only one split
+                                      is specified, we default to 100.  NOTE: This
+                                      differs from K8s Ingress to allow percentage
+                                      split.'
+                                    format: int64
+                                    type: integer
+                                  serviceName:
+                                    description: Specifies the name of the referenced
+                                      service.
+                                    type: string
+                                  serviceNamespace:
+                                    description: 'Specifies the namespace of the referenced
+                                      service.  NOTE: This differs from K8s Ingress
+                                      to allow routing to different namespaces.'
+                                    type: string
+                                  servicePort:
+                                    anyOf:
+                                    - type: string
+                                    - type: integer
+                                    description: Specifies the port of the referenced
+                                      service.
+                                required:
+                                - serviceNamespace
+                                - serviceName
+                                - servicePort
+                                type: object
+                              type: array
+                            timeout:
+                              description: 'Timeout for HTTP requests.  NOTE: This
+                                differs from K8s Ingress which doesn''t allow setting
+                                timeouts.'
+                              type: string
+                          required:
+                          - splits
+                          type: object
+                        type: array
+                    required:
+                    - paths
+                    type: object
+                type: object
+              type: array
+            tls:
+              description: 'TLS configuration. Currently ClusterIngress only supports
+                a single TLS port: 443. If multiple members of this list specify different
+                hosts, they will be multiplexed on the same port according to the
+                hostname specified through the SNI TLS extension, if the ingress controller
+                fulfilling the ingress supports SNI.'
+              items:
+                properties:
+                  hosts:
+                    description: Hosts is a list of hosts included in the TLS certificate.
+                      The values in this list must match the name/s used in the tlsSecret.
+                      Defaults to the wildcard host setting for the loadbalancer controller
+                      fulfilling this ClusterIngress, if left unspecified.
+                    items:
+                      type: string
+                    type: array
+                  privateKey:
+                    description: PrivateKey identifies the private key filename in
+                      the secret. Defaults to `tls.key`.
+                    type: string
+                  secretName:
+                    description: SecretName is the name of the secret used to terminate
+                      SSL traffic.
+                    type: string
+                  secretNamespace:
+                    description: SecretNamespace is the namespace of the secret used
+                      to terminate SSL traffic.
+                    type: string
+                  serverCertificate:
+                    description: ServerCertificate identifies the certificate filename
+                      in the secret. Defaults to `tls.cert`.
+                    type: string
+                type: object
+              type: array
+            visibility:
+              description: Visibility setting.
+              type: string
+          type: object
+        status:
+          description: 'Status is the current state of the ClusterIngress. More info:
+            https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status'
+          properties:
+            conditions:
+              description: Conditions the latest available observations of a resource's
+                current state. +patchMergeKey=type +patchStrategy=merge
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime is the last time the condition
+                      transitioned from one status to another. We use VolatileTime
+                      in place of metav1.Time to exclude this from creating equality.Semantic
+                      differences (all other things held constant).
+                    type: object
+                  message:
+                    description: A human readable message indicating details about
+                      the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    type: string
+                  severity:
+                    description: Severity with which to treat failures of this type
+                      of condition. When this is not specified, it defaults to Error.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                      +required
+                    type: string
+                  type:
+                    description: Type of condition. +required
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load-balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    properties:
+                      domain:
+                        description: Domain is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      domainInternal:
+                        description: 'DomainInternal is set if there is a cluster-local
+                          DNS name to access the Ingress.  NOTE: This differs from
+                          K8s Ingress, since we also desire to have a cluster-local       DNS
+                          name to allow routing in case of not having a mesh.'
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                      meshOnly:
+                        description: MeshOnly is set if the ClusterIngress is only
+                          load-balanced through a Service mesh.
+                        type: boolean
+                    type: object
+                  type: array
+              type: object
+            observedGeneration:
+              description: ObservedGeneration is the 'Generation' of the Service that
+                was last processed by the controller.
+              format: int64
+              type: integer
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
