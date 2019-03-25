@@ -27,11 +27,6 @@ const (
 	Name = "activator"
 	// K8sServiceName is the name of the activator service
 	K8sServiceName = "activator-service"
-	// RevisionHeaderName is the header key for revision name
-	RevisionHeaderName string = "knative-serving-revision"
-	// RevisionHeaderNamespace is the header key for revision's namespace
-	RevisionHeaderNamespace string = "knative-serving-namespace"
-
 	// ServicePortHTTP1 is the port number for activating HTTP1 revisions
 	ServicePortHTTP1 int32 = 80
 	// ServicePortH2C is the port number for activating H2C revisions

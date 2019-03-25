@@ -156,8 +156,8 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic
 		Percent: totalInactivePercent,
 	})
 	r.AppendHeaders = map[string]string{
-		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
-		activator.RevisionHeaderNamespace: ns,
+		serving.ActivatorRevisionHeaderName:      maxInactiveTarget.RevisionName,
+		serving.ActivatorRevisionHeaderNamespace: ns,
 	}
 	return r
 }

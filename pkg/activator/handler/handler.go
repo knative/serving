@@ -37,7 +37,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/pkg/tracing"
-	zipkin "github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -56,6 +55,7 @@ type ActivationHandler struct {
 	Throttler  *activator.Throttler
 	TRGetter   tracing.TracerRefGetter
 	KubeClient kubernetes.Interface
+	EndpointL  *activator.EndpointListener
 
 	// GetProbeCount is the number of attempts we should
 	// make to network probe the queue-proxy after the revision becomes
@@ -68,8 +68,8 @@ type ActivationHandler struct {
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
-	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
+	namespace := pkghttp.LastHeaderValue(r.Header, serving.ActivatorRevisionHeaderNamespace)
+	name := pkghttp.LastHeaderValue(r.Header, serving.ActivatorRevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
@@ -115,75 +115,98 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tr = traceTr
 	}
 
+	// Watch for endpoint in EndpointListener
+	gotEpCh := make(chan *activator.Endpoint)
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	go func() {
+		ep := a.EndpointL.WaitForEndpoint(namespace, name, closeCh)
+		if ep != nil {
+			gotEpCh <- ep
+		}
+	}()
+
 	err = a.Throttler.Try(revID, func() {
 		var (
 			httpStatus int
 			attempts   int
-			probeSpan  zipkin.Span
-			proxySpan  zipkin.Span
 		)
 
-		probeSpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "probe")
+		go func() {
+			probeSpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "probe")
 
-		// If a GET probe interval has been configured, then probe
-		// the queue-proxy with our network probe header until it
-		// returns a 200 status code.
-		success := (a.GetProbeCount == 0)
-		if !success {
-			probeReq := &http.Request{
-				Method:     http.MethodGet,
-				URL:        target,
-				Proto:      r.Proto,
-				ProtoMajor: r.ProtoMajor,
-				ProtoMinor: r.ProtoMinor,
-				Host:       r.Host,
-				Header: map[string][]string{
-					http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
-				},
+			// If a GET probe interval has been configured, then probe
+			// the queue-proxy with our network probe header until it
+			// returns a 200 status code.
+			success := (a.GetProbeCount == 0)
+			if !success {
+				probeReq := &http.Request{
+					Method:     http.MethodGet,
+					URL:        target,
+					Proto:      r.Proto,
+					ProtoMajor: r.ProtoMajor,
+					ProtoMinor: r.ProtoMinor,
+					Host:       r.Host,
+					Header: map[string][]string{
+						http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
+					},
+				}
+				probeReq = probeReq.WithContext(reqCtx)
+				settings := wait.Backoff{
+					Duration: 100 * time.Millisecond,
+					Factor:   1.3,
+					Steps:    a.GetProbeCount,
+				}
+				err := wait.ExponentialBackoff(settings, func() (bool, error) {
+					attempts++
+					probeResp, err := tr.RoundTrip(probeReq)
+					if err != nil {
+						logger.Warnw("Pod probe failed", zap.Error(err))
+						return false, nil
+					}
+					defer probeResp.Body.Close()
+					httpStatus = probeResp.StatusCode
+					if httpStatus == http.StatusServiceUnavailable {
+						logger.Warnf("Pod probe sent status: %d", httpStatus)
+						return false, nil
+					}
+					if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
+						logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
+						return false, nil
+					} else if queue.Name != string(body) {
+						logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
+						return false, nil
+					}
+					return true, nil
+				})
+				success = (err == nil) && httpStatus == http.StatusOK
 			}
-			probeReq = probeReq.WithContext(reqCtx)
-			settings := wait.Backoff{
-				Duration: 100 * time.Millisecond,
-				Factor:   1.3,
-				Steps:    a.GetProbeCount,
-			}
-			err := wait.ExponentialBackoff(settings, func() (bool, error) {
+
+			if success {
+				// Once we see a successful probe, send traffic.
 				attempts++
-				probeResp, err := tr.RoundTrip(probeReq)
-
-				if err != nil {
-					logger.Warnw("Pod probe failed", zap.Error(err))
-					return false, nil
+				select {
+				case gotEpCh <- &activator.Endpoint{}:
+				case <-closeCh:
+					break
 				}
-				defer probeResp.Body.Close()
-				httpStatus = probeResp.StatusCode
-				if httpStatus == http.StatusServiceUnavailable {
-					logger.Warnf("Pod probe sent status: %d", httpStatus)
-					return false, nil
-				}
-				if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
-					logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
-					return false, nil
-				} else if queue.Name != string(body) {
-					logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
-					return false, nil
-				}
-				return true, nil
-			})
-			success = (err == nil) && httpStatus == http.StatusOK
-		}
+			} else {
+				gotEpCh <- nil
+			}
 
-		probeSpan.Finish()
+			probeSpan.Finish()
+		}()
 
-		if success {
-			// Once we see a successful probe, send traffic.
-			attempts++
-			proxySpan, reqCtx = tracer.StartSpanFromContext(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target, tr)
-			proxySpan.Finish()
-		} else {
-			httpStatus = http.StatusInternalServerError
-			w.WriteHeader(httpStatus)
+		select {
+		case ep := <-gotEpCh:
+			if ep != nil {
+				proxySpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "proxy")
+				httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target, tr)
+				proxySpan.Finish()
+			} else {
+				httpStatus = http.StatusInternalServerError
+				w.WriteHeader(httpStatus)
+			}
 		}
 
 		// Report the metrics

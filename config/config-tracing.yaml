@@ -18,6 +18,17 @@ metadata:
   name: config-tracing
   namespace: knative-serving
 data:
+  enable: "true"
+
+  # URL to zipkin collector where traces are sent.
+  zipkin-collector-endpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans"
+
+  # Enable zipkin debug mode. This allows all spans to be sent to the server
+  # bypassing sampling.
+  debug: "true"
+
+  # Percentage (0-1) of requests to trace
+  sample-rate: "0.1"
   _example: |
     ################################
     #                              #

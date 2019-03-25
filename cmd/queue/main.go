@@ -291,6 +291,8 @@ func main() {
 	go catchServerError(server.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
+	go queue.PokeActivator(logger, servingNamespace, servingRevision)
+
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exit unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.

@@ -20,12 +20,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 var headersToRemove = []string{
-	activator.RevisionHeaderName,
-	activator.RevisionHeaderNamespace,
+	serving.ActivatorRevisionHeaderName,
+	serving.ActivatorRevisionHeaderNamespace,
 }
 
 // SetupHeaderPruning will cause the http.ReverseProxy

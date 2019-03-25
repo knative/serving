@@ -33,6 +33,10 @@ spec:
     protocol: TCP
     port: 81
     targetPort: 8081
+  - name: el
+    protocol: TCP
+    port: 8082
+    targetPort: 8082
   - name: metrics
     protocol: TCP
     port: 9090

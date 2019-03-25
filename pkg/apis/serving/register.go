@@ -64,4 +64,10 @@ const (
 	// BuildHashLabelKey is the label key attached to a Build indicating the
 	// hash of the spec from which they were created.
 	BuildHashLabelKey = GroupName + "/buildHash"
+
+	// RevisionHeaderName is the header key for revision name
+	ActivatorRevisionHeaderName string = "knative-serving-revision"
+
+	// RevisionHeaderNamespace is the header key for revision's namespace
+	ActivatorRevisionHeaderNamespace string = "knative-serving-namespace"
 )

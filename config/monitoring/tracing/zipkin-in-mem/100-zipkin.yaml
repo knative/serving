@@ -22,6 +22,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
+  type: LoadBalancer
   ports:
   - name: http
     port: 9411

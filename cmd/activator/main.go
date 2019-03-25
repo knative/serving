@@ -266,6 +266,8 @@ func main() {
 		return tracerCache.NewTracerRef(cfg.Tracing, "activator", "localhost:1234")
 	}
 
+	el := activator.NewEndpointListener(logger)
+
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
@@ -278,6 +280,7 @@ func main() {
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
 		GetService:    serviceGetter,
+		EndpointL:     el,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(logger, "handle_request", trGetter, ah)
@@ -304,6 +307,13 @@ func main() {
 	h2cSrv := h2c.NewServer(":8081", ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
+			logger.Errorw("Error running HTTP server", zap.Error(err))
+		}
+	}()
+
+	elSrv := h2c.NewServer(":8082", el)
+	go func() {
+		if err := elSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
