@@ -26,6 +26,7 @@ type NetworkingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
 	ClusterIngressesGetter
+	ServerlessServicesGetter
 }
 
 // NetworkingV1alpha1Client is used to interact with features provided by the networking.internal.knative.dev group.
@@ -39,6 +40,10 @@ func (c *NetworkingV1alpha1Client) Certificates(namespace string) CertificateInt
 
 func (c *NetworkingV1alpha1Client) ClusterIngresses() ClusterIngressInterface {
 	return newClusterIngresses(c)
+}
+
+func (c *NetworkingV1alpha1Client) ServerlessServices(namespace string) ServerlessServiceInterface {
+	return newServerlessServices(c, namespace)
 }
 
 // NewForConfig creates a new NetworkingV1alpha1Client for the given config.

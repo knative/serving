@@ -136,15 +136,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  branch = "master"
-  digest = "1:0f5c0a93ea5a62ea721282a07746832546580707042f705710f6e9f9778a0598"
+  digest = "1:fa6e19b10f3088d6f290e32ba2f9735d2810dd8e6544028d4d0c842c162b83ef"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "kmeta",
   ]
   pruneopts = "NUT"
-  revision = "2a7e950c4e2d635d6e32ba3d050dd32ba7be5be3"
+  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
 
 [[projects]]
   branch = "master"

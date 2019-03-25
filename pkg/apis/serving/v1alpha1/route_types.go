@@ -116,10 +116,10 @@ const (
 	RouteConditionIngressReady duckv1alpha1.ConditionType = "IngressReady"
 )
 
-// RouteStatus communicates the observed state of the Route (from the controller).
-type RouteStatus struct {
-	duckv1alpha1.Status `json:",inline"`
-
+// RouteStatusFields holds all of the non-duckv1alpha1.Status status fields of a Route.
+// These are defined outline so that we can also inline them into Service, and more easily
+// copy them.
+type RouteStatusFields struct {
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
@@ -142,6 +142,13 @@ type RouteStatus struct {
 	// LatestReadyRevisionName that we last observed.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
+}
+
+// RouteStatus communicates the observed state of the Route (from the controller).
+type RouteStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
+	RouteStatusFields `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -88,7 +88,7 @@ func TestBuilds(t *testing.T) {
 					"blockOwnerDeletion": true,
 				}},
 				"labels": map[string]interface{}{
-					"serving.knative.dev/buildHash": "2ee4528bee48a78637ec374eb58cb1977b9611b85545f8b91884ff80b8d9472",
+					"serving.knative.dev/buildHash": "9f8c94db36e279e90614ea28d10da38587c36be4f5f01f78450df33c5eae417",
 				},
 				"creationTimestamp": nil,
 			},
@@ -98,6 +98,7 @@ func TestBuilds(t *testing.T) {
 					"image":     "busybox",
 					"resources": map[string]interface{}{},
 				}},
+				"Status": "",
 			},
 			"status": map[string]interface{}{
 				"stepsCompleted": nil,
@@ -153,7 +154,7 @@ func TestBuilds(t *testing.T) {
 					"blockOwnerDeletion": true,
 				}},
 				"labels": map[string]interface{}{
-					"serving.knative.dev/buildHash": "3cbdec7fde8f04f8a293015f6d890857efefcdb01cea7af3316201fc8a014e8",
+					"serving.knative.dev/buildHash": "9745cf57f7dca85b845ccb7122d15952daee1db77dd06f7a60943b7f6465039",
 				},
 				"creationTimestamp": nil,
 			},
@@ -163,6 +164,7 @@ func TestBuilds(t *testing.T) {
 					"image":     "busybox",
 					"resources": map[string]interface{}{},
 				}},
+				"Status": "",
 			},
 			"status": map[string]interface{}{
 				"stepsCompleted": nil,
@@ -209,7 +211,7 @@ func TestBuilds(t *testing.T) {
 					"blockOwnerDeletion": true,
 				}},
 				"labels": map[string]interface{}{
-					"serving.knative.dev/buildHash": "934e535117334c700c3a132e5e9dfc4276974cf2c9d6fe8f09c961f8e058933",
+					"serving.knative.dev/buildHash": "f547847100b5aab740cbaa1fc56b5d68c20200bcc935452d100ca6df2691610",
 				},
 				"creationTimestamp": nil,
 			},
@@ -221,6 +223,7 @@ func TestBuilds(t *testing.T) {
 						"value": "bar",
 					}},
 				},
+				"Status": "",
 			},
 			"status": map[string]interface{}{
 				"stepsCompleted": nil,

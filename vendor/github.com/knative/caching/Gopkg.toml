@@ -28,6 +28,11 @@ required = [
   name = "k8s.io/client-go"
   version = "kubernetes-1.12.6"
 
+[[override]]
+  name = "github.com/knative/pkg"
+  # HEAD as of 2019-03-21
+  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
+
 [prune]
   go-tests = true
   unused-packages = true

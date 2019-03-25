@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/knative/pkg/apis"
@@ -25,12 +26,12 @@ import (
 )
 
 // Validate inspects and validates ClusterIngress object.
-func (ci *ClusterIngress) Validate() *apis.FieldError {
-	return ci.Spec.Validate().ViaField("spec")
+func (ci *ClusterIngress) Validate(ctx context.Context) *apis.FieldError {
+	return ci.Spec.Validate(ctx).ViaField("spec")
 }
 
 // Validate inspects and validates IngressSpec object.
-func (spec *IngressSpec) Validate() *apis.FieldError {
+func (spec *IngressSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Spec must not be empty.
 	if equality.Semantic.DeepEqual(spec, &IngressSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -42,17 +43,17 @@ func (spec *IngressSpec) Validate() *apis.FieldError {
 	}
 	// Validate each rule.
 	for idx, rule := range spec.Rules {
-		all = all.Also(rule.Validate().ViaFieldIndex("rules", idx))
+		all = all.Also(rule.Validate(ctx).ViaFieldIndex("rules", idx))
 	}
 	// TLS settings are optional.  However, all provided settings should be valid.
 	for idx, tls := range spec.TLS {
-		all = all.Also(tls.Validate().ViaFieldIndex("tls", idx))
+		all = all.Also(tls.Validate(ctx).ViaFieldIndex("tls", idx))
 	}
 	return all
 }
 
 // Validate inspects and validates ClusterIngressRule object.
-func (r *ClusterIngressRule) Validate() *apis.FieldError {
+func (r *ClusterIngressRule) Validate(ctx context.Context) *apis.FieldError {
 	// Provided rule must not be empty.
 	if equality.Semantic.DeepEqual(r, &ClusterIngressRule{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -61,25 +62,25 @@ func (r *ClusterIngressRule) Validate() *apis.FieldError {
 	if r.HTTP == nil {
 		all = all.Also(apis.ErrMissingField("http"))
 	} else {
-		all = all.Also(r.HTTP.Validate().ViaField("http"))
+		all = all.Also(r.HTTP.Validate(ctx).ViaField("http"))
 	}
 	return all
 }
 
 // Validate inspects and validates HTTPClusterIngressRuleValue object.
-func (h *HTTPClusterIngressRuleValue) Validate() *apis.FieldError {
+func (h *HTTPClusterIngressRuleValue) Validate(ctx context.Context) *apis.FieldError {
 	if len(h.Paths) == 0 {
 		return apis.ErrMissingField("paths")
 	}
 	var all *apis.FieldError
 	for idx, path := range h.Paths {
-		all = all.Also(path.Validate().ViaFieldIndex("paths", idx))
+		all = all.Also(path.Validate(ctx).ViaFieldIndex("paths", idx))
 	}
 	return all
 }
 
 // Validate inspects and validates HTTPClusterIngressPath object.
-func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
+func (h HTTPClusterIngressPath) Validate(ctx context.Context) *apis.FieldError {
 	// Provided rule must not be empty.
 	if equality.Semantic.DeepEqual(h, HTTPClusterIngressPath{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -91,7 +92,7 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 	} else {
 		totalPct := 0
 		for idx, split := range h.Splits {
-			if err := split.Validate(); err != nil {
+			if err := split.Validate(ctx); err != nil {
 				return err.ViaFieldIndex("splits", idx)
 			}
 			totalPct += split.Percent
@@ -107,13 +108,13 @@ func (h HTTPClusterIngressPath) Validate() *apis.FieldError {
 		}
 	}
 	if h.Retries != nil {
-		all = all.Also(h.Retries.Validate().ViaField("retries"))
+		all = all.Also(h.Retries.Validate(ctx).ViaField("retries"))
 	}
 	return all
 }
 
 // Validate inspects and validates HTTPClusterIngressPath object.
-func (s ClusterIngressBackendSplit) Validate() *apis.FieldError {
+func (s ClusterIngressBackendSplit) Validate(ctx context.Context) *apis.FieldError {
 	// Must not be empty.
 	if equality.Semantic.DeepEqual(s, ClusterIngressBackendSplit{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -123,12 +124,12 @@ func (s ClusterIngressBackendSplit) Validate() *apis.FieldError {
 	if s.Percent < 0 || s.Percent > 100 {
 		all = all.Also(apis.ErrInvalidValue(strconv.Itoa(s.Percent), "percent"))
 	}
-	return all.Also(s.ClusterIngressBackend.Validate())
+	return all.Also(s.ClusterIngressBackend.Validate(ctx))
 }
 
 // Validate inspects the fields of the type ClusterIngressBackend
 // to determine if they are valid.
-func (b ClusterIngressBackend) Validate() *apis.FieldError {
+func (b ClusterIngressBackend) Validate(ctx context.Context) *apis.FieldError {
 	// Must not be empty.
 	if equality.Semantic.DeepEqual(b, ClusterIngressBackend{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -147,7 +148,7 @@ func (b ClusterIngressBackend) Validate() *apis.FieldError {
 }
 
 // Validate inspects and validates HTTPRetry object.
-func (r *HTTPRetry) Validate() *apis.FieldError {
+func (r *HTTPRetry) Validate(ctx context.Context) *apis.FieldError {
 	// Attempts must be greater than 0.
 	if r.Attempts < 0 {
 		return apis.ErrInvalidValue(strconv.Itoa(r.Attempts), "attempts")
@@ -156,7 +157,7 @@ func (r *HTTPRetry) Validate() *apis.FieldError {
 }
 
 // Validate inspects and validates ClusterIngressTLS object.
-func (t *ClusterIngressTLS) Validate() *apis.FieldError {
+func (t *ClusterIngressTLS) Validate(ctx context.Context) *apis.FieldError {
 	// Provided TLS setting must not be empty.
 	if equality.Semantic.DeepEqual(t, &ClusterIngressTLS{}) {
 		return apis.ErrMissingField(apis.CurrentField)

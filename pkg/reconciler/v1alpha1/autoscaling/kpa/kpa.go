@@ -108,18 +108,11 @@ func NewController(
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.Enqueue,
-			UpdateFunc: controller.PassNew(impl.Enqueue),
-			DeleteFunc: impl.Enqueue,
-		},
+		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
-	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
-		UpdateFunc: controller.PassNew(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
-		DeleteFunc: impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey),
-	})
+	endpointsInformer.Informer().AddEventHandler(
+		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
 
 	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
 	kpaMetrics.Watch(impl.EnqueueKey)
@@ -168,7 +161,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -184,7 +177,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	pa.SetDefaults()
+	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")

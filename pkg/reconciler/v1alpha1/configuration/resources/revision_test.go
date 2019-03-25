@@ -175,8 +175,8 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationGenerationLabelKey:                   "100",
 					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                                   "",
-					"foo":                                                     "bar",
-					"baz":                                                     "blah",
+					"foo": "bar",
+					"baz": "blah",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{

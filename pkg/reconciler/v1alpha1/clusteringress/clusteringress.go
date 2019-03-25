@@ -93,20 +93,12 @@ func NewController(
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.Enqueue,
-			UpdateFunc: controller.PassNew(impl.Enqueue),
-			DeleteFunc: impl.Enqueue,
-		},
+		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
-			UpdateFunc: controller.PassNew(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
-			DeleteFunc: impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey),
-		},
+		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -159,7 +151,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	if err != nil {
-		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "InternalError", err.Error())
+		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -191,7 +183,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	ci.SetDefaults()
+	ci.SetDefaults(ctx)
 
 	ci.Status.InitializeConditions()
 	gatewayNames := gatewayNamesFromContext(ctx, ci)

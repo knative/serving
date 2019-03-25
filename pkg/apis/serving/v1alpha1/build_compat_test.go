@@ -74,7 +74,7 @@ func TestMarshal(t *testing.T) {
 			},
 		},
 		// TODO(mattmoor): This should not include Status.
-		want: `{"build":{"kind":"Build","apiVersion":"build.knative.dev","metadata":{"creationTimestamp":null},"spec":{"steps":[{"name":"","image":"busybox","resources":{}}]},"status":{"stepsCompleted":null}}}`,
+		want: `{"build":{"kind":"Build","apiVersion":"build.knative.dev","metadata":{"creationTimestamp":null},"spec":{"steps":[{"name":"","image":"busybox","resources":{}}],"Status":""},"status":{"stepsCompleted":null}}}`,
 	}, {
 		name: "raw extension with buildspec",
 		obj: &Enclosing{
@@ -86,7 +86,7 @@ func TestMarshal(t *testing.T) {
 				},
 			},
 		},
-		want: `{"build":{"steps":[{"name":"","image":"busybox","resources":{}}]}}`,
+		want: `{"build":{"steps":[{"name":"","image":"busybox","resources":{}}],"Status":""}}`,
 	}}
 
 	for _, test := range tests {

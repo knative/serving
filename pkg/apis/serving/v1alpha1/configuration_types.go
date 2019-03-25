@@ -88,10 +88,10 @@ const (
 	ConfigurationConditionReady = duckv1alpha1.ConditionReady
 )
 
-// ConfigurationStatus communicates the observed state of the Configuration (from the controller).
-type ConfigurationStatus struct {
-	duckv1alpha1.Status `json:",inline"`
-
+// ConfigurationStatusFields holds all of the non-duckv1alpha1.Status status fields of a Route.
+// These are defined outline so that we can also inline them into Service, and more easily
+// copy them.
+type ConfigurationStatusFields struct {
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
 	// +optional
@@ -101,6 +101,13 @@ type ConfigurationStatus struct {
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
+}
+
+// ConfigurationStatus communicates the observed state of the Configuration (from the controller).
+type ConfigurationStatus struct {
+	duckv1alpha1.Status `json:",inline"`
+
+	ConfigurationStatusFields `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

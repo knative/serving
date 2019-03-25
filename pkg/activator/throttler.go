@@ -20,6 +20,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
@@ -148,7 +149,7 @@ func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
 		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
-			throttler.logger.Errorw("updating capacity failed", zap.Error(err))
+			throttler.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 		}
 	}
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,23 +30,23 @@ const (
 	DefaultRetryCount = 3
 )
 
-func (c *ClusterIngress) SetDefaults() {
-	c.Spec.SetDefaults()
+func (c *ClusterIngress) SetDefaults(ctx context.Context) {
+	c.Spec.SetDefaults(ctx)
 }
 
-func (c *IngressSpec) SetDefaults() {
+func (c *IngressSpec) SetDefaults(ctx context.Context) {
 	for i := range c.TLS {
-		c.TLS[i].SetDefaults()
+		c.TLS[i].SetDefaults(ctx)
 	}
 	for i := range c.Rules {
-		c.Rules[i].SetDefaults()
+		c.Rules[i].SetDefaults(ctx)
 	}
 	if c.Visibility == "" {
 		c.Visibility = IngressVisibilityExternalIP
 	}
 }
 
-func (t *ClusterIngressTLS) SetDefaults() {
+func (t *ClusterIngressTLS) SetDefaults(ctx context.Context) {
 	// Default Secret key for ServerCertificate is `tls.crt`.
 	if t.ServerCertificate == "" {
 		t.ServerCertificate = "tls.crt"
@@ -56,17 +57,17 @@ func (t *ClusterIngressTLS) SetDefaults() {
 	}
 }
 
-func (r *ClusterIngressRule) SetDefaults() {
-	r.HTTP.SetDefaults()
+func (r *ClusterIngressRule) SetDefaults(ctx context.Context) {
+	r.HTTP.SetDefaults(ctx)
 }
 
-func (r *HTTPClusterIngressRuleValue) SetDefaults() {
+func (r *HTTPClusterIngressRuleValue) SetDefaults(ctx context.Context) {
 	for i := range r.Paths {
-		r.Paths[i].SetDefaults()
+		r.Paths[i].SetDefaults(ctx)
 	}
 }
 
-func (p *HTTPClusterIngressPath) SetDefaults() {
+func (p *HTTPClusterIngressPath) SetDefaults(ctx context.Context) {
 	// If only one split is specified, we default to 100.
 	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
 		p.Splits[0].Percent = 100

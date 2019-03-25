@@ -40,7 +40,11 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			Namespace: "test-ns",
 			UID:       "1234-5678",
 		},
-		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Domain: "domain.com",
+			},
+		},
 	}
 	expected := metav1.ObjectMeta{
 		Name: "route-1234-5678",
@@ -82,7 +86,11 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			Name:      "test-route",
 			Namespace: "test-ns",
 		},
-		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Domain: "domain.com",
+			},
+		},
 	}
 	expected := []netv1alpha1.ClusterIngressRule{{
 		Hosts: []string{
@@ -130,13 +138,21 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 	}{{
 		name: "public route",
 		route: v1alpha1.Route{
-			Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+			Status: v1alpha1.RouteStatus{
+				RouteStatusFields: v1alpha1.RouteStatusFields{
+					Domain: "domain.com",
+				},
+			},
 		},
 		expectedVisbility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
 		name: "private route",
 		route: v1alpha1.Route{
-			Status: v1alpha1.RouteStatus{Domain: "local-route.default.svc.cluster.local"},
+			Status: v1alpha1.RouteStatus{
+				RouteStatusFields: v1alpha1.RouteStatusFields{
+					Domain: "local-route.default.svc.cluster.local",
+				},
+			},
 		},
 		expectedVisbility: netv1alpha1.IngressVisibilityClusterLocal,
 	}}
@@ -158,7 +174,9 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Status: v1alpha1.RouteStatus{
-			Domain: base,
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Domain: base,
+			},
 		},
 	}
 	expected := []string{
@@ -178,7 +196,9 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Status: v1alpha1.RouteStatus{
-			Domain: base,
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Domain: base,
+			},
 		},
 	}
 	expected := []string{
@@ -202,7 +222,9 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Status: v1alpha1.RouteStatus{
-			Domain: base,
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Domain: base,
+			},
 		},
 	}
 	expected := []string{"v1.domain.com"}

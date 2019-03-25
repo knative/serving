@@ -57,17 +57,5 @@ func TestMarkReady(t *testing.T) {
 	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
 
 	c.MarkReady()
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionTrue, t)
-}
-
-func checkCondition(cs *CertificateStatus, ct duckv1alpha1.ConditionType, status corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	cond := cs.GetCondition(ct)
-	if cond == nil {
-		t.Fatalf("Get(%v) = nil, wanted %v=%v", ct, ct, status)
-	}
-	if cond.Status != status {
-		t.Fatalf("Get(%v) = %v, wanted %v", ct, cond.Status, status)
-	}
-	return cond
+	checkIsReady(c, t)
 }

@@ -16,9 +16,11 @@ limitations under the License.
 
 package v1alpha1
 
-func (r *Route) SetDefaults() {
-	r.Spec.SetDefaults()
+import "context"
+
+func (r *Route) SetDefaults(ctx context.Context) {
+	r.Spec.SetDefaults(ctx)
 }
 
-func (rs *RouteSpec) SetDefaults() {
+func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 }

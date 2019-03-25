@@ -105,6 +105,7 @@ func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 
 	return []string{fmt.Sprintf("%s.%s", targetName, r.Status.Domain)}
 }
+
 func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {
 	active, inactive := targets.GroupTargets()
 	// Optimistically allocate |active| elements.

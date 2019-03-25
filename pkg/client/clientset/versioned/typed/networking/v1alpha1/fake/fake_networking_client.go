@@ -33,6 +33,10 @@ func (c *FakeNetworkingV1alpha1) ClusterIngresses() v1alpha1.ClusterIngressInter
 	return &FakeClusterIngresses{c}
 }
 
+func (c *FakeNetworkingV1alpha1) ServerlessServices(namespace string) v1alpha1.ServerlessServiceInterface {
+	return &FakeServerlessServices{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeNetworkingV1alpha1) RESTClient() rest.Interface {
