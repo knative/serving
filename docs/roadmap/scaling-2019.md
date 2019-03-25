@@ -19,9 +19,7 @@ One area of investment is to vet a local scheduling approach in which the Activa
 2. Track cold start latency over time by span.
 3. Local scheduling design doc.
 
-POC: Greg Haynes (IBM)
-
-Github: [Project 8](https://github.com/knative/serving/projects/8)
+**Project**: [Project 8](https://github.com/knative/serving/projects/8)
 
 ### Overload Handling
 
