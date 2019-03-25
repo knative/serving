@@ -60,8 +60,9 @@ var (
 	}
 )
 
-// Reporter structure represents a prometheus exporter.
-type Reporter struct {
+// AutoscalingStatsReporter structure represents a prometheus exporter for
+// autoscaling stats.
+type AutoscalingStatsReporter struct {
 	Initialized     bool
 	ctx             context.Context
 	configTagKey    tag.Key
@@ -70,8 +71,8 @@ type Reporter struct {
 	podTagKey       tag.Key
 }
 
-// NewStatsReporter creates a reporter that collects and reports queue metrics.
-func NewStatsReporter(namespace string, config string, revision string, pod string) (*Reporter, error) {
+// NewAutoscalingStatsReporter creates a reporter that collects and reports queue metrics.
+func NewAutoscalingStatsReporter(namespace string, config string, revision string, pod string) (*AutoscalingStatsReporter, error) {
 	if len(namespace) < 1 {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -134,7 +135,7 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 	if err != nil {
 		return nil, err
 	}
-	return &Reporter{
+	return &AutoscalingStatsReporter{
 		Initialized: true,
 
 		ctx:             ctx,
@@ -146,7 +147,7 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 }
 
 // Report captures request metrics.
-func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
+func (r *AutoscalingStatsReporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
 	if !r.Initialized {
 		return errors.New("statsReporter is not Initialized yet")
 	}
@@ -156,7 +157,7 @@ func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests
 }
 
 // UnregisterViews Unregister views.
-func (r *Reporter) UnregisterViews() error {
+func (r *AutoscalingStatsReporter) UnregisterViews() error {
 	if !r.Initialized {
 		return errors.New("reporter is not initialized")
 	}

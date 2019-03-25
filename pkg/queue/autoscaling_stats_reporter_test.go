@@ -31,7 +31,7 @@ const (
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
-func TestNewStatsReporter_negative(t *testing.T) {
+func TestNewAutoscalingStatsReporter_negative(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorMsg  string
@@ -81,19 +81,19 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewStatsReporter(test.namespace, test.config, test.revision, test.pod); err.Error() != test.result.Error() {
+			if _, err := NewAutoscalingStatsReporter(test.namespace, test.config, test.revision, test.pod); err.Error() != test.result.Error() {
 				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
 			}
 		})
 	}
 }
 
-func TestNewStatsReporter_doubledeclare(t *testing.T) {
-	reporter, err := NewStatsReporter(namespace, config, revision, pod)
+func TestNewAutoscalingStatsReporter_doubledeclare(t *testing.T) {
+	reporter, err := NewAutoscalingStatsReporter(namespace, config, revision, pod)
 	if err != nil {
 		t.Error("Something went wrong with creating a reporter.")
 	}
-	if _, err := NewStatsReporter(namespace, config, revision, pod); err == nil {
+	if _, err := NewAutoscalingStatsReporter(namespace, config, revision, pod); err == nil {
 		t.Error("Something went wrong with double declaration of reporter.")
 	}
 	reporter.UnregisterViews()
@@ -107,7 +107,7 @@ func TestReporter_Report(t *testing.T) {
 	if err != nil {
 		t.Errorf("Something went wrong with creating tag, '%v'.", err)
 	}
-	reporter, err := NewStatsReporter(namespace, config, revision, pod)
+	reporter, err := NewAutoscalingStatsReporter(namespace, config, revision, pod)
 	if err != nil {
 		t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 	}

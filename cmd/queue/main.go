@@ -83,7 +83,7 @@ var (
 
 	server      *http.Server
 	healthState = &health.State{}
-	reporter    *queue.Reporter // Prometheus stats reporter.
+	reporter    *queue.AutoscalingStatsReporter // Prometheus stats reporter.
 )
 
 func initEnv() {
@@ -101,7 +101,7 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
+	_reporter, err := queue.NewAutoscalingStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
