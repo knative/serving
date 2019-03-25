@@ -44,7 +44,10 @@ helm template --namespace=istio-system \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
-  install/kubernetes/helm/istio > ../istio.yaml
+  install/kubernetes/helm/istio \
+  `# Remove all hardcoded NodePorts` \
+  | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
+  > ../istio.yaml
 cat cluster-local-gateway.yaml >> ../istio.yaml
 
 # A lighter template, with no sidecar injection.  We could probably remove
@@ -60,7 +63,10 @@ helm template --namespace=istio-system \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
-  install/kubernetes/helm/istio > ../istio-lean.yaml
+  install/kubernetes/helm/istio \
+  `# Remove all hardcoded NodePorts` \
+  | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
+  > ../istio-lean.yaml
 cat cluster-local-gateway.yaml >> ../istio-lean.yaml
 
 # Clean up.
