@@ -25,52 +25,45 @@ One area of investment is to vet a local scheduling approach in which the Activa
 
 Knative Serving provides concurrency controls to limit the number of requests a container must handle simultaneously. Additionally, each pod has a queue for holding requests when the container concurrency limit has been reached. When the pod-level queue overflows, subsequent request are rejected with 503 "overload".
 
-This is desirable to protect the Pod from being overloaded. But in the aggregate the behavior is not ideal for situations when autoscaling needs some time to react to sudden increases in request load.  This could be when the revision is scaled to zero.  Or when the revision is already running some pods, but not nearly enough.
+This is desirable to protect the Pod from being overloaded. But the aggregate behavior is not ideal for situations when autoscaling needs some time to react to sudden increases in request load.  This could be when the revision is scaled to zero.  Or when the revision is already running some pods, but not nearly enough.
 
-The goal of Overload Handling is to enqueue requests at a revision-level. Scale-from-zero should not overload if autoscaling can react in a reasonable amount of time to provide additional pods. When new pods come online, they should be able to take load for the existing pods. Even when scaled above zero, brief spikes of overload should be handled by enqueuing requests at a revision-level. The depth of the revision-level queue should also be configurable because even the Revision as a whole needs to guard against overload.
+The goal of Overload Handling is to enqueue requests at a revision-level. Scale-from-zero should not overload if autoscaling can react in a reasonable amount of time to provide additional pods. When new pods come online, they should be able to take load from the existing pods. Even when scaled above zero, brief spikes of overload should be handled by enqueuing requests at a revision-level. The depth of the revision-level queue should also be configurable because even the Revision as a whole needs to guard against overload.
 
 The overall problem touches on both Networking and Autoscaling, two different working groups. Much of the overload handling will be implemented in the Activator, which is a part of ingress. So this project is shared jointly between the two working groups.
 
-**Our goal is for a Revision with 1 Pod and a container concurrency of 1 to handle 1000 requests arriving simultaneously within 30 seconds with no errors, where each request sleeps for 100ms.**
+**Goal**: requests can be enqueued at the revision-level in response to high load.
 
-E.g.
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: Service
-metadata:
-  name: overload-test
-spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        metadata:
-          annotations:
-            autoscaling.knative.dev/minScale: "1"
-            autoscaling.knative.dev/maxScale: "10"
-        spec:
-          containerConcurrency: 1
-          container:
-            image: gcr.io/joe-does-knative/sleep:latest
-            env:
-            - name: SLEEP_TIME
-              value: "100ms"
-```
-```bash
-for i in `seq 1 1000`; do curl http://$MY_IP & done
-```
+**Key Steps**:
+1. Handle overload gracefully in the Activator. Proxy requests at a rate the underlying Deployment can handle. Reject requests beyond a revision-level limit.
+2. Wire the Activator into the serving path on overload.
+3. E2E tests for overload scenarios.
 
-This verifies that 1) we can handle all requests in an overload without error and 2) all the requests don't land on a single pod, which would take 100 sec.
-
-* POC: Vadim Raskin (IBM)
-* Github: [Project 7](https://github.com/knative/serving/projects/7)
+**Project**: [Project 7](https://github.com/knative/serving/projects/7)
 
 ## Reliability
 
+### Autoscaling Availabilty
+
+Because Knative scales to zero, the autoscaling system is in the critical-path for serving requests. If the Autoscaler or Activator isn't available when an idle Revision receives a request, that request will not be served. The Activator is stateless and can be easily scaled horizontally. Any Activator can proxy any request for any Revision. But the Autoscaler process is stateful. It maintains request statistics over a window of time. 
+
+We need a way for autoscaling to have higher availability than that of a single Pod. When an Autoscaler Pod fails, another one should take over, quickly. And the new Pod should make autoscaling decisions equivalent to what the failed Pod would have given the short history of data stored in memory.
+
+**Goal**: the autoscaling system should be highly available.
+
+**Key Steps**:
+1. Autoscaler replication should be configurable. This will likely require leader election.
+2. Activator replication should be configurable.
+3. Any Activator Pod can provide metrics to all Autoscaler Pods.
+4. E2E tests which validate autoscaling availability in the midst of a Autoscaler Pod failure.
+
+### Autoscaling Scalability
+
+And it must process data from the Revision Pods continuously to maintain that window of data. It is part of the running system all the time, not just when scaled to zero. As the number of Revisions increase and the number of Pods in each Revision increases, the CPU and memory requirements will exceed that available to a single process. So some sharding is necessary.
+
+
 ### Autoscaler Availability
 
-Because Knative scales to zero, autoscaling is in the critical-path for serving requests. If the autoscaler isn't available when an idle Revision receives a request, that request will not be served. Other components such as the Activator are in this situation too. But they are more stateless and so can be scaled horizontally relatively easily. For example, any Activator can proxy any request for any Revision. All it has to do is send a messge to the Autoscaler and then wait for a Pod to show up. Then it proxies the request and is taken back out of the serving path.
 
-However the Autoscaler process is more stateful. It maintains request statistics over a window of time. And it must process data from the Revision Pods continuously to maintain that window of data. It is part of the running system all the time, not just when scaled to zero. As the number of Revisions increase and the number of Pods in each Revision increases, the CPU and memory requirements will exceed that available to a single process. So some sharding is necessary.
 
 **Our goal is to shard Revisions across Autoscaler replicas (e.g. 2x the Replica count means 1/2 the load on each Autoscaler). And for autoscaling to be unaffected by an individual Autoscaler termination.**
 
