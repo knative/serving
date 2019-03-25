@@ -128,7 +128,11 @@ function install_knative_serving_standard() {
   # Temporarily remove the fixed NodePort in istio.yaml, until
   # we pick up either 0.5.0 (#3386) or 0.4.2 (#3520) in upgrade
   # testing.
-  curl -L "${INSTALL_ISTIO_YAML}" \
+  ISTIO_YAML_URL="${INSTALL_ISTIO_YAML}"
+  if [[ $ISTIO_YAML_URL != *":"* ]]; then
+    ISTIO_YAML_URL="file://${INSTALL_ISTIO_YAML}"
+  fi
+  curl -L $ISTIO_YAML_URL \
     | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
     | kubectl apply -f - || return 1
 
