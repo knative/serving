@@ -119,7 +119,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	original, err := c.knCertificateLister.Certificates(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
-		logger.Errorf("Knative Certificate %q in work queue no longer exists", key)
+		logger.Errorf("Knative Certificate %s in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
@@ -137,9 +137,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(knCert); err != nil {
-		logger.Warn("Failed to update certificate status", zap.Error(err))
+		logger.Warnw("Failed to update certificate status", zap.Error(err))
 		c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Certificate %q: %v", key, err)
+			"Failed to update status for Certificate %s: %v", key, err)
 		return err
 	}
 	return err
@@ -151,7 +151,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.SetDefaults()
 	knCert.Status.InitializeConditions()
 
-	logger.Info("Reconciling Cert-Manager certificate.")
+	logger.Info("Reconciling Cert-Manager certificate for Knative cert %s/%s.", knCert.Namespace, knCert.Name)
 	cmConfig := config.FromContext(ctx).CertManager
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
@@ -168,13 +168,13 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 	if apierrs.IsNotFound(err) {
 		cmCert, err = c.certManagerClient.CertmanagerV1alpha1().Certificates(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Error("Failed to create Cert-Manager certificate", zap.Error(err))
+			logger.Errorw("Failed to create Cert-Manager certificate", zap.Error(err))
 			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create Cert-Manager Certificate %q/%q: %v", desired.Name, desired.Namespace, err)
+				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
 			return nil, err
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
-			"Created Cert-Manager Certificate %q/%q", desired.Namespace, desired.Name)
+			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return nil, err
 	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
@@ -182,11 +182,13 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		copy.Spec = desired.Spec
 		updated, err := c.certManagerClient.CertmanagerV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			logger.Error("Failed to update Cert-Manager Certificate", zap.Error(err))
+			logger.Errorw("Failed to update Cert-Manager Certificate", zap.Error(err))
+			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, err
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
-			"Updated Spec for Cert-Manager Certificate %q/%q", desired.Namespace, desired.Name)
+			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 		return updated, nil
 	}
 	return cmCert, nil

@@ -55,7 +55,7 @@ var (
 
 var certManagerClient *fakecmclient.Clientset
 
-func TestNewContrller(t *testing.T) {
+func TestNewController(t *testing.T) {
 	defer ClearAllLoggers()
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -121,7 +121,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %q/%q", "foo", "knCert"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
 		},
 		Key: "foo/knCert",
 	}, {
@@ -147,7 +147,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %q/%q", "foo", "knCert"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %s/%s", "foo", "knCert"),
 		},
 		Key: "foo/knCert",
 	}, {

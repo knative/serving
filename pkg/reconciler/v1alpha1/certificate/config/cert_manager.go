@@ -41,17 +41,19 @@ type CertManagerConfig struct {
 
 // NewCertManagerConfigFromConfigMap creates an CertManagerConfig from the supplied ConfigMap
 func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManagerConfig, error) {
+	// TODO(zhiminx): do we need to provide the default values here?
+
 	solverConfig := &certmanagerv1alpha1.SolverConfig{}
+	if v, ok := configMap.Data[solverConfigKey]; ok {
+		if err := yaml.Unmarshal([]byte(v), solverConfig); err != nil {
+			return nil, err
+		}
+	}
+
 	issuerRef := &certmanagerv1alpha1.ObjectReference{}
-	for k, v := range configMap.Data {
-		if k == solverConfigKey {
-			if err := yaml.Unmarshal([]byte(v), solverConfig); err != nil {
-				return nil, err
-			}
-		} else if k == issuerRefKey {
-			if err := yaml.Unmarshal([]byte(v), issuerRef); err != nil {
-				return nil, err
-			}
+	if v, ok := configMap.Data[issuerRefKey]; ok {
+		if err := yaml.Unmarshal([]byte(v), issuerRef); err != nil {
+			return nil, err
 		}
 	}
 	return &CertManagerConfig{

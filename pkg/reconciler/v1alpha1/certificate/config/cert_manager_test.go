@@ -38,7 +38,7 @@ func TestCertManagerConfig(t *testing.T) {
 	}
 }
 
-func TestIsserRef(t *testing.T) {
+func TestIssuerRef(t *testing.T) {
 	isserRefCases := []struct {
 		name       string
 		wantErr    bool
@@ -98,9 +98,8 @@ func TestSolverConfig(t *testing.T) {
 		wantConfig *CertManagerConfig
 		config     *corev1.ConfigMap
 	}{{
-		name:       "invalid format",
-		wantErr:    true,
-		wantConfig: (*CertManagerConfig)(nil),
+		name:    "invalid format",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

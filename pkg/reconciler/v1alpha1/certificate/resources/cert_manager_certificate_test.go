@@ -51,50 +51,36 @@ var cmConfig = &config.CertManagerConfig{
 }
 
 func TestMakeCertManagerCertificate(t *testing.T) {
-	tests := []struct {
-		name     string
-		knCert   *v1alpha1.Certificate
-		cmConfig *config.CertManagerConfig
-		want     *certmanagerv1alpha1.Certificate
-	}{{
-		name:     "normal case",
-		knCert:   cert,
-		cmConfig: cmConfig,
-		want: &certmanagerv1alpha1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            "test-cert",
-				Namespace:       "test-ns",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cert)},
+	want := &certmanagerv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-cert",
+			Namespace:       "test-ns",
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cert)},
+		},
+		Spec: certmanagerv1alpha1.CertificateSpec{
+			SecretName: "secret0",
+			DNSNames:   []string{"host1.example.com", "host2.example.com"},
+			IssuerRef: certmanagerv1alpha1.ObjectReference{
+				Kind: "ClusterIssuer",
+				Name: "Letsencrypt-issuer",
 			},
-			Spec: certmanagerv1alpha1.CertificateSpec{
-				SecretName: "secret0",
-				DNSNames:   []string{"host1.example.com", "host2.example.com"},
-				IssuerRef: certmanagerv1alpha1.ObjectReference{
-					Kind: "ClusterIssuer",
-					Name: "Letsencrypt-issuer",
-				},
-				ACME: &certmanagerv1alpha1.ACMECertificateConfig{
-					Config: []certmanagerv1alpha1.DomainSolverConfig{
-						{
-							Domains: []string{"host1.example.com", "host2.example.com"},
-							SolverConfig: certmanagerv1alpha1.SolverConfig{
-								DNS01: &certmanagerv1alpha1.DNS01SolverConfig{
-									Provider: "cloud-dns-provider",
-								},
+			ACME: &certmanagerv1alpha1.ACMECertificateConfig{
+				Config: []certmanagerv1alpha1.DomainSolverConfig{
+					{
+						Domains: []string{"host1.example.com", "host2.example.com"},
+						SolverConfig: certmanagerv1alpha1.SolverConfig{
+							DNS01: &certmanagerv1alpha1.DNS01SolverConfig{
+								Provider: "cloud-dns-provider",
 							},
 						},
 					},
 				},
 			},
 		},
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := MakeCertManagerCertificate(test.cmConfig, test.knCert)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeCertManagerCertificate (-want, +got) = %v", diff)
-			}
-		})
+	}
+	got := MakeCertManagerCertificate(cmConfig, cert)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("MakeCertManagerCertificate (-want, +got) = %s", diff)
 	}
 }
 
@@ -117,7 +103,7 @@ func TestIsCertManagerCertificateReady(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := IsCertManagerCertificateReady(test.cmCertificate)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("IsCertManagerCertificateReady (-want, +got) = %v", diff)
+				t.Errorf("IsCertManagerCertificateReady (-want, +got) = %s", diff)
 			}
 		})
 	}
@@ -125,10 +111,8 @@ func TestIsCertManagerCertificateReady(t *testing.T) {
 
 func makeTestCertificate(isReady bool) *certmanagerv1alpha1.Certificate {
 	cert := &certmanagerv1alpha1.Certificate{}
-	var conditionStatus certmanagerv1alpha1.ConditionStatus
-	if isReady {
-		conditionStatus = certmanagerv1alpha1.ConditionTrue
-	} else {
+	conditionStatus := certmanagerv1alpha1.ConditionTrue
+	if !isReady {
 		conditionStatus = certmanagerv1alpha1.ConditionFalse
 	}
 	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, conditionStatus, "", "", false)
