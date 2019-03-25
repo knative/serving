@@ -59,15 +59,6 @@ func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
 	if string(rs.ProtocolType) != "" {
 		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
 	}
-	// TODO(vagababov): stop permitting empty selector, once SKS controller is live.
-	for k, v := range rs.Selector {
-		if k == "" {
-			all = all.Also(apis.ErrInvalidKeyName(k, "selector", "empty key is not permitted"))
-		}
-		if v == "" {
-			all = all.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k).ViaField("selector"))
-		}
-	}
 	return all
 }
 
@@ -125,7 +116,7 @@ func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.
 	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
 	opt := cmp.FilterPath(
 		func(p cmp.Path) bool {
-			return p.String() == "ProtocolType" || p.String() == "Selector"
+			return p.String() == "ProtocolType"
 		},
 		cmp.Ignore(),
 	)

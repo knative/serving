@@ -94,9 +94,6 @@ type PodAutoscalerSpec struct {
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning revision.
 	ProtocolType servingv1alpha1.RevisionProtocolType
-
-	// Selector is the pod selector for this revision.
-	Selector map[string]string
 }
 
 const (
