@@ -228,7 +228,6 @@ func TestPartitionTargets(t *testing.T) {
 			t.Errorf("%s: GroupTargets::passive unexpected diff: %s", test.name, cmp.Diff(got, want))
 		}
 	}
-
 }
 
 func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
@@ -886,6 +885,27 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 	}
 }
 
+func TestBuildTrafficConfiguration_ConfigurationRevisionMismatch(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: niceConfig.Name,
+		RevisionName: goodNewRev.Name,
+		Percent:      50,
+	}}
+	expected := &Config{
+		Targets:        map[string]RevisionTargets{},
+		Configurations: map[string]*v1alpha1.Configuration{niceConfig.Name: niceConfig},
+		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
+	}
+	expectedErr := errRevisionOwnerMismatch(niceConfig.Name, goodNewRev.Name)
+	r := testRouteWithTrafficTargets(tts)
+
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
+		t.Errorf("Expected %s, saw %s", expectedErr.Error(), err.Error())
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
+	}
+}
+
 func TestRoundTripping(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		RevisionName: goodOldRev.Name,
@@ -898,14 +918,17 @@ func TestRoundTripping(t *testing.T) {
 		ConfigurationName: niceConfig.Name,
 	}}
 	expected := []v1alpha1.TrafficTarget{{
+		ConfigurationName: goodConfig.Name,
 		RevisionName: goodOldRev.Name,
 		Percent:      100,
 	}, {
-		Name:         "beta",
+		ConfigurationName: goodConfig.Name,
 		RevisionName: goodNewRev.Name,
+		Name:         "beta",
 	}, {
-		Name:         "alpha",
+		ConfigurationName: niceConfig.Name,
 		RevisionName: niceNewRev.Name,
+		Name:         "alpha",
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
@@ -942,6 +965,7 @@ func testRevForConfig(config *v1alpha1.Configuration, name string) *v1alpha1.Rev
 			Labels: map[string]string{
 				serving.ConfigurationLabelKey: config.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{{Name: config.Name}},
 		},
 		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
 	}

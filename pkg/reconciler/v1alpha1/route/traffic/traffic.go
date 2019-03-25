@@ -87,13 +87,11 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+// GetRevisionTrafficTargets returns a list of TrafficTarget derived from revision targets.
 func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
-		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
-		// configuration and revision.
-		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
+		results[i] = *tt.DeepCopy()
 	}
 	return results
 }
@@ -179,10 +177,10 @@ func (t *configBuilder) deferTargetError(err TargetError) {
 
 func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 	var err error
-	if tt.RevisionName != "" {
-		err = t.addRevisionTarget(tt)
-	} else if tt.ConfigurationName != "" {
+	if tt.ConfigurationName != "" {
 		err = t.addConfigurationTarget(tt)
+	} else if tt.RevisionName != "" {
+		err = t.addRevisionTarget(tt)
 	}
 	if err, ok := err.(TargetError); err != nil && ok {
 		// Defer target errors, as we still want to compile a list of
@@ -194,19 +192,38 @@ func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 }
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
-// on the referred Configuration.  It adds both to the lists of directly referred targets.
+// on the referred Configuration. It adds both to the lists of directly referred targets.
 func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
 	config, err := t.getConfiguration(tt.ConfigurationName)
 	if err != nil {
 		return err
 	}
-	if config.Status.LatestReadyRevisionName == "" {
-		return errUnreadyConfiguration(config)
+
+	targetRevisionName := tt.RevisionName
+	if targetRevisionName == "" {
+		if config.Status.LatestReadyRevisionName == "" {
+			return errUnreadyConfiguration(config)
+		}
+		targetRevisionName = config.Status.LatestReadyRevisionName
 	}
-	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
+
+	rev, err := t.getRevision(targetRevisionName)
 	if err != nil {
 		return err
 	}
+
+	ownerMatched := false
+	ownerReferences := rev.GetOwnerReferences()
+	for _, ownerRef := range ownerReferences {
+		if ownerRef.Name == config.Name {
+			ownerMatched = true
+		}
+	}
+
+	if !ownerMatched {
+		return errRevisionOwnerMismatch(tt.ConfigurationName, tt.RevisionName)
+	}
+
 	target := RevisionTarget{
 		TrafficTarget: *tt,
 		Active:        !rev.Status.IsActivationRequired(),

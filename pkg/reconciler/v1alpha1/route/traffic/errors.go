@@ -108,6 +108,33 @@ func (e *unreadyRevisionError) IsFailure() bool {
 	return e.isFailure
 }
 
+type revisionOwnerMismatchError struct {
+	revisionName string // Name of the revision
+	configName   string // Name of the configuration
+}
+
+func (e *revisionOwnerMismatchError) Error() string {
+	return fmt.Sprintf("Configuration %q is not the owner of revision %q", e.revisionName, e.revisionName)
+}
+
+func (e *revisionOwnerMismatchError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	rs.MarkConfigurationRevisionMismatch(e.configName, e.revisionName)
+}
+
+// IsFailure returns whether a TargetError is a true failure, e.g.
+// a Configuration fails to become ready.
+func (e *revisionOwnerMismatchError) IsFailure() bool {
+	return true
+}
+
+// errRevisionOwnerMismatch returns an error for a mismatched.
+func errRevisionOwnerMismatch(configName, revName string) TargetError {
+	return &revisionOwnerMismatchError{
+		configName:   configName,
+		revisionName: revName,
+	}
+}
+
 // errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
 func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
 	status := corev1.ConditionUnknown

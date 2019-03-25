@@ -74,6 +74,12 @@ func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 		"Configuration %q does not have any ready Revision.", name)
 }
 
+func (rs *RouteStatus) MarkConfigurationRevisionMismatch(configName, revName string) {
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+		"Mismatch",
+		"Configuration %q does not own Revision %q.", configName, revName)
+}
+
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
 		"RevisionMissing",

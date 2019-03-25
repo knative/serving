@@ -333,15 +333,12 @@ func TestTrafficTargetValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid with both",
+		name: "valid with both",
 		tt: &TrafficTarget{
 			RevisionName:      "foo",
 			ConfigurationName: "bar",
 		},
-		want: &apis.FieldError{
-			Message: "expected exactly one, got both",
-			Paths:   []string{"revisionName", "configurationName"},
-		},
+		want: nil,
 	}, {
 		name: "invalid with neither",
 		tt: &TrafficTarget{

@@ -129,6 +129,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 			Labels: map[string]string{
 				serving.ConfigurationLabelKey: config.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{{Name: config.Name}},
 		},
 		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
 		Status: v1alpha1.RevisionStatus{
@@ -274,7 +275,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
 			RevisionName:      "test-rev",
-			ConfigurationName: "test-config",
 			Percent:           100,
 		}},
 	)
@@ -440,7 +440,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Percent:           90,
 		}, {
 			RevisionName:      rev.Name,
-			ConfigurationName: "test-config",
 			Percent:           10,
 		}},
 	)

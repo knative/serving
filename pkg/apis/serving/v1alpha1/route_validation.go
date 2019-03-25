@@ -91,20 +91,23 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 // Validate verifies that TrafficTarget is properly configured.
 func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
-	switch {
-	case tt.RevisionName != "" && tt.ConfigurationName != "":
-		errs = apis.ErrMultipleOneOf("revisionName", "configurationName")
-	case tt.RevisionName != "":
-		if verrs := validation.IsQualifiedName(tt.RevisionName); len(verrs) > 0 {
-			errs = apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", verrs...)
-		}
-	case tt.ConfigurationName != "":
-		if verrs := validation.IsQualifiedName(tt.ConfigurationName); len(verrs) > 0 {
-			errs = apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", verrs...)
-		}
-	default:
+
+	if tt.RevisionName == "" && tt.ConfigurationName == "" {
 		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
+
+	if tt.ConfigurationName != "" {
+		if verrs := validation.IsQualifiedName(tt.ConfigurationName); len(verrs) > 0 {
+			errs = errs.Also(apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", verrs...))
+		}
+	}
+
+	if tt.RevisionName != "" {
+		if verrs := validation.IsQualifiedName(tt.RevisionName); len(verrs) > 0 {
+			errs = errs.Also(apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", verrs...))
+		}
+	}
+
 	if tt.Percent < 0 || tt.Percent > 100 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(tt.Percent), "0", "100", "percent"))
 	}

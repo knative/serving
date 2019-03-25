@@ -175,3 +175,35 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 		}
 	}
 }
+
+func TestMarkBadTrafficTarget_RevisionOwnerMismatchError(t *testing.T) {
+	err := errRevisionOwnerMismatch("config-name", "rev-name")
+	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []duckv1alpha1.ConditionType{
+		v1alpha1.RouteConditionAllTrafficAssigned,
+		v1alpha1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &duckv1alpha1.Condition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "Mismatch",
+			Message:            `Configuration "config-name" does not own Revision "rev-name".`,
+			LastTransitionTime: got.LastTransitionTime,
+			Severity:           duckv1alpha1.ConditionSeverityError,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestIsFailure_RevisionOwnerMismatchError(t *testing.T) {
+	err := errRevisionOwnerMismatch("config-name", "rev-name")
+	want := true
+	if got := err.IsFailure(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
