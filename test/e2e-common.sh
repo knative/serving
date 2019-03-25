@@ -125,7 +125,11 @@ function install_knative_serving_standard() {
 
   echo ">> Bringing up Istio"
   kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
-  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+  # Temporarily remove the fixed NodePort in istio.yaml, until
+  # we pick up either 0.5.0 (#3386) or 0.4.2 (#3520) in upgrade
+  # testing.
+  grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$"  "${INSTALL_ISTIO_YAML}" \
+    | kubectl apply -f - || return 1
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
