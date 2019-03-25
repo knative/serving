@@ -450,9 +450,13 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	req.Header.Set(activator.RevisionHeaderName, revName)
 	handler.ServeHTTP(writer, req)
 
-	httpReq := <-interceptCh
-	if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
-		t.Errorf("Header '%s' does not have the expected value. Want = '%s', got = '%s'.", network.ProxyHeaderName, activator.Name, got)
+	select {
+	case httpReq := <-interceptCh:
+		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
+			t.Errorf("Header '%s' does not have the expected value. Want = '%s', got = '%s'.", network.ProxyHeaderName, activator.Name, got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Timed out waiting for a request to be intercepted")
 	}
 }
 

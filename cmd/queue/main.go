@@ -150,11 +150,7 @@ func probeUserContainer() bool {
 }
 
 // Make handler a closure for testing.
-func handler(rc chan queue.ReqEvent, b *queue.Breaker, h1, h2 *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
-	reqChan := rc
-	breaker := b
-	httpProxy := h1
-	h2cProxy := h2
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy := httpProxy
 		if r.ProtoMajor == 2 {

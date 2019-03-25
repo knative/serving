@@ -21,6 +21,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
@@ -58,8 +59,12 @@ func TestHandler_ReqEvent(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.ProxyHeaderName, activator.Name)
 	h(writer, req)
-	e := <-reqChan
-	if e.EventType != queue.ProxiedIn {
-		t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
+	select {
+	case e := <-reqChan:
+		if e.EventType != queue.ProxiedIn {
+			t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Timed out waiting for an event to be intercepted")
 	}
 }
