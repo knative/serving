@@ -195,6 +195,68 @@ func TestOneRequestAcrossReportings(t *testing.T) {
 	}
 }
 
+func TestOneProxiedRequest(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+	s.proxiedStart(now)
+	now = now.Add(1 * time.Second)
+	got := s.report(now)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		AverageProxiedConcurrency: 1.0,
+		RequestCount:              1,
+		ProxiedCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestOneEndedProxiedRequest(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+	s.proxiedStart(now)
+	now = now.Add(500 * time.Millisecond)
+	s.proxiedEnd(now)
+	now = now.Add(500 * time.Millisecond)
+	got := s.report(now)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 0.5,
+		AverageProxiedConcurrency: 0.5,
+		RequestCount:              1,
+		ProxiedCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestTwoRequestsOneProxied(t *testing.T) {
+	now := time.Now()
+	s := newTestStats(now)
+	s.proxiedStart(now)
+	now = now.Add(500 * time.Millisecond)
+	s.proxiedEnd(now)
+	s.requestStart(now)
+	now = now.Add(500 * time.Millisecond)
+	got := s.report(now)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		AverageProxiedConcurrency: 0.5,
+		RequestCount:              2,
+		ProxiedCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
 // Test type to hold the bi-directional time channels
 type testStats struct {
 	Stats
@@ -222,6 +284,14 @@ func (s *testStats) requestStart(now time.Time) {
 
 func (s *testStats) requestEnd(now time.Time) {
 	s.ch.ReqChan <- ReqEvent{Time: now, EventType: ReqOut}
+}
+
+func (s *testStats) proxiedStart(now time.Time) {
+	s.ch.ReqChan <- ReqEvent{Time: now, EventType: ProxiedIn}
+}
+
+func (s *testStats) proxiedEnd(now time.Time) {
+	s.ch.ReqChan <- ReqEvent{Time: now, EventType: ProxiedOut}
 }
 
 func (s *testStats) report(now time.Time) *autoscaler.Stat {

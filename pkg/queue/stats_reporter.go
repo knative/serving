@@ -21,6 +21,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/knative/serving/pkg/autoscaler"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -37,13 +38,19 @@ const (
 	// will be dropped if LastValue aggregation is used for a view.
 	ReporterReportingPeriod = time.Second
 
-	operationsPerSecondN       = "operations_per_second"
-	averageConcurrentRequestsN = "average_concurrent_requests"
+	operationsPerSecondN        = "operations_per_second"
+	proxiedOperationsPerSecondN = "proxied_operations_per_second"
+	averageConcurrentRequestsN  = "average_concurrent_requests"
+	averageProxiedConcurrencyN  = "average_proxied_concurrency"
 
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
 	AverageConcurrentRequestsM
+	// ProxiedOperationsPerSecondM number of proxied operations per second.
+	ProxiedOperationsPerSecondM
+	// AverageProxiedConcurrencyM average number of proxied requests currently being handled by this pod.
+	AverageProxiedConcurrencyM
 )
 
 var (
@@ -56,6 +63,14 @@ var (
 		AverageConcurrentRequestsM: stats.Float64(
 			averageConcurrentRequestsN,
 			"Number of requests currently being handled by this pod",
+			stats.UnitNone),
+		ProxiedOperationsPerSecondM: stats.Float64(
+			proxiedOperationsPerSecondN,
+			"Number of proxied operations per second",
+			stats.UnitNone),
+		AverageProxiedConcurrencyM: stats.Float64(
+			averageProxiedConcurrencyN,
+			"Number of proxied requests currently being handled by this pod",
 			stats.UnitNone),
 	}
 )
@@ -119,6 +134,18 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
 		},
+		&view.View{
+			Description: "Number of proxied requests received since last Stat",
+			Measure:     measurements[ProxiedOperationsPerSecondM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
+		},
+		&view.View{
+			Description: "Number of proxied requests currently being handled by this pod",
+			Measure:     measurements[AverageProxiedConcurrencyM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -146,12 +173,14 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 }
 
 // Report captures request metrics.
-func (r *Reporter) Report(operationsPerSecond float64, averageConcurrentRequests float64) error {
+func (r *Reporter) Report(stat *autoscaler.Stat) error {
 	if !r.Initialized {
 		return errors.New("statsReporter is not Initialized yet")
 	}
-	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(operationsPerSecond))
-	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(averageConcurrentRequests))
+	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(float64(stat.RequestCount)))
+	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(stat.AverageConcurrentRequests))
+	stats.Record(r.ctx, measurements[ProxiedOperationsPerSecondM].M(float64(stat.ProxiedCount)))
+	stats.Record(r.ctx, measurements[AverageProxiedConcurrencyM].M(stat.AverageProxiedConcurrency))
 	return nil
 }
 
@@ -165,6 +194,12 @@ func (r *Reporter) UnregisterViews() error {
 		views = append(views, v)
 	}
 	if v := view.Find(averageConcurrentRequestsN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(proxiedOperationsPerSecondN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(averageProxiedConcurrencyN); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)

@@ -51,8 +51,14 @@ type Stat struct {
 	// Average number of requests currently being handled by this pod.
 	AverageConcurrentRequests float64
 
+	// Similar to AverageConcurrentRequests, but for requests going through a proxy.
+	AverageProxiedConcurrency float64
+
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
+
+	// Number of requests received through a proxy since last Stat.
+	ProxiedCount int32
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -80,7 +86,7 @@ func (b statsBucket) concurrency() float64 {
 	for _, podStats := range b {
 		var subtotal float64
 		for _, stat := range podStats {
-			subtotal += stat.AverageConcurrentRequests
+			subtotal += stat.AverageConcurrentRequests - stat.AverageProxiedConcurrency
 		}
 		total += subtotal / float64(len(podStats))
 	}
@@ -231,8 +237,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 // aggregateData aggregates bucketed stats over the stableWindow and panicWindow
 // respectively and returns the observedStableConcurrency, observedPanicConcurrency
-// and the last bucket that was aggregated. The boolean indicates whether or not
-// the aggregation was successful.
+// and the last bucket that was aggregated.
 func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (
 	stableConcurrency float64, panicConcurrency float64, lastBucket statsBucket) {
 	a.statsMutex.Lock()

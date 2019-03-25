@@ -463,12 +463,34 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a.expectScale(t, now, 100, true)
 }
 
+func TestAutoScaler_Concurrency(t *testing.T) {
+	a := newTestAutoscaler(1.0)
+	now := roundedNow()
+	stat := Stat{
+		Time:                      &now,
+		PodName:                   "activator",
+		AverageConcurrentRequests: 1,
+		RequestCount:              1,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+	stat = Stat{
+		Time:                      &now,
+		PodName:                   "pod1",
+		AverageConcurrentRequests: 1,
+		AverageProxiedConcurrency: 1,
+		RequestCount:              1,
+		ProxiedCount:              1,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+	a.expectScale(t, now, 1, true)
+}
+
 type linearSeries struct {
 	startConcurrency int
 	endConcurrency   int
 	duration         time.Duration
 	podCount         int
-	podIdOffset      int
+	podIDOffset      int
 }
 
 type mockReporter struct{}
@@ -552,7 +574,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			}
 			stat := Stat{
 				Time:                      &t,
-				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
+				PodName:                   fmt.Sprintf("pod-%v", j+s.podIDOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
 			}

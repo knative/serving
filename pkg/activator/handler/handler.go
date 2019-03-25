@@ -180,6 +180,8 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	proxy.Transport = a.Transport
 	proxy.FlushInterval = -1
 
+	r.Header.Set(network.ProxyHeaderName, activator.Name)
+
 	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(capture, r)

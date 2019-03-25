@@ -20,6 +20,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/knative/serving/pkg/autoscaler"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 )
@@ -102,7 +103,7 @@ func TestNewStatsReporter_doubledeclare(t *testing.T) {
 	}
 }
 
-func TestReporter_Report(t *testing.T) {
+func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64) {
 	testTagKeyValueMap, err := createTestTagKeyValueMap()
 	if err != nil {
 		t.Errorf("Something went wrong with creating tag, '%v'.", err)
@@ -111,11 +112,13 @@ func TestReporter_Report(t *testing.T) {
 	if err != nil {
 		t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 	}
-	if err := reporter.Report(float64(39), float64(3)); err != nil {
+	if err := reporter.Report(stat); err != nil {
 		t.Error(err)
 	}
-	checkData(t, operationsPerSecondN, 39, testTagKeyValueMap)
-	checkData(t, averageConcurrentRequestsN, 3, testTagKeyValueMap)
+	checkData(t, operationsPerSecondN, reqCount, testTagKeyValueMap)
+	checkData(t, averageConcurrentRequestsN, concurrency, testTagKeyValueMap)
+	checkData(t, proxiedOperationsPerSecondN, proxiedCount, testTagKeyValueMap)
+	checkData(t, averageProxiedConcurrencyN, proxiedConcurrency, testTagKeyValueMap)
 	if err := reporter.UnregisterViews(); err != nil {
 		t.Errorf("Error with unregistering views, %v", err)
 	}
@@ -125,6 +128,14 @@ func TestReporter_Report(t *testing.T) {
 	if err := reporter.UnregisterViews(); err == nil {
 		t.Errorf("Error with unregistering views, %v", err)
 	}
+}
+
+func TestReporter_ReportNoProxied(t *testing.T) {
+	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3}, 39, 3, 0, 0)
+}
+
+func TestReporter_Report(t *testing.T) {
+	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedCount: 15, AverageProxiedConcurrency: 2}, 39, 3, 15, 2)
 }
 
 func checkData(t *testing.T, measurementName string, wanted float64, wantedTagKeyValueMap map[tag.Key]string) {
