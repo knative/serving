@@ -29,9 +29,9 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-type Scheme string
+type scheme string
 
-const http Scheme = "http"
+const http scheme = "http"
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
@@ -103,7 +103,7 @@ func SubrouteDomain(name, domain string) string {
 
 // subrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
 // the subroute is represented as a subdomain of the base domain.
-func subrouteURL(scheme Scheme, name, domain string) string {
+func subrouteURL(scheme scheme, name, domain string) string {
 	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
 }
 

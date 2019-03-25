@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -43,8 +42,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain:  "domain.com",
-				Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+				Domain: "domain.com",
 			},
 		},
 	}
@@ -90,8 +88,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain:  "domain.com",
-				Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+				Domain: "domain.com",
 			},
 		},
 	}
@@ -143,8 +140,7 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		route: v1alpha1.Route{
 			Status: v1alpha1.RouteStatus{
 				RouteStatusFields: v1alpha1.RouteStatusFields{
-					Domain:  "domain.com",
-					Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+					Domain: "domain.com",
 				},
 			},
 		},
@@ -154,8 +150,7 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		route: v1alpha1.Route{
 			Status: v1alpha1.RouteStatus{
 				RouteStatusFields: v1alpha1.RouteStatusFields{
-					Domain:  "local-route.default.svc.cluster.local",
-					Address: &duckv1alpha1.Addressable{Hostname: "local-route.default.svc.cluster.local"},
+					Domain: "local-route.default.svc.cluster.local",
 				},
 			},
 		},
@@ -180,8 +175,7 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain:  base,
-				Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+				Domain: base,
 			},
 		},
 	}
@@ -203,8 +197,7 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain:  base,
-				Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+				Domain: base,
 			},
 		},
 	}
@@ -230,8 +223,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain:  base,
-				Address: &duckv1alpha1.Addressable{Hostname: "test-route.test-ns.svc.cluster.local"},
+				Domain: base,
 			},
 		},
 	}
