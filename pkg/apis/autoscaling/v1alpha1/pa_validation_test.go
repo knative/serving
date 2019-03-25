@@ -228,27 +228,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("WebSocket", "spec.protocolType"),
 	}, {
-		name: "empty selector",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					"minScale": "2",
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-			},
-		},
-		want: apis.ErrInvalidKeyName("", "spec.selector", "empty key is not permitted").Also(
-			apis.ErrInvalidValue("", apis.CurrentField).ViaKey("or-another").ViaField("spec.selector")),
-	}, {
 		name: "bad scale bounds",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
