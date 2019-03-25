@@ -2,24 +2,26 @@
 
 This is what we hope to accomplish in 2019.
 
-## 2019 Goals
+## Performance
 
 ### Sub-Second Cold Start
 
-Serverless is only as good as the illusion it sustains. Throwing some code into a "serverless" framework, the expectation is that it will just be running when it needs to, with as many resources as necessary. Including zero. But to realize that magical threshold and maintain the illusion of serverless, the code must come back as if it was never gone. The exact latency requirement of "as if it was never gone" will vary from use-case to use-case. But generally less than one second is a good start.
+As a serverless framework, Knative should only run code when it needs to. Including scaling to zero when the Revision is not being used. However the Revison must also come back quickly, otherwise the illusion of "serverless" is broken--it must seem as if it was always there. Generally less than one second is a good start.
 
-Right now cold-starts are between 10 and 15 seconds which is an order of magnitude too slow. The time is spent starting the pod, waiting for Envoy to start and telling all nodes how to reach the pod through the Kubernetes Service. Without the Istio mesh (just routing request to individual pods as they come up) still takes about 4 seconds.
+Today cold-starts are between 10 and 15 seconds which is an order of magnitude too slow. The time is spent starting the pod, waiting for Envoy to initialize, and setting up routing. Without the Istio mesh (just routing request to individual pods as they come up) still takes about 4 seconds. We've poked at this problem in 2018 ([#1297](https://github.com/knative/serving/issues/1297)) but haven't made significant progress. This area requires some dedicated effort.
 
-We've poked at this problem in 2018 ([#1297](https://github.com/knative/serving/issues/1297)) but haven't been able to make significant progress. This area requires some dedicated effort to:
+One area of investment is to vet a local scheduling approach in which the Activator is given authority to schedule a Pod locally on the Node. This takes several layers out of the critical path for cold starts.
 
-1. identify and programatically capture sources of cold-start latency at all levels of the stack ([#2495](https://github.com/knative/serving/issues/2495))
-2. chase down the low hanging fruit (e.g. [#2659](https://github.com/knative/serving/issues/2659))
-3. architect solutions to larger chunks of cold-start latency
+**Goal**: achieve sub-second average cold-starts of disk-warm Revisions running in mesh-mode by the end of the year.
 
-**Our goal is to achieve sub-second average cold-starts by the end of the year.**
+**Key Steps**:
+1. Capture cold start traces.
+2. Track cold start latency over time by span.
+3. Local scheduling design doc.
 
-* POC: Greg Haynes (IBM)
-* Github: [Project 8](https://github.com/knative/serving/projects/8)
+POC: Greg Haynes (IBM)
+
+Github: [Project 8](https://github.com/knative/serving/projects/8)
 
 ### Overload Handling
 
@@ -64,6 +66,8 @@ This verifies that 1) we can handle all requests in an overload without error an
 * POC: Vadim Raskin (IBM)
 * Github: [Project 7](https://github.com/knative/serving/projects/7)
 
+## Reliability
+
 ### Autoscaler Availability
 
 Because Knative scales to zero, autoscaling is in the critical-path for serving requests. If the autoscaler isn't available when an idle Revision receives a request, that request will not be served. Other components such as the Activator are in this situation too. But they are more stateless and so can be scaled horizontally relatively easily. For example, any Activator can proxy any request for any Revision. All it has to do is send a messge to the Autoscaler and then wait for a Pod to show up. Then it proxies the request and is taken back out of the serving path.
@@ -88,6 +92,8 @@ Additionally, concurrency limits should be applied to streams, not connections. 
 * POC: Markus Thömmes (Red Hat)
 * Github: [Project 16](https://github.com/knative/serving/projects/16)
 
+## Extendability
+
 ### Pluggability and HPA
 
 This is work remaining from 2018 to add CPU-based autoscaling to Knative and provide an extension point for further customizing the autoscaling sub-system. Remaining work includes:
@@ -100,6 +106,8 @@ This is work remaining from 2018 to add CPU-based autoscaling to Knative and pro
 
 * POC: Yanwei Guo (Google)
 * Github: [Project 11](https://github.com/knative/serving/projects/11)
+
+## What we're not doing yet
 
 ### Vertical Pod Autoscaling Beta
 
