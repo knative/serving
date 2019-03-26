@@ -120,6 +120,8 @@ type AdmissionController struct {
 	Options  ControllerOptions
 	Handlers map[schema.GroupVersionKind]GenericCRD
 	Logger   *zap.SugaredLogger
+
+	DisallowUnknownFields bool
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -527,6 +529,9 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 	if len(newBytes) != 0 {
 		newObj = handler.DeepCopyObject().(GenericCRD)
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
+		if ac.DisallowUnknownFields {
+			newDecoder.DisallowUnknownFields()
+		}
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
@@ -534,6 +539,9 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 	if len(oldBytes) != 0 {
 		oldObj = handler.DeepCopyObject().(GenericCRD)
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
+		if ac.DisallowUnknownFields {
+			oldDecoder.DisallowUnknownFields()
+		}
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
