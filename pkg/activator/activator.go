@@ -19,7 +19,7 @@ package activator
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 const (
@@ -48,12 +48,11 @@ func (rev RevisionID) String() string {
 	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
 
-// ServicePort returns the activator service port for the given Revision protocol.
+// ServicePort returns the activator service port for the given app level protocol.
 // Default is `ServicePortHTTP1`.
-func ServicePort(protocol v1alpha1.RevisionProtocolType) int32 {
-	if protocol == v1alpha1.RevisionProtocolH2C {
+func ServicePort(protocol v1alpha1.ProtocolType) int32 {
+	if protocol == v1alpha1.ProtocolH2C {
 		return ServicePortH2C
 	}
-
 	return ServicePortHTTP1
 }

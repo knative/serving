@@ -98,8 +98,19 @@ type ServerlessServiceSpec struct {
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
-	ProtocolType string
+	ProtocolType ProtocolType
 }
+
+// ProtocolType is an enumeration of the supported application-layer protocols
+// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
+type ProtocolType string
+
+const (
+	// ProtocolHTTP1 maps to HTTP/1.1.
+	ProtocolHTTP1 ProtocolType = "http1"
+	// ProtocolH2C maps to HTTP/2 with Prior Knowledge.
+	ProtocolH2C ProtocolType = "h2c"
+)
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
 type ServerlessServiceStatus struct {

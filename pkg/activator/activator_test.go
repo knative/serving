@@ -18,21 +18,21 @@ package activator
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 func TestServicePort(t *testing.T) {
 	tests := []struct {
 		name     string
-		protocol v1alpha1.RevisionProtocolType
+		protocol netv1a1.ProtocolType
 		port     int32
 	}{{
 		name:     "h2c",
-		protocol: v1alpha1.RevisionProtocolH2C,
+		protocol: netv1a1.ProtocolH2C,
 		port:     ServicePortH2C,
 	}, {
 		name:     "http1",
-		protocol: v1alpha1.RevisionProtocolHTTP1,
+		protocol: netv1a1.ProtocolHTTP1,
 		port:     ServicePortHTTP1,
 	}}
 

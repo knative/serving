@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1101,16 +1102,16 @@ func TestImmutableFields(t *testing.T) {
 
 func TestRevisionProtocolType(t *testing.T) {
 	tests := []struct {
-		p    RevisionProtocolType
+		p    netv1a1.ProtocolType
 		want *apis.FieldError
 	}{{
-		RevisionProtocolH2C, nil,
+		netv1a1.ProtocolH2C, nil,
 	}, {
-		RevisionProtocolHTTP1, nil,
+		netv1a1.ProtocolHTTP1, nil,
 	}, {
-		RevisionProtocolType(""), apis.ErrInvalidValue("", apis.CurrentField),
+		netv1a1.ProtocolType(""), apis.ErrInvalidValue("", apis.CurrentField),
 	}, {
-		RevisionProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
+		netv1a1.ProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
 	}}
 	for _, test := range tests {
 		e := test.p.Validate()

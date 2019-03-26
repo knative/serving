@@ -19,6 +19,7 @@ package traffic
 import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -32,7 +33,7 @@ const DefaultTarget = ""
 type RevisionTarget struct {
 	v1alpha1.TrafficTarget
 	Active   bool
-	Protocol v1alpha1.RevisionProtocolType
+	Protocol netv1a1.ProtocolType
 }
 
 // RevisionTargets is a collection of revision targets.

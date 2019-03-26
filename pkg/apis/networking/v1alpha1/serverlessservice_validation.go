@@ -57,11 +57,14 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 		}
 	}
 
-	switch spec.ProtocolType {
-	// revision_types.go for values.
-	case "http1", "h2c":
-	default:
-		all = all.Also(apis.ErrInvalidValue(spec.ProtocolType, "protocolType"))
+	return all.Also(spec.ProtocolType.Validate().ViaField("protocolType"))
+}
+
+// Validate validates that ProtocolType has a correct enum value.
+func (p ProtocolType) Validate() *apis.FieldError {
+	switch p {
+	case ProtocolH2C, ProtocolHTTP1:
+		return nil
 	}
-	return all
+	return apis.ErrInvalidValue(string(p), apis.CurrentField)
 }

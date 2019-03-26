@@ -22,6 +22,7 @@ import (
 	"time"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -95,13 +96,14 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 	return nil
 }
 
-func (r *Revision) GetProtocol() RevisionProtocolType {
+// GetProtocol returns the app level network protocol.
+func (r *Revision) GetProtocol() netv1alpha1.ProtocolType {
 	ports := r.Spec.Container.Ports
-	if len(ports) > 0 && ports[0].Name == "h2c" {
-		return RevisionProtocolH2C
+	if len(ports) > 0 && ports[0].Name == string(netv1alpha1.ProtocolH2C) {
+		return netv1alpha1.ProtocolH2C
 	}
 
-	return RevisionProtocolHTTP1
+	return netv1alpha1.ProtocolHTTP1
 }
 
 // IsReady looks at the conditions and if the Status has a condition
