@@ -19,6 +19,7 @@ limitations under the License.
 package conformance
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -29,10 +30,14 @@ import (
 )
 
 const (
-	cpuLimit    = 1   // CPU
-	memoryLimit = 128 // MB
-	cpuRequest  = 1   // CPU
+	cpuLimit    = 1     // CPU
+	memoryLimit = 128   // MB
+	cpuRequest  = 0.125 // CPU
 )
+
+func toMilliValue(value float64) string {
+	return fmt.Sprintf("%dm", int(value*1000))
+}
 
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
@@ -42,11 +47,11 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuLimit)),
+			corev1.ResourceCPU:    resource.MustParse(toMilliValue(cpuLimit)),
 			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "M"),
 		},
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse(strconv.Itoa(cpuRequest)),
+			corev1.ResourceCPU: resource.MustParse(toMilliValue(cpuRequest)),
 		},
 	}
 
