@@ -19,7 +19,7 @@ package resources
 import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
@@ -68,7 +68,7 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 
 // ServicePortName returns the port for the app level protocol.
 func ServicePortName(rev *v1alpha1.Revision) string {
-	if rev.GetProtocol() == netv1a1.ProtocolH2C {
+	if rev.GetProtocol() == net.ProtocolH2C {
 		return ServicePortNameH2C
 	}
 	return ServicePortNameHTTP1

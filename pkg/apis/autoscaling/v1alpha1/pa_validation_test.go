@@ -26,7 +26,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	net "github.com/knative/serving/pkg/apis/networking"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
@@ -182,7 +182,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
-				ProtocolType: netv1a1.ProtocolHTTP1,
+				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
 		want: nil,
@@ -223,7 +223,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
-				ProtocolType: netv1a1.ProtocolType("WebSocket"),
+				ProtocolType: net.ProtocolType("WebSocket"),
 			},
 		},
 		want: apis.ErrInvalidValue("WebSocket", "spec.protocolType"),
@@ -335,7 +335,7 @@ func TestImmutableFields(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
-				ProtocolType: netv1a1.ProtocolHTTP1,
+				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
 		old: &PodAutoscaler{

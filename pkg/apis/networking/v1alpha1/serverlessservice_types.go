@@ -20,6 +20,7 @@ import (
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	networking "github.com/knative/serving/pkg/apis/networking"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -98,19 +99,8 @@ type ServerlessServiceSpec struct {
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
-	ProtocolType ProtocolType
+	ProtocolType networking.ProtocolType
 }
-
-// ProtocolType is an enumeration of the supported application-layer protocols
-// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
-type ProtocolType string
-
-const (
-	// ProtocolHTTP1 maps to HTTP/1.1.
-	ProtocolHTTP1 ProtocolType = "http1"
-	// ProtocolH2C maps to HTTP/2 with Prior Knowledge.
-	ProtocolH2C ProtocolType = "h2c"
-)
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
 type ServerlessServiceStatus struct {

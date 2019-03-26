@@ -22,7 +22,7 @@ import (
 	"time"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -97,13 +97,13 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 }
 
 // GetProtocol returns the app level network protocol.
-func (r *Revision) GetProtocol() netv1alpha1.ProtocolType {
+func (r *Revision) GetProtocol() net.ProtocolType {
 	ports := r.Spec.Container.Ports
-	if len(ports) > 0 && ports[0].Name == string(netv1alpha1.ProtocolH2C) {
-		return netv1alpha1.ProtocolH2C
+	if len(ports) > 0 && ports[0].Name == string(net.ProtocolH2C) {
+		return net.ProtocolH2C
 	}
 
-	return netv1alpha1.ProtocolHTTP1
+	return net.ProtocolHTTP1
 }
 
 // IsReady looks at the conditions and if the Status has a condition
@@ -112,6 +112,7 @@ func (rs *RevisionStatus) IsReady() bool {
 	return revCondSet.Manage(rs).IsHappy()
 }
 
+// IsActivationRequired returns true if activation is required.
 func (rs *RevisionStatus) IsActivationRequired() bool {
 	if c := revCondSet.Manage(rs).GetCondition(RevisionConditionActive); c != nil {
 		return c.Status != corev1.ConditionTrue

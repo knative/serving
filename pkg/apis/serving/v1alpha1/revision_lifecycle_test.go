@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	netv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -632,32 +632,32 @@ func TestRevisionGetProtocol(t *testing.T) {
 	tests := []struct {
 		name      string
 		container corev1.Container
-		protocol  netv1a1.ProtocolType
+		protocol  net.ProtocolType
 	}{
 		{
 			name:      "undefined",
 			container: corev1.Container{},
-			protocol:  netv1a1.ProtocolHTTP1,
+			protocol:  net.ProtocolHTTP1,
 		},
 		{
 			name:      "http1",
 			container: containerWithPortName("http1"),
-			protocol:  netv1a1.ProtocolHTTP1,
+			protocol:  net.ProtocolHTTP1,
 		},
 		{
 			name:      "h2c",
 			container: containerWithPortName("h2c"),
-			protocol:  netv1a1.ProtocolH2C,
+			protocol:  net.ProtocolH2C,
 		},
 		{
 			name:      "unknown",
 			container: containerWithPortName("whatever"),
-			protocol:  netv1a1.ProtocolHTTP1,
+			protocol:  net.ProtocolHTTP1,
 		},
 		{
 			name:      "empty",
 			container: containerWithPortName(""),
-			protocol:  netv1a1.ProtocolHTTP1,
+			protocol:  net.ProtocolHTTP1,
 		},
 	}
 

@@ -19,7 +19,7 @@ package activator
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 )
 
 const (
@@ -50,8 +50,8 @@ func (rev RevisionID) String() string {
 
 // ServicePort returns the activator service port for the given app level protocol.
 // Default is `ServicePortHTTP1`.
-func ServicePort(protocol v1alpha1.ProtocolType) int32 {
-	if protocol == v1alpha1.ProtocolH2C {
+func ServicePort(protocol networking.ProtocolType) int32 {
+	if protocol == networking.ProtocolH2C {
 		return ServicePortH2C
 	}
 	return ServicePortHTTP1
