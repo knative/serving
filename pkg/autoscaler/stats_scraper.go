@@ -144,10 +144,12 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
 	newStat := Stat{
-		Time:                      stat.Time,
-		PodName:                   scraperPodName,
-		AverageConcurrentRequests: stat.AverageConcurrentRequests * float64(readyPodsCount),
-		RequestCount:              stat.RequestCount * int32(readyPodsCount),
+		Time:                             stat.Time,
+		PodName:                          scraperPodName,
+		AverageConcurrentRequests:        stat.AverageConcurrentRequests * float64(readyPodsCount),
+		AverageProxiedConcurrentRequests: stat.AverageProxiedConcurrentRequests * float64(readyPodsCount),
+		RequestCount:                     stat.RequestCount * int32(readyPodsCount),
+		ProxiedRequestCount:              stat.ProxiedRequestCount * int32(readyPodsCount),
 	}
 
 	s.sendStatMessage(newStat, statsCh)
@@ -188,10 +190,22 @@ func extractData(body io.Reader) (*Stat, error) {
 		return nil, errors.New("could not find value for queue_average_concurrent_requests in response")
 	}
 
+	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_proxied_concurrent_requests"); pMetric != nil {
+		stat.AverageProxiedConcurrentRequests = *pMetric.Gauge.Value
+	} else {
+		return nil, errors.New("could not find value for queue_average_proxied_concurrent_requests in response")
+	}
+
 	if pMetric := getPrometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
 		stat.RequestCount = int32(*pMetric.Gauge.Value)
 	} else {
 		return nil, errors.New("could not find value for queue_operations_per_second in response")
+	}
+
+	if pMetric := getPrometheusMetric(metricFamilies, "queue_proxied_operations_per_second"); pMetric != nil {
+		stat.ProxiedRequestCount = int32(*pMetric.Gauge.Value)
+	} else {
+		return nil, errors.New("could not find value for queue_proxied_operations_per_second in response")
 	}
 
 	return &stat, nil
