@@ -456,7 +456,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 			t.Errorf("Header '%s' does not have the expected value. Want = '%s', got = '%s'.", network.ProxyHeaderName, activator.Name, got)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("Timed out waiting for a request to be intercepted")
+		t.Fatal("Timed out waiting for a request to be intercepted")
 	}
 }
 

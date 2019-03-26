@@ -65,6 +65,6 @@ func TestHandler_ReqEvent(t *testing.T) {
 			t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("Timed out waiting for an event to be intercepted")
+		t.Fatal("Timed out waiting for an event to be intercepted")
 	}
 }

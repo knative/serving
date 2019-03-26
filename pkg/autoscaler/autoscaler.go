@@ -51,14 +51,14 @@ type Stat struct {
 	// Average number of requests currently being handled by this pod.
 	AverageConcurrentRequests float64
 
-	// Similar to AverageConcurrentRequests, but for requests going through a proxy.
-	AverageProxiedConcurrency float64
+	// Part of AverageConcurrentRequests, for requests going through a proxy.
+	AverageProxiedConcurrentRequests float64
 
 	// Number of requests received since last Stat (approximately QPS).
 	RequestCount int32
 
-	// Number of requests received through a proxy since last Stat.
-	ProxiedCount int32
+	// Part of RequestCount, for requests going through a proxy.
+	ProxiedRequestCount int32
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
@@ -86,7 +86,7 @@ func (b statsBucket) concurrency() float64 {
 	for _, podStats := range b {
 		var subtotal float64
 		for _, stat := range podStats {
-			subtotal += stat.AverageConcurrentRequests - stat.AverageProxiedConcurrency
+			subtotal += stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
 		}
 		total += subtotal / float64(len(podStats))
 	}

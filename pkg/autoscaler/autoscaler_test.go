@@ -474,12 +474,12 @@ func TestAutoScaler_Concurrency(t *testing.T) {
 	}
 	a.Record(TestContextWithLogger(t), stat)
 	stat = Stat{
-		Time:                      &now,
-		PodName:                   "pod1",
-		AverageConcurrentRequests: 1,
-		AverageProxiedConcurrency: 1,
-		RequestCount:              1,
-		ProxiedCount:              1,
+		Time:                             &now,
+		PodName:                          "pod1",
+		AverageConcurrentRequests:        1,
+		AverageProxiedConcurrentRequests: 1,
+		RequestCount:                     1,
+		ProxiedRequestCount:              1,
 	}
 	a.Record(TestContextWithLogger(t), stat)
 	a.expectScale(t, now, 1, true)

@@ -45,9 +45,9 @@ queue_average_concurrent_requests{destination_namespace="test-namespace",destina
 # TYPE queue_operations_per_second gauge
 queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 5
 `
-	testAverageProxiedConcurrenyContext = `# HELP queue_average_proxied_concurrency Number of proxied requests currently being handled by this pod
-# TYPE queue_average_proxied_concurrency gauge
-queue_average_proxied_concurrency{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
+	testAverageProxiedConcurrenyContext = `# HELP queue_average_proxied_concurrent_requests Number of proxied requests currently being handled by this pod
+# TYPE queue_average_proxied_concurrent_requests gauge
+queue_average_proxied_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
 `
 	testProxiedQPSContext = `# HELP queue_proxied_operations_per_second Number of proxied requests received since last Stat
 # TYPE queue_proxied_operations_per_second gauge
@@ -146,11 +146,11 @@ func TestScrapeViaURL_HappyCase(t *testing.T) {
 	if stat.RequestCount != 5 {
 		t.Errorf("stat.RequestCount=%v, want 5", stat.RequestCount)
 	}
-	if stat.AverageProxiedConcurrency != 2.0 {
-		t.Errorf("stat.AverageProxiedConcurrency=%v, want 2.0", stat.AverageProxiedConcurrency)
+	if stat.AverageProxiedConcurrentRequests != 2.0 {
+		t.Errorf("stat.AverageProxiedConcurrency=%v, want 2.0", stat.AverageProxiedConcurrentRequests)
 	}
-	if stat.ProxiedCount != 4 {
-		t.Errorf("stat.ProxiedCount=%v, want 4", stat.ProxiedCount)
+	if stat.ProxiedRequestCount != 4 {
+		t.Errorf("stat.ProxiedCount=%v, want 4", stat.ProxiedRequestCount)
 	}
 }
 
@@ -189,7 +189,7 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		name:            "Missing average proxied concurrency",
 		responseCode:    http.StatusOK,
 		responseContext: testAverageConcurrencyContext + testQPSContext + testProxiedQPSContext,
-		expectedErr:     "could not find value for queue_average_proxied_concurrency in response",
+		expectedErr:     "could not find value for queue_average_proxied_concurrent_requests in response",
 	}, {
 		name:            "Missing proxied QPS",
 		responseCode:    http.StatusOK,
@@ -248,13 +248,13 @@ func TestScrape_HappyCase(t *testing.T) {
 		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 10)
 	}
 	// 2 pods times 2.0
-	if got.Stat.AverageProxiedConcurrency != 4.0 {
+	if got.Stat.AverageProxiedConcurrentRequests != 4.0 {
 		t.Errorf("StatMessage.Stat.AverageProxiedConcurrency=%v, want %v",
-			got.Stat.AverageProxiedConcurrency, 4.0)
+			got.Stat.AverageProxiedConcurrentRequests, 4.0)
 	}
 	// 2 pods times 4
-	if got.Stat.ProxiedCount != 8 {
-		t.Errorf("StatMessage.Stat.ProxiedCount=%v, want %v", got.Stat.ProxiedCount, 8)
+	if got.Stat.ProxiedRequestCount != 8 {
+		t.Errorf("StatMessage.Stat.ProxiedCount=%v, want %v", got.Stat.ProxiedRequestCount, 8)
 	}
 }
 

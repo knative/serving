@@ -133,12 +133,12 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				}
 
 				stat := &autoscaler.Stat{
-					Time:                      &now,
-					PodName:                   s.podName,
-					AverageConcurrentRequests: avg,
-					AverageProxiedConcurrency: avgp,
-					RequestCount:              requestCount,
-					ProxiedCount:              proxiedCount,
+					Time:                             &now,
+					PodName:                          s.podName,
+					AverageConcurrentRequests:        avg,
+					AverageProxiedConcurrentRequests: avgp,
+					RequestCount:                     requestCount,
+					ProxiedRequestCount:              proxiedCount,
 				}
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.

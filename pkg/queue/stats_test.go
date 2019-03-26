@@ -202,12 +202,12 @@ func TestOneProxiedRequest(t *testing.T) {
 	now = now.Add(1 * time.Second)
 	got := s.report(now)
 	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 1.0,
-		AverageProxiedConcurrency: 1.0,
-		RequestCount:              1,
-		ProxiedCount:              1,
+		Time:                             &now,
+		PodName:                          podName,
+		AverageConcurrentRequests:        1.0,
+		AverageProxiedConcurrentRequests: 1.0,
+		RequestCount:                     1,
+		ProxiedRequestCount:              1,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
@@ -223,12 +223,12 @@ func TestOneEndedProxiedRequest(t *testing.T) {
 	now = now.Add(500 * time.Millisecond)
 	got := s.report(now)
 	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 0.5,
-		AverageProxiedConcurrency: 0.5,
-		RequestCount:              1,
-		ProxiedCount:              1,
+		Time:                             &now,
+		PodName:                          podName,
+		AverageConcurrentRequests:        0.5,
+		AverageProxiedConcurrentRequests: 0.5,
+		RequestCount:                     1,
+		ProxiedRequestCount:              1,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
@@ -245,12 +245,12 @@ func TestTwoRequestsOneProxied(t *testing.T) {
 	now = now.Add(500 * time.Millisecond)
 	got := s.report(now)
 	want := &autoscaler.Stat{
-		Time:                      &now,
-		PodName:                   podName,
-		AverageConcurrentRequests: 1.0,
-		AverageProxiedConcurrency: 0.5,
-		RequestCount:              2,
-		ProxiedCount:              1,
+		Time:                             &now,
+		PodName:                          podName,
+		AverageConcurrentRequests:        1.0,
+		AverageProxiedConcurrentRequests: 0.5,
+		RequestCount:                     2,
+		ProxiedRequestCount:              1,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)

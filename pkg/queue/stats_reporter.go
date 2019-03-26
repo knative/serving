@@ -38,19 +38,19 @@ const (
 	// will be dropped if LastValue aggregation is used for a view.
 	ReporterReportingPeriod = time.Second
 
-	operationsPerSecondN        = "operations_per_second"
-	proxiedOperationsPerSecondN = "proxied_operations_per_second"
-	averageConcurrentRequestsN  = "average_concurrent_requests"
-	averageProxiedConcurrencyN  = "average_proxied_concurrency"
+	operationsPerSecondN              = "operations_per_second"
+	proxiedOperationsPerSecondN       = "proxied_operations_per_second"
+	averageConcurrentRequestsN        = "average_concurrent_requests"
+	averageProxiedConcurrentRequestsN = "average_proxied_concurrent_requests"
 
 	// OperationsPerSecondM number of operations per second.
 	OperationsPerSecondM Measurement = iota
 	// AverageConcurrentRequestsM average number of requests currently being handled by this pod.
 	AverageConcurrentRequestsM
-	// ProxiedOperationsPerSecondM number of proxied operations per second.
+	// ProxiedOperationsPerSecondM part of OperationsPerSecondM, for proxied operations.
 	ProxiedOperationsPerSecondM
-	// AverageProxiedConcurrencyM average number of proxied requests currently being handled by this pod.
-	AverageProxiedConcurrencyM
+	// AverageProxiedConcurrentRequestsM part of AverageConcurrentRequestsM, for proxied requests.
+	AverageProxiedConcurrentRequestsM
 )
 
 var (
@@ -68,8 +68,8 @@ var (
 			proxiedOperationsPerSecondN,
 			"Number of proxied operations per second",
 			stats.UnitNone),
-		AverageProxiedConcurrencyM: stats.Float64(
-			averageProxiedConcurrencyN,
+		AverageProxiedConcurrentRequestsM: stats.Float64(
+			averageProxiedConcurrentRequestsN,
 			"Number of proxied requests currently being handled by this pod",
 			stats.UnitNone),
 	}
@@ -142,7 +142,7 @@ func NewStatsReporter(namespace string, config string, revision string, pod stri
 		},
 		&view.View{
 			Description: "Number of proxied requests currently being handled by this pod",
-			Measure:     measurements[AverageProxiedConcurrencyM],
+			Measure:     measurements[AverageProxiedConcurrentRequestsM],
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{nsTag, configTag, revTag, podTag},
 		},
@@ -179,8 +179,8 @@ func (r *Reporter) Report(stat *autoscaler.Stat) error {
 	}
 	stats.Record(r.ctx, measurements[OperationsPerSecondM].M(float64(stat.RequestCount)))
 	stats.Record(r.ctx, measurements[AverageConcurrentRequestsM].M(stat.AverageConcurrentRequests))
-	stats.Record(r.ctx, measurements[ProxiedOperationsPerSecondM].M(float64(stat.ProxiedCount)))
-	stats.Record(r.ctx, measurements[AverageProxiedConcurrencyM].M(stat.AverageProxiedConcurrency))
+	stats.Record(r.ctx, measurements[ProxiedOperationsPerSecondM].M(float64(stat.ProxiedRequestCount)))
+	stats.Record(r.ctx, measurements[AverageProxiedConcurrentRequestsM].M(stat.AverageProxiedConcurrentRequests))
 	return nil
 }
 
@@ -199,7 +199,7 @@ func (r *Reporter) UnregisterViews() error {
 	if v := view.Find(proxiedOperationsPerSecondN); v != nil {
 		views = append(views, v)
 	}
-	if v := view.Find(averageProxiedConcurrencyN); v != nil {
+	if v := view.Find(averageProxiedConcurrentRequestsN); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)

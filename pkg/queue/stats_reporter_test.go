@@ -118,7 +118,7 @@ func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount
 	checkData(t, operationsPerSecondN, reqCount, testTagKeyValueMap)
 	checkData(t, averageConcurrentRequestsN, concurrency, testTagKeyValueMap)
 	checkData(t, proxiedOperationsPerSecondN, proxiedCount, testTagKeyValueMap)
-	checkData(t, averageProxiedConcurrencyN, proxiedConcurrency, testTagKeyValueMap)
+	checkData(t, averageProxiedConcurrentRequestsN, proxiedConcurrency, testTagKeyValueMap)
 	if err := reporter.UnregisterViews(); err != nil {
 		t.Errorf("Error with unregistering views, %v", err)
 	}
@@ -135,7 +135,7 @@ func TestReporter_ReportNoProxied(t *testing.T) {
 }
 
 func TestReporter_Report(t *testing.T) {
-	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedCount: 15, AverageProxiedConcurrency: 2}, 39, 3, 15, 2)
+	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2}, 39, 3, 15, 2)
 }
 
 func checkData(t *testing.T, measurementName string, wanted float64, wantedTagKeyValueMap map[tag.Key]string) {
