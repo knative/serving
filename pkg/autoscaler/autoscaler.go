@@ -86,6 +86,8 @@ func (b statsBucket) concurrency() float64 {
 	for _, podStats := range b {
 		var subtotal float64
 		for _, stat := range podStats {
+			// Proxied requests have been counted at the activator. Subtract
+			// AverageProxiedConcurrentRequests to avoid double counting.
 			subtotal += stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
 		}
 		total += subtotal / float64(len(podStats))

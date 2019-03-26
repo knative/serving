@@ -114,29 +114,11 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 			case now := <-s.ch.ReportChan:
 				updateState(now)
 
-				var totalTimeUsed time.Duration
-				for _, val := range timeOnConcurrency {
-					totalTimeUsed += val
-				}
-
-				var avg, avgp float64
-				if totalTimeUsed > 0 {
-					f := func(times map[int32]time.Duration) float64 {
-						a := 0.0
-						for c, val := range times {
-							ratio := float64(val) / float64(totalTimeUsed)
-							a += float64(c) * ratio
-						}
-						return a
-					}
-					avg, avgp = f(timeOnConcurrency), f(timeOnProxiedConcurrency)
-				}
-
 				stat := &autoscaler.Stat{
 					Time:                             &now,
 					PodName:                          s.podName,
-					AverageConcurrentRequests:        avg,
-					AverageProxiedConcurrentRequests: avgp,
+					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
+					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
 					RequestCount:                     requestCount,
 					ProxiedRequestCount:              proxiedCount,
 				}
@@ -154,4 +136,19 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	}()
 
 	return s
+}
+
+func weightedAverage(times map[int32]time.Duration) float64 {
+	var totalTimeUsed time.Duration
+	for _, val := range times {
+		totalTimeUsed += val
+	}
+	avg := 0.0
+	if totalTimeUsed > 0 {
+		for c, val := range times {
+			ratio := float64(val) / float64(totalTimeUsed)
+			avg += float64(c) * ratio
+		}
+	}
+	return avg
 }
