@@ -56,36 +56,31 @@ We need a way for autoscaling to have higher availability than that of a single 
 3. Any Activator Pod can provide metrics to all Autoscaler Pods.
 4. E2E tests which validate autoscaling availability in the midst of a Autoscaler Pod failure.
 
+**Project**: TBD
+
 ### Autoscaling Scalability
 
-And it must process data from the Revision Pods continuously to maintain that window of data. It is part of the running system all the time, not just when scaled to zero. As the number of Revisions increase and the number of Pods in each Revision increases, the CPU and memory requirements will exceed that available to a single process. So some sharding is necessary.
+The Autoscaler process maintains Pod metric data points over a window of time and calculates average concurrency every 2 seconds. As the number and size of Revisions deployed to a cluster increases, so does the load on the Autoscaler.
 
+We need some way to have sub-linear load on the Autoscaler as the Revision count increases. This could be a sharding scheme or simply deploying separate Autoscalers per namespace.
 
-### Autoscaler Availability
+**Goal**: the Autoscaling system can scale sub-linearly with the number of Revisions.
 
+**Key Steps**:
+1. Automated load test to determine the current scalability limit. And to guard against regression.
+2. Deploying an Autoscaler per namespace.
 
-
-**Our goal is to shard Revisions across Autoscaler replicas (e.g. 2x the Replica count means 1/2 the load on each Autoscaler). And for autoscaling to be unaffected by an individual Autoscaler termination.**
-
-* POC: Kenny Leung (Google)
-* Github: [Project 19](https://github.com/knative/serving/projects/19)
-
-### Streaming Autoscaling
-
-In addition to being always available, Web applications are expected to be responsive. Long-lived connections and streaming protocols like Websockets and HTTP2 are essential. Knative Serving accepts HTTP2 connections. And will serve requests multiplexed within the connection. But the autoscaling subsystem doesn't quite know what to do with those connections. It sees each connection as continuous load on the system and so will autoscale accordingly.
-
-But the actual load is in the stream within the connection. So the metrics reported to the Autoscaler should be based on the number of concurrent *streams*. This requires some work in the Queue proxy to crack open the connection and emit stream metrics.
-
-Additionally, concurrency limits should be applied to streams, not connections. So containers which can handle only one request at at time should still be able to serve HTTP2. The Queue proxy will just allow one stream through at a time.
-
-**Our goal is 1) to support HTTP2 end-to-end while scaling on concurrent streams and in this mode 2) enforce concurrency limits on streams (not connections).**
-
-* POC: Markus Thömmes (Red Hat)
-* Github: [Project 16](https://github.com/knative/serving/projects/16)
+**Project**: TBD
 
 ## Extendability
 
-### Pluggability and HPA
+### Pluggability
+
+It is possible to replace the autoscaling system by implementing an alternative PodAutoscaler reconciler (see the [Yolo controller](https://github.com/josephburnett/kubecon18)). However that requires the implementer to collect their own metrics, implement an autoscaling process, and actuate the recommendations.
+
+It should be able to swap out smaller pieces of the autoscaling system. 
+
+### HPA Integration
 
 This is work remaining from 2018 to add CPU-based autoscaling to Knative and provide an extension point for further customizing the autoscaling sub-system. Remaining work includes:
 
