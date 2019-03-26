@@ -388,11 +388,9 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 	if finalizers.Has(routeFinalizer) {
 		return nil
 	}
-	finalizers.Insert(routeFinalizer)
-
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"finalizers":      finalizers.List(),
+			"finalizers":      append(route.Finalizers, routeFinalizer),
 			"resourceVersion": route.ResourceVersion,
 		},
 	}
