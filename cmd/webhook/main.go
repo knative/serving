@@ -108,7 +108,8 @@ func main() {
 			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
 			net.SchemeGroupVersion.WithKind("ServerlessService"):  &net.ServerlessService{},
 		},
-		Logger: logger,
+		Logger:                logger,
+		DisallowUnknownFields: true,
 	}
 	if err = controller.Run(stopCh); err != nil {
 		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
