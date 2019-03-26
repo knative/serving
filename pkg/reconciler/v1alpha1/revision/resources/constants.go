@@ -57,9 +57,6 @@ var ProgressDeadlineSeconds int32 = 120
 var (
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
-
-	// Each Knative Serving pod gets 500m cpu initially.
-	userContainerCPU    = resource.MustParse("400m")
 	fluentdContainerCPU = resource.MustParse("25m")
 	queueContainerCPU   = resource.MustParse("25m")
 )

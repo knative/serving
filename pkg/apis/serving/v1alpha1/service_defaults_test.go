@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -60,6 +61,9 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								TimeoutSeconds: defaultTimeoutSeconds,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -90,6 +94,9 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       defaultTimeoutSeconds,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -110,6 +117,9 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								TimeoutSeconds: defaultTimeoutSeconds,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -140,6 +150,9 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       99,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -160,6 +173,9 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								TimeoutSeconds: defaultTimeoutSeconds,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -190,6 +206,9 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       99,
+								Container: corev1.Container{
+									Resources: defaultResources,
+								},
 							},
 						},
 					},
@@ -202,7 +221,7 @@ func TestServiceDefaulting(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
 			got.SetDefaults(context.Background())
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want, got, ignoreUnexportedResources); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
 		})

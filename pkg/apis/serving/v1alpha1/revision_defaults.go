@@ -16,7 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
-import "context"
+import (
+	"context"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+)
 
 const (
 	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
@@ -36,6 +41,13 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	if rs.TimeoutSeconds == 0 {
 		rs.TimeoutSeconds = defaultTimeoutSeconds
+	}
+
+	if rs.Container.Resources.Requests == nil {
+		rs.Container.Resources.Requests = corev1.ResourceList{}
+	}
+	if _, ok := rs.Container.Resources.Requests[corev1.ResourceCPU]; !ok {
+		rs.Container.Resources.Requests[corev1.ResourceCPU] = resource.MustParse("400m")
 	}
 
 	vms := rs.Container.VolumeMounts
