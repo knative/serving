@@ -10,14 +10,15 @@ As a serverless framework, Knative should only run code when it needs to. Includ
 
 Today cold-starts are between 10 and 15 seconds which is an order of magnitude too slow. The time is spent starting the pod, waiting for Envoy to initialize, and setting up routing. Without the Istio mesh (just routing request to individual pods as they come up) still takes about 4 seconds. We've poked at this problem in 2018 ([#1297](https://github.com/knative/serving/issues/1297)) but haven't made significant progress. This area requires some dedicated effort.
 
-One area of investment is to vet a local scheduling approach in which the Activator is given authority to schedule a Pod locally on the Node. This takes several layers out of the critical path for cold starts.
+One area of investment is a local scheduling approach in which the Activator is given authority to schedule a Pod locally on the Node. This takes several layers out of the critical path for cold starts.
 
 **Goal**: achieve sub-second average cold-starts of disk-warm Revisions running in mesh-mode by the end of the year.
 
 **Key Steps**:
 1. Capture cold start traces.
 2. Track cold start latency over time by span.
-3. Local scheduling design doc.
+3. Performance test for cold starts.
+4. Local scheduling.
 
 **Project**: [Project 8](https://github.com/knative/serving/projects/8)
 
@@ -36,7 +37,7 @@ The overall problem touches on both Networking and Autoscaling, two different wo
 **Key Steps**:
 1. Handle overload gracefully in the Activator. Proxy requests at a rate the underlying Deployment can handle. Reject requests beyond a revision-level limit.
 2. Wire the Activator into the serving path on overload.
-3. E2E tests for overload scenarios.
+3. Performance tests for overload scenarios.
 
 **Project**: [Project 7](https://github.com/knative/serving/projects/7)
 
@@ -46,9 +47,9 @@ The overall problem touches on both Networking and Autoscaling, two different wo
 
 Because Knative scales to zero, the autoscaling system is in the critical-path for serving requests. If the Autoscaler or Activator isn't available when an idle Revision receives a request, that request will not be served. The Activator is stateless and can be easily scaled horizontally. Any Activator can proxy any request for any Revision. But the Autoscaler process is stateful. It maintains request statistics over a window of time. 
 
-We need a way for autoscaling to have higher availability than that of a single Pod. When an Autoscaler Pod fails, another one should take over, quickly. And the new Pod should make autoscaling decisions equivalent to what the failed Pod would have given the short history of data stored in memory.
+We need a way for autoscaling to have higher availability than that of a single Pod. When an Autoscaler Pod fails, another one should take over, quickly. And the new Autoscaler Pod should make equivalent scaling decisions.
 
-**Goal**: the autoscaling system should be highly available.
+**Goal**: the autoscaling system should be more highly available than a single Pod.
 
 **Key Steps**:
 1. Autoscaler replication should be configurable. This will likely require leader election.
@@ -62,13 +63,13 @@ We need a way for autoscaling to have higher availability than that of a single 
 
 The Autoscaler process maintains Pod metric data points over a window of time and calculates average concurrency every 2 seconds. As the number and size of Revisions deployed to a cluster increases, so does the load on the Autoscaler.
 
-We need some way to have sub-linear load on the Autoscaler as the Revision count increases. This could be a sharding scheme or simply deploying separate Autoscalers per namespace.
+We need some way to have sub-linear load in a given Autoscaler Pod as the Revision count increases. This could be a sharding scheme or simply deploying separate Autoscalers per namespace.
 
-**Goal**: the Autoscaling system can scale sub-linearly with the number of Revisions.
+**Goal**: the Autoscaling system can scale sub-linearly with the number of Revisions and number of Revision Pods.
 
 **Key Steps**:
 1. Automated load test to determine the current scalability limit. And to guard against regression.
-2. Deploying an Autoscaler per namespace.
+2. Configuration for sharding by namespace or other scheme.
 
 **Project**: TBD
 
@@ -76,22 +77,30 @@ We need some way to have sub-linear load on the Autoscaler as the Revision count
 
 ### Pluggability
 
-It is possible to replace the autoscaling system by implementing an alternative PodAutoscaler reconciler (see the [Yolo controller](https://github.com/josephburnett/kubecon18)). However that requires the implementer to collect their own metrics, implement an autoscaling process, and actuate the recommendations.
+It is possible to replace the entire autoscaling system by implementing an alternative PodAutoscaler reconciler (see the [Yolo controller](https://github.com/josephburnett/kubecon18)). However that requires collecting metrics, running an autoscaling process, and actuating the recommendations.
 
-It should be able to swap out smaller pieces of the autoscaling system. 
+We should be able to swap out smaller pieces of the autoscaling system. For example, the HPA should be able to make use of the metrics Knative collects.
+
+**Goal**: the autoscaling decider and metrics collection components can be replaced independently.
+
+**Key Steps**:
+1. Build a reference implementation to test swapping the decider. And the metrics collection. (See [knative/build](https://github.com/knative/serving/blob/fa1aff18a9b549e79e41cf0b34f66b79c3da06b6/test/controller/main.go#L69)).
+2. Provide Knative metrics via the Custom Metrics interface.
+
+**Project**: TBD
 
 ### HPA Integration
 
-This is work remaining from 2018 to add CPU-based autoscaling to Knative and provide an extension point for further customizing the autoscaling sub-system. Remaining work includes:
+The current Knative integration with k8s HPA only supports CPU autoscaling. However it should be able to scale on concurrency as well. Ultimately, the HPA may be able to replace the KPA entirely (see ["make everything better"](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#references)). Additionally, HPA should be able to scale on user-provided custom metrics as well.
 
-1. metrics pipeline relayering to scrape metrics from Pods ([#1927](https://github.com/knative/serving/issues/1927))
-2. adding a `window` annotation to allow for further customization of the KPA autoscaler ([#2909](https://github.com/knative/serving/issues/2909))
-3. implementing scale-to-zero for CPU-scaled workloads ([#3064](https://github.com/knative/serving/issues/3064))
+**Goal**: Knative hpa-class PodAutoscalers support concurrency-based autoscaling
 
-**Our goal is to have a cleanly-layered, extensible autoscaling sub-system which fully supports concurrency and CPU metrics (including scale-to-zero).**
+**Key Steps**:
+1. Provide Knative metrics via the Custom Metrics interface (see also Pluggability above).
+2. Configure the HPA to scale on the Knative concurrency metric.
+3. Configure the HPA to scale on the user provided metric (requires a user configured Custom Metrics adapter).
 
-* POC: Yanwei Guo (Google)
-* Github: [Project 11](https://github.com/knative/serving/projects/11)
+**Project**: TBD
 
 ## What we're not doing yet
 
@@ -103,7 +112,4 @@ Knative previously integrated with VPA Alpha. Now it needs to reintegrate with V
 
 Additionally, the next Revision should learn from the previous. But it must not taint the previous Revision's state. For example, when a Service is in runLatest mode, the next Revision should start from the resource recommendations of the previous. Then VPA will apply learning on top of that to adjust for changes in the application behavior. However if the next Revision goes crazy because of bad recommendations, a quick rollback to the previous should pick up the good ones. Again, this requires a little bit of bookkeeping in Knative.
 
-**Our goal is support VPA enabled per-revision with 1) revision-to-revision inheritance to recommendations (when appropriate) and 2) safe rollback to previous recommendations when rolling back to previous Revisions.**
-
-* POC: Joseph Burnett (Google)
-* Github: [Project 18](https://github.com/knative/serving/projects/18)
+**Project**: [Project 18](https://github.com/knative/serving/projects/18)
