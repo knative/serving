@@ -45,7 +45,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.Container.Resources.Requests = corev1.ResourceList{}
 	}
 	if _, ok := rs.Container.Resources.Requests[corev1.ResourceCPU]; !ok {
-		rs.Container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPULimit
+		rs.Container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
 	}
 
 	vms := rs.Container.VolumeMounts

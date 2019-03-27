@@ -59,9 +59,9 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		// specified exactly when optional
 		defaultValue resource.Quantity
 	}{{
-		key:          "revision-cpu-limit",
-		field:        &nc.RevisionCPULimit,
-		defaultValue: DefaultRevisionCPULimit,
+		key:          "revision-cpu-request",
+		field:        &nc.RevisionCPURequest,
+		defaultValue: DefaultRevisionCPURequest,
 	}} {
 		if raw, ok := data[rsrc.key]; !ok {
 			*rsrc.field = rsrc.defaultValue
@@ -87,13 +87,13 @@ const (
 
 // Pseudo-constants
 var (
-	// DefaultRevisionCPULimit will be set if resources.limits.cpu is not specified.
-	DefaultRevisionCPULimit = resource.MustParse("400m")
+	// DefaultRevisionCPURequest will be set if resources.requests.cpu is not specified.
+	DefaultRevisionCPURequest = resource.MustParse("400m")
 )
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
 	RevisionTimeoutSeconds int64
 
-	RevisionCPULimit resource.Quantity
+	RevisionCPURequest resource.Quantity
 }

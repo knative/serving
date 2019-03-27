@@ -51,7 +51,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: DefaultRevisionTimeoutSeconds,
-			RevisionCPULimit:       DefaultRevisionCPULimit,
+			RevisionCPURequest:     DefaultRevisionCPURequest,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,7 +65,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: 123,
-			RevisionCPULimit:       resource.MustParse("123m"),
+			RevisionCPURequest:     resource.MustParse("123m"),
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +74,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"revision-timeout-seconds": "123",
-				"revision-cpu-limit":       "123m",
+				"revision-cpu-request":     "123m",
 			},
 		},
 	}, {
@@ -100,7 +100,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 				Name:      DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"revision-cpu-limit": "bad",
+				"revision-cpu-request": "bad",
 			},
 		},
 	}}
