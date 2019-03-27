@@ -24,6 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/knative/serving/pkg/apis/config"
 )
 
 var (
@@ -47,7 +49,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: defaultTimeoutSeconds,
+						TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
 						Container: corev1.Container{
 							Resources: defaultResources,
 						},

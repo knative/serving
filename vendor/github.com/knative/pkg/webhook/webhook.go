@@ -121,7 +121,12 @@ type AdmissionController struct {
 	Handlers map[schema.GroupVersionKind]GenericCRD
 	Logger   *zap.SugaredLogger
 
+	WithContext           func(context.Context) context.Context
 	DisallowUnknownFields bool
+}
+
+func nop(ctx context.Context) context.Context {
+	return ctx
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -205,32 +210,32 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 
 // validate checks whether "new" and "old" implement HasImmutableFields and checks them,
 // it then delegates validation to apis.Validatable on "new".
-func validate(old GenericCRD, new GenericCRD) error {
+func validate(ctx context.Context, old, new GenericCRD) error {
 	if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
 		// Copy the old object and set defaults so that we don't reject our own
 		// defaulting done earlier in the webhook.
 		old = old.DeepCopyObject().(GenericCRD)
 		// TODO(mattmoor): Plumb through a real context
-		old.SetDefaults(context.TODO())
+		old.SetDefaults(ctx)
 
 		immutableOld, ok := old.(apis.Immutable)
 		if !ok {
 			return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
 		}
 		// TODO(mattmoor): Plumb through a real context
-		if err := immutableNew.CheckImmutableFields(context.TODO(), immutableOld); err != nil {
+		if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
 			return err
 		}
 	}
 	// Can't just `return new.Validate()` because it doesn't properly nil-check.
 	// TODO(mattmoor): Plumb through a real context
-	if err := new.Validate(context.TODO()); err != nil {
+	if err := new.Validate(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticationv1.UserInfo) (duck.JSONPatch, error) {
+func setAnnotations(ctx context.Context, patches duck.JSONPatch, new, old GenericCRD, ui *authenticationv1.UserInfo) (duck.JSONPatch, error) {
 	// Nowhere to set the annotations.
 	if new == nil {
 		return patches, nil
@@ -246,7 +251,7 @@ func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticat
 	b, a := new.DeepCopyObject().(apis.Annotatable), na
 
 	// TODO(mattmoor): Plumb through a real context
-	a.AnnotateUserInfo(context.TODO(), oa, ui)
+	a.AnnotateUserInfo(ctx, oa, ui)
 	patch, err := duck.CreatePatch(b, a)
 	if err != nil {
 		return nil, err
@@ -255,10 +260,10 @@ func setAnnotations(patches duck.JSONPatch, new, old GenericCRD, ui *authenticat
 }
 
 // setDefaults simply leverages apis.Defaultable to set defaults.
-func setDefaults(patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
+func setDefaults(ctx context.Context, patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
 	before, after := crd.DeepCopyObject(), crd
 	// TODO(mattmoor): Plumb through a real context
-	after.SetDefaults(context.TODO())
+	after.SetDefaults(ctx)
 
 	patch, err := duck.CreatePatch(before, after)
 	if err != nil {
@@ -456,7 +461,13 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		zap.String(logkey.Resource, fmt.Sprint(review.Request.Resource)),
 		zap.String(logkey.SubResource, fmt.Sprint(review.Request.SubResource)),
 		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
-	reviewResponse := ac.admit(logging.WithLogger(r.Context(), logger), review.Request)
+	ctx := logging.WithLogger(r.Context(), logger)
+
+	if ac.WithContext != nil {
+		ctx = ac.WithContext(ctx)
+	}
+
+	reviewResponse := ac.admit(ctx, review.Request)
 	var response admissionv1beta1.AdmissionReview
 	if reviewResponse != nil {
 		response.Response = reviewResponse
@@ -561,14 +572,14 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		patches = append(patches, rtp...)
 	}
 
-	if patches, err = setDefaults(patches, newObj); err != nil {
+	if patches, err = setDefaults(ctx, patches, newObj); err != nil {
 		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))
 		// Return the error message as-is to give the defaulter callback
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
 
-	if patches, err = setAnnotations(patches, newObj, oldObj, &req.UserInfo); err != nil {
+	if patches, err = setAnnotations(ctx, patches, newObj, oldObj, &req.UserInfo); err != nil {
 		logger.Errorw("Failed the resource annotator", zap.Error(err))
 		return nil, perrors.Wrap(err, "error setting annotations")
 	}
@@ -577,7 +588,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 	if newObj == nil {
 		return nil, errMissingNewObject
 	}
-	if err := validate(oldObj, newObj); err != nil {
+	if err := validate(ctx, oldObj, newObj); err != nil {
 		logger.Errorw("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.

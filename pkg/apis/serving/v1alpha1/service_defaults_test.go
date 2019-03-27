@@ -22,6 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/serving/pkg/apis/config"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -60,7 +62,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeoutSeconds,
+								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
 								Container: corev1.Container{
 									Resources: defaultResources,
 								},
@@ -79,7 +81,7 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       defaultTimeoutSeconds,
+								TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
 							},
 						},
 					},
@@ -93,7 +95,7 @@ func TestServiceDefaulting(t *testing.T) {
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       defaultTimeoutSeconds,
+								TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
 								Container: corev1.Container{
 									Resources: defaultResources,
 								},
@@ -116,7 +118,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeoutSeconds,
+								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
 								Container: corev1.Container{
 									Resources: defaultResources,
 								},
@@ -172,7 +174,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: defaultTimeoutSeconds,
+								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
 								Container: corev1.Container{
 									Resources: defaultResources,
 								},

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	apiconfig "github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
@@ -83,6 +85,10 @@ func main() {
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+
+	store := apiconfig.NewStore(logger.Named("config-store"))
+	store.WatchConfigs(configMapWatcher)
+
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start the ConfigMap watcher", zap.Error(err))
 	}
@@ -110,6 +116,11 @@ func main() {
 		},
 		Logger:                logger,
 		DisallowUnknownFields: true,
+
+		// Decorate contexts with the current state of the config.
+		WithContext: func(ctx context.Context) context.Context {
+			return store.ToContext(ctx)
+		},
 	}
 	if err = controller.Run(stopCh); err != nil {
 		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
