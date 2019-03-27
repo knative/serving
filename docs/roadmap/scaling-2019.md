@@ -45,7 +45,7 @@ The overall problem touches on both Networking and Autoscaling, two different wo
 
 ### Autoscaling Availabilty
 
-Because Knative scales to zero, the autoscaling system is in the critical-path for serving requests. If the Autoscaler or Activator isn't available when an idle Revision receives a request, that request will not be served. The Activator is stateless and can be easily scaled horizontally. Any Activator can proxy any request for any Revision. But the Autoscaler process is stateful. It maintains request statistics over a window of time. 
+Because Knative scales to zero, the autoscaling system is in the critical-path for serving requests. If the Autoscaler or Activator isn't available when an idle Revision receives a request, that request will not be served. The Activator is stateless and can be easily scaled horizontally. Any Activator Pod can proxy any request for any Revision. But the Autoscaler Pod is stateful. It maintains request statistics over a window of time. 
 
 We need a way for autoscaling to have higher availability than that of a single Pod. When an Autoscaler Pod fails, another one should take over, quickly. And the new Autoscaler Pod should make equivalent scaling decisions.
 
@@ -63,7 +63,7 @@ We need a way for autoscaling to have higher availability than that of a single 
 
 The Autoscaler process maintains Pod metric data points over a window of time and calculates average concurrency every 2 seconds. As the number and size of Revisions deployed to a cluster increases, so does the load on the Autoscaler.
 
-We need some way to have sub-linear load in a given Autoscaler Pod as the Revision count increases. This could be a sharding scheme or simply deploying separate Autoscalers per namespace.
+We need some way to have sub-linear load on a given Autoscaler Pod as the Revision count increases. This could be a sharding scheme or simply deploying separate Autoscalers per namespace.
 
 **Goal**: the Autoscaling system can scale sub-linearly with the number of Revisions and number of Revision Pods.
 
@@ -79,7 +79,7 @@ We need some way to have sub-linear load in a given Autoscaler Pod as the Revisi
 
 It is possible to replace the entire autoscaling system by implementing an alternative PodAutoscaler reconciler (see the [Yolo controller](https://github.com/josephburnett/kubecon18)). However that requires collecting metrics, running an autoscaling process, and actuating the recommendations.
 
-We should be able to swap out smaller pieces of the autoscaling system. For example, the HPA should be able to make use of the metrics Knative collects.
+We should be able to swap out smaller pieces of the autoscaling system. For example, the HPA should be able to make use of the metrics that Knative collects.
 
 **Goal**: the autoscaling decider and metrics collection components can be replaced independently.
 
@@ -91,24 +91,32 @@ We should be able to swap out smaller pieces of the autoscaling system. For exam
 
 ### HPA Integration
 
-The current Knative integration with k8s HPA only supports CPU autoscaling. However it should be able to scale on concurrency as well. Ultimately, the HPA may be able to replace the KPA entirely (see ["make everything better"](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#references)). Additionally, HPA should be able to scale on user-provided custom metrics as well.
+The current Knative integration with K8s HPA only supports CPU autoscaling. However it should be able to scale on concurrency as well. Ultimately, the HPA may be able to replace the Knative Autoscaler (KPA) entirely (see ["make everything better"](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#references)). Additionally, HPA should be able to scale on user-provided custom metrics as well.
 
-**Goal**: Knative hpa-class PodAutoscalers support concurrency-based autoscaling
+**Goal**: Knative HPA-class PodAutoscalers support concurrency autoscaling
 
 **Key Steps**:
-1. Provide Knative metrics via the Custom Metrics interface (see also Pluggability above).
+1. Provide Knative metrics via the Custom Metrics interface (see also [Pluggability](#pluggability) above).
 2. Configure the HPA to scale on the Knative concurrency metric.
-3. Configure the HPA to scale on the user provided metric (requires a user configured Custom Metrics adapter).
+3. Configure the HPA to scale on the user provided metric (requires a user configured Custom Metrics adapter to collect their metric).
 
 **Project**: TBD
 
-## What we're not doing yet
+## What We Are Not Doing Yet
+
+### Removing the Queue Proxy Sidecar
+
+There are two sidecars injected into Knative Pods, Envoy and the Queue Proxy. The queue-proxy sidecar is where we put everything we wish Envoy/Istio could do, but doesn't yet. For example, enforcing single-threaded request. Or reporting concurrency metrics in the way we want. Ultimately we should push these features upstream and get rid of the queue-proxy sidecar.
+
+However we're not doing that yet because the requirement haven't stablized enough yet. And it's still useful to have a component to innovate within.
+
+See [2018 What We Are Not Doing Yet](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#what-we-are-not-doing-yet)
 
 ### Vertical Pod Autoscaling Beta
 
-Another dimension of the serverless illusion is running code efficiently. Knative has default resources request. And it supports resource requests and limits from the user. But if the user doesn't want to spend their time "tuning" resources, which is a very "serverful" way to spend one's time, Knative should be able to just "figure it out". That is Vertical Pod Autoscaling (VPA).
+A serverless system should be able to run code efficiently. Knative has default resources request and it supports resource requests and limits from the user. But if the user doesn't want to spend their time "tuning" resources (which is very "serverful") then Knative should be able to just "figure it out". That is Vertical Pod Autoscaling (VPA).
 
-Knative previously integrated with VPA Alpha. Now it needs to reintegrate with VPA Beta. In addition to creating VPA resources for each Revision, we need to do a little bookkeeping for the unique requirements of serverless workloads. For example, the window for VPA recommendations is 2 weeks. But a serverless function might be invoked once per year (e.g. when the fire alarm gets pulled). The Pods should come back with the correct resource requests and limits. The way VPA is architected, it "injects" the correct recommendations via mutating webhook. It will decline to update resources requests after 2 weeks of inactivity and the Revision would fall back to defaults. Knative needs to remember what that recommendation was and make sure new Pods start at the right levels.
+Knative [previously integrated with VPA Alpha](https://github.com/knative/serving/issues/839#issuecomment-389387311). Now it needs to reintegrate with VPA Beta. In addition to creating VPA resources for each Revision, we need to do a little bookkeeping for the unique requirements of serverless workloads. For example, the window for VPA recommendations is 2 weeks. But a serverless function might be invoked once per year (e.g. when the fire alarm gets pulled). The Pods should come back with the correct resource requests and limits. The way VPA is architected, it "injects" the correct recommendations via mutating webhook. It will decline to update resources requests after 2 weeks of inactivity and the Revision would fall back to defaults. Knative needs to remember what that recommendation was and make sure new Pods start at the right levels.
 
 Additionally, the next Revision should learn from the previous. But it must not taint the previous Revision's state. For example, when a Service is in runLatest mode, the next Revision should start from the resource recommendations of the previous. Then VPA will apply learning on top of that to adjust for changes in the application behavior. However if the next Revision goes crazy because of bad recommendations, a quick rollback to the previous should pick up the good ones. Again, this requires a little bit of bookkeeping in Knative.
 
