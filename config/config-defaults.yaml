@@ -41,6 +41,6 @@ data:
     # none is specified.
     revision-timeout-seconds: "300"  # 5 minutes
 
-    # revision-cpu-limit contains the cpu allocation to assign
+    # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.
-    revision-cpu-limit: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
+    revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
