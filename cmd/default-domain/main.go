@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -113,7 +112,8 @@ func lookupGatewayAddress(kubeClient *kubernetes.Clientset) (*corev1.LoadBalance
 	if hostname != nil {
 		return hostname, nil
 	}
-	return nil, errors.New("Istio gateway does not have an assigned external address.")
+	return nil, fmt.Errorf("service %s/%s does not have an assigned external address",
+		svc.Namespace, svc.Name)
 }
 
 func main() {
